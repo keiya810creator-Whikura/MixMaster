@@ -38,6 +38,9 @@ namespace MixMaster.UI
             if (canvasGroup == null)
                 canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+
             ConfigureSlider(hpSlider);
             ConfigureSlider(attackSlider);
         }
@@ -59,7 +62,13 @@ namespace MixMaster.UI
             Vector3 worldPosition = targetTransform.position + worldOffset;
             Vector3 screenPosition = worldCamera.WorldToScreenPoint(worldPosition);
 
-            bool visible = screenPosition.z > 0f;
+            bool targetWantsBar =
+                partyTarget != null ||
+                (enemyTarget != null &&
+                 enemyTarget.IsAlive &&
+                 enemyTarget.CurrentHp < enemyTarget.MaxHp);
+
+            bool visible = screenPosition.z > 0f && targetWantsBar;
 
             if (canvasGroup != null)
                 canvasGroup.alpha = visible ? 1f : 0f;
