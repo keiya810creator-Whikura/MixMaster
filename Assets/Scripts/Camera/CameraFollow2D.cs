@@ -1,4 +1,5 @@
 using UnityEngine;
+using MixMaster.Combat;
 
 namespace MixMaster.CameraSystem
 {
@@ -19,20 +20,34 @@ namespace MixMaster.CameraSystem
         [Tooltip("Keeps the camera's current Z value instead of copying the target Z.")]
         [SerializeField] private bool keepCurrentZ = true;
 
+        [Header("Combat")]
+        [Tooltip("Do not follow the player's short attack lunge.")]
+        [SerializeField] private bool freezeDuringPlayerAttackLunge = true;
+
         private Vector3 velocity;
         private float cameraZ;
+        private PlayerAutoAttack playerAutoAttack;
 
         public Transform Target => target;
 
         private void Awake()
         {
             cameraZ = transform.position.z;
+            CacheTargetComponents();
         }
 
         private void LateUpdate()
         {
             if (target == null)
                 return;
+
+            if (freezeDuringPlayerAttackLunge &&
+                playerAutoAttack != null &&
+                playerAutoAttack.IsLunging)
+            {
+                velocity = Vector3.zero;
+                return;
+            }
 
             Vector3 desiredPosition = new Vector3(
                 target.position.x + offset.x,
@@ -55,6 +70,7 @@ namespace MixMaster.CameraSystem
         public void SetTarget(Transform newTarget, bool snapImmediately = false)
         {
             target = newTarget;
+            CacheTargetComponents();
 
             if (target == null || !snapImmediately)
                 return;
@@ -65,6 +81,13 @@ namespace MixMaster.CameraSystem
                 keepCurrentZ ? cameraZ : target.position.z);
 
             velocity = Vector3.zero;
+        }
+
+        private void CacheTargetComponents()
+        {
+            playerAutoAttack = target != null
+                ? target.GetComponent<PlayerAutoAttack>()
+                : null;
         }
 
 #if UNITY_EDITOR
