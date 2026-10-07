@@ -104,6 +104,9 @@ namespace MixMaster.Monsters
 
         public void SetCombatControlled(bool controlled)
         {
+            if (externallyCombatControlled == controlled)
+                return;
+
             externallyCombatControlled = controlled;
 
             if (controlled)
