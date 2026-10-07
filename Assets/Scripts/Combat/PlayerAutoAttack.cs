@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using MixMaster.Core;
 using MixMaster.Player;
 
@@ -19,10 +20,10 @@ namespace MixMaster.Combat
 
         [Header("UI")]
         [SerializeField] private Slider hpSlider;
-        [SerializeField] private Text hpText;
+        [SerializeField] private TMP_Text hpText;
         [Tooltip("0 to 1 attack charge gauge. When full, the player attacks.")]
         [SerializeField] private Slider attackSpeedSlider;
-        [SerializeField] private Text attackTimeText;
+        [SerializeField] private TMP_Text attackTimeText;
         [SerializeField] private bool chargeWhileNoTarget = true;
 
         [Header("Fallback Stats")]
@@ -36,6 +37,11 @@ namespace MixMaster.Combat
         [SerializeField] private bool requireEnemyTag = true;
         [SerializeField] private string enemyTag = "Enemy";
         [SerializeField, Min(0.02f)] private float targetRefreshInterval = 0.12f;
+
+        [Header("Hit Feedback")]
+        [SerializeField] private SpriteRenderer playerSpriteRenderer;
+        [SerializeField] private Color hitFlashColor = new Color(1f, 0.35f, 0.35f, 1f);
+        [SerializeField, Min(0.01f)] private float hitFlashDuration = 0.08f;
 
         [Header("Attack Lunge")]
         [SerializeField, Min(0f)] private float lungeDistance = 0.18f;
@@ -64,17 +70,28 @@ namespace MixMaster.Combat
         private bool isLunging;
         private Vector2 lungeStartPosition;
 
+        private Coroutine hitFlashRoutine;
+        private Color originalSpriteColor = Color.white;
+
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
+        public float AttackRange => GetAttackRange();
         public bool IsLunging => isLunging;
+        public bool IsAlive => playerManager == null || playerManager.CurrentHp > 0L;
 
         private void Awake()
         {
             playerController = GetComponent<PlayerController>();
             body = GetComponent<Rigidbody2D>();
 
+            if (playerSpriteRenderer == null)
+                playerSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+            if (playerSpriteRenderer != null)
+                originalSpriteColor = playerSpriteRenderer.color;
+
             if (hpText == null && hpSlider != null)
-                hpText = hpSlider.GetComponentInChildren<Text>(true);
+                hpText = hpSlider.GetComponentInChildren<TMP_Text>(true);
 
             if (attackTimeText == null && attackSpeedSlider != null)
                 attackTimeText = attackSpeedSlider.GetComponentInChildren<Text>(true);
@@ -217,6 +234,43 @@ namespace MixMaster.Combat
 
             float range = GetAttackRange();
             return ((Vector2)(target.transform.position - transform.position)).sqrMagnitude <= range * range;
+        }
+
+        public long TakePhysicalHit(long attackPower)
+        {
+            if (playerManager == null || playerManager.CurrentHp <= 0L || attackPower <= 0L)
+                return 0L;
+
+            long defense = Math.Max(0L, playerManager.Stats.defense);
+            long damage = attackPower - defense;
+
+            if (damage < 1L)
+                damage = 1L;
+
+            long before = playerManager.CurrentHp;
+            playerManager.TakeDamage(damage);
+            long actualDamage = Math.Max(0L, before - playerManager.CurrentHp);
+
+            if (playerSpriteRenderer != null)
+            {
+                if (hitFlashRoutine != null)
+                    StopCoroutine(hitFlashRoutine);
+
+                hitFlashRoutine = StartCoroutine(HitFlashRoutine());
+            }
+
+            return actualDamage;
+        }
+
+        private IEnumerator HitFlashRoutine()
+        {
+            playerSpriteRenderer.color = hitFlashColor;
+            yield return new WaitForSeconds(hitFlashDuration);
+
+            if (playerSpriteRenderer != null)
+                playerSpriteRenderer.color = originalSpriteColor;
+
+            hitFlashRoutine = null;
         }
 
         private void SetAttackGauge(float value)
@@ -468,6 +522,7 @@ namespace MixMaster.Combat
             fallbackAttackSpeed = Mathf.Max(0.1f, fallbackAttackSpeed);
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
+            hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
             slashDuration = Mathf.Max(0.03f, slashDuration);
