@@ -224,6 +224,29 @@ namespace MixMaster.Player
             spriteRenderer.sprite = frames[index];
         }
 
+        /// <summary>
+        /// Faces the player toward a world-space direction.
+        /// Auto combat uses this while the player is standing still.
+        /// </summary>
+        public void FaceDirection(Vector2 direction)
+        {
+            if (direction.sqrMagnitude <= 0.000001f)
+                return;
+
+            Direction8 newDirection = GetDirection8(direction);
+
+            if (newDirection == facingDirection)
+                return;
+
+            facingDirection = newDirection;
+            animationDirection = newDirection;
+            animationTimer = 0f;
+            animationFrame = 0;
+
+            if (!IsMoving)
+                RefreshIdleSprite();
+        }
+
         private static Direction8 GetDirection8(Vector2 direction)
         {
             float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
