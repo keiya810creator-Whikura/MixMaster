@@ -11,6 +11,7 @@ using MixMaster.UI;
 namespace MixMaster.Monsters
 {
     [RequireComponent(typeof(MonsterTrailFollower))]
+    [RequireComponent(typeof(Rigidbody2D))]
     [DisallowMultipleComponent]
     public sealed class PartyMemberCombat : MonoBehaviour
     {
@@ -33,8 +34,16 @@ namespace MixMaster.Monsters
         [Header("Combat Movement")]
         [Tooltip("Multiplier applied to the monster's moveSpeed while approaching an enemy.")]
         [SerializeField, Min(0.1f)] private float combatMoveSpeedMultiplier = 1.15f;
-        [Tooltip("Stops slightly inside the attack range so the monster does not jitter.")]
-        [SerializeField, Range(0.5f, 1f)] private float attackStopRangeRatio = 0.85f;
+        [Tooltip("Distance from the assigned attack slot considered close enough.")]
+        [SerializeField, Min(0.01f)] private float attackSlotArrivalDistance = 0.08f;
+        [Tooltip("How far from the enemy each ally tries to stand, as a ratio of attack range.")]
+        [SerializeField, Range(0.35f, 0.9f)] private float attackPositionRadiusRatio = 0.72f;
+        [Tooltip("First ally flanks by this many degrees. Additional allies alternate left/right.")]
+        [SerializeField, Range(10f, 80f)] private float attackSlotAngleStep = 55f;
+
+        [Header("Attack Lunge")]
+        [SerializeField, Min(0f)] private float lungeDistance = 0.16f;
+        [SerializeField, Min(0.04f)] private float lungeDuration = 0.12f;
 
         [Header("Hit Feedback")]
         [SerializeField] private SpriteRenderer spriteRenderer;
@@ -48,6 +57,7 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0.1f)] private float slashRadius = 0.65f;
 
         private MonsterTrailFollower follower;
+        private Rigidbody2D body;
         private Transform playerTransform;
         private EnemyHealth currentTarget;
 
@@ -64,6 +74,10 @@ namespace MixMaster.Monsters
         private Material slashMaterial;
         private Coroutine slashRoutine;
 
+        private Coroutine lungeRoutine;
+        private bool isAttackLunging;
+        private Vector2 lungeStartPosition;
+
         public CharacterStats Stats => stats;
         public long CurrentHp => currentHp;
         public bool IsAlive => isAlive;
@@ -76,6 +90,7 @@ namespace MixMaster.Monsters
         private void Awake()
         {
             follower = GetComponent<MonsterTrailFollower>();
+            body = GetComponent<Rigidbody2D>();
 
             if (spriteRenderer == null)
                 spriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -109,6 +124,11 @@ namespace MixMaster.Monsters
         {
             WorldUIManager.TryUnregisterParty(this);
 
+            if (isAttackLunging && body != null)
+                body.position = lungeStartPosition;
+
+            isAttackLunging = false;
+
             if (follower != null)
             {
                 follower.SetCombatControlled(false);
@@ -136,19 +156,24 @@ namespace MixMaster.Monsters
             }
 
             bool hasTarget = IsTargetValid(currentTarget);
-
-            follower.SetCombatControlled(hasTarget);
+            follower.SetCombatControlled(hasTarget || isAttackLunging);
 
             if (chargeWhileNoTarget || hasTarget)
                 SetAttackGauge(attackGauge + Mathf.Max(0.1f, stats.attackSpeed) * Time.deltaTime);
 
-            if (!hasTarget)
+            if (!hasTarget || isAttackLunging)
                 return;
 
             Vector2 toTarget = currentTarget.transform.position - transform.position;
             float attackRange = Mathf.Max(0.1f, stats.attackRange);
 
             if (toTarget.sqrMagnitude > attackRange * attackRange)
+                return;
+
+            Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
+            float slotDistance = Vector2.Distance(transform.position, attackPosition);
+
+            if (slotDistance > attackSlotArrivalDistance)
                 return;
 
             follower.StopCombatMovement();
@@ -163,23 +188,60 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
-            if (!isAlive || !IsTargetValid(currentTarget))
+            if (!isAlive || isAttackLunging || !IsTargetValid(currentTarget))
                 return;
 
-            Vector2 targetPosition = currentTarget.transform.position;
-            Vector2 delta = targetPosition - (Vector2)transform.position;
-            float attackRange = Mathf.Max(0.1f, stats.attackRange);
+            Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
+            float distanceToSlot = Vector2.Distance(body.position, attackPosition);
 
-            if (delta.sqrMagnitude <= attackRange * attackRange)
+            if (distanceToSlot <= attackSlotArrivalDistance)
             {
                 follower.StopCombatMovement();
                 return;
             }
 
-            float stopDistance = attackRange * attackStopRangeRatio;
             float moveSpeed = Mathf.Max(0.1f, stats.moveSpeed) * combatMoveSpeedMultiplier;
+            follower.MoveForCombat(
+                attackPosition,
+                moveSpeed,
+                attackSlotArrivalDistance);
+        }
 
-            follower.MoveForCombat(targetPosition, moveSpeed, stopDistance);
+        private Vector2 GetDesiredAttackPosition(EnemyHealth target)
+        {
+            if (target == null)
+                return body != null ? body.position : (Vector2)transform.position;
+
+            Vector2 enemyPosition = target.transform.position;
+            float attackRange = Mathf.Max(0.1f, stats.attackRange);
+            float radius = Mathf.Max(0.08f, attackRange * attackPositionRadiusRatio);
+            radius = Mathf.Min(radius, attackRange * 0.9f);
+
+            Vector2 baseDirection = Vector2.down;
+
+            if (playerTransform != null)
+            {
+                baseDirection = (Vector2)playerTransform.position - enemyPosition;
+
+                if (baseDirection.sqrMagnitude > 0.0001f)
+                    baseDirection.Normalize();
+                else
+                    baseDirection = Vector2.down;
+            }
+
+            float baseAngle = Mathf.Atan2(baseDirection.y, baseDirection.x) * Mathf.Rad2Deg;
+            float slotOffset = GetSlotAngleOffset(follower.FollowOrder);
+            float angle = (baseAngle + slotOffset) * Mathf.Deg2Rad;
+
+            Vector2 slotDirection = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            return enemyPosition + slotDirection * radius;
+        }
+
+        private float GetSlotAngleOffset(int order)
+        {
+            int pairIndex = order / 2;
+            float magnitude = attackSlotAngleStep * (pairIndex + 1);
+            return order % 2 == 0 ? magnitude : -magnitude;
         }
 
         private void Attack(EnemyHealth target)
@@ -193,7 +255,9 @@ namespace MixMaster.Monsters
             long attackPower = Math.Max(1L, stats.attack);
 
             if (UnityEngine.Random.value < Mathf.Clamp01((float)stats.criticalRate))
-                attackPower = MultiplyLong(attackPower, Mathf.Max(1f, (float)stats.criticalMultiplier));
+                attackPower = MultiplyLong(
+                    attackPower,
+                    Mathf.Max(1f, (float)stats.criticalMultiplier));
 
             target.TakePhysicalHit(attackPower);
 
@@ -201,6 +265,7 @@ namespace MixMaster.Monsters
                 StopCoroutine(slashRoutine);
 
             slashRoutine = StartCoroutine(PlaySlash(direction));
+            StartAttackLunge(direction);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -272,6 +337,7 @@ namespace MixMaster.Monsters
                 return 0;
 
             long damage = attackPower - Math.Max(0L, stats.defense);
+
             if (damage < 1)
                 damage = 1;
 
@@ -311,6 +377,7 @@ namespace MixMaster.Monsters
             currentHp = Math.Min(
                 Math.Max(1L, stats.maxHp),
                 LongMath.SaturatingAdd(currentHp, amount));
+
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
         }
@@ -332,10 +399,22 @@ namespace MixMaster.Monsters
             if (!isAlive)
                 return;
 
+            if (lungeRoutine != null)
+            {
+                StopCoroutine(lungeRoutine);
+                lungeRoutine = null;
+            }
+
+            if (isAttackLunging && body != null)
+                body.position = lungeStartPosition;
+
+            isAttackLunging = false;
             isAlive = false;
             currentTarget = null;
+
             follower.SetCombatControlled(true);
             follower.StopCombatMovement();
+
             SetAttackGauge(0f);
             RefreshHpSlider();
 
@@ -396,6 +475,57 @@ namespace MixMaster.Monsters
 
             double result = value * (double)multiplier;
             return result >= long.MaxValue ? long.MaxValue : (long)result;
+        }
+
+        private void StartAttackLunge(Vector2 direction)
+        {
+            if (body == null || direction.sqrMagnitude <= 0.000001f || lungeDistance <= 0f)
+                return;
+
+            if (lungeRoutine != null)
+            {
+                StopCoroutine(lungeRoutine);
+
+                if (isAttackLunging)
+                    body.position = lungeStartPosition;
+            }
+
+            lungeRoutine = StartCoroutine(AttackLungeRoutine(direction.normalized));
+        }
+
+        private IEnumerator AttackLungeRoutine(Vector2 direction)
+        {
+            isAttackLunging = true;
+            lungeStartPosition = body.position;
+            follower.SetCombatControlled(true);
+            follower.StopCombatMovement();
+
+            Vector2 forwardPosition = lungeStartPosition + direction * lungeDistance;
+            float halfDuration = Mathf.Max(0.02f, lungeDuration * 0.5f);
+
+            float elapsed = 0f;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
+                body.MovePosition(Vector2.Lerp(lungeStartPosition, forwardPosition, eased));
+                yield return new WaitForFixedUpdate();
+            }
+
+            elapsed = 0f;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                float eased = t * t;
+                body.MovePosition(Vector2.Lerp(forwardPosition, lungeStartPosition, eased));
+                yield return new WaitForFixedUpdate();
+            }
+
+            body.MovePosition(lungeStartPosition);
+            isAttackLunging = false;
+            lungeRoutine = null;
         }
 
         private void CreateSlashRenderer()
@@ -494,6 +624,9 @@ namespace MixMaster.Monsters
             maxCombatDistanceFromPlayer = Mathf.Max(0.5f, maxCombatDistanceFromPlayer);
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
             combatMoveSpeedMultiplier = Mathf.Max(0.1f, combatMoveSpeedMultiplier);
+            attackSlotArrivalDistance = Mathf.Max(0.01f, attackSlotArrivalDistance);
+            lungeDistance = Mathf.Max(0f, lungeDistance);
+            lungeDuration = Mathf.Max(0.04f, lungeDuration);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
             slashDuration = Mathf.Max(0.03f, slashDuration);
             slashWidth = Mathf.Max(0.01f, slashWidth);
