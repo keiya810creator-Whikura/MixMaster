@@ -9,6 +9,7 @@ using MixMaster.Player;
 namespace MixMaster.Combat
 {
     [RequireComponent(typeof(PlayerController))]
+    [RequireComponent(typeof(Rigidbody2D))]
     [DisallowMultipleComponent]
     public sealed class PlayerAutoAttack : MonoBehaviour
     {
@@ -18,8 +19,10 @@ namespace MixMaster.Combat
 
         [Header("UI")]
         [SerializeField] private Slider hpSlider;
+        [SerializeField] private Text hpText;
         [Tooltip("0 to 1 attack charge gauge. When full, the player attacks.")]
         [SerializeField] private Slider attackSpeedSlider;
+        [SerializeField] private Text attackTimeText;
         [SerializeField] private bool chargeWhileNoTarget = true;
 
         [Header("Fallback Stats")]
@@ -34,6 +37,10 @@ namespace MixMaster.Combat
         [SerializeField] private string enemyTag = "Enemy";
         [SerializeField, Min(0.02f)] private float targetRefreshInterval = 0.12f;
 
+        [Header("Attack Lunge")]
+        [SerializeField, Min(0f)] private float lungeDistance = 0.18f;
+        [SerializeField, Min(0.04f)] private float lungeDuration = 0.12f;
+
         [Header("Attack Feedback")]
         [SerializeField] private Color slashColor = new Color(1f, 0.95f, 0.7f, 1f);
         [SerializeField, Min(0.03f)] private float slashDuration = 0.12f;
@@ -41,6 +48,7 @@ namespace MixMaster.Combat
         [SerializeField, Min(0.1f)] private float slashRadius = 0.75f;
 
         private PlayerController playerController;
+        private Rigidbody2D body;
         private PlayerManager playerManager;
         private EnemyHealth currentTarget;
 
@@ -52,12 +60,24 @@ namespace MixMaster.Combat
         private Material slashMaterial;
         private Coroutine slashRoutine;
 
+        private Coroutine lungeRoutine;
+        private bool isLunging;
+        private Vector2 lungeStartPosition;
+
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
 
         private void Awake()
         {
             playerController = GetComponent<PlayerController>();
+            body = GetComponent<Rigidbody2D>();
+
+            if (hpText == null && hpSlider != null)
+                hpText = hpSlider.GetComponentInChildren<Text>(true);
+
+            if (attackTimeText == null && attackSpeedSlider != null)
+                attackTimeText = attackSpeedSlider.GetComponentInChildren<Text>(true);
+
             ConfigureSlider(attackSpeedSlider);
             ConfigureSlider(hpSlider);
             SetAttackGauge(0f);
@@ -73,10 +93,23 @@ namespace MixMaster.Combat
                 playerManager.HpChanged += HandlePlayerHpChanged;
                 RefreshHpSlider(playerManager.CurrentHp, playerManager.Stats.maxHp);
             }
-            else if (hpSlider != null)
+            else
             {
-                hpSlider.SetValueWithoutNotify(1f);
+                RefreshHpSlider(1L, 1L);
             }
+
+            RefreshAttackTimeText();
+        }
+
+        private void OnDisable()
+        {
+            if (isLunging && body != null)
+                body.position = lungeStartPosition;
+
+            isLunging = false;
+
+            if (playerController != null)
+                playerController.SetCombatMovementLocked(false);
         }
 
         private void OnDestroy()
@@ -104,6 +137,10 @@ namespace MixMaster.Combat
             {
                 float speed = Mathf.Max(0.1f, GetAttackSpeed());
                 SetAttackGauge(attackGauge + speed * Time.deltaTime);
+            }
+            else
+            {
+                RefreshAttackTimeText();
             }
 
             if (!hasTarget || attackGauge < 1f)
@@ -134,6 +171,7 @@ namespace MixMaster.Combat
                 StopCoroutine(slashRoutine);
 
             slashRoutine = StartCoroutine(PlaySlash(direction));
+            StartAttackLunge(direction);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -186,6 +224,18 @@ namespace MixMaster.Combat
 
             if (attackSpeedSlider != null)
                 attackSpeedSlider.SetValueWithoutNotify(attackGauge);
+
+            RefreshAttackTimeText();
+        }
+
+        private void RefreshAttackTimeText()
+        {
+            if (attackTimeText == null)
+                return;
+
+            float speed = Mathf.Max(0.1f, GetAttackSpeed());
+            float remainingSeconds = Mathf.Max(0f, (1f - attackGauge) / speed);
+            attackTimeText.text = $"攻撃まで{remainingSeconds:0.0}秒";
         }
 
         private void HandlePlayerHpChanged(long current, long max)
@@ -195,11 +245,15 @@ namespace MixMaster.Combat
 
         private void RefreshHpSlider(long current, long max)
         {
-            if (hpSlider == null)
-                return;
+            long safeMax = Math.Max(1L, max);
+            long safeCurrent = Math.Max(0L, Math.Min(current, safeMax));
+            double normalized = (double)safeCurrent / safeMax;
 
-            double normalized = max <= 0 ? 0d : (double)current / max;
-            hpSlider.SetValueWithoutNotify(Mathf.Clamp01((float)normalized));
+            if (hpSlider != null)
+                hpSlider.SetValueWithoutNotify(Mathf.Clamp01((float)normalized));
+
+            if (hpText != null)
+                hpText.text = $"HP {safeCurrent:N0}/{safeMax:N0}";
         }
 
         private static void ConfigureSlider(Slider slider)
@@ -260,6 +314,59 @@ namespace MixMaster.Combat
 
             double result = value * (double)multiplier;
             return result >= long.MaxValue ? long.MaxValue : (long)result;
+        }
+
+        private void StartAttackLunge(Vector2 direction)
+        {
+            if (body == null || direction.sqrMagnitude <= 0.000001f || lungeDistance <= 0f)
+                return;
+
+            if (lungeRoutine != null)
+            {
+                StopCoroutine(lungeRoutine);
+
+                if (isLunging)
+                    body.position = lungeStartPosition;
+
+                playerController.SetCombatMovementLocked(false);
+            }
+
+            lungeRoutine = StartCoroutine(AttackLungeRoutine(direction.normalized));
+        }
+
+        private IEnumerator AttackLungeRoutine(Vector2 direction)
+        {
+            isLunging = true;
+            lungeStartPosition = body.position;
+            playerController.SetCombatMovementLocked(true);
+
+            Vector2 forwardPosition = lungeStartPosition + direction * lungeDistance;
+            float halfDuration = Mathf.Max(0.02f, lungeDuration * 0.5f);
+
+            float elapsed = 0f;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
+                body.MovePosition(Vector2.Lerp(lungeStartPosition, forwardPosition, eased));
+                yield return new WaitForFixedUpdate();
+            }
+
+            elapsed = 0f;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                float eased = t * t;
+                body.MovePosition(Vector2.Lerp(forwardPosition, lungeStartPosition, eased));
+                yield return new WaitForFixedUpdate();
+            }
+
+            body.MovePosition(lungeStartPosition);
+            playerController.SetCombatMovementLocked(false);
+            isLunging = false;
+            lungeRoutine = null;
         }
 
         private void CreateSlashRenderer()
@@ -360,6 +467,8 @@ namespace MixMaster.Combat
             fallbackAttackSpeed = Mathf.Max(0.1f, fallbackAttackSpeed);
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
+            lungeDistance = Mathf.Max(0f, lungeDistance);
+            lungeDuration = Mathf.Max(0.04f, lungeDuration);
             slashDuration = Mathf.Max(0.03f, slashDuration);
             slashWidth = Mathf.Max(0.01f, slashWidth);
             slashRadius = Mathf.Max(0.1f, slashRadius);
