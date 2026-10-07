@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using MixMaster.Monsters;
+using MixMaster.UI;
 
 namespace MixMaster.Combat
 {
@@ -62,10 +63,12 @@ namespace MixMaster.Combat
                 CurrentHp = maxHp;
 
             IsAlive = true;
+            WorldUIManager.TryRegisterEnemy(this);
         }
 
         private void OnDisable()
         {
+            WorldUIManager.TryUnregisterEnemy(this);
             activeEnemies.Remove(this);
         }
 
