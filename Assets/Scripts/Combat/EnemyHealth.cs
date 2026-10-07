@@ -1,0 +1,197 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using MixMaster.Monsters;
+
+namespace MixMaster.Combat
+{
+    [DisallowMultipleComponent]
+    public sealed class EnemyHealth : MonoBehaviour
+    {
+        private static readonly List<EnemyHealth> activeEnemies = new List<EnemyHealth>();
+
+        [Header("Stats")]
+        [SerializeField, Min(1)] private long maxHp = 50;
+        [SerializeField, Min(0)] private long defense = 0;
+
+        [Header("Hit Feedback")]
+        [SerializeField] private SpriteRenderer spriteRenderer;
+        [SerializeField] private Color hitFlashColor = new Color(1f, 0.3f, 0.3f, 1f);
+        [SerializeField, Min(0.01f)] private float hitFlashDuration = 0.08f;
+
+        [Header("Death")]
+        [SerializeField, Min(0.01f)] private float deathDuration = 0.18f;
+
+        private Coroutine flashRoutine;
+        private Color originalColor = Color.white;
+        private Vector3 originalScale;
+        private EnemyWanderAI wanderAI;
+
+        public static IReadOnlyList<EnemyHealth> ActiveEnemies => activeEnemies;
+
+        public long MaxHp => maxHp;
+        public long CurrentHp { get; private set; }
+        public long Defense => defense;
+        public bool IsAlive { get; private set; }
+
+        public event Action<EnemyHealth, long> Damaged;
+        public event Action<EnemyHealth> Died;
+
+        private void Awake()
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+            if (spriteRenderer != null)
+                originalColor = spriteRenderer.color;
+
+            originalScale = transform.localScale;
+            wanderAI = GetComponent<EnemyWanderAI>();
+
+            CurrentHp = maxHp;
+            IsAlive = true;
+        }
+
+        private void OnEnable()
+        {
+            if (!activeEnemies.Contains(this))
+                activeEnemies.Add(this);
+
+            if (CurrentHp <= 0)
+                CurrentHp = maxHp;
+
+            IsAlive = true;
+        }
+
+        private void OnDisable()
+        {
+            activeEnemies.Remove(this);
+        }
+
+        public long TakePhysicalHit(long attackPower)
+        {
+            if (!IsAlive || attackPower <= 0)
+                return 0;
+
+            long damage = attackPower - defense;
+            if (damage < 1)
+                damage = 1;
+
+            return TakeDamage(damage);
+        }
+
+        public long TakeDamage(long damage)
+        {
+            if (!IsAlive || damage <= 0)
+                return 0;
+
+            long actualDamage = Math.Min(CurrentHp, damage);
+            CurrentHp -= actualDamage;
+
+            wanderAI?.EnterCombat(1.5f);
+
+            Damaged?.Invoke(this, actualDamage);
+
+            if (spriteRenderer != null)
+            {
+                if (flashRoutine != null)
+                    StopCoroutine(flashRoutine);
+
+                flashRoutine = StartCoroutine(HitFlashRoutine());
+            }
+
+            if (CurrentHp <= 0)
+                Die();
+
+            return actualDamage;
+        }
+
+        public void SetStats(long newMaxHp, long newDefense, bool healToFull = true)
+        {
+            maxHp = Math.Max(1L, newMaxHp);
+            defense = Math.Max(0L, newDefense);
+
+            if (healToFull)
+                CurrentHp = maxHp;
+            else
+                CurrentHp = Math.Min(CurrentHp, maxHp);
+        }
+
+        private IEnumerator HitFlashRoutine()
+        {
+            spriteRenderer.color = hitFlashColor;
+            yield return new WaitForSeconds(hitFlashDuration);
+
+            if (spriteRenderer != null)
+                spriteRenderer.color = originalColor;
+
+            flashRoutine = null;
+        }
+
+        private void Die()
+        {
+            if (!IsAlive)
+                return;
+
+            IsAlive = false;
+            activeEnemies.Remove(this);
+
+            Collider2D[] colliders = GetComponentsInChildren<Collider2D>();
+            foreach (Collider2D col in colliders)
+                col.enabled = false;
+
+            Rigidbody2D rb = GetComponent<Rigidbody2D>();
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector2.zero;
+                rb.simulated = false;
+            }
+
+            Died?.Invoke(this);
+            StartCoroutine(DeathRoutine());
+        }
+
+        private IEnumerator DeathRoutine()
+        {
+            if (flashRoutine != null)
+            {
+                StopCoroutine(flashRoutine);
+                flashRoutine = null;
+            }
+
+            float elapsed = 0f;
+            Color startColor = spriteRenderer != null ? originalColor : Color.white;
+
+            while (elapsed < deathDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / deathDuration);
+                float scale = Mathf.Lerp(1f, 0f, t);
+
+                transform.localScale = originalScale * scale;
+
+                if (spriteRenderer != null)
+                {
+                    Color c = startColor;
+                    c.a = 1f - t;
+                    spriteRenderer.color = c;
+                }
+
+                yield return null;
+            }
+
+            Destroy(gameObject);
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            maxHp = Math.Max(1L, maxHp);
+            defense = Math.Max(0L, defense);
+            hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
+            deathDuration = Mathf.Max(0.01f, deathDuration);
+        }
+#endif
+    }
+}
