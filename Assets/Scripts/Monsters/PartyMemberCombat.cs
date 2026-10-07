@@ -300,7 +300,9 @@ namespace MixMaster.Monsters
             if (!isAlive || amount <= 0)
                 return;
 
-            currentHp = Math.Min(Math.Max(1L, stats.maxHp), currentHp + amount);
+            currentHp = Math.Min(
+                Math.Max(1L, stats.maxHp),
+                LongMath.SaturatingAdd(currentHp, amount));
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
         }
