@@ -44,6 +44,7 @@ namespace MixMaster.Combat
         private EnemyHealth health;
         private EnemyWanderAI wanderAI;
 
+        private PlayerAutoAttack cachedPlayer;
         private PlayerAutoAttack playerTarget;
         private PartyMemberCombat partyTarget;
         private Transform targetTransform;
@@ -77,6 +78,11 @@ namespace MixMaster.Combat
                 spriteRenderer = GetComponentInChildren<SpriteRenderer>();
 
             CreateSlashRenderer();
+        }
+
+        private void Start()
+        {
+            cachedPlayer = FindFirstObjectByType<PlayerAutoAttack>();
         }
 
         private void OnDisable()
@@ -185,20 +191,21 @@ namespace MixMaster.Combat
             float detectionSqr = detectionRange * detectionRange;
             float bestDistanceSqr = float.MaxValue;
 
-            PlayerAutoAttack player = FindFirstObjectByType<PlayerAutoAttack>();
+            if (cachedPlayer == null)
+                cachedPlayer = FindFirstObjectByType<PlayerAutoAttack>();
 
-            if (player != null && player.IsAlive)
+            if (cachedPlayer != null && cachedPlayer.IsAlive)
             {
                 float distanceSqr =
-                    ((Vector2)(player.transform.position - transform.position))
+                    ((Vector2)(cachedPlayer.transform.position - transform.position))
                     .sqrMagnitude;
 
                 if (distanceSqr <= detectionSqr &&
                     distanceSqr < bestDistanceSqr)
                 {
                     bestDistanceSqr = distanceSqr;
-                    playerTarget = player;
-                    targetTransform = player.transform;
+                    playerTarget = cachedPlayer;
+                    targetTransform = cachedPlayer.transform;
                 }
             }
 
