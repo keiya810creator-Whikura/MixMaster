@@ -16,6 +16,12 @@ namespace MixMaster.Monsters
         AutoHunt
     }
 
+    public enum PartyAttackStyle
+    {
+        Melee,
+        Ranged
+    }
+
     [RequireComponent(typeof(MonsterTrailFollower))]
     [RequireComponent(typeof(Rigidbody2D))]
     [DisallowMultipleComponent]
@@ -28,6 +34,15 @@ namespace MixMaster.Monsters
 
         [Header("Behavior")]
         [SerializeField] private PartyCombatMode combatMode = PartyCombatMode.Follow;
+        [SerializeField] private PartyAttackStyle attackStyle = PartyAttackStyle.Melee;
+
+        [Header("Ranged Attack")]
+        [SerializeField] private GameObject projectilePrefab;
+        [SerializeField] private Transform projectileSpawnPoint;
+        [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
+        [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
+        [SerializeField] private bool projectileHoming = true;
+        [SerializeField, Range(0.55f, 0.95f)] private float rangedPositionRadiusRatio = 0.82f;
 
         [Header("Stats")]
         [SerializeField] private CharacterStats stats = new CharacterStats();
@@ -99,6 +114,7 @@ namespace MixMaster.Monsters
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public PartyCombatMode CombatMode => combatMode;
+        public PartyAttackStyle AttackStyle => attackStyle;
 
         public event Action<long, long> HpChanged;
         public event Action Died;
@@ -243,8 +259,12 @@ namespace MixMaster.Monsters
 
             Vector2 enemyPosition = target.transform.position;
             float attackRange = Mathf.Max(0.1f, stats.attackRange);
-            float radius = Mathf.Max(0.08f, attackRange * attackPositionRadiusRatio);
-            radius = Mathf.Min(radius, attackRange * 0.9f);
+            float radiusRatio = attackStyle == PartyAttackStyle.Ranged
+                ? rangedPositionRadiusRatio
+                : attackPositionRadiusRatio;
+
+            float radius = Mathf.Max(0.08f, attackRange * radiusRatio);
+            radius = Mathf.Min(radius, attackRange * 0.95f);
 
             Vector2 baseDirection = Vector2.down;
 
@@ -278,15 +298,36 @@ namespace MixMaster.Monsters
             if (target == null || !target.IsAlive)
                 return;
 
-            Vector2 direction = (target.transform.position - transform.position).normalized;
+            Vector2 direction =
+                (target.transform.position - transform.position).normalized;
+
             follower.FaceDirection(direction);
+
+            if (attackStyle == PartyAttackStyle.Ranged)
+            {
+                long magicPower = Math.Max(1L, stats.magic);
+
+                if (UnityEngine.Random.value <
+                    Mathf.Clamp01((float)stats.criticalRate))
+                {
+                    magicPower = MultiplyLong(
+                        magicPower,
+                        Mathf.Max(1f, (float)stats.criticalMultiplier));
+                }
+
+                FireProjectile(target, magicPower);
+                return;
+            }
 
             long attackPower = Math.Max(1L, stats.attack);
 
-            if (UnityEngine.Random.value < Mathf.Clamp01((float)stats.criticalRate))
+            if (UnityEngine.Random.value <
+                Mathf.Clamp01((float)stats.criticalRate))
+            {
                 attackPower = MultiplyLong(
                     attackPower,
                     Mathf.Max(1f, (float)stats.criticalMultiplier));
+            }
 
             target.TakePhysicalHit(attackPower);
 
@@ -295,6 +336,55 @@ namespace MixMaster.Monsters
 
             slashRoutine = StartCoroutine(PlaySlash(direction));
             StartAttackLunge(direction);
+        }
+
+        private void FireProjectile(
+            EnemyHealth target,
+            long magicPower)
+        {
+            if (target == null || !target.IsAlive)
+                return;
+
+            if (projectilePrefab == null)
+            {
+                Debug.LogWarning(
+                    "PartyMemberCombat: Ranged attack requires Projectile Prefab. " +
+                    "Applying magic damage directly as fallback.",
+                    this);
+
+                target.TakeMagicHit(magicPower);
+                return;
+            }
+
+            Vector3 spawnPosition =
+                projectileSpawnPoint != null
+                    ? projectileSpawnPoint.position
+                    : transform.position;
+
+            Quaternion spawnRotation =
+                projectileSpawnPoint != null
+                    ? projectileSpawnPoint.rotation
+                    : Quaternion.identity;
+
+            GameObject projectileObject =
+                Instantiate(
+                    projectilePrefab,
+                    spawnPosition,
+                    spawnRotation);
+
+            PartyMagicProjectile projectile =
+                projectileObject.GetComponent<PartyMagicProjectile>();
+
+            if (projectile == null)
+                projectile =
+                    projectileObject.AddComponent<PartyMagicProjectile>();
+
+            projectile.Initialize(
+                target,
+                magicPower,
+                projectileSpeed,
+                projectileLifetime,
+                projectileHoming);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -389,6 +479,18 @@ namespace MixMaster.Monsters
         public void SetCombatMode(PartyCombatMode mode)
         {
             combatMode = mode;
+            currentTarget = null;
+
+            if (!isAttackLunging)
+            {
+                follower.SetCombatControlled(false);
+                follower.StopCombatMovement();
+            }
+        }
+
+        public void SetAttackStyle(PartyAttackStyle style)
+        {
+            attackStyle = style;
             currentTarget = null;
 
             if (!isAttackLunging)
@@ -692,6 +794,10 @@ namespace MixMaster.Monsters
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
             combatMoveSpeedMultiplier = Mathf.Max(0.1f, combatMoveSpeedMultiplier);
             attackSlotArrivalDistance = Mathf.Max(0.01f, attackSlotArrivalDistance);
+            projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
+            projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
+            rangedPositionRadiusRatio =
+                Mathf.Clamp(rangedPositionRadiusRatio, 0.55f, 0.95f);
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
