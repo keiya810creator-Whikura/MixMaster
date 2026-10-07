@@ -15,6 +15,7 @@ namespace MixMaster.Combat
         [Header("Stats")]
         [SerializeField, Min(1)] private long maxHp = 50;
         [SerializeField, Min(0)] private long defense = 0;
+        [SerializeField, Min(0)] private long magicDefense = 0;
 
         [Header("Hit Feedback")]
         [SerializeField] private SpriteRenderer spriteRenderer;
@@ -34,6 +35,7 @@ namespace MixMaster.Combat
         public long MaxHp => maxHp;
         public long CurrentHp { get; private set; }
         public long Defense => defense;
+        public long MagicDefense => magicDefense;
         public bool IsAlive { get; private set; }
 
         public event Action<EnemyHealth, long> Damaged;
@@ -78,6 +80,18 @@ namespace MixMaster.Combat
                 return 0;
 
             long damage = attackPower - defense;
+            if (damage < 1)
+                damage = 1;
+
+            return TakeDamage(damage);
+        }
+
+        public long TakeMagicHit(long magicPower)
+        {
+            if (!IsAlive || magicPower <= 0)
+                return 0;
+
+            long damage = magicPower - magicDefense;
             if (damage < 1)
                 damage = 1;
 
@@ -192,6 +206,7 @@ namespace MixMaster.Combat
         {
             maxHp = Math.Max(1L, maxHp);
             defense = Math.Max(0L, defense);
+            magicDefense = Math.Max(0L, magicDefense);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
             deathDuration = Mathf.Max(0.01f, deathDuration);
         }
