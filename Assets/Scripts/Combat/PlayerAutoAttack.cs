@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using MixMaster.Core;
 using MixMaster.Player;
@@ -21,6 +23,8 @@ namespace MixMaster.Combat
         [SerializeField, Min(1f)] private float fallbackCriticalMultiplier = 1.5f;
 
         [Header("Targeting")]
+        [SerializeField] private bool requireEnemyTag = true;
+        [SerializeField] private string enemyTag = "Enemy";
         [SerializeField, Min(0.02f)] private float targetRefreshInterval = 0.12f;
 
         [Header("Attack Feedback")]
@@ -123,6 +127,9 @@ namespace MixMaster.Combat
                 if (enemy == null || !enemy.IsAlive)
                     continue;
 
+                if (requireEnemyTag && !enemy.CompareTag(enemyTag))
+                    continue;
+
                 Vector2 delta = enemy.transform.position - transform.position;
                 float distanceSqr = delta.sqrMagnitude;
 
@@ -141,6 +148,9 @@ namespace MixMaster.Combat
             if (target == null || !target.IsAlive)
                 return false;
 
+            if (requireEnemyTag && !target.CompareTag(enemyTag))
+                return false;
+
             float range = GetAttackRange();
             return ((Vector2)(target.transform.position - transform.position)).sqrMagnitude <= range * range;
         }
@@ -148,13 +158,9 @@ namespace MixMaster.Combat
         private long GetAttackPower()
         {
             if (usePlayerManagerStats && playerManager != null)
-                return Mathf.Max(1, (int)Mathf.Min(playerManager.Stats.attack, int.MaxValue)) == int.MaxValue
-                    ? playerManager.Stats.attack
-                    : Mathf.Max(1, (int)playerManager.Stats.attack);
+                return Math.Max(1L, playerManager.Stats.attack);
 
-            return Mathf.Max(1, (int)Mathf.Min(fallbackAttack, int.MaxValue)) == int.MaxValue
-                ? fallbackAttack
-                : Mathf.Max(1, (int)fallbackAttack);
+            return Math.Max(1L, fallbackAttack);
         }
 
         private float GetAttackRange()
@@ -298,7 +304,10 @@ namespace MixMaster.Combat
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            fallbackAttack = System.Math.Max(1L, fallbackAttack);
+            fallbackAttack = Math.Max(1L, fallbackAttack);
+
+            if (string.IsNullOrWhiteSpace(enemyTag))
+                enemyTag = "Enemy";
             fallbackAttackRange = Mathf.Max(0.1f, fallbackAttackRange);
             fallbackAttackSpeed = Mathf.Max(0.1f, fallbackAttackSpeed);
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
