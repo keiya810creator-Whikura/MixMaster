@@ -66,8 +66,7 @@ namespace MixMaster.Combat
 
         private void Start()
         {
-            if (usePlayerManagerStats)
-                playerManager = FindFirstObjectByType<PlayerManager>();
+            playerManager = FindFirstObjectByType<PlayerManager>();
 
             if (playerManager != null)
             {
