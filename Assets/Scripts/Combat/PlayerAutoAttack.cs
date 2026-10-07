@@ -94,7 +94,7 @@ namespace MixMaster.Combat
                 hpText = hpSlider.GetComponentInChildren<TMP_Text>(true);
 
             if (attackTimeText == null && attackSpeedSlider != null)
-                attackTimeText = attackSpeedSlider.GetComponentInChildren<Text>(true);
+                attackTimeText = attackSpeedSlider.GetComponentInChildren<TextMeshProUGUI>(true);
 
             ConfigureSlider(attackSpeedSlider);
             ConfigureSlider(hpSlider);

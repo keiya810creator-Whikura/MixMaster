@@ -1045,6 +1045,7 @@ MonoBehaviour:
   offset: {x: 0, y: 0}
   smoothTime: 0
   keepCurrentZ: 1
+  freezeDuringPlayerAttackLunge: 1
 --- !u!1 &571122748
 GameObject:
   m_ObjectHideFlags: 0
@@ -1345,6 +1346,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69b5c0b65aaa40bea7f1453f9ea24b45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  combatMode: 0
   stats:
     maxHp: 100
     attack: 10
@@ -1944,9 +1946,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   usePlayerManagerStats: 0
   hpSlider: {fileID: 1682925948}
-  hpText: {fileID: 0}
+  hpText: {fileID: 1674375976}
   attackSpeedSlider: {fileID: 767744567}
-  attackTimeText: {fileID: 0}
+  attackTimeText: {fileID: 1887091091}
   chargeWhileNoTarget: 1
   fallbackAttack: 10
   fallbackAttackRange: 1.5
@@ -1956,6 +1958,9 @@ MonoBehaviour:
   requireEnemyTag: 1
   enemyTag: Enemy
   targetRefreshInterval: 0.12
+  playerSpriteRenderer: {fileID: 865622146}
+  hitFlashColor: {r: 1, g: 0.35, b: 0.35, a: 1}
+  hitFlashDuration: 0.08
   lungeDistance: 0.18
   lungeDuration: 0.12
   slashColor: {r: 1, g: 0.95, b: 0.7, a: 1}
@@ -2555,6 +2560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69b5c0b65aaa40bea7f1453f9ea24b45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  combatMode: 0
   stats:
     maxHp: 100
     attack: 10
@@ -2792,6 +2798,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69b5c0b65aaa40bea7f1453f9ea24b45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  combatMode: 0
   stats:
     maxHp: 100
     attack: 10
