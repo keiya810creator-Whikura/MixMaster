@@ -27,6 +27,7 @@ namespace MixMaster.Monsters
         private float nextDecisionTime;
         private float combatUntil;
         private bool walking;
+        private bool externallyCombatControlled;
 
         private void Awake()
         {
@@ -47,6 +48,12 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
+            if (externallyCombatControlled)
+            {
+                StopMoving();
+                return;
+            }
+
             if (Time.time < combatUntil)
             {
                 StopMoving();
@@ -93,6 +100,21 @@ namespace MixMaster.Monsters
             combatUntil = Mathf.Max(combatUntil, Time.time + Mathf.Max(0f, duration));
             walking = false;
             StopMoving();
+        }
+
+        public void SetCombatControlled(bool controlled)
+        {
+            externallyCombatControlled = controlled;
+
+            if (controlled)
+            {
+                walking = false;
+                StopMoving();
+            }
+            else
+            {
+                BeginIdle();
+            }
         }
 
         private void MakeDecision()
