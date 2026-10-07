@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using MixMaster.Core;
 using MixMaster.Player;
 
@@ -14,6 +15,12 @@ namespace MixMaster.Combat
         [Header("Stats Source")]
         [Tooltip("Use PlayerManager CharacterStats for attack/range/speed/critical.")]
         [SerializeField] private bool usePlayerManagerStats = true;
+
+        [Header("UI")]
+        [SerializeField] private Slider hpSlider;
+        [Tooltip("0 to 1 attack charge gauge. When full, the player attacks.")]
+        [SerializeField] private Slider attackSpeedSlider;
+        [SerializeField] private bool chargeWhileNoTarget = true;
 
         [Header("Fallback Stats")]
         [SerializeField, Min(1)] private long fallbackAttack = 10;
@@ -38,7 +45,7 @@ namespace MixMaster.Combat
         private EnemyHealth currentTarget;
 
         private float targetRefreshTimer;
-        private float nextAttackTime;
+        private float attackGauge;
 
         private GameObject slashObject;
         private LineRenderer slashRenderer;
@@ -46,10 +53,14 @@ namespace MixMaster.Combat
         private Coroutine slashRoutine;
 
         public EnemyHealth CurrentTarget => currentTarget;
+        public float AttackGauge => attackGauge;
 
         private void Awake()
         {
             playerController = GetComponent<PlayerController>();
+            ConfigureSlider(attackSpeedSlider);
+            ConfigureSlider(hpSlider);
+            SetAttackGauge(0f);
             CreateSlashRenderer();
         }
 
@@ -57,10 +68,23 @@ namespace MixMaster.Combat
         {
             if (usePlayerManagerStats)
                 playerManager = FindFirstObjectByType<PlayerManager>();
+
+            if (playerManager != null)
+            {
+                playerManager.HpChanged += HandlePlayerHpChanged;
+                RefreshHpSlider(playerManager.CurrentHp, playerManager.Stats.maxHp);
+            }
+            else if (hpSlider != null)
+            {
+                hpSlider.SetValueWithoutNotify(1f);
+            }
         }
 
         private void OnDestroy()
         {
+            if (playerManager != null)
+                playerManager.HpChanged -= HandlePlayerHpChanged;
+
             if (slashMaterial != null)
                 Destroy(slashMaterial);
         }
@@ -75,13 +99,19 @@ namespace MixMaster.Combat
                 currentTarget = FindNearestTarget();
             }
 
-            if (!IsTargetValid(currentTarget))
-                return;
+            bool hasTarget = IsTargetValid(currentTarget);
 
-            if (Time.time < nextAttackTime)
+            if (chargeWhileNoTarget || hasTarget)
+            {
+                float speed = Mathf.Max(0.1f, GetAttackSpeed());
+                SetAttackGauge(attackGauge + speed * Time.deltaTime);
+            }
+
+            if (!hasTarget || attackGauge < 1f)
                 return;
 
             Attack(currentTarget);
+            SetAttackGauge(0f);
         }
 
         private void Attack(EnemyHealth target)
@@ -95,9 +125,8 @@ namespace MixMaster.Combat
                 playerController.FaceDirection(direction);
 
             long attackPower = GetAttackPower();
-            bool isCritical = Random.value < GetCriticalRate();
 
-            if (isCritical)
+            if (UnityEngine.Random.value < GetCriticalRate())
                 attackPower = MultiplyLong(attackPower, GetCriticalMultiplier());
 
             target.TakePhysicalHit(attackPower);
@@ -106,9 +135,6 @@ namespace MixMaster.Combat
                 StopCoroutine(slashRoutine);
 
             slashRoutine = StartCoroutine(PlaySlash(direction));
-
-            float speed = Mathf.Max(0.1f, GetAttackSpeed());
-            nextAttackTime = Time.time + (1f / speed);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -153,6 +179,39 @@ namespace MixMaster.Combat
 
             float range = GetAttackRange();
             return ((Vector2)(target.transform.position - transform.position)).sqrMagnitude <= range * range;
+        }
+
+        private void SetAttackGauge(float value)
+        {
+            attackGauge = Mathf.Clamp01(value);
+
+            if (attackSpeedSlider != null)
+                attackSpeedSlider.SetValueWithoutNotify(attackGauge);
+        }
+
+        private void HandlePlayerHpChanged(long current, long max)
+        {
+            RefreshHpSlider(current, max);
+        }
+
+        private void RefreshHpSlider(long current, long max)
+        {
+            if (hpSlider == null)
+                return;
+
+            double normalized = max <= 0 ? 0d : (double)current / max;
+            hpSlider.SetValueWithoutNotify(Mathf.Clamp01((float)normalized));
+        }
+
+        private static void ConfigureSlider(Slider slider)
+        {
+            if (slider == null)
+                return;
+
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.wholeNumbers = false;
+            slider.interactable = false;
         }
 
         private long GetAttackPower()
@@ -201,11 +260,7 @@ namespace MixMaster.Combat
                 return 0;
 
             double result = value * (double)multiplier;
-
-            if (result >= long.MaxValue)
-                return long.MaxValue;
-
-            return (long)result;
+            return result >= long.MaxValue ? long.MaxValue : (long)result;
         }
 
         private void CreateSlashRenderer()
@@ -251,12 +306,10 @@ namespace MixMaster.Combat
                 float t = i / (float)(pointCount - 1);
                 float angle = Mathf.Lerp(-55f, 55f, t) * Mathf.Deg2Rad;
 
-                Vector3 point = new Vector3(
+                slashRenderer.SetPosition(i, new Vector3(
                     Mathf.Cos(angle) * slashRadius,
                     Mathf.Sin(angle) * slashRadius,
-                    0f);
-
-                slashRenderer.SetPosition(i, point);
+                    0f));
             }
         }
 
@@ -283,7 +336,6 @@ namespace MixMaster.Combat
                 slashRenderer.startColor = c;
                 slashRenderer.endColor = c;
                 slashRenderer.widthMultiplier = Mathf.Lerp(slashWidth, slashWidth * 0.35f, t);
-
                 yield return null;
             }
 
@@ -305,9 +357,6 @@ namespace MixMaster.Combat
         private void OnValidate()
         {
             fallbackAttack = Math.Max(1L, fallbackAttack);
-
-            if (string.IsNullOrWhiteSpace(enemyTag))
-                enemyTag = "Enemy";
             fallbackAttackRange = Mathf.Max(0.1f, fallbackAttackRange);
             fallbackAttackSpeed = Mathf.Max(0.1f, fallbackAttackSpeed);
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
@@ -315,6 +364,9 @@ namespace MixMaster.Combat
             slashDuration = Mathf.Max(0.03f, slashDuration);
             slashWidth = Mathf.Max(0.01f, slashWidth);
             slashRadius = Mathf.Max(0.1f, slashRadius);
+
+            if (string.IsNullOrWhiteSpace(enemyTag))
+                enemyTag = "Enemy";
 
             if (slashRenderer != null)
             {
