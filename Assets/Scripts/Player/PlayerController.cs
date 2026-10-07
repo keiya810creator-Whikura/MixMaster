@@ -90,6 +90,7 @@ namespace MixMaster.Player
 
         private float animationTimer;
         private int animationFrame;
+        private bool combatMovementLocked;
 
         public Vector2 MoveInput => moveInput;
         public Direction8 FacingDirection => facingDirection;
@@ -152,7 +153,9 @@ namespace MixMaster.Player
 
         private void FixedUpdate()
         {
-            body.linearVelocity = moveInput * moveSpeed;
+            body.linearVelocity = combatMovementLocked
+                ? Vector2.zero
+                : moveInput * moveSpeed;
         }
 
         private void ReadMovementInput()
@@ -222,6 +225,14 @@ namespace MixMaster.Player
 
             int index = Mathf.Clamp(idleFrameIndex, 0, frames.Length - 1);
             spriteRenderer.sprite = frames[index];
+        }
+
+        public void SetCombatMovementLocked(bool locked)
+        {
+            combatMovementLocked = locked;
+
+            if (locked && body != null)
+                body.linearVelocity = Vector2.zero;
         }
 
         /// <summary>
