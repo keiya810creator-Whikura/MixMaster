@@ -66,6 +66,7 @@ namespace MixMaster.Combat
 
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
+        public bool IsLunging => isLunging;
 
         private void Awake()
         {
