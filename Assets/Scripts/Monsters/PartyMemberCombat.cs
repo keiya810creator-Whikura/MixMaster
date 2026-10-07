@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using MixMaster.Combat;
 using MixMaster.Core;
 using MixMaster.Player;
+using MixMaster.UI;
 
 namespace MixMaster.Monsters
 {
@@ -92,6 +93,11 @@ namespace MixMaster.Monsters
             CreateSlashRenderer();
         }
 
+        private void OnEnable()
+        {
+            WorldUIManager.TryRegisterParty(this);
+        }
+
         private void Start()
         {
             PlayerTrailRecorder trail = FindFirstObjectByType<PlayerTrailRecorder>();
@@ -101,6 +107,8 @@ namespace MixMaster.Monsters
 
         private void OnDisable()
         {
+            WorldUIManager.TryUnregisterParty(this);
+
             if (follower != null)
             {
                 follower.SetCombatControlled(false);
