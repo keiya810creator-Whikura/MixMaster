@@ -44,10 +44,12 @@ namespace MixMaster.Monsters
         private int animationFrame;
         private Vector2 lastPosition;
         private bool isMoving;
+        private bool combatControlled;
 
         public int FollowOrder => followOrder;
         public bool IsMoving => isMoving;
         public Direction8 FacingDirection => facingDirection;
+        public bool IsCombatControlled => combatControlled;
 
         private float TrailDistance => (followOrder + 1) * followerSpacing;
 
@@ -72,6 +74,9 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
+            if (combatControlled)
+                return;
+
             if (playerTrail == null)
             {
                 body.linearVelocity = Vector2.zero;
@@ -129,6 +134,71 @@ namespace MixMaster.Monsters
         public void SetPlayerTrail(PlayerTrailRecorder trail)
         {
             playerTrail = trail;
+        }
+
+        public void SetCombatControlled(bool controlled)
+        {
+            combatControlled = controlled;
+
+            if (!controlled && body != null)
+                body.linearVelocity = Vector2.zero;
+        }
+
+        /// <summary>
+        /// Moves the follower while combat has control.
+        /// Visual direction/animation remains shared with normal trail following.
+        /// </summary>
+        public bool MoveForCombat(Vector2 targetPosition, float speed, float stoppingDistance)
+        {
+            if (body == null)
+                return false;
+
+            Vector2 current = body.position;
+            Vector2 delta = targetPosition - current;
+            float stop = Mathf.Max(0f, stoppingDistance);
+
+            if (delta.sqrMagnitude <= stop * stop)
+            {
+                body.linearVelocity = Vector2.zero;
+                UpdateMovementVisual(Vector2.zero);
+                return false;
+            }
+
+            Vector2 next = Vector2.MoveTowards(
+                current,
+                targetPosition,
+                Mathf.Max(0.1f, speed) * Time.fixedDeltaTime);
+
+            body.MovePosition(next);
+            UpdateMovementVisual(next - current);
+            lastPosition = next;
+            return true;
+        }
+
+        public void FaceDirection(Vector2 direction)
+        {
+            if (direction.sqrMagnitude <= 0.000001f)
+                return;
+
+            Direction8 newDirection = GetDirection8(direction);
+
+            if (newDirection == facingDirection)
+                return;
+
+            facingDirection = newDirection;
+            animationTimer = 0f;
+            animationFrame = 0;
+
+            if (!isMoving)
+                RefreshIdleSprite();
+        }
+
+        public void StopCombatMovement()
+        {
+            if (body != null)
+                body.linearVelocity = Vector2.zero;
+
+            UpdateMovementVisual(Vector2.zero);
         }
 
         private void UpdateMovementVisual(Vector2 movement)
