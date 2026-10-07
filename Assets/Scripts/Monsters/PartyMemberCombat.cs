@@ -10,11 +10,25 @@ using MixMaster.UI;
 
 namespace MixMaster.Monsters
 {
+    public enum PartyCombatMode
+    {
+        Follow,
+        AutoHunt
+    }
+
     [RequireComponent(typeof(MonsterTrailFollower))]
     [RequireComponent(typeof(Rigidbody2D))]
     [DisallowMultipleComponent]
     public sealed class PartyMemberCombat : MonoBehaviour
     {
+        private static readonly List<PartyMemberCombat> activeMembers =
+            new List<PartyMemberCombat>();
+
+        public static IReadOnlyList<PartyMemberCombat> ActiveMembers => activeMembers;
+
+        [Header("Behavior")]
+        [SerializeField] private PartyCombatMode combatMode = PartyCombatMode.Follow;
+
         [Header("Stats")]
         [SerializeField] private CharacterStats stats = new CharacterStats();
 
@@ -59,6 +73,7 @@ namespace MixMaster.Monsters
         private MonsterTrailFollower follower;
         private Rigidbody2D body;
         private Transform playerTransform;
+        private PlayerAutoAttack playerAutoAttack;
         private EnemyHealth currentTarget;
 
         private long currentHp;
@@ -83,6 +98,7 @@ namespace MixMaster.Monsters
         public bool IsAlive => isAlive;
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
+        public PartyCombatMode CombatMode => combatMode;
 
         public event Action<long, long> HpChanged;
         public event Action Died;
@@ -110,18 +126,31 @@ namespace MixMaster.Monsters
 
         private void OnEnable()
         {
+            if (!activeMembers.Contains(this))
+                activeMembers.Add(this);
+
             WorldUIManager.TryRegisterParty(this);
         }
 
         private void Start()
         {
-            PlayerTrailRecorder trail = FindFirstObjectByType<PlayerTrailRecorder>();
-            if (trail != null)
-                playerTransform = trail.transform;
+            playerAutoAttack = FindFirstObjectByType<PlayerAutoAttack>();
+
+            if (playerAutoAttack != null)
+            {
+                playerTransform = playerAutoAttack.transform;
+            }
+            else
+            {
+                PlayerTrailRecorder trail = FindFirstObjectByType<PlayerTrailRecorder>();
+                if (trail != null)
+                    playerTransform = trail.transform;
+            }
         }
 
         private void OnDisable()
         {
+            activeMembers.Remove(this);
             WorldUIManager.TryUnregisterParty(this);
 
             if (isAttackLunging && body != null)
@@ -270,13 +299,22 @@ namespace MixMaster.Monsters
 
         private EnemyHealth FindNearestTarget()
         {
-            float searchRange = Mathf.Max(aggroRange, stats.attackRange);
-            float searchRangeSqr = searchRange * searchRange;
-            float maxFromPlayerSqr = maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
+            if (playerTransform == null)
+                return null;
 
             float bestDistanceSqr = float.MaxValue;
             EnemyHealth best = null;
             IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
+
+            float playerRange = playerAutoAttack != null
+                ? playerAutoAttack.AttackRange
+                : Mathf.Max(0.1f, stats.attackRange);
+
+            float playerRangeSqr = playerRange * playerRange;
+            float autoHuntRange = Mathf.Max(aggroRange, stats.attackRange);
+            float autoHuntRangeSqr = autoHuntRange * autoHuntRange;
+            float maxFromPlayerSqr =
+                maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
 
             for (int i = 0; i < enemies.Count; i++)
             {
@@ -288,15 +326,24 @@ namespace MixMaster.Monsters
                 if (requireEnemyTag && !enemy.CompareTag(enemyTag))
                     continue;
 
+                Vector2 fromPlayer = enemy.transform.position - playerTransform.position;
                 Vector2 fromMember = enemy.transform.position - transform.position;
                 float memberDistanceSqr = fromMember.sqrMagnitude;
 
-                if (memberDistanceSqr > searchRangeSqr)
-                    continue;
-
-                if (playerTransform != null)
+                if (combatMode == PartyCombatMode.Follow)
                 {
-                    Vector2 fromPlayer = enemy.transform.position - playerTransform.position;
+                    // Follow mode only fights enemies that are currently
+                    // inside the player's own attack range.
+                    if (fromPlayer.sqrMagnitude > playerRangeSqr)
+                        continue;
+                }
+                else
+                {
+                    // Auto Hunt uses the party member's own detection range,
+                    // but will not chase infinitely far away from the player.
+                    if (memberDistanceSqr > autoHuntRangeSqr)
+                        continue;
+
                     if (fromPlayer.sqrMagnitude > maxFromPlayerSqr)
                         continue;
                 }
@@ -319,16 +366,36 @@ namespace MixMaster.Monsters
             if (requireEnemyTag && !target.CompareTag(enemyTag))
                 return false;
 
-            if (playerTransform != null)
-            {
-                float maxSqr = maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
-                Vector2 fromPlayer = target.transform.position - playerTransform.position;
+            if (playerTransform == null)
+                return false;
 
-                if (fromPlayer.sqrMagnitude > maxSqr)
-                    return false;
+            Vector2 fromPlayer = target.transform.position - playerTransform.position;
+
+            if (combatMode == PartyCombatMode.Follow)
+            {
+                float playerRange = playerAutoAttack != null
+                    ? playerAutoAttack.AttackRange
+                    : Mathf.Max(0.1f, stats.attackRange);
+
+                return fromPlayer.sqrMagnitude <= playerRange * playerRange;
             }
 
-            return true;
+            float maxSqr =
+                maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
+
+            return fromPlayer.sqrMagnitude <= maxSqr;
+        }
+
+        public void SetCombatMode(PartyCombatMode mode)
+        {
+            combatMode = mode;
+            currentTarget = null;
+
+            if (!isAttackLunging)
+            {
+                follower.SetCombatControlled(false);
+                follower.StopCombatMovement();
+            }
         }
 
         public long TakePhysicalHit(long attackPower)
