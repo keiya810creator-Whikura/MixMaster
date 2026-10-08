@@ -210,7 +210,7 @@ namespace MixMaster.Monsters
                 return;
 
             Vector2 toTarget = currentTarget.transform.position - transform.position;
-            float attackRange = Mathf.Max(0.1f, stats.attackRange);
+            float attackRange = GetEffectiveAttackRange();
 
             if (toTarget.sqrMagnitude > attackRange * attackRange)
                 return;
@@ -258,7 +258,7 @@ namespace MixMaster.Monsters
                 return body != null ? body.position : (Vector2)transform.position;
 
             Vector2 enemyPosition = target.transform.position;
-            float attackRange = Mathf.Max(0.1f, stats.attackRange);
+            float attackRange = GetEffectiveAttackRange();
             float radiusRatio = attackStyle == PartyAttackStyle.Ranged
                 ? rangedPositionRadiusRatio
                 : attackPositionRadiusRatio;
@@ -401,7 +401,7 @@ namespace MixMaster.Monsters
                 : Mathf.Max(0.1f, stats.attackRange);
 
             float playerRangeSqr = playerRange * playerRange;
-            float autoHuntRange = Mathf.Max(aggroRange, stats.attackRange);
+            float autoHuntRange = Mathf.Max(aggroRange, GetEffectiveAttackRange());
             float autoHuntRangeSqr = autoHuntRange * autoHuntRange;
             float maxFromPlayerSqr =
                 maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
@@ -474,6 +474,15 @@ namespace MixMaster.Monsters
                 maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
 
             return fromPlayer.sqrMagnitude <= maxSqr;
+        }
+
+        private float GetEffectiveAttackRange()
+        {
+            float baseRange = Mathf.Max(0.1f, stats.attackRange);
+
+            return attackStyle == PartyAttackStyle.Ranged
+                ? baseRange * 2f
+                : baseRange;
         }
 
         public void SetCombatMode(PartyCombatMode mode)
@@ -776,7 +785,13 @@ namespace MixMaster.Monsters
 
         private void OnDrawGizmosSelected()
         {
-            Gizmos.DrawWireSphere(transform.position, Mathf.Max(aggroRange, stats.attackRange));
+            float effectiveRange = attackStyle == PartyAttackStyle.Ranged
+                ? Mathf.Max(0.1f, stats.attackRange) * 2f
+                : Mathf.Max(0.1f, stats.attackRange);
+
+            Gizmos.DrawWireSphere(
+                transform.position,
+                Mathf.Max(aggroRange, effectiveRange));
         }
 
 #if UNITY_EDITOR
