@@ -15,10 +15,24 @@ namespace MixMaster.Core
     {
         public string uniqueId;
         public string monsterId;
+
         public int level = 1;
         public long experience;
+
+        public MonsterIndividualValues individualValues =
+            new MonsterIndividualValues();
+
         public string titleId;
-        public List<string> equippedItemUniqueIds = new List<string>(3);
+
+        public int skillPoints;
+        public int spentSkillPoints;
+        public List<string> learnedSkillIds =
+            new List<string>();
+
+        public float intimacy;
+
+        public List<string> equippedItemUniqueIds =
+            new List<string>(3);
     }
 
     [Serializable]
