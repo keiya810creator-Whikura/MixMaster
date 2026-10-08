@@ -3,6 +3,7 @@ using UnityEngine;
 using MixMaster.Combat;
 using MixMaster.Monsters;
 using MixMaster.Core;
+using UnityEngine.SceneManagement;
 
 namespace MixMaster.World
 {
@@ -30,17 +31,35 @@ namespace MixMaster.World
         private readonly List<EnemyHealth> aliveEnemies = new List<EnemyHealth>();
         private float nextSpawnTime;
 
+        private AltarManager altarManager;
+        private SpawnManager spawnManager;
+        private MapManager mapManager;
+
         public MonsterSO MonsterDefinition => monsterDefinition;
         public int MonsterLevel => monsterLevel;
         public float BaseSpawnInterval => GetBaseSpawnInterval();
         public float SpawnIntervalMultiplier => spawnIntervalMultiplier;
         public int AliveCount => aliveEnemies.Count;
 
+        private void OnEnable()
+        {
+            CacheManagers();
+
+            if (altarManager != null)
+                altarManager.AltarProgressChanged += HandleAltarProgressChanged;
+        }
+
         private void Start()
         {
             nextSpawnTime = spawnImmediately
                 ? Time.time
                 : Time.time + GetEffectiveSpawnInterval();
+        }
+
+        private void OnDisable()
+        {
+            if (altarManager != null)
+                altarManager.AltarProgressChanged -= HandleAltarProgressChanged;
         }
 
         private void Update()
@@ -170,10 +189,110 @@ namespace MixMaster.World
 
         private float GetEffectiveSpawnInterval()
         {
+            float baseInterval =
+                Mathf.Max(
+                    0f,
+                    GetBaseSpawnInterval());
+
+            if (monsterDefinition == null)
+            {
+                return baseInterval *
+                       Mathf.Max(0f, spawnIntervalMultiplier);
+            }
+
+            CacheManagers();
+
+            if (altarManager == null ||
+                spawnManager == null)
+            {
+                return baseInterval *
+                       Mathf.Max(0f, spawnIntervalMultiplier);
+            }
+
+            string mapId =
+                ResolveCurrentMapId();
+
+            AltarProgressRecord record =
+                altarManager.GetOrCreateMonster(
+                    mapId,
+                    monsterDefinition.monsterId);
+
+            bool canRespawn =
+                spawnManager.TryGetRespawnDelay(
+                    baseInterval,
+                    record.spawnEfficiencyLevel,
+                    AltarBalance.SpawnEfficiencyMaxLevel,
+                    record.postMaxRespawnEnabled,
+                    record.postMaxRespawnDelayScale,
+                    out float delaySeconds);
+
+            if (!canRespawn)
+                return float.PositiveInfinity;
+
             return Mathf.Max(
                 0f,
-                GetBaseSpawnInterval() *
-                spawnIntervalMultiplier);
+                delaySeconds *
+                Mathf.Max(0f, spawnIntervalMultiplier));
+        }
+
+        private void HandleAltarProgressChanged(
+            AltarProgressRecord record)
+        {
+            if (record == null ||
+                monsterDefinition == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(
+                    record.monsterId,
+                    monsterDefinition.monsterId,
+                    System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!string.Equals(
+                    record.mapId,
+                    ResolveCurrentMapId(),
+                    System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            float interval =
+                GetEffectiveSpawnInterval();
+
+            nextSpawnTime =
+                float.IsPositiveInfinity(interval)
+                    ? float.PositiveInfinity
+                    : Time.time + interval;
+        }
+
+        private void CacheManagers()
+        {
+            if (altarManager == null)
+                altarManager = FindFirstObjectByType<AltarManager>();
+
+            if (spawnManager == null)
+                spawnManager = FindFirstObjectByType<SpawnManager>();
+
+            if (mapManager == null)
+                mapManager = FindFirstObjectByType<MapManager>();
+        }
+
+        private string ResolveCurrentMapId()
+        {
+            if (mapManager != null &&
+                !string.IsNullOrWhiteSpace(
+                    mapManager.CurrentMapId))
+            {
+                return mapManager.CurrentMapId;
+            }
+
+            return SceneManager
+                .GetActiveScene()
+                .name;
         }
 
 #if UNITY_EDITOR
