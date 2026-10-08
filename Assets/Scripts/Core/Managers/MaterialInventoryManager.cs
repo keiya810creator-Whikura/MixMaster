@@ -7,6 +7,8 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class MaterialInventoryManager : MonoBehaviour
     {
+        public const long MaxMaterialAmount = 999999L;
+
         private readonly List<MaterialInventoryRecord> records =
             new List<MaterialInventoryRecord>();
 
@@ -71,14 +73,32 @@ namespace MixMaster.Core
                 records.Add(record);
             }
 
-            record.amount =
+            long before =
+                Math.Min(
+                    MaxMaterialAmount,
+                    Math.Max(0L, record.amount));
+
+            long after =
                 LongMath.SaturatingAdd(
-                    Math.Max(0L, record.amount),
+                    before,
                     amount);
+
+            after =
+                Math.Min(
+                    MaxMaterialAmount,
+                    Math.Max(0L, after));
+
+            record.amount = after;
+
+            long actualAdded =
+                Math.Max(0L, after - before);
+
+            if (actualAdded <= 0L)
+                return;
 
             MaterialChanged?.Invoke(
                 materialId,
-                amount,
+                actualAdded,
                 record.amount);
         }
 
