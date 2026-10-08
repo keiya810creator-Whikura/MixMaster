@@ -14,6 +14,8 @@ namespace MixMaster.EditorTools
         private const string MenuPath =
             "MixMaster/Map/選択SpriteSheetを個別PNGへ書き出し";
 
+        private const int OutputSize = 32;
+
         [MenuItem(MenuPath)]
         public static void ExportSelectedSpriteSheets()
         {
@@ -70,6 +72,7 @@ namespace MixMaster.EditorTools
                 "完了しました。\n\n" +
                 "SpriteSheet: " + exportedSheetCount + "\n" +
                 "書き出したSprite: " + exportedSpriteCount + "\n" +
+                "サイズ: " + OutputSize + "×" + OutputSize + "\n" +
                 "スキップ: " + skippedCount;
 
             Debug.Log(
@@ -275,21 +278,32 @@ namespace MixMaster.EditorTools
                     if (width <= 0 || height <= 0)
                         continue;
 
-                    Color[] pixels =
+                    Color[] sourcePixels =
                         readableTexture.GetPixels(
                             x,
                             y,
                             width,
                             height);
 
-                    Texture2D outputTexture =
-                        new Texture2D(
+                    Color[] outputPixels =
+                        ResizeNearest(
+                            sourcePixels,
                             width,
                             height,
+                            OutputSize,
+                            OutputSize);
+
+                    Texture2D outputTexture =
+                        new Texture2D(
+                            OutputSize,
+                            OutputSize,
                             TextureFormat.RGBA32,
                             false);
 
-                    outputTexture.SetPixels(pixels);
+                    outputTexture.filterMode =
+                        FilterMode.Point;
+
+                    outputTexture.SetPixels(outputPixels);
                     outputTexture.Apply(
                         updateMipmaps: false,
                         makeNoLongerReadable: false);
@@ -336,10 +350,7 @@ namespace MixMaster.EditorTools
 
                     ConfigureOutputImporter(
                         outputAssetPath,
-                        sourceImporter,
-                        sprite,
-                        width,
-                        height);
+                        sourceImporter);
 
                     exportedCount++;
                 }
@@ -389,10 +400,7 @@ namespace MixMaster.EditorTools
 
         private static void ConfigureOutputImporter(
             string outputAssetPath,
-            TextureImporter sourceImporter,
-            Sprite sourceSprite,
-            int width,
-            int height)
+            TextureImporter sourceImporter)
         {
             TextureImporter outputImporter =
                 AssetImporter.GetAtPath(outputAssetPath)
@@ -408,24 +416,60 @@ namespace MixMaster.EditorTools
                 SpriteImportMode.Single;
 
             outputImporter.spritePixelsPerUnit =
-                Mathf.Max(
-                    0.01f,
-                    sourceSprite.pixelsPerUnit);
+                OutputSize;
 
             outputImporter.mipmapEnabled = false;
             outputImporter.alphaIsTransparency = true;
             outputImporter.wrapMode = TextureWrapMode.Clamp;
+            outputImporter.filterMode = FilterMode.Point;
 
             if (sourceImporter != null)
             {
-                outputImporter.filterMode =
-                    sourceImporter.filterMode;
-
                 outputImporter.textureCompression =
                     sourceImporter.textureCompression;
             }
 
             outputImporter.SaveAndReimport();
+        }
+
+        private static Color[] ResizeNearest(
+            Color[] sourcePixels,
+            int sourceWidth,
+            int sourceHeight,
+            int targetWidth,
+            int targetHeight)
+        {
+            Color[] result =
+                new Color[targetWidth * targetHeight];
+
+            for (int y = 0; y < targetHeight; y++)
+            {
+                int sourceY =
+                    Mathf.Clamp(
+                        Mathf.FloorToInt(
+                            y * sourceHeight /
+                            (float)targetHeight),
+                        0,
+                        sourceHeight - 1);
+
+                for (int x = 0; x < targetWidth; x++)
+                {
+                    int sourceX =
+                        Mathf.Clamp(
+                            Mathf.FloorToInt(
+                                x * sourceWidth /
+                                (float)targetWidth),
+                            0,
+                            sourceWidth - 1);
+
+                    result[
+                        y * targetWidth + x] =
+                        sourcePixels[
+                            sourceY * sourceWidth + sourceX];
+                }
+            }
+
+            return result;
         }
 
         private static string GetUniqueExportFileName(
