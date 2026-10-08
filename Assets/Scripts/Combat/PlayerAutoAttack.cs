@@ -262,6 +262,41 @@ namespace MixMaster.Combat
             return actualDamage;
         }
 
+        public long TakeMagicHit(long magicPower)
+        {
+            if (playerManager == null ||
+                playerManager.CurrentHp <= 0L ||
+                magicPower <= 0L)
+            {
+                return 0L;
+            }
+
+            long magicDefense =
+                Math.Max(0L, playerManager.Stats.magicDefense);
+
+            long damage = magicPower - magicDefense;
+
+            if (damage < 1L)
+                damage = 1L;
+
+            long before = playerManager.CurrentHp;
+            playerManager.TakeDamage(damage);
+
+            long actualDamage =
+                Math.Max(0L, before - playerManager.CurrentHp);
+
+            if (playerSpriteRenderer != null)
+            {
+                if (hitFlashRoutine != null)
+                    StopCoroutine(hitFlashRoutine);
+
+                hitFlashRoutine =
+                    StartCoroutine(HitFlashRoutine());
+            }
+
+            return actualDamage;
+        }
+
         private IEnumerator HitFlashRoutine()
         {
             playerSpriteRenderer.color = hitFlashColor;
