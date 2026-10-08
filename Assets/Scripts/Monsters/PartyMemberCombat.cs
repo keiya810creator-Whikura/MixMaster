@@ -42,7 +42,7 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
         [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
         [SerializeField] private bool projectileHoming = true;
-        [Tooltip("Legacy value kept for existing prefabs. Ranged spacing is now automatically 2x melee spacing.")]
+        [Tooltip("Legacy value kept for existing prefabs. Ranged spacing is now automatically about 3x melee spacing.")]
         [SerializeField, HideInInspector] private float rangedPositionRadiusRatio = 0.82f;
 
         [Header("Stats")]
@@ -66,7 +66,7 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0.1f)] private float combatMoveSpeedMultiplier = 1.15f;
         [Tooltip("Distance from the assigned fixed attack slot considered close enough.")]
         [SerializeField, Min(0.01f)] private float attackSlotArrivalDistance = 0.18f;
-        [Tooltip("Base spacing ratio. Melee stands at half of this value, Ranged stands at twice the melee distance.")]
+        [Tooltip("Base spacing ratio. Melee stands at half of this value, Ranged stands at about three times the melee distance.")]
         [SerializeField, Range(0.2f, 0.9f)] private float attackPositionRadiusRatio = 0.72f;
 
         [Header("Attack Lunge")]
@@ -265,16 +265,16 @@ namespace MixMaster.Monsters
 
             // Positioning distance is intentionally independent from the
             // doubled ranged attack reach.
-            // Existing melee spacing was a bit too wide, so melee now uses
+            // Existing melee spacing was a bit too wide, so melee uses
             // half of the configured base ratio. Ranged stands at about
-            // twice that melee distance.
+            // three times that melee distance.
             float baseAttackRange = Mathf.Max(0.1f, stats.attackRange);
             float meleeRadius = Mathf.Max(
                 0.08f,
                 baseAttackRange * attackPositionRadiusRatio * 0.5f);
 
             float radius = attackStyle == PartyAttackStyle.Ranged
-                ? meleeRadius * 2f
+                ? meleeRadius * 3f
                 : meleeRadius;
 
             float effectiveAttackRange = GetEffectiveAttackRange();
