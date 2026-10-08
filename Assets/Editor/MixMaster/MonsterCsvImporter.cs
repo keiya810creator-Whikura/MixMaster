@@ -780,6 +780,10 @@ namespace MixMaster.EditorTools
                     out MaterialSO existing) &&
                 existing != null)
             {
+                MaterialSpriteAutoAssigner.TryApply(
+                    existing,
+                    out _);
+
                 return existing;
             }
 
@@ -798,6 +802,11 @@ namespace MixMaster.EditorTools
                     ".asset");
 
             AssetDatabase.CreateAsset(asset, path);
+
+            MaterialSpriteAutoAssigner.TryApply(
+                asset,
+                out _);
+
             EditorUtility.SetDirty(asset);
 
             assetsById[materialId] = asset;
