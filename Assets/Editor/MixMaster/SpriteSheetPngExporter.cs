@@ -17,10 +17,7 @@ namespace MixMaster.EditorTools
         public static void ExportSelectedSpriteSheets()
         {
             List<Texture2D> textures =
-                Selection.objects
-                    .OfType<Texture2D>()
-                    .Distinct()
-                    .ToList();
+                GetSelectedTextures();
 
             if (textures.Count == 0)
             {
@@ -87,9 +84,43 @@ namespace MixMaster.EditorTools
         [MenuItem(MenuPath, true)]
         private static bool ValidateExportSelectedSpriteSheets()
         {
-            return Selection.objects
-                .OfType<Texture2D>()
-                .Any();
+            return GetSelectedTextures().Count > 0;
+        }
+
+        private static List<Texture2D> GetSelectedTextures()
+        {
+            Dictionary<string, Texture2D> texturesByPath =
+                new Dictionary<string, Texture2D>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            UnityEngine.Object[] selected =
+                Selection.objects;
+
+            for (int i = 0; i < selected.Length; i++)
+            {
+                UnityEngine.Object obj = selected[i];
+
+                if (obj == null)
+                    continue;
+
+                string path =
+                    AssetDatabase.GetAssetPath(obj);
+
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+
+                Texture2D texture =
+                    AssetDatabase.LoadAssetAtPath<Texture2D>(
+                        path);
+
+                if (texture != null &&
+                    !texturesByPath.ContainsKey(path))
+                {
+                    texturesByPath.Add(path, texture);
+                }
+            }
+
+            return texturesByPath.Values.ToList();
         }
 
         private static bool ExportTexture(
