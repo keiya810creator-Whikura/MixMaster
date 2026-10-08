@@ -37,26 +37,26 @@ namespace MixMaster.Core
                 : GetAmount(material.materialId);
         }
 
-        public void AddMaterial(
+        public long AddMaterial(
             MaterialSO material,
             long amount)
         {
             if (material == null || amount <= 0L)
-                return;
+                return 0L;
 
-            AddMaterial(
+            return AddMaterial(
                 material.materialId,
                 amount);
         }
 
-        public void AddMaterial(
+        public long AddMaterial(
             string materialId,
             long amount)
         {
             if (string.IsNullOrWhiteSpace(materialId) ||
                 amount <= 0L)
             {
-                return;
+                return 0L;
             }
 
             MaterialInventoryRecord record =
@@ -94,12 +94,14 @@ namespace MixMaster.Core
                 Math.Max(0L, after - before);
 
             if (actualAdded <= 0L)
-                return;
+                return 0L;
 
             MaterialChanged?.Invoke(
                 materialId,
                 actualAdded,
                 record.amount);
+
+            return actualAdded;
         }
 
         public bool TryConsume(
