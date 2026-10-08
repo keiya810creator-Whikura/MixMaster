@@ -8,6 +8,7 @@ namespace MixMaster.World
     [DisallowMultipleComponent]
     public sealed class MaterialDropPickup : MonoBehaviour
     {
+        private static Sprite fallbackSprite;
         [Header("Visual")]
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField, Min(0.05f)] private float worldScale = 0.45f;
@@ -154,15 +155,84 @@ namespace MixMaster.World
             if (spriteRenderer != null)
             {
                 spriteRenderer.sprite =
-                    material != null
+                    material != null &&
+                    material.icon != null
                         ? material.icon
-                        : null;
+                        : GetFallbackSprite();
 
                 spriteRenderer.sortingOrder = 40;
             }
 
             transform.localScale =
                 Vector3.one * worldScale;
+        }
+
+        private static Sprite GetFallbackSprite()
+        {
+            if (fallbackSprite != null)
+                return fallbackSprite;
+
+            const int size = 16;
+
+            Texture2D texture =
+                new Texture2D(
+                    size,
+                    size,
+                    TextureFormat.RGBA32,
+                    false);
+
+            texture.name =
+                "MaterialDropFallbackTexture";
+
+            texture.filterMode =
+                FilterMode.Point;
+
+            Color clear =
+                new Color(0f, 0f, 0f, 0f);
+
+            Color white =
+                Color.white;
+
+            Color[] pixels =
+                new Color[size * size];
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx =
+                        Mathf.Abs(
+                            x - (size - 1) * 0.5f);
+
+                    float dy =
+                        Mathf.Abs(
+                            y - (size - 1) * 0.5f);
+
+                    pixels[y * size + x] =
+                        dx + dy <= 6.5f
+                            ? white
+                            : clear;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+
+            fallbackSprite =
+                Sprite.Create(
+                    texture,
+                    new Rect(
+                        0f,
+                        0f,
+                        size,
+                        size),
+                    new Vector2(0.5f, 0.5f),
+                    size);
+
+            fallbackSprite.name =
+                "MaterialDropFallbackSprite";
+
+            return fallbackSprite;
         }
 
         private void Collect()
