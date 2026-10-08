@@ -2,13 +2,19 @@ using System.Collections.Generic;
 using UnityEngine;
 using MixMaster.Combat;
 using MixMaster.Monsters;
+using MixMaster.Core;
 
 namespace MixMaster.World
 {
     [DisallowMultipleComponent]
     public sealed class EnemySpawnPoint : MonoBehaviour
     {
-        [Header("Enemy")]
+        [Header("MonsterSO")]
+        [SerializeField] private MonsterSO monsterDefinition;
+        [SerializeField, Min(1)] private int monsterLevel = 1;
+
+        [Header("Legacy / Fallback Enemy")]
+        [Tooltip("Used only when MonsterSO has no Enemy Prefab, or when MonsterSO is not assigned.")]
         [SerializeField] private GameObject enemyPrefab;
 
         [Header("Spawn")]
@@ -24,7 +30,9 @@ namespace MixMaster.World
         private readonly List<EnemyHealth> aliveEnemies = new List<EnemyHealth>();
         private float nextSpawnTime;
 
-        public float BaseSpawnInterval => spawnInterval;
+        public MonsterSO MonsterDefinition => monsterDefinition;
+        public int MonsterLevel => monsterLevel;
+        public float BaseSpawnInterval => GetBaseSpawnInterval();
         public float SpawnIntervalMultiplier => spawnIntervalMultiplier;
         public int AliveCount => aliveEnemies.Count;
 
@@ -39,8 +47,11 @@ namespace MixMaster.World
         {
             aliveEnemies.RemoveAll(x => x == null || !x.IsAlive);
 
-            if (enemyPrefab == null || aliveEnemies.Count >= maxAlive)
+            if (ResolveEnemyPrefab() == null ||
+                aliveEnemies.Count >= maxAlive)
+            {
                 return;
+            }
 
             if (Time.time < nextSpawnTime)
                 return;
@@ -56,30 +67,84 @@ namespace MixMaster.World
             spawnIntervalMultiplier = Mathf.Max(0f, multiplier);
         }
 
+        public void SetMonster(
+            MonsterSO definition,
+            int level = 1)
+        {
+            monsterDefinition = definition;
+            monsterLevel = Mathf.Max(1, level);
+
+            nextSpawnTime =
+                Time.time + GetEffectiveSpawnInterval();
+        }
+
         public void SpawnEnemy()
         {
-            if (enemyPrefab == null || aliveEnemies.Count >= maxAlive)
+            GameObject prefab = ResolveEnemyPrefab();
+
+            if (prefab == null ||
+                aliveEnemies.Count >= maxAlive)
+            {
                 return;
+            }
 
             Vector2 offset = randomSpawnRadius > 0f
                 ? Random.insideUnitCircle * randomSpawnRadius
                 : Vector2.zero;
 
-            Vector3 spawnPosition = transform.position + (Vector3)offset;
-            GameObject enemyObject = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
+            Vector3 spawnPosition =
+                transform.position + (Vector3)offset;
 
-            EnemyHealth health = enemyObject.GetComponent<EnemyHealth>();
+            GameObject enemyObject =
+                Instantiate(
+                    prefab,
+                    spawnPosition,
+                    Quaternion.identity);
+
+            MonsterRuntimeSetup runtimeSetup =
+                enemyObject.GetComponent<MonsterRuntimeSetup>();
+
+            if (monsterDefinition != null)
+            {
+                if (runtimeSetup == null)
+                {
+                    runtimeSetup =
+                        enemyObject.AddComponent<MonsterRuntimeSetup>();
+                }
+
+                runtimeSetup.Initialize(
+                    monsterDefinition,
+                    monsterLevel);
+            }
+
+            EnemyHealth health =
+                enemyObject.GetComponent<EnemyHealth>();
+
             if (health == null)
                 health = enemyObject.AddComponent<EnemyHealth>();
 
-            EnemyWanderAI wander = enemyObject.GetComponent<EnemyWanderAI>();
+            EnemyWanderAI wander =
+                enemyObject.GetComponent<EnemyWanderAI>();
+
             if (wander != null)
                 wander.SetHome(transform.position);
 
             aliveEnemies.Add(health);
             health.Died += HandleEnemyDied;
 
-            nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
+            nextSpawnTime =
+                Time.time + GetEffectiveSpawnInterval();
+        }
+
+        private GameObject ResolveEnemyPrefab()
+        {
+            if (monsterDefinition != null &&
+                monsterDefinition.enemyPrefab != null)
+            {
+                return monsterDefinition.enemyPrefab;
+            }
+
+            return enemyPrefab;
         }
 
         private void HandleEnemyDied(EnemyHealth enemy)
@@ -91,14 +156,30 @@ namespace MixMaster.World
             nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
         }
 
+        private float GetBaseSpawnInterval()
+        {
+            if (monsterDefinition != null)
+            {
+                return Mathf.Max(
+                    0f,
+                    monsterDefinition.baseRespawnInterval);
+            }
+
+            return Mathf.Max(0f, spawnInterval);
+        }
+
         private float GetEffectiveSpawnInterval()
         {
-            return Mathf.Max(0f, spawnInterval * spawnIntervalMultiplier);
+            return Mathf.Max(
+                0f,
+                GetBaseSpawnInterval() *
+                spawnIntervalMultiplier);
         }
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            monsterLevel = Mathf.Max(1, monsterLevel);
             spawnInterval = Mathf.Max(0f, spawnInterval);
             maxAlive = Mathf.Max(1, maxAlive);
             randomSpawnRadius = Mathf.Max(0f, randomSpawnRadius);
