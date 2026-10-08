@@ -7,54 +7,185 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class AltarManager : MonoBehaviour
     {
-        private readonly List<AltarProgressRecord> records = new List<AltarProgressRecord>();
+        private readonly List<AltarProgressRecord> monsterRecords =
+            new List<AltarProgressRecord>();
 
-        public IReadOnlyList<AltarProgressRecord> Records => records;
+        private readonly List<MapAltarProgressRecord> mapRecords =
+            new List<MapAltarProgressRecord>();
+
+        public IReadOnlyList<AltarProgressRecord> Records => monsterRecords;
+        public IReadOnlyList<AltarProgressRecord> MonsterRecords => monsterRecords;
+        public IReadOnlyList<MapAltarProgressRecord> MapRecords => mapRecords;
 
         public event Action<AltarProgressRecord> AltarProgressChanged;
+        public event Action<MapAltarProgressRecord> MapAltarProgressChanged;
 
         public AltarProgressRecord GetOrCreate(string mapId, string monsterId)
         {
-            var record = records.Find(x => x.mapId == mapId && x.monsterId == monsterId);
-            if (record != null) return record;
+            return GetOrCreateMonster(mapId, monsterId);
+        }
+
+        public AltarProgressRecord GetOrCreateMonster(string mapId, string monsterId)
+        {
+            mapId ??= string.Empty;
+            monsterId ??= string.Empty;
+
+            AltarProgressRecord record =
+                monsterRecords.Find(x =>
+                    x.mapId == mapId &&
+                    x.monsterId == monsterId);
+
+            if (record != null)
+                return record;
 
             record = new AltarProgressRecord
             {
-                mapId = mapId ?? string.Empty,
-                monsterId = monsterId ?? string.Empty
+                mapId = mapId,
+                monsterId = monsterId
             };
 
-            records.Add(record);
+            monsterRecords.Add(record);
             return record;
         }
 
-        public void DonateMaterial(string mapId, string monsterId, long amount)
+        public MapAltarProgressRecord GetOrCreateMap(string mapId)
         {
-            if (amount <= 0) return;
+            mapId ??= string.Empty;
 
-            var record = GetOrCreate(mapId, monsterId);
-            record.donatedMaterial = LongMath.SaturatingAdd(record.donatedMaterial, amount);
+            MapAltarProgressRecord record =
+                mapRecords.Find(x => x.mapId == mapId);
+
+            if (record != null)
+                return record;
+
+            record = new MapAltarProgressRecord
+            {
+                mapId = mapId
+            };
+
+            mapRecords.Add(record);
+            return record;
+        }
+
+        public void DonateMaterial(
+            string mapId,
+            string monsterId,
+            long amount)
+        {
+            if (amount <= 0L)
+                return;
+
+            AltarProgressRecord record =
+                GetOrCreateMonster(mapId, monsterId);
+
+            record.donatedMaterial =
+                LongMath.SaturatingAdd(
+                    record.donatedMaterial,
+                    amount);
+
             AltarProgressChanged?.Invoke(record);
         }
 
-        public void SetSpawnEfficiencyLevel(string mapId, string monsterId, int level)
+        public void DonateDungeonMaterial(string mapId, long amount)
         {
-            var record = GetOrCreate(mapId, monsterId);
-            record.spawnEfficiencyLevel = Mathf.Max(0, level);
+            if (amount <= 0L)
+                return;
+
+            MapAltarProgressRecord record =
+                GetOrCreateMap(mapId);
+
+            record.donatedDungeonMaterial =
+                LongMath.SaturatingAdd(
+                    record.donatedDungeonMaterial,
+                    amount);
+
+            MapAltarProgressChanged?.Invoke(record);
+        }
+
+        public void SetSpawnEfficiencyLevel(
+            string mapId,
+            string monsterId,
+            int level)
+        {
+            AltarProgressRecord record =
+                GetOrCreateMonster(mapId, monsterId);
+
+            record.spawnEfficiencyLevel =
+                Mathf.Max(0, level);
+
             AltarProgressChanged?.Invoke(record);
         }
 
-        public void SetDropRateLevel(string mapId, string monsterId, int level)
+        public void SetDropRateLevel(
+            string mapId,
+            string monsterId,
+            int level)
         {
-            var record = GetOrCreate(mapId, monsterId);
-            record.dropRateLevel = Mathf.Max(0, level);
+            AltarProgressRecord record =
+                GetOrCreateMonster(mapId, monsterId);
+
+            record.dropRateLevel =
+                Mathf.Max(0, level);
+
             AltarProgressChanged?.Invoke(record);
         }
 
-        public void SetTitledMonsterRateLevel(string mapId, string monsterId, int level)
+        /// <summary>
+        /// Title rate is map-wide because dungeon material affects
+        /// every monster on that map.
+        /// </summary>
+        public void SetMapTitledMonsterRateLevel(
+            string mapId,
+            int level)
         {
-            var record = GetOrCreate(mapId, monsterId);
-            record.titledMonsterRateLevel = Mathf.Max(0, level);
+            MapAltarProgressRecord record =
+                GetOrCreateMap(mapId);
+
+            record.titledMonsterRateLevel =
+                Mathf.Max(0, level);
+
+            MapAltarProgressChanged?.Invoke(record);
+        }
+
+        /// <summary>
+        /// Compatibility wrapper for older call sites.
+        /// monsterId is intentionally ignored by the new map-wide rule.
+        /// </summary>
+        public void SetTitledMonsterRateLevel(
+            string mapId,
+            string monsterId,
+            int level)
+        {
+            SetMapTitledMonsterRateLevel(mapId, level);
+        }
+
+        public void SetPostMaxRespawnControl(
+            string mapId,
+            string monsterId,
+            bool enabled,
+            float baseDelayScale)
+        {
+            AltarProgressRecord record =
+                GetOrCreateMonster(mapId, monsterId);
+
+            record.postMaxRespawnEnabled = enabled;
+            record.postMaxRespawnDelayScale =
+                Mathf.Clamp01(baseDelayScale);
+
+            AltarProgressChanged?.Invoke(record);
+        }
+
+        public void SetPostMaxMonsterDropRateScale(
+            string mapId,
+            string monsterId,
+            float scale)
+        {
+            AltarProgressRecord record =
+                GetOrCreateMonster(mapId, monsterId);
+
+            record.postMaxMonsterDropRateScale =
+                Mathf.Clamp01(scale);
+
             AltarProgressChanged?.Invoke(record);
         }
     }
