@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -423,24 +424,6 @@ namespace MixMaster.EditorTools
                 outputImporter.textureCompression =
                     sourceImporter.textureCompression;
             }
-
-            outputImporter.spriteMeshType =
-                SpriteMeshType.FullRect;
-
-            Vector2 normalizedPivot =
-                new Vector2(
-                    width > 0
-                        ? sourceSprite.pivot.x / width
-                        : 0.5f,
-                    height > 0
-                        ? sourceSprite.pivot.y / height
-                        : 0.5f);
-
-            outputImporter.spriteAlignment =
-                (int)SpriteAlignment.Custom;
-
-            outputImporter.spritePivot =
-                normalizedPivot;
 
             outputImporter.SaveAndReimport();
         }
