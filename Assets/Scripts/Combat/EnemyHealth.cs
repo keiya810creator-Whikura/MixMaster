@@ -134,15 +134,44 @@ namespace MixMaster.Combat
             return actualDamage;
         }
 
-        public void SetStats(long newMaxHp, long newDefense, bool healToFull = true)
+        public void SetStats(
+            long newMaxHp,
+            long newMaxMp,
+            long newDefense,
+            long newMagicDefense,
+            bool restoreToFull = true)
         {
             maxHp = Math.Max(1L, newMaxHp);
+            maxMp = Math.Max(0L, newMaxMp);
             defense = Math.Max(0L, newDefense);
+            magicDefense = Math.Max(0L, newMagicDefense);
 
-            if (healToFull)
+            if (restoreToFull)
+            {
                 CurrentHp = maxHp;
+                CurrentMp = maxMp;
+            }
             else
+            {
                 CurrentHp = Math.Min(CurrentHp, maxHp);
+                CurrentMp = Math.Min(CurrentMp, maxMp);
+            }
+
+            MpChanged?.Invoke(CurrentMp, maxMp);
+        }
+
+        // Compatibility overload for existing callers.
+        public void SetStats(
+            long newMaxHp,
+            long newDefense,
+            bool healToFull = true)
+        {
+            SetStats(
+                newMaxHp,
+                maxMp,
+                newDefense,
+                magicDefense,
+                healToFull);
         }
 
         public bool TrySpendMp(long amount)
