@@ -548,6 +548,21 @@ namespace MixMaster.Monsters
             return TakeDamage(damage);
         }
 
+        public long TakeMagicHit(long magicPower)
+        {
+            if (!isAlive || magicPower <= 0L)
+                return 0L;
+
+            long damage =
+                magicPower -
+                Math.Max(0L, stats.magicDefense);
+
+            if (damage < 1L)
+                damage = 1L;
+
+            return TakeDamage(damage);
+        }
+
         public long TakeDamage(long damage)
         {
             if (!isAlive || damage <= 0)
