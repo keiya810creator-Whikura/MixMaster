@@ -101,6 +101,7 @@ namespace MixMaster.EditorTools
                 "索敵範囲",
                 "リス秒",
                 "素材ID",
+                "素材名",
                 "素材ドロ率",
                 "経験値",
                 "配合用値",
@@ -513,9 +514,16 @@ namespace MixMaster.EditorTools
                     header,
                     "素材ID").Trim();
 
+            string materialName =
+                GetCell(
+                    row,
+                    header,
+                    "素材名").Trim();
+
             monster.uniqueMaterial =
                 GetOrCreateMaterial(
                     materialId,
+                    materialName,
                     materialsById);
 
             monster.materialBaseDropRate =
@@ -770,6 +778,7 @@ namespace MixMaster.EditorTools
 
         private static MaterialSO GetOrCreateMaterial(
             string materialId,
+            string materialName,
             Dictionary<string, MaterialSO> assetsById)
         {
             if (string.IsNullOrWhiteSpace(materialId))
@@ -780,9 +789,27 @@ namespace MixMaster.EditorTools
                     out MaterialSO existing) &&
                 existing != null)
             {
+                Undo.RecordObject(
+                    existing,
+                    "Update MaterialSO from Monster CSV");
+
+                existing.materialId =
+                    materialId;
+
+                existing.displayName =
+                    string.IsNullOrWhiteSpace(materialName)
+                        ? materialId
+                        : materialName;
+
+                existing.category =
+                    MaterialCategory.Monster;
+
                 MaterialSpriteAutoAssigner.TryApply(
                     existing,
                     out _);
+
+                EditorUtility.SetDirty(
+                    existing);
 
                 return existing;
             }
@@ -791,7 +818,11 @@ namespace MixMaster.EditorTools
                 ScriptableObject.CreateInstance<MaterialSO>();
 
             asset.materialId = materialId;
-            asset.displayName = materialId;
+            asset.displayName =
+                string.IsNullOrWhiteSpace(materialName)
+                    ? materialId
+                    : materialName;
+
             asset.category = MaterialCategory.Monster;
 
             string path =
