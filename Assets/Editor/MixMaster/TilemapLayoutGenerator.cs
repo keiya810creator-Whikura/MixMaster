@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using MixMaster.World;
+using MixMaster.Player;
+using MixMaster.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -112,6 +114,8 @@ namespace MixMaster.EditorTools
             layout.legend ??= Array.Empty<LegendEntry>();
             layout.rows ??= Array.Empty<string>();
 
+            MapBuildingPrefabCreator.EnsurePrefabs();
+
             TilemapMapRoot mapRoot =
                 GetOrCreateMapRoot();
 
@@ -146,6 +150,14 @@ namespace MixMaster.EditorTools
             int originY = -(layout.height / 2);
             int missing = 0;
 
+            Transform mapObjectsRoot =
+                PrepareMapObjectsRoot(mapRoot.transform);
+
+            Grid grid =
+                mapRoot.GetComponent<Grid>();
+
+            EnsureBuildingUiRouter();
+
             Undo.RecordObject(mapRoot.Ground, "Generate Map Ground");
             Undo.RecordObject(mapRoot.Decoration, "Generate Map Decoration");
             Undo.RecordObject(mapRoot.Collision, "Generate Map Collision");
@@ -175,6 +187,15 @@ namespace MixMaster.EditorTools
                         xIndex < row.Length
                             ? row[xIndex]
                             : '.';
+
+                    if (HandleSpecialSymbol(
+                            symbol,
+                            cell,
+                            grid,
+                            mapObjectsRoot))
+                    {
+                        continue;
+                    }
 
                     if (symbol != '.' &&
                         legend.TryGetValue(
@@ -285,6 +306,167 @@ namespace MixMaster.EditorTools
                 return existing;
 
             return TilemapMapCreator.CreateMapRoot();
+        }
+
+        private static Transform PrepareMapObjectsRoot(
+            Transform mapRoot)
+        {
+            const string rootName = "_MapObjects";
+
+            Transform existing =
+                mapRoot.Find(rootName);
+
+            if (existing != null)
+            {
+                Undo.DestroyObjectImmediate(
+                    existing.gameObject);
+            }
+
+            GameObject root =
+                new GameObject(rootName);
+
+            Undo.RegisterCreatedObjectUndo(
+                root,
+                "Create Map Objects Root");
+
+            root.transform.SetParent(
+                mapRoot,
+                false);
+
+            return root.transform;
+        }
+
+        private static bool HandleSpecialSymbol(
+            char symbol,
+            Vector3Int cell,
+            Grid grid,
+            Transform mapObjectsRoot)
+        {
+            if (symbol != 'A' &&
+                symbol != 'D' &&
+                symbol != 'P')
+            {
+                return false;
+            }
+
+            Vector3 worldPosition =
+                grid != null
+                    ? grid.GetCellCenterWorld(cell)
+                    : (Vector3)cell;
+
+            switch (symbol)
+            {
+                case 'A':
+                    InstantiateBuilding(
+                        MapBuildingPrefabCreator.AltarPrefabPath,
+                        "Altar",
+                        worldPosition,
+                        mapObjectsRoot);
+                    return true;
+
+                case 'D':
+                    InstantiateBuilding(
+                        MapBuildingPrefabCreator.DungeonEntrancePrefabPath,
+                        "DungeonEntrance",
+                        worldPosition,
+                        mapObjectsRoot);
+                    return true;
+
+                case 'P':
+                    CreatePlayerSpawnPoint(
+                        worldPosition,
+                        mapObjectsRoot);
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static void InstantiateBuilding(
+            string prefabPath,
+            string objectName,
+            Vector3 worldPosition,
+            Transform parent)
+        {
+            GameObject prefab =
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    prefabPath);
+
+            if (prefab == null)
+            {
+                Debug.LogWarning(
+                    "[TilemapLayoutGenerator] 建築Prefabが見つかりません: " +
+                    prefabPath);
+                return;
+            }
+
+            GameObject instance =
+                PrefabUtility.InstantiatePrefab(
+                    prefab,
+                    parent) as GameObject;
+
+            if (instance == null)
+                return;
+
+            Undo.RegisterCreatedObjectUndo(
+                instance,
+                "Create " + objectName);
+
+            instance.name = objectName;
+            instance.transform.position =
+                worldPosition;
+        }
+
+        private static void CreatePlayerSpawnPoint(
+            Vector3 worldPosition,
+            Transform parent)
+        {
+            GameObject marker =
+                new GameObject("PlayerSpawnPoint");
+
+            Undo.RegisterCreatedObjectUndo(
+                marker,
+                "Create Player Spawn Point");
+
+            marker.transform.SetParent(
+                parent,
+                false);
+
+            marker.transform.position =
+                worldPosition;
+
+            PlayerController player =
+                UnityEngine.Object
+                    .FindFirstObjectByType<PlayerController>();
+
+            if (player != null)
+            {
+                Undo.RecordObject(
+                    player.transform,
+                    "Move Player To Map Spawn");
+
+                player.transform.position =
+                    worldPosition;
+            }
+        }
+
+        private static void EnsureBuildingUiRouter()
+        {
+            MapBuildingUIRouter existing =
+                UnityEngine.Object
+                    .FindFirstObjectByType<MapBuildingUIRouter>();
+
+            if (existing != null)
+                return;
+
+            GameObject routerObject =
+                new GameObject("MapBuildingUIRouter");
+
+            Undo.RegisterCreatedObjectUndo(
+                routerObject,
+                "Create Map Building UI Router");
+
+            routerObject.AddComponent<MapBuildingUIRouter>();
         }
 
         private static Dictionary<char, LegendEntry>
