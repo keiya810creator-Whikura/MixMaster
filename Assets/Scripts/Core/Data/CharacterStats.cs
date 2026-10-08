@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace MixMaster.Core
 {
@@ -16,14 +17,15 @@ namespace MixMaster.Core
     [Serializable]
     public class ElementResistanceSet
     {
-        public double fire;
-        public double water;
-        public double wind;
-        public double earth;
-        public double light;
-        public double dark;
+        // -10.0 = -1000%, 0.8 = 80% damage reduction.
+        public float fire;
+        public float water;
+        public float wind;
+        public float earth;
+        public float light;
+        public float dark;
 
-        public double Get(ElementType element)
+        public float Get(ElementType element)
         {
             switch (element)
             {
@@ -33,8 +35,23 @@ namespace MixMaster.Core
                 case ElementType.Earth: return earth;
                 case ElementType.Light: return light;
                 case ElementType.Dark: return dark;
-                default: return 0d;
+                default: return 0f;
             }
+        }
+
+        public void ClampAll()
+        {
+            fire = Clamp(fire);
+            water = Clamp(water);
+            wind = Clamp(wind);
+            earth = Clamp(earth);
+            light = Clamp(light);
+            dark = Clamp(dark);
+        }
+
+        public static float Clamp(float value)
+        {
+            return Mathf.Clamp(value, -10f, 0.8f);
         }
     }
 
@@ -42,13 +59,15 @@ namespace MixMaster.Core
     public class CharacterStats
     {
         public long maxHp = 100;
+        public long maxMp = 100;
+
         public long attack = 10;
         public long magic = 10;
         public long defense = 5;
         public long magicDefense = 5;
 
-        public double criticalRate = 0.05d;
-        public double criticalMultiplier = 1.5d;
+        public float criticalRate = 0.05f;
+        public float criticalMultiplier = 1.5f;
 
         public float moveSpeed = 5f;
         public float attackSpeed = 1f;
@@ -56,5 +75,9 @@ namespace MixMaster.Core
 
         public ElementType element = ElementType.None;
         public ElementResistanceSet resistances = new ElementResistanceSet();
+
+        // Only used by Player / allied monsters.
+        // Additive decimal rate: 1.0 = +100%, 2.0 = +200%.
+        public float dropRateBonus = 0f;
     }
 }
