@@ -215,19 +215,19 @@ namespace MixMaster.EditorTools
                         }
                     }
 
-                    if (layout.blockOuterBorder &&
-                        invisibleCollision != null &&
-                        IsOuterBorder(
-                            xIndex,
-                            rowIndex,
-                            layout.width,
-                            layout.height))
-                    {
-                        mapRoot.Collision.SetTile(
-                            cell,
-                            invisibleCollision);
-                    }
                 }
+            }
+
+            if (layout.blockOuterBorder &&
+                invisibleCollision != null)
+            {
+                PlaceOuterCollisionRing(
+                    mapRoot.Collision,
+                    invisibleCollision,
+                    originX,
+                    originY,
+                    layout.width,
+                    layout.height);
             }
 
             mapRoot.Ground.CompressBounds();
@@ -455,17 +455,48 @@ namespace MixMaster.EditorTools
             return null;
         }
 
-        private static bool IsOuterBorder(
-            int x,
-            int y,
+        private static void PlaceOuterCollisionRing(
+            Tilemap collisionMap,
+            TileBase collisionTile,
+            int originX,
+            int originY,
             int width,
             int height)
         {
-            return
-                x == 0 ||
-                y == 0 ||
-                x == width - 1 ||
-                y == height - 1;
+            if (collisionMap == null ||
+                collisionTile == null)
+            {
+                return;
+            }
+
+            int left = originX - 1;
+            int right = originX + width;
+            int bottom = originY - 1;
+            int top = originY + height;
+
+            // Top / bottom: one full cell outside the visible map.
+            for (int x = left; x <= right; x++)
+            {
+                collisionMap.SetTile(
+                    new Vector3Int(x, bottom, 0),
+                    collisionTile);
+
+                collisionMap.SetTile(
+                    new Vector3Int(x, top, 0),
+                    collisionTile);
+            }
+
+            // Left / right: one full cell outside the visible map.
+            for (int y = originY; y < originY + height; y++)
+            {
+                collisionMap.SetTile(
+                    new Vector3Int(left, y, 0),
+                    collisionTile);
+
+                collisionMap.SetTile(
+                    new Vector3Int(right, y, 0),
+                    collisionTile);
+            }
         }
 
         private static void EnsureFolder(
