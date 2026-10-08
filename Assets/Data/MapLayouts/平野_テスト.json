@@ -1,0 +1,40 @@
+{
+  "mapName": "平野_テスト",
+  "width": 24,
+  "height": 18,
+  "defaultGroundTile": "平野_芝",
+  "blockOuterBorder": true,
+  "legend": [
+    { "symbol": "g", "tile": "平野_芝_一部禿", "layer": "Ground", "collision": false },
+    { "symbol": "v", "tile": "平野_通路_縦", "layer": "Ground", "collision": false },
+    { "symbol": "h", "tile": "平野_通路_横", "layer": "Ground", "collision": false },
+    { "symbol": "x", "tile": "平野_通路_十字", "layer": "Ground", "collision": false },
+    { "symbol": "1", "tile": "平野_池_左上", "layer": "Ground", "collision": true },
+    { "symbol": "2", "tile": "平野_池_右上", "layer": "Ground", "collision": true },
+    { "symbol": "3", "tile": "平野_池_左下", "layer": "Ground", "collision": true },
+    { "symbol": "4", "tile": "平野_池_右下", "layer": "Ground", "collision": true },
+    { "symbol": "w", "tile": "平野_水溜", "layer": "Ground", "collision": false },
+    { "symbol": "f", "tile": "平野_花", "layer": "Decoration", "collision": false },
+    { "symbol": "s", "tile": "平野_切り株", "layer": "Decoration", "collision": true }
+  ],
+  "rows": [
+    "........................",
+    "...........v............",
+    "...g....f..v..g....g....",
+    "....w.s....v...s.12.....",
+    "..f........v..f..34..f..",
+    ".....f.g...v............",
+    "...s.......v....f...g...",
+    "...........v............",
+    "...........v........s...",
+    ".hhhhhhhhhhxhhhhhhhhhhh.",
+    "...........v............",
+    "......f....v............",
+    "...f...s...v.....s......",
+    ".....g.....v..f.....w...",
+    "........f..v......f.....",
+    "..g........v..sg.....f..",
+    "...........v............",
+    "........................"
+  ]
+}
