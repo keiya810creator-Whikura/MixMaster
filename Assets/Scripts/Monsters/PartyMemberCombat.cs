@@ -91,6 +91,7 @@ namespace MixMaster.Monsters
         private EnemyHealth currentTarget;
 
         private long currentHp;
+        private long currentMp;
         private bool isAlive = true;
         private float attackGauge;
         private float targetRefreshTimer;
@@ -109,6 +110,8 @@ namespace MixMaster.Monsters
 
         public CharacterStats Stats => stats;
         public long CurrentHp => currentHp;
+        public long CurrentMp => currentMp;
+        public float DropRateBonus => Mathf.Max(0f, stats.dropRateBonus);
         public bool IsAlive => isAlive;
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
@@ -116,6 +119,7 @@ namespace MixMaster.Monsters
         public PartyAttackStyle AttackStyle => attackStyle;
 
         public event Action<long, long> HpChanged;
+        public event Action<long, long> MpChanged;
         public event Action Died;
 
         private void Awake()
@@ -130,6 +134,7 @@ namespace MixMaster.Monsters
                 originalColor = spriteRenderer.color;
 
             currentHp = Math.Max(1L, stats.maxHp);
+            currentMp = Math.Max(0L, stats.maxMp);
             isAlive = true;
 
             ConfigureSlider(hpSlider);
@@ -593,6 +598,43 @@ namespace MixMaster.Monsters
             HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
         }
 
+        public void RestoreFullMp()
+        {
+            currentMp = Math.Max(0L, stats.maxMp);
+            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+        }
+
+        public void RestoreFullResources()
+        {
+            RestoreFullHp();
+            RestoreFullMp();
+        }
+
+        public bool TrySpendMp(long amount)
+        {
+            if (amount <= 0L)
+                return true;
+
+            if (currentMp < amount)
+                return false;
+
+            currentMp -= amount;
+            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            return true;
+        }
+
+        public void RecoverMp(long amount)
+        {
+            if (amount <= 0L || currentMp >= stats.maxMp)
+                return;
+
+            currentMp = Math.Min(
+                Math.Max(0L, stats.maxMp),
+                LongMath.SaturatingAdd(currentMp, amount));
+
+            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+        }
+
         private void Die()
         {
             if (!isAlive)
@@ -819,6 +861,7 @@ namespace MixMaster.Monsters
         private void OnValidate()
         {
             stats.maxHp = Math.Max(1L, stats.maxHp);
+            stats.maxMp = Math.Max(0L, stats.maxMp);
             stats.attack = Math.Max(1L, stats.attack);
             stats.defense = Math.Max(0L, stats.defense);
             stats.attackSpeed = Mathf.Max(0.1f, stats.attackSpeed);
