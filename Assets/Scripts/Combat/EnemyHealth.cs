@@ -14,6 +14,7 @@ namespace MixMaster.Combat
 
         [Header("Stats")]
         [SerializeField, Min(1)] private long maxHp = 50;
+        [SerializeField, Min(0)] private long maxMp = 50;
         [SerializeField, Min(0)] private long defense = 0;
         [SerializeField, Min(0)] private long magicDefense = 0;
 
@@ -33,12 +34,15 @@ namespace MixMaster.Combat
         public static IReadOnlyList<EnemyHealth> ActiveEnemies => activeEnemies;
 
         public long MaxHp => maxHp;
+        public long MaxMp => maxMp;
         public long CurrentHp { get; private set; }
+        public long CurrentMp { get; private set; }
         public long Defense => defense;
         public long MagicDefense => magicDefense;
         public bool IsAlive { get; private set; }
 
         public event Action<EnemyHealth, long> Damaged;
+        public event Action<long, long> MpChanged;
         public event Action<EnemyHealth> Died;
 
         private void Awake()
@@ -53,6 +57,7 @@ namespace MixMaster.Combat
             wanderAI = GetComponent<EnemyWanderAI>();
 
             CurrentHp = maxHp;
+            CurrentMp = maxMp;
             IsAlive = true;
         }
 
@@ -63,6 +68,10 @@ namespace MixMaster.Combat
 
             if (CurrentHp <= 0)
                 CurrentHp = maxHp;
+
+            CurrentMp = Math.Min(Math.Max(0L, CurrentMp), maxMp);
+            if (CurrentMp <= 0L)
+                CurrentMp = maxMp;
 
             IsAlive = true;
             WorldUIManager.TryRegisterEnemy(this);
@@ -135,6 +144,37 @@ namespace MixMaster.Combat
                 CurrentHp = Math.Min(CurrentHp, maxHp);
         }
 
+        public bool TrySpendMp(long amount)
+        {
+            if (!IsAlive || amount <= 0L)
+                return amount <= 0L;
+
+            if (CurrentMp < amount)
+                return false;
+
+            CurrentMp -= amount;
+            MpChanged?.Invoke(CurrentMp, maxMp);
+            return true;
+        }
+
+        public void RecoverMp(long amount)
+        {
+            if (!IsAlive || amount <= 0L || CurrentMp >= maxMp)
+                return;
+
+            CurrentMp = Math.Min(
+                maxMp,
+                LongMath.SaturatingAdd(CurrentMp, amount));
+
+            MpChanged?.Invoke(CurrentMp, maxMp);
+        }
+
+        public void RestoreFullMp()
+        {
+            CurrentMp = maxMp;
+            MpChanged?.Invoke(CurrentMp, maxMp);
+        }
+
         private IEnumerator HitFlashRoutine()
         {
             spriteRenderer.color = hitFlashColor;
@@ -205,6 +245,7 @@ namespace MixMaster.Combat
         private void OnValidate()
         {
             maxHp = Math.Max(1L, maxHp);
+            maxMp = Math.Max(0L, maxMp);
             defense = Math.Max(0L, defense);
             magicDefense = Math.Max(0L, magicDefense);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
