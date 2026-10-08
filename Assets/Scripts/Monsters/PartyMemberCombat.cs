@@ -355,7 +355,9 @@ namespace MixMaster.Monsters
                     Mathf.Max(1f, (float)stats.criticalMultiplier));
             }
 
-            target.TakePhysicalHit(attackPower);
+            target.TakePhysicalHit(
+                attackPower,
+                CreateDropSourceInfo());
 
             if (slashRoutine != null)
                 StopCoroutine(slashRoutine);
@@ -378,7 +380,10 @@ namespace MixMaster.Monsters
                     "Applying magic damage directly as fallback.",
                     this);
 
-                target.TakeMagicHit(magicPower);
+                target.TakeMagicHit(
+                    magicPower,
+                    CreateDropSourceInfo());
+
                 return;
             }
 
@@ -410,7 +415,20 @@ namespace MixMaster.Monsters
                 magicPower,
                 projectileSpeed,
                 projectileLifetime,
-                projectileHoming);
+                projectileHoming,
+                CreateDropSourceInfo());
+        }
+
+        private MaterialDropSourceInfo CreateDropSourceInfo()
+        {
+            int followOrder =
+                follower != null
+                    ? follower.FollowOrder
+                    : 0;
+
+            return MaterialDropSourceInfo.Party(
+                followOrder,
+                DropRateBonus);
         }
 
         private EnemyHealth FindNearestTarget()
