@@ -20,6 +20,10 @@ namespace MixMaster.Core
         [TextArea(2, 5)] public string description;
         public Sprite icon;
 
+        [Header("Visual")]
+        [Tooltip("World sprite used by the shared enemy/party prefabs.")]
+        public Sprite sprite;
+
         [Header("Prefabs")]
         public GameObject enemyPrefab;
         public GameObject partyPrefab;
