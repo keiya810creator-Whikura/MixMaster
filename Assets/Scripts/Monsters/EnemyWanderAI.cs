@@ -88,6 +88,11 @@ namespace MixMaster.Monsters
                 spriteRenderer.flipX = delta.x < 0f;
         }
 
+        public void SetMoveSpeed(float speed)
+        {
+            moveSpeed = Mathf.Max(0.1f, speed);
+        }
+
         public void SetHome(Vector2 worldPosition)
         {
             homePosition = worldPosition;
