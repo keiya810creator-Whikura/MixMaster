@@ -241,10 +241,10 @@ namespace MixMaster.Core
                     titleBonus.wind +
                     equipmentBonus.wind,
 
-                earth =
-                    baseResistances.earth +
-                    titleBonus.earth +
-                    equipmentBonus.earth,
+                lightning =
+                    baseResistances.lightning +
+                    titleBonus.lightning +
+                    equipmentBonus.lightning,
 
                 light =
                     baseResistances.light +
