@@ -100,7 +100,7 @@ namespace MixMaster.Core
             resistanceBonus.fire += other.resistanceBonus.fire;
             resistanceBonus.water += other.resistanceBonus.water;
             resistanceBonus.wind += other.resistanceBonus.wind;
-            resistanceBonus.earth += other.resistanceBonus.earth;
+            resistanceBonus.lightning += other.resistanceBonus.lightning;
             resistanceBonus.light += other.resistanceBonus.light;
             resistanceBonus.dark += other.resistanceBonus.dark;
         }
