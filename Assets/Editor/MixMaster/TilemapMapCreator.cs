@@ -11,6 +11,11 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/Map/Tilemapマップ土台を作成")]
         public static void CreateTilemapMapRoot()
         {
+            CreateMapRoot();
+        }
+
+        public static TilemapMapRoot CreateMapRoot()
+        {
             GameObject root =
                 new GameObject(
                     GameObjectUtility.GetUniqueNameForSibling(
@@ -71,6 +76,8 @@ namespace MixMaster.EditorTools
                 "[TilemapMapCreator] Tilemapマップ土台を作成しました。 " +
                 "Window > 2D > Tile Palette を開き、Groundから塗ってみてください。",
                 root);
+
+            return mapRoot;
         }
 
         private static Tilemap CreateLayer(
