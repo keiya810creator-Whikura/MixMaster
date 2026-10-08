@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace MixMaster.Core
 {
@@ -9,7 +10,7 @@ namespace MixMaster.Core
         Fire,
         Water,
         Wind,
-        Earth,
+        Lightning,
         Light,
         Dark
     }
@@ -21,7 +22,8 @@ namespace MixMaster.Core
         public float fire;
         public float water;
         public float wind;
-        public float earth;
+        [FormerlySerializedAs("earth")]
+        public float lightning;
         public float light;
         public float dark;
 
@@ -32,7 +34,7 @@ namespace MixMaster.Core
                 case ElementType.Fire: return fire;
                 case ElementType.Water: return water;
                 case ElementType.Wind: return wind;
-                case ElementType.Earth: return earth;
+                case ElementType.Lightning: return lightning;
                 case ElementType.Light: return light;
                 case ElementType.Dark: return dark;
                 default: return 0f;
@@ -44,7 +46,7 @@ namespace MixMaster.Core
             fire = Clamp(fire);
             water = Clamp(water);
             wind = Clamp(wind);
-            earth = Clamp(earth);
+            lightning = Clamp(lightning);
             light = Clamp(light);
             dark = Clamp(dark);
         }
