@@ -42,7 +42,8 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
         [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
         [SerializeField] private bool projectileHoming = true;
-        [SerializeField, Range(0.55f, 0.95f)] private float rangedPositionRadiusRatio = 0.82f;
+        [Tooltip("Legacy value kept for existing prefabs. Ranged spacing is now automatically 2x melee spacing.")]
+        [SerializeField, HideInInspector] private float rangedPositionRadiusRatio = 0.82f;
 
         [Header("Stats")]
         [SerializeField] private CharacterStats stats = new CharacterStats();
@@ -65,8 +66,8 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0.1f)] private float combatMoveSpeedMultiplier = 1.15f;
         [Tooltip("Distance from the assigned fixed attack slot considered close enough.")]
         [SerializeField, Min(0.01f)] private float attackSlotArrivalDistance = 0.18f;
-        [Tooltip("How far from the enemy each ally tries to stand, as a ratio of attack range.")]
-        [SerializeField, Range(0.35f, 0.9f)] private float attackPositionRadiusRatio = 0.72f;
+        [Tooltip("Base spacing ratio. Melee stands at half of this value, Ranged stands at twice the melee distance.")]
+        [SerializeField, Range(0.2f, 0.9f)] private float attackPositionRadiusRatio = 0.72f;
 
         [Header("Attack Lunge")]
         [SerializeField, Min(0f)] private float lungeDistance = 0.16f;
@@ -261,14 +262,23 @@ namespace MixMaster.Monsters
                 return body != null ? body.position : (Vector2)transform.position;
 
             Vector2 enemyPosition = target.transform.position;
-            float attackRange = GetEffectiveAttackRange();
 
-            float radiusRatio = attackStyle == PartyAttackStyle.Ranged
-                ? rangedPositionRadiusRatio
-                : attackPositionRadiusRatio;
+            // Positioning distance is intentionally independent from the
+            // doubled ranged attack reach.
+            // Existing melee spacing was a bit too wide, so melee now uses
+            // half of the configured base ratio. Ranged stands at about
+            // twice that melee distance.
+            float baseAttackRange = Mathf.Max(0.1f, stats.attackRange);
+            float meleeRadius = Mathf.Max(
+                0.08f,
+                baseAttackRange * attackPositionRadiusRatio * 0.5f);
 
-            float radius = Mathf.Max(0.08f, attackRange * radiusRatio);
-            radius = Mathf.Min(radius, attackRange * 0.95f);
+            float radius = attackStyle == PartyAttackStyle.Ranged
+                ? meleeRadius * 2f
+                : meleeRadius;
+
+            float effectiveAttackRange = GetEffectiveAttackRange();
+            radius = Mathf.Min(radius, effectiveAttackRange * 0.9f);
 
             // The assigned side never rotates with the Player.
             // This prevents multiple allies from continuously chasing
@@ -822,8 +832,8 @@ namespace MixMaster.Monsters
             attackSlotArrivalDistance = Mathf.Max(0.01f, attackSlotArrivalDistance);
             projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
             projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
-            rangedPositionRadiusRatio =
-                Mathf.Clamp(rangedPositionRadiusRatio, 0.55f, 0.95f);
+            attackPositionRadiusRatio =
+                Mathf.Clamp(attackPositionRadiusRatio, 0.2f, 0.9f);
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
