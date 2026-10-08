@@ -27,8 +27,25 @@ namespace MixMaster.Core
         public string mapId;
         public string monsterId;
         public long donatedMaterial;
+
+        // Per-monster altar upgrades.
         public int spawnEfficiencyLevel;
         public int dropRateLevel;
+
+        // Unlocked after the relevant altar upgrade reaches max.
+        // 0 delay scale = immediate respawn, 1 = EnemySO base interval.
+        public bool postMaxRespawnEnabled = true;
+        public float postMaxRespawnDelayScale = 0f;
+
+        // 0..1 multiplier over the unlocked maximum monster-drop rate.
+        public float postMaxMonsterDropRateScale = 1f;
+    }
+
+    [Serializable]
+    public class MapAltarProgressRecord
+    {
+        public string mapId;
+        public long donatedDungeonMaterial;
         public int titledMonsterRateLevel;
     }
 
