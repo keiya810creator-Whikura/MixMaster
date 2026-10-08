@@ -183,7 +183,12 @@ namespace MixMaster.Combat
             if (UnityEngine.Random.value < GetCriticalRate())
                 attackPower = MultiplyLong(attackPower, GetCriticalMultiplier());
 
-            target.TakePhysicalHit(attackPower);
+            target.TakePhysicalHit(
+                attackPower,
+                MaterialDropSourceInfo.Player(
+                    playerManager != null
+                        ? playerManager.DropRateBonus
+                        : 0f));
 
             if (slashRoutine != null)
                 StopCoroutine(slashRoutine);
