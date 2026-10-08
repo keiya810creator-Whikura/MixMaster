@@ -1,11 +1,17 @@
 using System;
 using UnityEngine;
+using MixMaster.World;
 
 namespace MixMaster.Core
 {
     [DisallowMultipleComponent]
     public sealed class DropManager : MonoBehaviour
     {
+        private const string MaterialDropResourcePath =
+            "Prefabs/MaterialDrop";
+
+        private GameObject cachedMaterialDropPrefab;
+
         /// <summary>
         /// Generic 0..1 probability roll.
         /// </summary>
@@ -64,6 +70,90 @@ namespace MixMaster.Core
                 killerDropRateBonus);
 
             return RollQuantityFromRate(finalRate);
+        }
+
+        public void SpawnMaterialDrop(
+            MaterialSO material,
+            long quantity,
+            Vector3 worldPosition,
+            MaterialDropSourceInfo sourceInfo)
+        {
+            if (material == null || quantity <= 0L)
+                return;
+
+            GameObject prefab =
+                GetMaterialDropPrefab();
+
+            GameObject dropObject;
+
+            if (prefab != null)
+            {
+                dropObject =
+                    Instantiate(
+                        prefab,
+                        worldPosition,
+                        Quaternion.identity);
+            }
+            else
+            {
+                dropObject =
+                    CreateRuntimeFallbackDrop(
+                        worldPosition);
+            }
+
+            if (dropObject == null)
+                return;
+
+            dropObject.name =
+                "MaterialDrop_" +
+                (!string.IsNullOrWhiteSpace(material.materialId)
+                    ? material.materialId
+                    : material.name);
+
+            MaterialDropPickup pickup =
+                dropObject.GetComponent<MaterialDropPickup>();
+
+            if (pickup == null)
+            {
+                pickup =
+                    dropObject.AddComponent<MaterialDropPickup>();
+            }
+
+            pickup.Initialize(
+                material,
+                quantity,
+                sourceInfo);
+        }
+
+        private GameObject GetMaterialDropPrefab()
+        {
+            if (cachedMaterialDropPrefab != null)
+                return cachedMaterialDropPrefab;
+
+            cachedMaterialDropPrefab =
+                Resources.Load<GameObject>(
+                    MaterialDropResourcePath);
+
+            return cachedMaterialDropPrefab;
+        }
+
+        private static GameObject CreateRuntimeFallbackDrop(
+            Vector3 worldPosition)
+        {
+            GameObject drop =
+                new GameObject("MaterialDrop");
+
+            drop.transform.position =
+                worldPosition;
+
+            SpriteRenderer renderer =
+                drop.AddComponent<SpriteRenderer>();
+
+            renderer.sortingOrder = 40;
+
+            drop.AddComponent<MaterialDropPickup>();
+
+            return drop;
         }
 
         public long ApplyQuantityMultiplier(long baseAmount, double multiplier)
