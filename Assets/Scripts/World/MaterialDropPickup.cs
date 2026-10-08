@@ -244,16 +244,22 @@ namespace MixMaster.World
 
             CacheReferences();
 
-            inventory?.AddMaterial(
-                material,
-                quantity);
+            long actualAdded =
+                inventory != null
+                    ? inventory.AddMaterial(
+                        material,
+                        quantity)
+                    : 0L;
 
-            logUi?.AddMaterialLog(
-                material,
-                quantity,
-                sourceInfo != null
-                    ? sourceInfo.sourceType
-                    : MaterialDropSourceType.Unknown);
+            if (actualAdded > 0L)
+            {
+                logUi?.AddMaterialLog(
+                    material,
+                    actualAdded,
+                    sourceInfo != null
+                        ? sourceInfo.sourceType
+                        : MaterialDropSourceType.Unknown);
+            }
 
             Destroy(gameObject);
         }
