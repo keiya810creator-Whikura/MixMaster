@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using MixMaster.Monsters;
+using MixMaster.Core;
 
 namespace MixMaster.Combat
 {
@@ -17,11 +18,20 @@ namespace MixMaster.Combat
 
         [Header("Combat Stats")]
         [SerializeField, Min(1)] private long attack = 8;
+        [SerializeField, Min(1)] private long magic = 8;
         [SerializeField, Min(0.1f)] private float moveSpeed = 2.2f;
         [SerializeField, Min(0.1f)] private float attackRange = 0.9f;
         [SerializeField, Min(0.1f)] private float attackSpeed = 0.8f;
         [SerializeField, Range(0f, 1f)] private float criticalRate = 0.03f;
         [SerializeField, Min(1f)] private float criticalMultiplier = 1.5f;
+
+        [Header("Attack Style")]
+        [SerializeField] private MonsterAttackType attackType = MonsterAttackType.Melee;
+        [SerializeField] private GameObject projectilePrefab;
+        [SerializeField] private Transform projectileSpawnPoint;
+        [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
+        [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
+        [SerializeField] private bool projectileHoming = true;
 
         [Header("Movement")]
         [SerializeField, Range(0.5f, 1f)] private float stopRangeRatio = 0.85f;
@@ -64,6 +74,37 @@ namespace MixMaster.Combat
         public float DetectionRange => detectionRange;
         public float AttackRange => attackRange;
         public bool HasTarget => targetTransform != null;
+
+        public void ApplyMonsterData(
+            MonsterSO monster,
+            CharacterStats stats)
+        {
+            if (monster == null || stats == null)
+                return;
+
+            detectionRange = Mathf.Max(0.1f, monster.detectionRange);
+            loseTargetRange = Mathf.Max(
+                detectionRange,
+                detectionRange * 1.5f);
+
+            attack = Math.Max(1L, stats.attack);
+            magic = Math.Max(1L, stats.magic);
+            moveSpeed = Mathf.Max(0.1f, stats.moveSpeed);
+            attackRange = Mathf.Max(0.1f, stats.attackRange);
+            attackSpeed = Mathf.Max(0.1f, stats.attackSpeed);
+            criticalRate = Mathf.Clamp01(stats.criticalRate);
+            criticalMultiplier = Mathf.Max(1f, stats.criticalMultiplier);
+
+            attackType = monster.attackType;
+            projectilePrefab = monster.projectilePrefab;
+            projectileSpeed = Mathf.Max(0.1f, monster.projectileSpeed);
+            projectileLifetime = Mathf.Max(0.1f, monster.projectileLifetime);
+            projectileHoming = monster.projectileHoming;
+
+            targetRefreshTimer = 0f;
+            attackGauge = 0f;
+            ClearTarget();
+        }
 
         private void Awake()
         {
@@ -256,12 +297,31 @@ namespace MixMaster.Combat
 
         private void AttackTarget(Vector2 direction)
         {
+            if (attackType == MonsterAttackType.Ranged)
+            {
+                long magicPower = Math.Max(1L, magic);
+
+                if (UnityEngine.Random.value <
+                    Mathf.Clamp01(criticalRate))
+                {
+                    magicPower = MultiplyLong(
+                        magicPower,
+                        Mathf.Max(1f, criticalMultiplier));
+                }
+
+                FireMagicProjectile(magicPower);
+                return;
+            }
+
             long attackPower = Math.Max(1L, attack);
 
-            if (UnityEngine.Random.value < Mathf.Clamp01(criticalRate))
+            if (UnityEngine.Random.value <
+                Mathf.Clamp01(criticalRate))
+            {
                 attackPower = MultiplyLong(
                     attackPower,
                     Mathf.Max(1f, criticalMultiplier));
+            }
 
             if (playerTarget != null)
                 playerTarget.TakePhysicalHit(attackPower);
@@ -275,6 +335,61 @@ namespace MixMaster.Combat
 
             slashRoutine = StartCoroutine(PlaySlash(direction));
             StartAttackLunge(direction);
+        }
+
+        private void FireMagicProjectile(long magicPower)
+        {
+            if (playerTarget == null && partyTarget == null)
+                return;
+
+            if (projectilePrefab == null)
+            {
+                if (playerTarget != null)
+                    playerTarget.TakeMagicHit(magicPower);
+                else if (partyTarget != null)
+                    partyTarget.TakeMagicHit(magicPower);
+
+                return;
+            }
+
+            Vector3 spawnPosition =
+                projectileSpawnPoint != null
+                    ? projectileSpawnPoint.position
+                    : transform.position;
+
+            Quaternion spawnRotation =
+                projectileSpawnPoint != null
+                    ? projectileSpawnPoint.rotation
+                    : Quaternion.identity;
+
+            GameObject projectileObject =
+                Instantiate(
+                    projectilePrefab,
+                    spawnPosition,
+                    spawnRotation);
+
+            PartyMagicProjectile partyProjectile =
+                projectileObject.GetComponent<PartyMagicProjectile>();
+
+            if (partyProjectile != null)
+                partyProjectile.enabled = false;
+
+            EnemyMagicProjectile projectile =
+                projectileObject.GetComponent<EnemyMagicProjectile>();
+
+            if (projectile == null)
+            {
+                projectile =
+                    projectileObject.AddComponent<EnemyMagicProjectile>();
+            }
+
+            projectile.Initialize(
+                playerTarget,
+                partyTarget,
+                magicPower,
+                projectileSpeed,
+                projectileLifetime,
+                projectileHoming);
         }
 
         private void ClearTarget()
@@ -488,12 +603,16 @@ namespace MixMaster.Combat
                 Mathf.Max(0.02f, targetRefreshInterval);
 
             attack = Math.Max(1L, attack);
+            magic = Math.Max(1L, magic);
             moveSpeed = Mathf.Max(0.1f, moveSpeed);
             attackRange = Mathf.Max(0.1f, attackRange);
             attackSpeed = Mathf.Max(0.1f, attackSpeed);
 
             criticalMultiplier =
                 Mathf.Max(1f, criticalMultiplier);
+
+            projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
+            projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
 
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
