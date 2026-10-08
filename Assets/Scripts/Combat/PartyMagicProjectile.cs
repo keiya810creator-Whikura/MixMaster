@@ -1,4 +1,5 @@
 using UnityEngine;
+using MixMaster.Core;
 
 namespace MixMaster.Combat
 {
@@ -18,19 +19,28 @@ namespace MixMaster.Combat
         private float remainingLifetime;
         private Vector2 travelDirection;
         private bool initialized;
+        private MaterialDropSourceInfo sourceInfo =
+            MaterialDropSourceInfo.Unknown();
 
         public void Initialize(
             EnemyHealth newTarget,
             long newMagicPower,
             float newSpeed,
             float lifetime,
-            bool useHoming = true)
+            bool useHoming = true,
+            MaterialDropSourceInfo newSourceInfo = null)
         {
             target = newTarget;
             magicPower = System.Math.Max(1L, newMagicPower);
             speed = Mathf.Max(0.1f, newSpeed);
             remainingLifetime = Mathf.Max(0.1f, lifetime);
             homing = useHoming;
+
+            sourceInfo =
+                newSourceInfo != null
+                    ? newSourceInfo.Clone()
+                    : MaterialDropSourceInfo.Unknown();
+
             initialized = true;
 
             if (target != null)
@@ -79,7 +89,9 @@ namespace MixMaster.Combat
 
             if (toTarget.sqrMagnitude <= hitDistance * hitDistance)
             {
-                target.TakeMagicHit(magicPower);
+                target.TakeMagicHit(
+                    magicPower,
+                    sourceInfo);
                 Destroy(gameObject);
                 return;
             }
