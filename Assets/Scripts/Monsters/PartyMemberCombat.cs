@@ -63,12 +63,10 @@ namespace MixMaster.Monsters
         [Header("Combat Movement")]
         [Tooltip("Multiplier applied to the monster's moveSpeed while approaching an enemy.")]
         [SerializeField, Min(0.1f)] private float combatMoveSpeedMultiplier = 1.15f;
-        [Tooltip("Distance from the assigned attack slot considered close enough.")]
-        [SerializeField, Min(0.01f)] private float attackSlotArrivalDistance = 0.08f;
+        [Tooltip("Distance from the assigned fixed attack slot considered close enough.")]
+        [SerializeField, Min(0.01f)] private float attackSlotArrivalDistance = 0.18f;
         [Tooltip("How far from the enemy each ally tries to stand, as a ratio of attack range.")]
         [SerializeField, Range(0.35f, 0.9f)] private float attackPositionRadiusRatio = 0.72f;
-        [Tooltip("First ally flanks by this many degrees. Additional allies alternate left/right.")]
-        [SerializeField, Range(10f, 80f)] private float attackSlotAngleStep = 55f;
 
         [Header("Attack Lunge")]
         [SerializeField, Min(0f)] private float lungeDistance = 0.16f;
@@ -218,7 +216,7 @@ namespace MixMaster.Monsters
             Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
             float slotDistance = Vector2.Distance(transform.position, attackPosition);
 
-            if (slotDistance > attackSlotArrivalDistance)
+            if (slotDistance > GetAttackSlotTolerance())
                 return;
 
             follower.StopCombatMovement();
@@ -239,17 +237,22 @@ namespace MixMaster.Monsters
             Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
             float distanceToSlot = Vector2.Distance(body.position, attackPosition);
 
-            if (distanceToSlot <= attackSlotArrivalDistance)
+            float slotTolerance = GetAttackSlotTolerance();
+
+            if (distanceToSlot <= slotTolerance)
             {
                 follower.StopCombatMovement();
                 return;
             }
 
-            float moveSpeed = Mathf.Max(0.1f, stats.moveSpeed) * combatMoveSpeedMultiplier;
+            float moveSpeed =
+                Mathf.Max(0.1f, stats.moveSpeed) *
+                combatMoveSpeedMultiplier;
+
             follower.MoveForCombat(
                 attackPosition,
                 moveSpeed,
-                attackSlotArrivalDistance);
+                slotTolerance);
         }
 
         private Vector2 GetDesiredAttackPosition(EnemyHealth target)
@@ -259,6 +262,7 @@ namespace MixMaster.Monsters
 
             Vector2 enemyPosition = target.transform.position;
             float attackRange = GetEffectiveAttackRange();
+
             float radiusRatio = attackStyle == PartyAttackStyle.Ranged
                 ? rangedPositionRadiusRatio
                 : attackPositionRadiusRatio;
@@ -266,31 +270,38 @@ namespace MixMaster.Monsters
             float radius = Mathf.Max(0.08f, attackRange * radiusRatio);
             radius = Mathf.Min(radius, attackRange * 0.95f);
 
-            Vector2 baseDirection = Vector2.down;
+            // The assigned side never rotates with the Player.
+            // This prevents multiple allies from continuously chasing
+            // moving/flipping attack slots around the same enemy.
+            Vector2 slotDirection =
+                GetFixedAttackSlotDirection(follower.FollowOrder);
 
-            if (playerTransform != null)
-            {
-                baseDirection = (Vector2)playerTransform.position - enemyPosition;
-
-                if (baseDirection.sqrMagnitude > 0.0001f)
-                    baseDirection.Normalize();
-                else
-                    baseDirection = Vector2.down;
-            }
-
-            float baseAngle = Mathf.Atan2(baseDirection.y, baseDirection.x) * Mathf.Rad2Deg;
-            float slotOffset = GetSlotAngleOffset(follower.FollowOrder);
-            float angle = (baseAngle + slotOffset) * Mathf.Deg2Rad;
-
-            Vector2 slotDirection = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
             return enemyPosition + slotDirection * radius;
         }
 
-        private float GetSlotAngleOffset(int order)
+        private static Vector2 GetFixedAttackSlotDirection(int followOrder)
         {
-            int pairIndex = order / 2;
-            float magnitude = attackSlotAngleStep * (pairIndex + 1);
-            return order % 2 == 0 ? magnitude : -magnitude;
+            // Party order:
+            // 0 = Left, 1 = Down, 2 = Right, 3 = Up.
+            // Extra members use fixed diagonal positions.
+            switch (Mathf.Abs(followOrder) % 8)
+            {
+                case 0: return Vector2.left;
+                case 1: return Vector2.down;
+                case 2: return Vector2.right;
+                case 3: return Vector2.up;
+                case 4: return new Vector2(-1f, -1f).normalized;
+                case 5: return new Vector2(1f, -1f).normalized;
+                case 6: return new Vector2(1f, 1f).normalized;
+                default: return new Vector2(-1f, 1f).normalized;
+            }
+        }
+
+        private float GetAttackSlotTolerance()
+        {
+            // A small minimum tolerance prevents allies from endlessly
+            // correcting their position by tiny amounts.
+            return Mathf.Max(0.18f, attackSlotArrivalDistance);
         }
 
         private void Attack(EnemyHealth target)
