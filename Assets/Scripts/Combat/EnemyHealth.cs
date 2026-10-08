@@ -31,6 +31,8 @@ namespace MixMaster.Combat
         private Color originalColor = Color.white;
         private Vector3 originalScale;
         private EnemyWanderAI wanderAI;
+        private MaterialDropSourceInfo lastHitSource =
+            MaterialDropSourceInfo.Unknown();
 
         public static IReadOnlyList<EnemyHealth> ActiveEnemies => activeEnemies;
 
@@ -41,6 +43,10 @@ namespace MixMaster.Combat
         public long Defense => defense;
         public long MagicDefense => magicDefense;
         public bool IsAlive { get; private set; }
+        public MaterialDropSourceInfo LastHitSource =>
+            lastHitSource != null
+                ? lastHitSource.Clone()
+                : MaterialDropSourceInfo.Unknown();
 
         public event Action<EnemyHealth, long> Damaged;
         public event Action<long, long> MpChanged;
@@ -75,6 +81,9 @@ namespace MixMaster.Combat
                 CurrentMp = maxMp;
 
             IsAlive = true;
+            lastHitSource =
+                MaterialDropSourceInfo.Unknown();
+
             WorldUIManager.TryRegisterEnemy(this);
         }
 
@@ -86,32 +95,72 @@ namespace MixMaster.Combat
 
         public long TakePhysicalHit(long attackPower)
         {
+            return TakePhysicalHit(
+                attackPower,
+                null);
+        }
+
+        public long TakePhysicalHit(
+            long attackPower,
+            MaterialDropSourceInfo sourceInfo)
+        {
             if (!IsAlive || attackPower <= 0)
                 return 0;
 
             long damage = attackPower - defense;
+
             if (damage < 1)
                 damage = 1;
 
-            return TakeDamage(damage);
+            return TakeDamage(
+                damage,
+                sourceInfo);
         }
 
         public long TakeMagicHit(long magicPower)
         {
+            return TakeMagicHit(
+                magicPower,
+                null);
+        }
+
+        public long TakeMagicHit(
+            long magicPower,
+            MaterialDropSourceInfo sourceInfo)
+        {
             if (!IsAlive || magicPower <= 0)
                 return 0;
 
-            long damage = magicPower - magicDefense;
+            long damage =
+                magicPower - magicDefense;
+
             if (damage < 1)
                 damage = 1;
 
-            return TakeDamage(damage);
+            return TakeDamage(
+                damage,
+                sourceInfo);
         }
 
         public long TakeDamage(long damage)
         {
+            return TakeDamage(
+                damage,
+                null);
+        }
+
+        public long TakeDamage(
+            long damage,
+            MaterialDropSourceInfo sourceInfo)
+        {
             if (!IsAlive || damage <= 0)
                 return 0;
+
+            if (sourceInfo != null)
+            {
+                lastHitSource =
+                    sourceInfo.Clone();
+            }
 
             long actualDamage = Math.Min(CurrentHp, damage);
             CurrentHp -= actualDamage;
