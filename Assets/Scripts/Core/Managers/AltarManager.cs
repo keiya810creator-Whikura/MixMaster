@@ -111,7 +111,10 @@ namespace MixMaster.Core
                 GetOrCreateMonster(mapId, monsterId);
 
             record.spawnEfficiencyLevel =
-                Mathf.Max(0, level);
+                Mathf.Clamp(
+                    level,
+                    0,
+                    AltarBalance.SpawnEfficiencyMaxLevel);
 
             AltarProgressChanged?.Invoke(record);
         }
@@ -125,7 +128,10 @@ namespace MixMaster.Core
                 GetOrCreateMonster(mapId, monsterId);
 
             record.dropRateLevel =
-                Mathf.Max(0, level);
+                Mathf.Clamp(
+                    level,
+                    0,
+                    AltarBalance.MonsterDropRateMaxLevel);
 
             AltarProgressChanged?.Invoke(record);
         }
@@ -157,6 +163,23 @@ namespace MixMaster.Core
             int level)
         {
             SetMapTitledMonsterRateLevel(mapId, level);
+        }
+
+        public float GetMonsterBodyDropRate(
+            string mapId,
+            MonsterSO monster)
+        {
+            if (monster == null)
+                return 0f;
+
+            AltarProgressRecord record =
+                GetOrCreateMonster(
+                    mapId,
+                    monster.monsterId);
+
+            return AltarBalance.GetMonsterBodyDropRate(
+                monster,
+                record);
         }
 
         public void SetPostMaxRespawnControl(
