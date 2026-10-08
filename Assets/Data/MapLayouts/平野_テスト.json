@@ -5,17 +5,72 @@
   "defaultGroundTile": "平野_芝",
   "blockOuterBorder": true,
   "legend": [
-    { "symbol": "g", "tile": "平野_芝_一部禿", "layer": "Ground", "collision": false },
-    { "symbol": "v", "tile": "平野_通路_縦", "layer": "Ground", "collision": false },
-    { "symbol": "h", "tile": "平野_通路_横", "layer": "Ground", "collision": false },
-    { "symbol": "x", "tile": "平野_通路_十字", "layer": "Ground", "collision": false },
-    { "symbol": "1", "tile": "平野_池_左上", "layer": "Ground", "collision": true },
-    { "symbol": "2", "tile": "平野_池_右上", "layer": "Ground", "collision": true },
-    { "symbol": "3", "tile": "平野_池_左下", "layer": "Ground", "collision": true },
-    { "symbol": "4", "tile": "平野_池_右下", "layer": "Ground", "collision": true },
-    { "symbol": "w", "tile": "平野_水溜", "layer": "Ground", "collision": false },
-    { "symbol": "f", "tile": "平野_花", "layer": "Decoration", "collision": false },
-    { "symbol": "s", "tile": "平野_切り株", "layer": "Decoration", "collision": true }
+    {
+      "symbol": "g",
+      "tile": "平野_芝_一部禿",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "v",
+      "tile": "平野_通路_縦",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "h",
+      "tile": "平野_通路_横",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "x",
+      "tile": "平野_通路_十字",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "1",
+      "tile": "平野_池_左上",
+      "layer": "Ground",
+      "collision": true
+    },
+    {
+      "symbol": "2",
+      "tile": "平野_池_右上",
+      "layer": "Ground",
+      "collision": true
+    },
+    {
+      "symbol": "3",
+      "tile": "平野_池_左下",
+      "layer": "Ground",
+      "collision": true
+    },
+    {
+      "symbol": "4",
+      "tile": "平野_池_右下",
+      "layer": "Ground",
+      "collision": true
+    },
+    {
+      "symbol": "w",
+      "tile": "平野_水溜",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "f",
+      "tile": "平野_花",
+      "layer": "Decoration",
+      "collision": false
+    },
+    {
+      "symbol": "s",
+      "tile": "平野_切り株",
+      "layer": "Decoration",
+      "collision": true
+    }
   ],
   "rows": [
     "........................................",
@@ -24,7 +79,7 @@
     ".....f..........f...v..........f........",
     "...........s........v...................",
     "..............w.....v..............g....",
-    "....................v.......s...........",
+    "....................v.......s...D.......",
     "...f................v....w..............",
     "......12............v...................",
     "......34......g.....v...................",
@@ -42,7 +97,7 @@
     "....................v............w......",
     ".....g..............v...................",
     "....................v....s..............",
-    "............g.......v................f..",
+    "............g..A....v................f..",
     "....................v...................",
     ".hhhhhhhhhhhhhhhhhhhxhhhhhhhhhhhhhhhhhh.",
     "....................v...................",
@@ -65,7 +120,7 @@
     "....................v.....s.............",
     ".........g..........v...................",
     "....f...............v.............w.....",
-    "..................f.v.......g.f.........",
+    "..................f.P.......g.f.........",
     "....................v...................",
     "........................................"
   ]
