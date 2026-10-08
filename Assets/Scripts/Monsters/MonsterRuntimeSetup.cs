@@ -23,6 +23,7 @@ namespace MixMaster.Monsters
         private EnemyHealth enemyHealth;
         private EnemyCombatAI enemyCombatAI;
         private EnemyWanderAI wanderAI;
+        private EnemyMaterialDropController materialDropController;
         private bool initialized;
 
         public MonsterSO Definition => monsterDefinition;
@@ -128,6 +129,12 @@ namespace MixMaster.Monsters
                 wanderAI.SetMoveSpeed(
                     CurrentStats.moveSpeed);
             }
+
+            if (materialDropController != null)
+            {
+                materialDropController.Configure(
+                    monsterDefinition);
+            }
         }
 
         private void CacheComponents()
@@ -152,6 +159,15 @@ namespace MixMaster.Monsters
 
             wanderAI =
                 GetComponent<EnemyWanderAI>();
+
+            materialDropController =
+                GetComponent<EnemyMaterialDropController>();
+
+            if (materialDropController == null)
+            {
+                materialDropController =
+                    gameObject.AddComponent<EnemyMaterialDropController>();
+            }
         }
 
 #if UNITY_EDITOR
