@@ -32,6 +32,14 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text equipmentText;
         [SerializeField] private Button closeButton;
 
+        [Header("Party")]
+        [SerializeField] private Button partyButton;
+        [SerializeField] private TMP_Text partyButtonText;
+        [SerializeField] private TMP_Text partyStatusText;
+
+        private MonsterManager monsterManager;
+        private bool partySubscribed;
+
         private OwnedMonsterRecord selectedRecord;
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
@@ -43,6 +51,9 @@ namespace MixMaster.UI
             if (closeButton != null)
                 closeButton.onClick.AddListener(Hide);
 
+            if (partyButton != null)
+                partyButton.onClick.AddListener(ToggleParty);
+
             if (individualValuesToggle != null)
             {
                 individualValuesToggle.onValueChanged.AddListener(
@@ -50,10 +61,25 @@ namespace MixMaster.UI
             }
         }
 
+        private void OnEnable()
+        {
+            SubscribeParty();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeParty();
+        }
+
         private void OnDestroy()
         {
+            UnsubscribeParty();
+
             if (closeButton != null)
                 closeButton.onClick.RemoveListener(Hide);
+
+            if (partyButton != null)
+                partyButton.onClick.RemoveListener(ToggleParty);
 
             if (individualValuesToggle != null)
             {
@@ -71,6 +97,7 @@ namespace MixMaster.UI
                 return;
 
             selectedRecord = record;
+            SubscribeParty();
             catalog = monsterCatalog != null
                 ? monsterCatalog
                 : MonsterCatalogSO.Load();
@@ -203,6 +230,83 @@ namespace MixMaster.UI
 
             SetText(equipmentText,
                 FormatEquipment(selectedRecord));
+
+            RefreshPartyControls();
+        }
+
+        private void SubscribeParty()
+        {
+            if (monsterManager == null)
+                monsterManager = FindFirstObjectByType<MonsterManager>();
+
+            if (monsterManager == null || partySubscribed)
+                return;
+
+            monsterManager.PartyChanged += HandlePartyChanged;
+            partySubscribed = true;
+        }
+
+        private void UnsubscribeParty()
+        {
+            if (!partySubscribed)
+                return;
+
+            if (monsterManager != null)
+                monsterManager.PartyChanged -= HandlePartyChanged;
+
+            partySubscribed = false;
+        }
+
+        private void HandlePartyChanged()
+        {
+            RefreshPartyControls();
+        }
+
+        private void ToggleParty()
+        {
+            if (selectedRecord == null)
+                return;
+
+            SubscribeParty();
+
+            if (monsterManager == null)
+                return;
+
+            bool alreadyMember =
+                monsterManager.PartyMonsterUniqueIds.Contains(
+                    selectedRecord.uniqueId);
+
+            if (alreadyMember)
+                monsterManager.RemoveFromParty(selectedRecord.uniqueId);
+            else
+                monsterManager.AddToParty(selectedRecord.uniqueId);
+
+            RefreshPartyControls();
+        }
+
+        private void RefreshPartyControls()
+        {
+            if (monsterManager == null)
+            {
+                if (partyButton != null)
+                    partyButton.interactable = false;
+
+                SetText(partyStatusText, "編成情報を取得できません");
+                SetText(partyButtonText, "編成する");
+                return;
+            }
+
+            int current = monsterManager.PartyMonsterUniqueIds.Count;
+            int max = monsterManager.MaxPartySize;
+            bool selected = selectedRecord != null &&
+                monsterManager.PartyMonsterUniqueIds.Contains(
+                    selectedRecord.uniqueId);
+
+            SetText(partyStatusText, "パーティ " + current + "/" + max);
+            SetText(partyButtonText, selected ? "編成から外す" : "パーティに編成");
+
+            if (partyButton != null)
+                partyButton.interactable = selected || current < max;
         }
 
         private void HandleModeChanged(bool showIvs)
@@ -395,5 +499,8 @@ namespace MixMaster.UI
         public void SetDisplayModeText(TMP_Text value) => displayModeText = value;
         public void SetIndividualValuesToggle(Toggle value) => individualValuesToggle = value;
         public void SetCloseButton(Button value) => closeButton = value;
+        public void SetPartyButton(Button value) => partyButton = value;
+        public void SetPartyButtonText(TMP_Text value) => partyButtonText = value;
+        public void SetPartyStatusText(TMP_Text value) => partyStatusText = value;
     }
 }
