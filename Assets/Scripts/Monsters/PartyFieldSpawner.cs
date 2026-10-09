@@ -194,6 +194,9 @@ namespace MixMaster.Monsters
                     actorsRoot.transform)
                 : CreateFallbackActor(spawnPosition, actorsRoot.transform);
 
+            // Allies always use the same display scale regardless of prefab.
+            actor.transform.localScale = Vector3.one * 0.25f;
+
             actor.name = "Party_" + (order + 1) + "_" +
                 (!string.IsNullOrWhiteSpace(monster.displayName)
                     ? monster.displayName
