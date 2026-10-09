@@ -15,6 +15,13 @@ namespace MixMaster.Core
         public bool IsRecording { get; private set; }
         public OfflineRecordProfile LastCompletedProfile { get; private set; }
 
+        public void RestoreLastCompletedProfile(OfflineRecordProfile profile)
+        {
+            LastCompletedProfile = profile;
+            recordingProfile = null;
+            IsRecording = false;
+        }
+
         public void BeginRecording(string mapId)
         {
             recordingProfile = new OfflineRecordProfile
