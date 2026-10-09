@@ -10,6 +10,12 @@ namespace MixMaster.Core
 
         public event Action<string> MapChanged;
 
+        public void RestoreMapId(string mapId)
+        {
+            CurrentMapId = mapId ?? string.Empty;
+            MapChanged?.Invoke(CurrentMapId);
+        }
+
         public void EnterMap(string mapId)
         {
             CurrentMapId = mapId ?? string.Empty;
