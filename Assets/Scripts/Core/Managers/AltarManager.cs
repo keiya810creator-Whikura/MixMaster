@@ -20,6 +20,57 @@ namespace MixMaster.Core
         public event Action<AltarProgressRecord> AltarProgressChanged;
         public event Action<MapAltarProgressRecord> MapAltarProgressChanged;
 
+        public void RestoreAltars(
+            IReadOnlyList<AltarProgressRecord> savedMonsters,
+            IReadOnlyList<MapAltarProgressRecord> savedMaps)
+        {
+            monsterRecords.Clear();
+            mapRecords.Clear();
+
+            if (savedMonsters != null)
+            {
+                for (int i = 0; i < savedMonsters.Count; i++)
+                {
+                    AltarProgressRecord record = savedMonsters[i];
+                    if (record == null)
+                        continue;
+
+                    record.spawnEfficiencyLevel = Mathf.Clamp(
+                        record.spawnEfficiencyLevel, 0,
+                        AltarBalance.SpawnEfficiencyMaxLevel);
+                    record.dropRateLevel = Mathf.Clamp(
+                        record.dropRateLevel, 0,
+                        AltarBalance.MonsterDropRateMaxLevel);
+                    record.postMaxRespawnDelayScale =
+                        Mathf.Clamp01(record.postMaxRespawnDelayScale);
+                    record.postMaxMonsterDropRateScale =
+                        Mathf.Clamp01(record.postMaxMonsterDropRateScale);
+
+                    monsterRecords.Add(record);
+                }
+            }
+
+            if (savedMaps != null)
+            {
+                for (int i = 0; i < savedMaps.Count; i++)
+                {
+                    MapAltarProgressRecord record = savedMaps[i];
+                    if (record == null)
+                        continue;
+
+                    record.titledMonsterRateLevel =
+                        Mathf.Max(0, record.titledMonsterRateLevel);
+                    mapRecords.Add(record);
+                }
+            }
+
+            foreach (AltarProgressRecord record in monsterRecords)
+                AltarProgressChanged?.Invoke(record);
+
+            foreach (MapAltarProgressRecord record in mapRecords)
+                MapAltarProgressChanged?.Invoke(record);
+        }
+
         public AltarProgressRecord GetOrCreate(string mapId, string monsterId)
         {
             return GetOrCreateMonster(mapId, monsterId);
