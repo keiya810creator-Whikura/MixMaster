@@ -19,10 +19,13 @@ namespace MixMaster.EditorTools
         private const string GeneratedTileFolder =
             "Assets/Data/Tiles/Generated";
 
-        private const int NormalSpawnAreaCount = 10;
-        private const int SpawnPointsPerNormalArea = 2;
+        private const int NormalMonsterTypeCount = 5;
+        private const int SpawnLocationsPerNormalMonster = 2;
+        private const int NormalSpawnLocationCount =
+            NormalMonsterTypeCount *
+            SpawnLocationsPerNormalMonster;
+
         private const int StrongSpawnAreaCount = 1;
-        private const float SpawnPairOffset = 0.35f;
 
         [Serializable]
         private sealed class LayoutData
@@ -522,7 +525,7 @@ namespace MixMaster.EditorTools
             int height)
         {
             const int totalAreaCount =
-                NormalSpawnAreaCount +
+                NormalSpawnLocationCount +
                 StrongSpawnAreaCount;
 
             List<Vector3Int> candidates =
@@ -614,12 +617,12 @@ namespace MixMaster.EditorTools
                 }
 
                 if (normalNumber >
-                    NormalSpawnAreaCount)
+                    NormalSpawnLocationCount)
                 {
                     continue;
                 }
 
-                CreateNormalSpawnArea(
+                CreateNormalSpawnLocation(
                     spawnRootObject.transform,
                     worldPosition,
                     normalNumber);
@@ -628,11 +631,13 @@ namespace MixMaster.EditorTools
             }
 
             Debug.Log(
-                "[TilemapLayoutGenerator] EnemySpawn配置: 通常" +
+                "[TilemapLayoutGenerator] EnemySpawn配置: 雑魚" +
+                NormalMonsterTypeCount +
+                "種 × " +
+                SpawnLocationsPerNormalMonster +
+                "か所 = " +
                 (normalNumber - 1) +
-                "エリア × " +
-                SpawnPointsPerNormalArea +
-                "、強敵1エリア");
+                "か所、強敵1か所");
         }
 
         private static List<Vector3Int> BuildSpawnCandidates(
@@ -863,93 +868,62 @@ namespace MixMaster.EditorTools
                    dy * dy;
         }
 
-        private static void CreateNormalSpawnArea(
+        private static void CreateNormalSpawnLocation(
             Transform parent,
             Vector3 worldPosition,
-            int areaNumber)
+            int locationNumber)
         {
-            GameObject area =
+            int monsterSlot =
+                ((locationNumber - 1) /
+                 SpawnLocationsPerNormalMonster) +
+                1;
+
+            int occurrenceIndex =
+                (locationNumber - 1) %
+                SpawnLocationsPerNormalMonster;
+
+            char occurrence =
+                (char)('A' + occurrenceIndex);
+
+            GameObject point =
                 new GameObject(
-                    "SpawnArea_" +
-                    areaNumber.ToString("00"));
+                    "NormalSpawn_" +
+                    monsterSlot.ToString("00") +
+                    "_" +
+                    occurrence);
 
             Undo.RegisterCreatedObjectUndo(
-                area,
-                "Create Enemy Spawn Area");
+                point,
+                "Create Enemy Spawn Point");
 
-            area.transform.SetParent(
+            point.transform.SetParent(
                 parent,
                 false);
 
-            area.transform.position =
+            point.transform.position =
                 worldPosition;
 
-            for (int i = 0;
-                 i < SpawnPointsPerNormalArea;
-                 i++)
-            {
-                GameObject point =
-                    new GameObject(
-                        "EnemySpawnPoint_" +
-                        (char)('A' + i));
-
-                Undo.RegisterCreatedObjectUndo(
-                    point,
-                    "Create Enemy Spawn Point");
-
-                point.transform.SetParent(
-                    area.transform,
-                    false);
-
-                float direction =
-                    i == 0
-                        ? -1f
-                        : 1f;
-
-                point.transform.localPosition =
-                    new Vector3(
-                        SpawnPairOffset *
-                        direction,
-                        0f,
-                        0f);
-
-                point.AddComponent<EnemySpawnPoint>();
-            }
+            point.AddComponent<EnemySpawnPoint>();
         }
 
         private static void CreateStrongSpawnArea(
             Transform parent,
             Vector3 worldPosition)
         {
-            GameObject area =
-                new GameObject(
-                    "StrongSpawnArea");
-
-            Undo.RegisterCreatedObjectUndo(
-                area,
-                "Create Strong Enemy Spawn Area");
-
-            area.transform.SetParent(
-                parent,
-                false);
-
-            area.transform.position =
-                worldPosition;
-
             GameObject point =
                 new GameObject(
-                    "StrongEnemySpawnPoint");
+                    "StrongEnemySpawn");
 
             Undo.RegisterCreatedObjectUndo(
                 point,
                 "Create Strong Enemy Spawn Point");
 
             point.transform.SetParent(
-                area.transform,
+                parent,
                 false);
 
-            point.transform.localPosition =
-                Vector3.zero;
+            point.transform.position =
+                worldPosition;
 
             point.AddComponent<EnemySpawnPoint>();
         }
