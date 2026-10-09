@@ -24,6 +24,7 @@ namespace MixMaster.Monsters
         private EnemyCombatAI enemyCombatAI;
         private EnemyWanderAI wanderAI;
         private EnemyMaterialDropController materialDropController;
+        private EnemyMonsterDropController monsterDropController;
         private bool initialized;
 
         public MonsterSO Definition => monsterDefinition;
@@ -135,6 +136,12 @@ namespace MixMaster.Monsters
                 materialDropController.Configure(
                     monsterDefinition);
             }
+
+            if (monsterDropController != null)
+            {
+                monsterDropController.Configure(
+                    monsterDefinition);
+            }
         }
 
         private void CacheComponents()
@@ -167,6 +174,15 @@ namespace MixMaster.Monsters
             {
                 materialDropController =
                     gameObject.AddComponent<EnemyMaterialDropController>();
+            }
+
+            monsterDropController =
+                GetComponent<EnemyMonsterDropController>();
+
+            if (monsterDropController == null)
+            {
+                monsterDropController =
+                    gameObject.AddComponent<EnemyMonsterDropController>();
             }
         }
 
