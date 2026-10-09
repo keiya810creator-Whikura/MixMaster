@@ -64,12 +64,25 @@ namespace MixMaster.UI
 
             if (monsterNameText != null)
             {
-                monsterNameText.text =
+                string monsterName =
                     monster != null &&
                     !string.IsNullOrWhiteSpace(
                         monster.displayName)
                         ? monster.displayName
                         : record.monsterId;
+
+                string titlePrefix =
+                    title != null
+                        ? "《" +
+                          (!string.IsNullOrWhiteSpace(
+                              title.displayName)
+                              ? title.displayName
+                              : title.titleId) +
+                          "》"
+                        : string.Empty;
+
+                monsterNameText.text =
+                    titlePrefix + monsterName;
             }
 
             if (levelText != null)
@@ -81,17 +94,11 @@ namespace MixMaster.UI
                         record.level);
             }
 
+            // Title is shown before the monster name.
+            // Keep the old serialized reference compatible with
+            // already-generated entry prefabs.
             if (titleText != null)
-            {
-                titleText.text =
-                    title != null
-                        ? "称号: " +
-                          (!string.IsNullOrWhiteSpace(
-                              title.displayName)
-                              ? title.displayName
-                              : title.titleId)
-                        : "称号: なし";
-            }
+                titleText.text = string.Empty;
 
             RefreshValueText(
                 record,
