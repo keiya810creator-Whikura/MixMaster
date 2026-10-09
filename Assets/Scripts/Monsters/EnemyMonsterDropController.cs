@@ -85,7 +85,8 @@ namespace MixMaster.Monsters
                 MonsterDropRoller.RollIndividualValues();
 
             List<TitleSO> titlePool =
-                BuildCurrentMapTitlePool();
+                BuildCurrentMapTitlePool(
+                    monsterDefinition);
 
             TitleSO title =
                 MonsterDropRoller.RollTitle(
@@ -131,13 +132,19 @@ namespace MixMaster.Monsters
                 .name;
         }
 
-        private static List<TitleSO> BuildCurrentMapTitlePool()
+        private static List<TitleSO> BuildCurrentMapTitlePool(
+            MonsterSO currentMonster)
         {
             List<TitleSO> result =
                 new List<TitleSO>();
 
             HashSet<TitleSO> unique =
                 new HashSet<TitleSO>();
+
+            AddTitles(
+                currentMonster,
+                unique,
+                result);
 
             EnemySpawnPoint[] spawnPoints =
                 FindObjectsByType<EnemySpawnPoint>(
