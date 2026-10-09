@@ -480,8 +480,32 @@ namespace MixMaster.Combat
             ref float nearEdge,
             ref float visibleLength)
         {
-            if (sprite == null || sprite.texture == null ||
-                !sprite.texture.isReadable)
+            if (sprite == null)
+                return;
+
+            // Tight sprite meshes already exclude transparent margins.
+            // Their vertices can be measured even when Read/Write is off.
+            Vector2[] vertices = sprite.vertices;
+            if (vertices != null && vertices.Length >= 3)
+            {
+                float minCoordinate = float.MaxValue;
+                float maxCoordinate = float.MinValue;
+                for (int i = 0; i < vertices.Length; i++)
+                {
+                    float coordinate = horizontal
+                        ? vertices[i].x : vertices[i].y;
+                    minCoordinate = Mathf.Min(minCoordinate, coordinate);
+                    maxCoordinate = Mathf.Max(maxCoordinate, coordinate);
+                }
+
+                if (maxCoordinate > minCoordinate)
+                {
+                    nearEdge = minCoordinate;
+                    visibleLength = maxCoordinate - minCoordinate;
+                }
+            }
+
+            if (sprite.texture == null || !sprite.texture.isReadable)
                 return;
 
             try
