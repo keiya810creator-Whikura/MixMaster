@@ -449,8 +449,11 @@ namespace MixMaster.Combat
             float attackRange = Mathf.Max(0.1f, GetAttackRange());
             float scale = attackRange / swordHeight;
             swordRenderer.transform.localScale = Vector3.one * scale;
+            // Works for both center-pivot and handle-pivot sword sprites.
+            // The blade's lowest pixel starts at the player and the
+            // highest pixel ends at the current attack-range radius.
             swordRenderer.transform.localPosition =
-                Vector3.up * (attackRange * 0.5f);
+                Vector3.up * (-swordRenderer.sprite.bounds.min.y * scale);
             swordRenderer.color = swordTint;
         }
 
