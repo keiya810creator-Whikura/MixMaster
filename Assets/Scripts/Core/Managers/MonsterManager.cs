@@ -19,7 +19,35 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action PartyChanged;
 
-        public OwnedMonsterRecord ObtainMonster(string monsterId, string titleId = "")
+        public OwnedMonsterRecord ObtainMonster(
+            string monsterId,
+            string titleId = "")
+        {
+            return ObtainMonster(
+                monsterId,
+                new MonsterIndividualValues(),
+                titleId);
+        }
+
+        public OwnedMonsterRecord ObtainMonster(
+            MonsterSO definition,
+            MonsterIndividualValues individualValues,
+            TitleSO title)
+        {
+            return ObtainMonster(
+                definition != null
+                    ? definition.monsterId
+                    : string.Empty,
+                individualValues,
+                title != null
+                    ? title.titleId
+                    : string.Empty);
+        }
+
+        public OwnedMonsterRecord ObtainMonster(
+            string monsterId,
+            MonsterIndividualValues individualValues,
+            string titleId = "")
         {
             var monster = new OwnedMonsterRecord
             {
@@ -27,8 +55,13 @@ namespace MixMaster.Core
                 monsterId = monsterId ?? string.Empty,
                 level = 1,
                 experience = 0,
+                individualValues =
+                    MonsterDropRoller.CloneIndividualValues(
+                        individualValues),
                 titleId = titleId ?? string.Empty
             };
+
+            monster.individualValues.ClampAll();
 
             ownedMonsters.Add(monster);
             MonsterObtained?.Invoke(monster);
