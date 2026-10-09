@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,11 +17,43 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text levelText;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text ivText;
+        [SerializeField] private Button selectionButton;
+
+        private Action<OwnedMonsterRecord> onSelected;
 
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
 
         public OwnedMonsterRecord Record { get; private set; }
+
+        private void Awake()
+        {
+            if (selectionButton == null)
+                selectionButton = GetComponent<Button>();
+
+            // Support already-generated prefab entries without a Button.
+            if (selectionButton == null)
+                selectionButton = gameObject.AddComponent<Button>();
+
+            selectionButton.onClick.AddListener(HandleSelected);
+        }
+
+        private void OnDestroy()
+        {
+            if (selectionButton != null)
+                selectionButton.onClick.RemoveListener(HandleSelected);
+        }
+
+        public void SetSelectionHandler(Action<OwnedMonsterRecord> handler)
+        {
+            onSelected = handler;
+        }
+
+        private void HandleSelected()
+        {
+            if (Record != null)
+                onSelected?.Invoke(Record);
+        }
 
         public void Bind(
             OwnedMonsterRecord record,
