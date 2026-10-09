@@ -85,34 +85,32 @@ namespace MixMaster.EditorTools
                     root.transform,
                     "MonsterName",
                     new Vector2(180f, -15f),
-                    new Vector2(420f, 42f),
+                    new Vector2(520f, 42f),
                     30f,
                     TextAlignmentOptions.Left);
+
+            // Long names with a title should shrink rather than
+            // overlap the level indicator.
+            name.enableAutoSizing = true;
+            name.fontSizeMin = 17f;
+            name.fontSizeMax = 30f;
+            name.enableWordWrapping = false;
 
             TMP_Text level =
                 CreateText(
                     root.transform,
                     "Level",
-                    new Vector2(610f, -15f),
-                    new Vector2(180f, 42f),
+                    new Vector2(720f, -15f),
+                    new Vector2(165f, 42f),
                     26f,
-                    TextAlignmentOptions.Left);
-
-            TMP_Text title =
-                CreateText(
-                    root.transform,
-                    "Title",
-                    new Vector2(180f, -58f),
-                    new Vector2(650f, 38f),
-                    24f,
                     TextAlignmentOptions.Left);
 
             TMP_Text iv =
                 CreateText(
                     root.transform,
                     "StatsOrIV",
-                    new Vector2(180f, -100f),
-                    new Vector2(690f, 80f),
+                    new Vector2(180f, -65f),
+                    new Vector2(690f, 115f),
                     21f,
                     TextAlignmentOptions.TopLeft);
 
@@ -124,7 +122,6 @@ namespace MixMaster.EditorTools
             ui.SetMonsterIcon(icon);
             ui.SetMonsterNameText(name);
             ui.SetLevelText(level);
-            ui.SetTitleText(title);
             ui.SetIvText(iv);
 
             GameObject saved =
