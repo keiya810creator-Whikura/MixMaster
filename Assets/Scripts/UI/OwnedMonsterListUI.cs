@@ -19,6 +19,7 @@ namespace MixMaster.UI
         [SerializeField] private Button closeButton;
         [SerializeField] private Toggle displayModeToggle;
         [SerializeField] private TMP_Text displayModeText;
+        [SerializeField] private OwnedMonsterDetailUI detailPanel;
 
         [Header("Input")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -165,6 +166,7 @@ namespace MixMaster.UI
                     record,
                     catalog,
                     showIndividualValues);
+                entry.SetSelectionHandler(OpenDetail);
 
                 entries.Add(entry);
             }
@@ -215,6 +217,9 @@ namespace MixMaster.UI
 
         private void HandlePanelClosed()
         {
+            if (detailPanel != null)
+                detailPanel.Hide();
+
             if (lockPlayerMovementWhileOpen &&
                 player != null)
             {
@@ -280,6 +285,30 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
 
             subscribed = false;
+        }
+
+        public void OpenDetail(OwnedMonsterRecord record)
+        {
+            if (record == null)
+                return;
+
+            CacheReferences();
+
+            if (detailPanel == null)
+            {
+                detailPanel = GetComponentInChildren<OwnedMonsterDetailUI>(true);
+            }
+
+            if (detailPanel == null)
+            {
+                Debug.LogWarning(
+                    "[OwnedMonsterListUI] 詳細パネルが未接続です。" +
+                    "『MixMaster/UI/仲間詳細Prefabを作成・一覧に接続』を実行してください。",
+                    this);
+                return;
+            }
+
+            detailPanel.Show(record, catalog, showIndividualValues);
         }
 
         private void HandleDisplayModeChanged(
@@ -353,6 +382,7 @@ namespace MixMaster.UI
         }
 
         public void SetPanelRoot(GameObject value) => panelRoot = value;
+        public void SetDetailPanel(OwnedMonsterDetailUI value) => detailPanel = value;
         public void SetContentRoot(RectTransform value) => contentRoot = value;
         public void SetEntryPrefab(OwnedMonsterEntryUI value) => entryPrefab = value;
         public void SetCountText(TMP_Text value) => countText = value;
