@@ -22,6 +22,7 @@ namespace MixMaster.Core
         private bool initialized;
         private bool hasLastLocation;
         private string lastLocationScene = string.Empty;
+        private string lastLocationMapId = string.Empty;
         private Vector3 lastLocationPosition;
         private float elapsed;
 
@@ -205,6 +206,7 @@ namespace MixMaster.Core
             if (playerController != null)
             {
                 lastLocationScene = playerController.gameObject.scene.name;
+                lastLocationMapId = data.mapId;
                 lastLocationPosition = playerController.transform.position;
                 hasLastLocation = true;
             }
@@ -271,6 +273,7 @@ namespace MixMaster.Core
             if (hasLastLocation)
             {
                 lastLocationScene = data.sceneName;
+                lastLocationMapId = data.mapId;
                 lastLocationPosition = data.playerPosition;
 
                 if (SceneManager.GetActiveScene().name == lastLocationScene)
@@ -287,6 +290,18 @@ namespace MixMaster.Core
             if (!hasLastLocation ||
                 SceneManager.GetActiveScene().name != lastLocationScene)
                 yield break;
+
+            // A generic exploration scene may be reused by multiple maps.
+            // Do not apply coordinates belonging to another map.
+            MapManager map = GetComponent<MapManager>();
+
+            if (map != null &&
+                !string.IsNullOrWhiteSpace(lastLocationMapId) &&
+                !string.IsNullOrWhiteSpace(map.CurrentMapId) &&
+                map.CurrentMapId != lastLocationMapId)
+            {
+                yield break;
+            }
 
             PlayerController player =
                 FindFirstObjectByType<PlayerController>();
