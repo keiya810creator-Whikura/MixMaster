@@ -17,6 +17,8 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text countText;
         [SerializeField] private GameObject emptyState;
         [SerializeField] private Button closeButton;
+        [SerializeField] private Toggle displayModeToggle;
+        [SerializeField] private TMP_Text displayModeText;
 
         [Header("Input")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -30,6 +32,7 @@ namespace MixMaster.UI
         private PlayerController player;
         private FloatingJoystick joystick;
         private bool subscribed;
+        private bool showIndividualValues;
 
         private void Awake()
         {
@@ -44,6 +47,22 @@ namespace MixMaster.UI
                 closeButton.onClick.AddListener(
                     Close);
             }
+
+            if (displayModeToggle != null)
+            {
+                displayModeToggle.onValueChanged
+                    .RemoveListener(
+                        HandleDisplayModeChanged);
+
+                displayModeToggle.onValueChanged
+                    .AddListener(
+                        HandleDisplayModeChanged);
+
+                showIndividualValues =
+                    displayModeToggle.isOn;
+            }
+
+            RefreshDisplayModeText();
         }
 
         private void OnEnable()
@@ -69,6 +88,13 @@ namespace MixMaster.UI
         {
             if (closeButton != null)
                 closeButton.onClick.RemoveListener(Close);
+
+            if (displayModeToggle != null)
+            {
+                displayModeToggle.onValueChanged
+                    .RemoveListener(
+                        HandleDisplayModeChanged);
+            }
 
             Unsubscribe();
         }
@@ -137,7 +163,8 @@ namespace MixMaster.UI
 
                 entry.Bind(
                     record,
-                    catalog);
+                    catalog,
+                    showIndividualValues);
 
                 entries.Add(entry);
             }
@@ -158,7 +185,8 @@ namespace MixMaster.UI
                 {
                     entry.Bind(
                         entry.Record,
-                        catalog);
+                        catalog,
+                        showIndividualValues);
                 }
             }
 
@@ -254,6 +282,37 @@ namespace MixMaster.UI
             subscribed = false;
         }
 
+        private void HandleDisplayModeChanged(
+            bool showIvs)
+        {
+            showIndividualValues = showIvs;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                OwnedMonsterEntryUI entry =
+                    entries[i];
+
+                if (entry != null)
+                {
+                    entry.SetDisplayMode(
+                        showIndividualValues);
+                }
+            }
+
+            RefreshDisplayModeText();
+        }
+
+        private void RefreshDisplayModeText()
+        {
+            if (displayModeText == null)
+                return;
+
+            displayModeText.text =
+                showIndividualValues
+                    ? "表示: 個体値"
+                    : "表示: ステータス";
+        }
+
         private void HandleMonsterObtained(
             OwnedMonsterRecord record)
         {
@@ -298,6 +357,40 @@ namespace MixMaster.UI
         public void SetEntryPrefab(OwnedMonsterEntryUI value) => entryPrefab = value;
         public void SetCountText(TMP_Text value) => countText = value;
         public void SetEmptyState(GameObject value) => emptyState = value;
+        public void SetDisplayModeText(TMP_Text value)
+        {
+            displayModeText = value;
+            RefreshDisplayModeText();
+        }
+
+        public void SetDisplayModeToggle(Toggle value)
+        {
+            if (displayModeToggle != null)
+            {
+                displayModeToggle.onValueChanged
+                    .RemoveListener(
+                        HandleDisplayModeChanged);
+            }
+
+            displayModeToggle = value;
+
+            if (displayModeToggle != null)
+            {
+                displayModeToggle.onValueChanged
+                    .RemoveListener(
+                        HandleDisplayModeChanged);
+
+                displayModeToggle.onValueChanged
+                    .AddListener(
+                        HandleDisplayModeChanged);
+
+                showIndividualValues =
+                    displayModeToggle.isOn;
+            }
+
+            RefreshDisplayModeText();
+        }
+
         public void SetCloseButton(Button value)
         {
             if (closeButton != null)
