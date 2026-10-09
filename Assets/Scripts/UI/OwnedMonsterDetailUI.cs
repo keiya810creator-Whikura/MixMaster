@@ -305,7 +305,7 @@ namespace MixMaster.UI
         {
             StringBuilder result = new StringBuilder();
             var equipmentManager =
-                FindFirstObjectByType<EquipmentManager>();
+                UnityEngine.Object.FindFirstObjectByType<EquipmentManager>();
 
             for (int i = 0; i < EquipmentManager.MaxEquipmentSlots; i++)
             {
