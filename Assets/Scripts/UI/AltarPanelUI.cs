@@ -27,13 +27,6 @@ namespace MixMaster.UI
         [SerializeField] private List<MonsterSO> manualMonsters =
             new List<MonsterSO>();
 
-        [Header("Upgrade Cost - Test Defaults")]
-        [Tooltip("最終バランス確定前のテスト値です。")]
-        [SerializeField] private long spawnUpgradeBaseCost = 1L;
-        [SerializeField] private long spawnUpgradeCostStep = 1L;
-        [SerializeField] private long dropUpgradeBaseCost = 1L;
-        [SerializeField] private long dropUpgradeCostStep = 1L;
-
         private readonly List<AltarMonsterEntryUI> entries =
             new List<AltarMonsterEntryUI>();
 
@@ -135,11 +128,7 @@ namespace MixMaster.UI
                     monster,
                     altarManager,
                     inventoryManager,
-                    spawnManager,
-                    spawnUpgradeBaseCost,
-                    spawnUpgradeCostStep,
-                    dropUpgradeBaseCost,
-                    dropUpgradeCostStep);
+                    spawnManager);
 
                 entries.Add(entry);
             }
@@ -379,21 +368,6 @@ namespace MixMaster.UI
                 .name;
         }
 
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            spawnUpgradeBaseCost =
-                Math.Max(1L, spawnUpgradeBaseCost);
 
-            spawnUpgradeCostStep =
-                Math.Max(0L, spawnUpgradeCostStep);
-
-            dropUpgradeBaseCost =
-                Math.Max(1L, dropUpgradeBaseCost);
-
-            dropUpgradeCostStep =
-                Math.Max(0L, dropUpgradeCostStep);
-        }
-#endif
     }
 }
