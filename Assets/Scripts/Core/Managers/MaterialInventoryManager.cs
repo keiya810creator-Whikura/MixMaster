@@ -17,6 +17,44 @@ namespace MixMaster.Core
 
         public event Action<string, long, long> MaterialChanged;
 
+        public void RestoreMaterials(
+            IReadOnlyList<MaterialInventoryRecord> savedRecords)
+        {
+            records.Clear();
+
+            if (savedRecords == null)
+                return;
+
+            for (int i = 0; i < savedRecords.Count; i++)
+            {
+                MaterialInventoryRecord item = savedRecords[i];
+                if (item == null || string.IsNullOrWhiteSpace(item.materialId))
+                    continue;
+
+                long value = Math.Min(MaxMaterialAmount,
+                    Math.Max(0L, item.amount));
+
+                MaterialInventoryRecord existing =
+                    records.Find(x => x.materialId == item.materialId);
+
+                if (existing != null)
+                    existing.amount = Math.Min(MaxMaterialAmount,
+                        LongMath.SaturatingAdd(existing.amount, value));
+                else
+                    records.Add(new MaterialInventoryRecord
+                    {
+                        materialId = item.materialId, amount = value
+                    });
+            }
+
+            for (int i = 0; i < records.Count; i++)
+            {
+                MaterialInventoryRecord record = records[i];
+                MaterialChanged?.Invoke(
+                    record.materialId, 0L, record.amount);
+            }
+        }
+
         public long GetAmount(string materialId)
         {
             if (string.IsNullOrWhiteSpace(materialId))
