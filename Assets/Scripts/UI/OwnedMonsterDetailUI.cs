@@ -135,12 +135,22 @@ namespace MixMaster.UI
             SetText(levelText,
                 "Lv." + Mathf.Max(1, selectedRecord.level));
 
+            string elementName = monster != null
+                ? GetElementName(monster.baseStats != null
+                    ? monster.baseStats.element
+                    : ElementType.None)
+                : "不明";
+
+            string attackTypeName = monster == null
+                ? "不明"
+                : (monster.attackType == MonsterAttackType.Ranged
+                    ? "遠距離型"
+                    : "近距離型");
+
+            // Keep the existing top-row Element TMP reference.
+            // This avoids breaking previously generated/customized prefabs.
             SetText(elementText,
-                "属性: " + (monster != null
-                    ? GetElementName(monster.baseStats != null
-                        ? monster.baseStats.element
-                        : ElementType.None)
-                    : "不明"));
+                elementName + "属性｜" + attackTypeName);
 
             // Experience-to-next-level has not been defined yet.
             SetText(experienceText,
@@ -163,9 +173,14 @@ namespace MixMaster.UI
                     title)
                 : null;
 
-            SetText(statsText, showIndividualValues
+            // Drop-rate bonus is a shared additive stat (not an
+            // equipment-specific drop chance). Show it in both display modes.
+            string statLines = showIndividualValues
                 ? FormatIndividualValues(selectedRecord.individualValues)
-                : FormatStats(stats));
+                : FormatStats(stats);
+
+            SetText(statsText,
+                statLines + FormatDropRateBonus(stats));
 
             SetText(displayModeText, showIndividualValues
                 ? "表示: 個体値"
@@ -175,10 +190,9 @@ namespace MixMaster.UI
                 ? FormatResistances(stats.resistances)
                 : "モンスターデータなし");
 
-            SetText(dropBonusText, stats != null
-                ? "ドロップ率加算: +" +
-                  (stats.dropRateBonus * 100f).ToString("0.##") + "%"
-                : "ドロップ率加算: -");
+            // Legacy separately positioned field is kept for old
+            // prefab references but no longer duplicates the bonus.
+            SetText(dropBonusText, string.Empty);
 
             SetText(skillPointsText,
                 "スキルポイント: " + selectedRecord.skillPoints +
@@ -229,6 +243,17 @@ namespace MixMaster.UI
                    "\n移動速度 " + stats.moveSpeed.ToString("0.##") +
                    "    攻撃速度 " + stats.attackSpeed.ToString("0.##") +
                    "\n攻撃範囲 " + stats.attackRange.ToString("0.##");
+        }
+
+        private static string FormatDropRateBonus(CharacterStats stats)
+        {
+            if (stats == null)
+                return "    ドロップ率補正 -";
+
+            // Shared additive percentage; equipment-specific drop rate
+            // itself is not implemented in the current data model.
+            return "    ドロップ率補正 +" +
+                   (stats.dropRateBonus * 100f).ToString("0.##") + "%";
         }
 
         private static string FormatIv(int value)
