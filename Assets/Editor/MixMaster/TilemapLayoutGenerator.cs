@@ -480,6 +480,11 @@ namespace MixMaster.EditorTools
             instance.name = objectName;
             instance.transform.position =
                 worldPosition;
+
+            // Both map-generated Altar and DungeonEntrance are
+            // displayed at a consistent half scale.
+            instance.transform.localScale =
+                Vector3.one * 0.5f;
         }
 
         private static void CreatePlayerSpawnPoint(
