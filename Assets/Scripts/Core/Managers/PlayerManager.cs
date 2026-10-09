@@ -22,6 +22,23 @@ namespace MixMaster.Core
             CurrentMp = Math.Max(0L, stats.maxMp);
         }
 
+        public void RestorePlayerState(
+            CharacterStats restoredStats,
+            long health,
+            long mana)
+        {
+            if (restoredStats != null)
+                stats = restoredStats;
+
+            CurrentHp = Math.Max(0L,
+                Math.Min(Math.Max(1L, stats.maxHp), health));
+            CurrentMp = Math.Max(0L,
+                Math.Min(Math.Max(0L, stats.maxMp), mana));
+
+            HpChanged?.Invoke(CurrentHp, Math.Max(1L, stats.maxHp));
+            MpChanged?.Invoke(CurrentMp, Math.Max(0L, stats.maxMp));
+        }
+
         public void RestoreFullHp()
         {
             CurrentHp = Math.Max(1L, stats.maxHp);
