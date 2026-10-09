@@ -52,6 +52,8 @@ namespace MixMaster.Combat
         [SerializeField, Range(15f, 150f)] private float swingArcDegrees = 115f;
         [SerializeField] private Color swordTint = Color.white;
         [SerializeField] private int swordSortingOffset = 5;
+        [Tooltip("Thickness of the sword's gameplay hit sweep in world units.")]
+        [SerializeField, Min(0.01f)] private float swordHitWidth = 0.18f;
 
         private PlayerController playerController;
         private PlayerManager playerManager;
@@ -187,17 +189,16 @@ namespace MixMaster.Combat
             if (UnityEngine.Random.value < GetCriticalRate())
                 attackPower = MultiplyLong(attackPower, GetCriticalMultiplier());
 
-            target.TakePhysicalHit(
+            if (swingRoutine != null)
+                StopCoroutine(swingRoutine);
+
+            swingRoutine = StartCoroutine(SwingSword(
+                direction,
                 attackPower,
                 MaterialDropSourceInfo.Player(
                     playerManager != null
                         ? playerManager.DropRateBonus
-                        : 0f));
-
-            if (swingRoutine != null)
-                StopCoroutine(swingRoutine);
-
-            swingRoutine = StartCoroutine(SwingSword(direction));
+                        : 0f)));
         }
 
         private EnemyHealth FindNearestTarget()
@@ -449,32 +450,88 @@ namespace MixMaster.Combat
 
             Sprite sprite = swordRenderer.sprite;
             Bounds bounds = sprite.bounds;
-
-            // Automatically handle vertical and horizontal sword art.
-            // The tip points along the pivot's local +Y direction.
             bool horizontal = bounds.size.x > bounds.size.y;
-            float spriteLength = Mathf.Max(0.01f,
+            float nearEdge = horizontal ? bounds.min.x : bounds.min.y;
+            float visibleLength = Mathf.Max(0.01f,
                 horizontal ? bounds.size.x : bounds.size.y);
+
+            // Many custom sword images have transparent padding.
+            // Measuring nontransparent pixels gives a visible blade
+            // reaching AttackRange instead of scaling the empty texture.
+            TryGetOpaqueSwordBounds(
+                sprite, horizontal, ref nearEdge, ref visibleLength);
+
             float desiredWorldLength = Mathf.Max(0.1f, GetAttackRange()) *
                 Mathf.Max(0.1f, swordLengthMultiplier);
-            float scale = desiredWorldLength / spriteLength;
 
+            float scale = desiredWorldLength / visibleLength;
             swordRenderer.transform.localScale = Vector3.one * scale;
             swordRenderer.transform.localRotation = horizontal
                 ? Quaternion.Euler(0f, 0f, 90f)
                 : Quaternion.identity;
-
-            // Place the sprite's lower edge at the player's position
-            // and the farthest edge at AttackRange in world units.
-            float nearEdge = horizontal
-                ? bounds.min.x
-                : bounds.min.y;
             swordRenderer.transform.localPosition =
                 Vector3.up * (-nearEdge * scale);
             swordRenderer.color = swordTint;
         }
 
-        private IEnumerator SwingSword(Vector2 direction)
+        private static void TryGetOpaqueSwordBounds(
+            Sprite sprite,
+            bool horizontal,
+            ref float nearEdge,
+            ref float visibleLength)
+        {
+            if (sprite == null || sprite.texture == null ||
+                !sprite.texture.isReadable)
+                return;
+
+            try
+            {
+                Texture2D texture = sprite.texture;
+                Rect rect = sprite.textureRect;
+                Color32[] pixels = texture.GetPixels32();
+                int minX = Mathf.Max(0, Mathf.FloorToInt(rect.x));
+                int minY = Mathf.Max(0, Mathf.FloorToInt(rect.y));
+                int maxX = Mathf.Min(texture.width,
+                    Mathf.CeilToInt(rect.xMax));
+                int maxY = Mathf.Min(texture.height,
+                    Mathf.CeilToInt(rect.yMax));
+                int first = horizontal ? maxX : maxY;
+                int last = horizontal ? minX : minY;
+
+                for (int y = minY; y < maxY; y++)
+                {
+                    for (int x = minX; x < maxX; x++)
+                    {
+                        if (pixels[y * texture.width + x].a < 32)
+                            continue;
+
+                        int coordinate = horizontal ? x : y;
+                        first = Mathf.Min(first, coordinate);
+                        last = Mathf.Max(last, coordinate);
+                    }
+                }
+
+                if (last < first)
+                    return;
+
+                float ppu = Mathf.Max(0.001f, sprite.pixelsPerUnit);
+                float pivotPixel = horizontal
+                    ? sprite.pivot.x : sprite.pivot.y;
+                float rectStart = horizontal ? rect.x : rect.y;
+                nearEdge = ((first - rectStart) - pivotPixel) / ppu;
+                visibleLength = Mathf.Max(
+                    0.01f, (last - first + 1) / ppu);
+            }
+            catch (UnityException)
+            {
+                // Tight-packed/non-readable textures use sprite bounds.
+            }
+        }
+
+        private IEnumerator SwingSword(
+            Vector2 direction,
+            long attackPower,
+            MaterialDropSourceInfo hitSource)
         {
             if (swordPivot == null || swordRenderer == null)
                 yield break;
@@ -485,28 +542,114 @@ namespace MixMaster.Combat
                 Mathf.Rad2Deg - 90f;
             float startAngle = targetAngle - swingArcDegrees * 0.5f;
             float endAngle = targetAngle + swingArcDegrees * 0.5f;
+            float reach = Mathf.Max(0.1f, GetAttackRange()) *
+                Mathf.Max(0.1f, swordLengthMultiplier);
+
+            HashSet<EnemyHealth> hitTargets =
+                new HashSet<EnemyHealth>();
 
             swordPivot.position = transform.position;
             swordPivot.gameObject.SetActive(true);
-
             float elapsed = 0f;
+            float previousAngle = startAngle;
+            Vector2 previousOrigin = transform.position;
+
+            // Include initial contact, then sweep from the previous frame
+            // to the current one, including player movement.
+            CheckSwordHitLine(previousOrigin, previousAngle, reach,
+                attackPower, hitSource, hitTargets);
+
             while (elapsed < swingDuration)
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(
                     elapsed / Mathf.Max(0.03f, swingDuration));
-                float ease = t * t * (3f - 2f * t);
+                float eased = t * t * (3f - 2f * t);
+                float currentAngle =
+                    Mathf.Lerp(startAngle, endAngle, eased);
+                Vector2 currentOrigin = transform.position;
 
-                // Follow the freely moving player without inheriting
-                // the player's local scale or movement locks.
-                swordPivot.position = transform.position;
+                // Sample intermediate angles so enemies are not missed
+                // during low frame rate or while the player is moving.
+                int steps = Mathf.Clamp(
+                    Mathf.CeilToInt(
+                        Mathf.Abs(currentAngle - previousAngle) / 7f), 1, 32);
+
+                for (int step = 1; step <= steps; step++)
+                {
+                    float u = step / (float)steps;
+                    float sampledAngle =
+                        Mathf.Lerp(previousAngle, currentAngle, u);
+                    Vector2 sampledOrigin =
+                        Vector2.Lerp(previousOrigin, currentOrigin, u);
+                    CheckSwordHitLine(
+                        sampledOrigin, sampledAngle, reach,
+                        attackPower, hitSource, hitTargets);
+                }
+
+                swordPivot.position = currentOrigin;
                 swordPivot.rotation = Quaternion.Euler(
-                    0f, 0f, Mathf.Lerp(startAngle, endAngle, ease));
+                    0f, 0f, currentAngle);
+
+                previousAngle = currentAngle;
+                previousOrigin = currentOrigin;
                 yield return null;
             }
 
             swordPivot.gameObject.SetActive(false);
             swingRoutine = null;
+        }
+
+        private void CheckSwordHitLine(
+            Vector2 origin,
+            float angle,
+            float reach,
+            long attackPower,
+            MaterialDropSourceInfo hitSource,
+            HashSet<EnemyHealth> hitTargets)
+        {
+            float radians = (angle + 90f) * Mathf.Deg2Rad;
+            Vector2 alongSword = new Vector2(
+                Mathf.Cos(radians), Mathf.Sin(radians));
+            Vector2 tip = origin + alongSword * reach;
+            float hitWidthSqr = swordHitWidth * swordHitWidth;
+
+            // Use the same live enemy registry as target acquisition.
+            // Each enemy is damaged at most once for this full swing.
+            IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
+
+            for (int i = enemies.Count - 1; i >= 0; i--)
+            {
+                EnemyHealth enemy = enemies[i];
+                if (enemy == null || !enemy.IsAlive ||
+                    hitTargets.Contains(enemy))
+                    continue;
+
+                if (requireEnemyTag && !enemy.CompareTag(enemyTag))
+                    continue;
+
+                Vector2 enemyCenter = enemy.transform.position;
+                float projection = Mathf.Clamp01(
+                    Vector2.Dot(enemyCenter - origin, alongSword) / reach);
+                Vector2 pointOnBlade =
+                    Vector2.Lerp(origin, tip, projection);
+
+                Collider2D collider = enemy.GetComponent<Collider2D>();
+                if (collider == null)
+                    collider = enemy.GetComponentInChildren<Collider2D>();
+
+                Vector2 nearestEnemyPoint = collider != null &&
+                    collider.enabled
+                    ? collider.ClosestPoint(pointOnBlade)
+                    : enemyCenter;
+
+                if ((nearestEnemyPoint - pointOnBlade).sqrMagnitude >
+                    hitWidthSqr)
+                    continue;
+
+                hitTargets.Add(enemy);
+                enemy.TakePhysicalHit(attackPower, hitSource);
+            }
         }
 
         private Sprite GenerateDefaultSwordSprite()
@@ -574,6 +717,7 @@ namespace MixMaster.Combat
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
             swordLengthMultiplier = Mathf.Max(0.1f, swordLengthMultiplier);
+            swordHitWidth = Mathf.Max(0.01f, swordHitWidth);
             swingDuration = Mathf.Max(0.03f, swingDuration);
             swingArcDegrees = Mathf.Clamp(swingArcDegrees, 15f, 150f);
 
