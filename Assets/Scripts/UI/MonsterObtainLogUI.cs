@@ -118,12 +118,12 @@ namespace MixMaster.UI
 
             string titlePrefix =
                 title != null
-                    ? "【" +
+                    ? "《" +
                       (!string.IsNullOrWhiteSpace(
                           title.displayName)
                           ? title.displayName
                           : title.titleId) +
-                      "】"
+                      "》"
                     : string.Empty;
 
             GameObject lineObject =
