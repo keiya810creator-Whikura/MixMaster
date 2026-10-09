@@ -43,32 +43,26 @@ namespace MixMaster.Combat
         [SerializeField] private Color hitFlashColor = new Color(1f, 0.35f, 0.35f, 1f);
         [SerializeField, Min(0.01f)] private float hitFlashDuration = 0.08f;
 
-        [Header("Attack Lunge")]
-        [SerializeField, Min(0f)] private float lungeDistance = 0.18f;
-        [SerializeField, Min(0.04f)] private float lungeDuration = 0.12f;
-
-        [Header("Attack Feedback")]
-        [SerializeField] private Color slashColor = new Color(1f, 0.95f, 0.7f, 1f);
-        [SerializeField, Min(0.03f)] private float slashDuration = 0.12f;
-        [SerializeField, Min(0.01f)] private float slashWidth = 0.08f;
-        [SerializeField, Min(0.1f)] private float slashRadius = 0.75f;
+        [Header("Sword Swing")]
+        [Tooltip("Optional sword sprite. When absent, a simple sword sprite is generated.")]
+        [SerializeField] private Sprite swordSprite;
+        [SerializeField, Min(0.03f)] private float swingDuration = 0.18f;
+        [SerializeField, Range(15f, 150f)] private float swingArcDegrees = 115f;
+        [SerializeField] private Color swordTint = Color.white;
+        [SerializeField] private int swordSortingOffset = 5;
 
         private PlayerController playerController;
-        private Rigidbody2D body;
         private PlayerManager playerManager;
         private EnemyHealth currentTarget;
 
         private float targetRefreshTimer;
         private float attackGauge;
 
-        private GameObject slashObject;
-        private LineRenderer slashRenderer;
-        private Material slashMaterial;
-        private Coroutine slashRoutine;
-
-        private Coroutine lungeRoutine;
-        private bool isLunging;
-        private Vector2 lungeStartPosition;
+        private Transform swordPivot;
+        private SpriteRenderer swordRenderer;
+        private Coroutine swingRoutine;
+        private Texture2D generatedSwordTexture;
+        private Sprite generatedSwordSprite;
 
         private Coroutine hitFlashRoutine;
         private Color originalSpriteColor = Color.white;
@@ -76,14 +70,13 @@ namespace MixMaster.Combat
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public float AttackRange => GetAttackRange();
-        public bool IsLunging => isLunging;
+        // Compatibility with MapBuildingAccess; sword swings never lunge.
+        public bool IsLunging => false;
         public bool IsAlive => playerManager == null || playerManager.CurrentHp > 0L;
 
         private void Awake()
         {
             playerController = GetComponent<PlayerController>();
-            body = GetComponent<Rigidbody2D>();
-
             if (playerSpriteRenderer == null)
                 playerSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
 
@@ -99,7 +92,7 @@ namespace MixMaster.Combat
             ConfigureSlider(attackSpeedSlider);
             ConfigureSlider(hpSlider);
             SetAttackGauge(0f);
-            CreateSlashRenderer();
+            CreateSwordVisual();
         }
 
         private void Start()
@@ -121,13 +114,16 @@ namespace MixMaster.Combat
 
         private void OnDisable()
         {
-            if (isLunging && body != null)
-                body.position = lungeStartPosition;
+            if (swingRoutine != null)
+            {
+                StopCoroutine(swingRoutine);
+                swingRoutine = null;
+            }
 
-            isLunging = false;
+            if (swordPivot != null)
+                swordPivot.gameObject.SetActive(false);
 
-            if (playerController != null)
-                playerController.SetCombatMovementLocked(false);
+            // Do not touch movement locks: attacks never lock movement.
         }
 
         private void OnDestroy()
@@ -135,8 +131,11 @@ namespace MixMaster.Combat
             if (playerManager != null)
                 playerManager.HpChanged -= HandlePlayerHpChanged;
 
-            if (slashMaterial != null)
-                Destroy(slashMaterial);
+            if (generatedSwordSprite != null)
+                Destroy(generatedSwordSprite);
+
+            if (generatedSwordTexture != null)
+                Destroy(generatedSwordTexture);
         }
 
         private void Update()
@@ -190,11 +189,10 @@ namespace MixMaster.Combat
                         ? playerManager.DropRateBonus
                         : 0f));
 
-            if (slashRoutine != null)
-                StopCoroutine(slashRoutine);
+            if (swingRoutine != null)
+                StopCoroutine(swingRoutine);
 
-            slashRoutine = StartCoroutine(PlaySlash(direction));
-            StartAttackLunge(direction);
+            swingRoutine = StartCoroutine(SwingSword(direction));
         }
 
         private EnemyHealth FindNearestTarget()
@@ -411,137 +409,125 @@ namespace MixMaster.Combat
             return result >= long.MaxValue ? long.MaxValue : (long)result;
         }
 
-        private void StartAttackLunge(Vector2 direction)
+        private void CreateSwordVisual()
         {
-            if (body == null || direction.sqrMagnitude <= 0.000001f || lungeDistance <= 0f)
-                return;
+            GameObject pivot = new GameObject("_SwordSwingPivot");
+            pivot.transform.SetParent(transform, false);
+            swordPivot = pivot.transform;
+            swordPivot.localPosition = Vector3.zero;
+            swordPivot.localScale = Vector3.one;
 
-            if (lungeRoutine != null)
-            {
-                StopCoroutine(lungeRoutine);
-
-                if (isLunging)
-                    body.position = lungeStartPosition;
-
-                playerController.SetCombatMovementLocked(false);
-            }
-
-            lungeRoutine = StartCoroutine(AttackLungeRoutine(direction.normalized));
-        }
-
-        private IEnumerator AttackLungeRoutine(Vector2 direction)
-        {
-            isLunging = true;
-            lungeStartPosition = body.position;
-            playerController.SetCombatMovementLocked(true);
-
-            Vector2 forwardPosition = lungeStartPosition + direction * lungeDistance;
-            float halfDuration = Mathf.Max(0.02f, lungeDuration * 0.5f);
-
-            float elapsed = 0f;
-            while (elapsed < halfDuration)
-            {
-                elapsed += Time.fixedDeltaTime;
-                float t = Mathf.Clamp01(elapsed / halfDuration);
-                float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
-                body.MovePosition(Vector2.Lerp(lungeStartPosition, forwardPosition, eased));
-                yield return new WaitForFixedUpdate();
-            }
-
-            elapsed = 0f;
-            while (elapsed < halfDuration)
-            {
-                elapsed += Time.fixedDeltaTime;
-                float t = Mathf.Clamp01(elapsed / halfDuration);
-                float eased = t * t;
-                body.MovePosition(Vector2.Lerp(forwardPosition, lungeStartPosition, eased));
-                yield return new WaitForFixedUpdate();
-            }
-
-            body.MovePosition(lungeStartPosition);
-            playerController.SetCombatMovementLocked(false);
-            isLunging = false;
-            lungeRoutine = null;
-        }
-
-        private void CreateSlashRenderer()
-        {
-            slashObject = new GameObject("_AutoAttackSlash");
-            slashObject.transform.SetParent(transform, false);
-            slashObject.SetActive(false);
-
-            slashRenderer = slashObject.AddComponent<LineRenderer>();
-            slashRenderer.useWorldSpace = false;
-            slashRenderer.loop = false;
-            slashRenderer.positionCount = 9;
-            slashRenderer.numCapVertices = 2;
-            slashRenderer.widthMultiplier = slashWidth;
-
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                slashMaterial = new Material(shader);
-                slashRenderer.material = slashMaterial;
-            }
+            GameObject visual = new GameObject("SwordSprite");
+            visual.transform.SetParent(swordPivot, false);
+            swordRenderer = visual.AddComponent<SpriteRenderer>();
+            swordRenderer.sprite = swordSprite != null
+                ? swordSprite
+                : GenerateDefaultSwordSprite();
+            swordRenderer.color = swordTint;
 
             SpriteRenderer playerSprite = GetComponentInChildren<SpriteRenderer>();
             if (playerSprite != null)
             {
-                slashRenderer.sortingLayerID = playerSprite.sortingLayerID;
-                slashRenderer.sortingOrder = playerSprite.sortingOrder + 5;
+                swordRenderer.sortingLayerID = playerSprite.sortingLayerID;
+                swordRenderer.sortingOrder =
+                    playerSprite.sortingOrder + swordSortingOffset;
             }
 
-            BuildSlashArc();
+            swordPivot.gameObject.SetActive(false);
         }
 
-        private void BuildSlashArc()
+        private void ResizeSwordToAttackRange()
         {
-            if (slashRenderer == null)
+            if (swordRenderer == null || swordRenderer.sprite == null)
                 return;
 
-            const int pointCount = 9;
-            slashRenderer.positionCount = pointCount;
-
-            for (int i = 0; i < pointCount; i++)
-            {
-                float t = i / (float)(pointCount - 1);
-                float angle = Mathf.Lerp(-55f, 55f, t) * Mathf.Deg2Rad;
-
-                slashRenderer.SetPosition(i, new Vector3(
-                    Mathf.Cos(angle) * slashRadius,
-                    Mathf.Sin(angle) * slashRadius,
-                    0f));
-            }
+            // The sword image is centered on its own Renderer, and the
+            // pivot stays at the player's position. The visible tip
+            // reaches exactly to the player's current attack range.
+            float swordHeight = Mathf.Max(
+                0.01f, swordRenderer.sprite.bounds.size.y);
+            float attackRange = Mathf.Max(0.1f, GetAttackRange());
+            float scale = attackRange / swordHeight;
+            swordRenderer.transform.localScale = Vector3.one * scale;
+            swordRenderer.transform.localPosition =
+                Vector3.up * (attackRange * 0.5f);
+            swordRenderer.color = swordTint;
         }
 
-        private IEnumerator PlaySlash(Vector2 direction)
+        private IEnumerator SwingSword(Vector2 direction)
         {
-            if (slashObject == null || slashRenderer == null)
+            if (swordPivot == null || swordRenderer == null)
                 yield break;
 
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            slashObject.transform.localPosition = Vector3.zero;
-            slashObject.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            slashObject.SetActive(true);
+            ResizeSwordToAttackRange();
+
+            float targetAngle = Mathf.Atan2(direction.y, direction.x) *
+                Mathf.Rad2Deg - 90f;
+            float startAngle = targetAngle - swingArcDegrees * 0.5f;
+            float endAngle = targetAngle + swingArcDegrees * 0.5f;
+
+            swordPivot.gameObject.SetActive(true);
 
             float elapsed = 0f;
-
-            while (elapsed < slashDuration)
+            while (elapsed < swingDuration)
             {
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / slashDuration);
+                float t = Mathf.Clamp01(
+                    elapsed / Mathf.Max(0.03f, swingDuration));
+                float ease = t * t * (3f - 2f * t);
 
-                Color c = slashColor;
-                c.a = 1f - t;
-
-                slashRenderer.startColor = c;
-                slashRenderer.endColor = c;
-                slashRenderer.widthMultiplier = Mathf.Lerp(slashWidth, slashWidth * 0.35f, t);
+                swordPivot.localRotation = Quaternion.Euler(
+                    0f, 0f, Mathf.Lerp(startAngle, endAngle, ease));
                 yield return null;
             }
 
-            slashObject.SetActive(false);
-            slashRoutine = null;
+            swordPivot.gameObject.SetActive(false);
+            swingRoutine = null;
+        }
+
+        private Sprite GenerateDefaultSwordSprite()
+        {
+            const int width = 20;
+            const int height = 80;
+            generatedSwordTexture = new Texture2D(
+                width, height, TextureFormat.RGBA32, false);
+            generatedSwordTexture.filterMode = FilterMode.Point;
+            generatedSwordTexture.wrapMode = TextureWrapMode.Clamp;
+
+            Color32 clear = new Color32(0, 0, 0, 0);
+            Color32 steel = new Color32(224, 237, 252, 255);
+            Color32 edge = new Color32(132, 169, 203, 255);
+            Color32 gold = new Color32(232, 181, 61, 255);
+            Color32 grip = new Color32(78, 52, 48, 255);
+
+            Color32[] pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Color32 value = clear;
+                    int dx = Mathf.Abs(x - width / 2);
+                    if (y >= 15 && y <= 72 && dx <= 3)
+                        value = dx == 3 ? edge : steel;
+                    if (y >= 73 && y < 80 && dx <= (80 - y) / 2)
+                        value = steel;
+                    if (y >= 12 && y <= 15 && dx <= 9)
+                        value = gold;
+                    if (y >= 3 && y < 12 && dx <= 2)
+                        value = grip;
+                    if (y <= 3 && dx <= 4)
+                        value = gold;
+                    pixels[y * width + x] = value;
+                }
+            }
+
+            generatedSwordTexture.SetPixels32(pixels);
+            generatedSwordTexture.Apply();
+            generatedSwordSprite = Sprite.Create(
+                generatedSwordTexture, new Rect(0, 0, width, height),
+                new Vector2(0.5f, 0.5f), 80f);
+            generatedSwordSprite.name = "_RuntimeSwordSprite";
+            return generatedSwordSprite;
         }
 
         private void OnDrawGizmosSelected()
@@ -563,20 +549,12 @@ namespace MixMaster.Combat
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
-            lungeDistance = Mathf.Max(0f, lungeDistance);
-            lungeDuration = Mathf.Max(0.04f, lungeDuration);
-            slashDuration = Mathf.Max(0.03f, slashDuration);
-            slashWidth = Mathf.Max(0.01f, slashWidth);
-            slashRadius = Mathf.Max(0.1f, slashRadius);
+            swingDuration = Mathf.Max(0.03f, swingDuration);
+            swingArcDegrees = Mathf.Clamp(swingArcDegrees, 15f, 150f);
 
             if (string.IsNullOrWhiteSpace(enemyTag))
                 enemyTag = "Enemy";
 
-            if (slashRenderer != null)
-            {
-                slashRenderer.widthMultiplier = slashWidth;
-                BuildSlashArc();
-            }
         }
 #endif
     }
