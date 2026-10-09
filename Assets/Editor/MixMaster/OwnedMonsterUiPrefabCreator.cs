@@ -110,11 +110,13 @@ namespace MixMaster.EditorTools
             TMP_Text iv =
                 CreateText(
                     root.transform,
-                    "IV",
+                    "StatsOrIV",
                     new Vector2(180f, -100f),
                     new Vector2(690f, 80f),
                     21f,
                     TextAlignmentOptions.TopLeft);
+
+            iv.richText = true;
 
             OwnedMonsterEntryUI ui =
                 root.GetComponent<OwnedMonsterEntryUI>();
@@ -180,6 +182,27 @@ namespace MixMaster.EditorTools
                     TextAlignmentOptions.Left);
 
             count.text = "仲間 0体";
+
+            TMP_Text modeText =
+                CreateText(
+                    root.transform,
+                    "DisplayModeText",
+                    new Vector2(430f, -30f),
+                    new Vector2(250f, 55f),
+                    26f,
+                    TextAlignmentOptions.Left);
+
+            modeText.text =
+                "表示: ステータス";
+
+            Toggle modeToggle =
+                CreateToggle(
+                    root.transform,
+                    "DisplayModeToggle",
+                    new Vector2(700f, -32f),
+                    new Vector2(70f, 44f));
+
+            modeToggle.isOn = false;
 
             Button close =
                 CreateButton(
@@ -348,6 +371,12 @@ namespace MixMaster.EditorTools
             listUi.SetEmptyState(
                 emptyText.gameObject);
 
+            listUi.SetDisplayModeText(
+                modeText);
+
+            listUi.SetDisplayModeToggle(
+                modeToggle);
+
             listUi.SetCloseButton(close);
 
             PrefabUtility.SaveAsPrefabAsset(
@@ -441,6 +470,124 @@ namespace MixMaster.EditorTools
             text.enableWordWrapping = true;
 
             return text;
+        }
+
+        private static Toggle CreateToggle(
+            Transform parent,
+            string name,
+            Vector2 anchoredPosition,
+            Vector2 size)
+        {
+            GameObject root =
+                new GameObject(
+                    name,
+                    typeof(RectTransform),
+                    typeof(Toggle));
+
+            root.transform.SetParent(
+                parent,
+                false);
+
+            RectTransform rootRect =
+                root.GetComponent<RectTransform>();
+
+            rootRect.anchorMin =
+                new Vector2(0f, 1f);
+
+            rootRect.anchorMax =
+                new Vector2(0f, 1f);
+
+            rootRect.pivot =
+                new Vector2(0f, 1f);
+
+            rootRect.anchoredPosition =
+                anchoredPosition;
+
+            rootRect.sizeDelta = size;
+
+            GameObject backgroundObject =
+                new GameObject(
+                    "Background",
+                    typeof(RectTransform),
+                    typeof(Image));
+
+            backgroundObject.transform.SetParent(
+                root.transform,
+                false);
+
+            RectTransform backgroundRect =
+                backgroundObject.GetComponent<RectTransform>();
+
+            backgroundRect.anchorMin =
+                new Vector2(0f, 0.5f);
+
+            backgroundRect.anchorMax =
+                new Vector2(0f, 0.5f);
+
+            backgroundRect.pivot =
+                new Vector2(0f, 0.5f);
+
+            backgroundRect.anchoredPosition =
+                Vector2.zero;
+
+            backgroundRect.sizeDelta =
+                new Vector2(44f, 44f);
+
+            Image background =
+                backgroundObject.GetComponent<Image>();
+
+            background.color =
+                new Color(
+                    0.18f,
+                    0.21f,
+                    0.28f,
+                    1f);
+
+            GameObject checkObject =
+                new GameObject(
+                    "Checkmark",
+                    typeof(RectTransform),
+                    typeof(Image));
+
+            checkObject.transform.SetParent(
+                backgroundObject.transform,
+                false);
+
+            RectTransform checkRect =
+                checkObject.GetComponent<RectTransform>();
+
+            checkRect.anchorMin =
+                new Vector2(0.18f, 0.18f);
+
+            checkRect.anchorMax =
+                new Vector2(0.82f, 0.82f);
+
+            checkRect.offsetMin =
+                Vector2.zero;
+
+            checkRect.offsetMax =
+                Vector2.zero;
+
+            Image check =
+                checkObject.GetComponent<Image>();
+
+            check.color =
+                new Color(
+                    1f,
+                    0.82f,
+                    0.2f,
+                    1f);
+
+            Toggle toggle =
+                root.GetComponent<Toggle>();
+
+            toggle.targetGraphic =
+                background;
+
+            toggle.graphic =
+                check;
+
+            return toggle;
         }
 
         private static Button CreateButton(
