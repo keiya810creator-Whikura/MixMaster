@@ -14,7 +14,7 @@ namespace MixMaster.Core
 
         public IReadOnlyList<OwnedMonsterRecord> OwnedMonsters => ownedMonsters;
         public IReadOnlyList<string> PartyMonsterUniqueIds => partyMonsterUniqueIds;
-        public int MaxPartySize => maxPartySize;
+        public int MaxPartySize => Mathf.Clamp(maxPartySize, 1, 3);
 
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action PartyChanged;
@@ -72,7 +72,7 @@ namespace MixMaster.Core
         {
             if (string.IsNullOrEmpty(monsterUniqueId)) return false;
             if (partyMonsterUniqueIds.Contains(monsterUniqueId)) return true;
-            if (partyMonsterUniqueIds.Count >= maxPartySize) return false;
+            if (partyMonsterUniqueIds.Count >= MaxPartySize) return false;
             if (FindOwnedMonster(monsterUniqueId) == null) return false;
 
             partyMonsterUniqueIds.Add(monsterUniqueId);
