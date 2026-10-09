@@ -16,6 +16,16 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/UI/仲間詳細Prefabを作成・一覧に接続")]
         public static void CreateAndAttach()
         {
+            AttachToList(true);
+        }
+
+        public static void AttachFromListCreation()
+        {
+            AttachToList(false);
+        }
+
+        private static void AttachToList(bool showDialog)
+        {
             EnsureFolder(Folder);
             GameObject detailPrefab = EnsureDetailPrefab();
 
@@ -28,10 +38,13 @@ namespace MixMaster.EditorTools
 
             if (listPrefab == null)
             {
-                EditorUtility.DisplayDialog(
-                    "仲間詳細UI",
-                    "詳細Prefabを作成しました。先に仲間一覧UI Prefabを作成してから、もう一度実行してください。",
-                    "OK");
+                if (showDialog)
+                {
+                    EditorUtility.DisplayDialog(
+                        "仲間詳細UI",
+                        "詳細Prefabを作成しました。先に仲間一覧UI Prefabを作成してから、もう一度実行してください。",
+                        "OK");
+                    }
                 return;
             }
 
@@ -93,10 +106,13 @@ namespace MixMaster.EditorTools
 
             AssetDatabase.SaveAssets();
 
-            EditorUtility.DisplayDialog(
-                "仲間詳細UI",
-                "詳細Prefabを作成し、仲間一覧Prefabへ接続しました。\n\n既存の一覧デザインは再生成していません。",
-                "OK");
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog(
+                    "仲間詳細UI",
+                    "詳細Prefabを作成し、仲間一覧Prefabへ接続しました。\n\n既存の一覧デザインは再生成していません。",
+                    "OK");
+            }
         }
 
         private static GameObject EnsureDetailPrefab()
