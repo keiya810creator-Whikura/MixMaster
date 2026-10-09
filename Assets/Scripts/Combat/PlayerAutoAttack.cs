@@ -46,6 +46,8 @@ namespace MixMaster.Combat
         [Header("Sword Swing")]
         [Tooltip("Optional sword sprite. When absent, a simple sword sprite is generated.")]
         [SerializeField] private Sprite swordSprite;
+        [Tooltip("The visible sword length relative to AttackRange (1 = same length).")]
+        [SerializeField, Min(0.1f)] private float swordLengthMultiplier = 1f;
         [SerializeField, Min(0.03f)] private float swingDuration = 0.18f;
         [SerializeField, Range(15f, 150f)] private float swingArcDegrees = 115f;
         [SerializeField] private Color swordTint = Color.white;
@@ -130,6 +132,9 @@ namespace MixMaster.Combat
         {
             if (playerManager != null)
                 playerManager.HpChanged -= HandlePlayerHpChanged;
+
+            if (swordPivot != null)
+                Destroy(swordPivot.gameObject);
 
             if (generatedSwordSprite != null)
                 Destroy(generatedSwordSprite);
@@ -412,9 +417,10 @@ namespace MixMaster.Combat
         private void CreateSwordVisual()
         {
             GameObject pivot = new GameObject("_SwordSwingPivot");
-            pivot.transform.SetParent(transform, false);
+            // Do NOT parent the sword to the player. The player's own
+            // scale (e.g. 0.25) must not shrink its world-space reach.
             swordPivot = pivot.transform;
-            swordPivot.localPosition = Vector3.zero;
+            swordPivot.position = transform.position;
             swordPivot.localScale = Vector3.one;
 
             GameObject visual = new GameObject("SwordSprite");
@@ -441,19 +447,30 @@ namespace MixMaster.Combat
             if (swordRenderer == null || swordRenderer.sprite == null)
                 return;
 
-            // The sword image is centered on its own Renderer, and the
-            // pivot stays at the player's position. The visible tip
-            // reaches exactly to the player's current attack range.
-            float swordHeight = Mathf.Max(
-                0.01f, swordRenderer.sprite.bounds.size.y);
-            float attackRange = Mathf.Max(0.1f, GetAttackRange());
-            float scale = attackRange / swordHeight;
+            Sprite sprite = swordRenderer.sprite;
+            Bounds bounds = sprite.bounds;
+
+            // Automatically handle vertical and horizontal sword art.
+            // The tip points along the pivot's local +Y direction.
+            bool horizontal = bounds.size.x > bounds.size.y;
+            float spriteLength = Mathf.Max(0.01f,
+                horizontal ? bounds.size.x : bounds.size.y);
+            float desiredWorldLength = Mathf.Max(0.1f, GetAttackRange()) *
+                Mathf.Max(0.1f, swordLengthMultiplier);
+            float scale = desiredWorldLength / spriteLength;
+
             swordRenderer.transform.localScale = Vector3.one * scale;
-            // Works for both center-pivot and handle-pivot sword sprites.
-            // The blade's lowest pixel starts at the player and the
-            // highest pixel ends at the current attack-range radius.
+            swordRenderer.transform.localRotation = horizontal
+                ? Quaternion.Euler(0f, 0f, 90f)
+                : Quaternion.identity;
+
+            // Place the sprite's lower edge at the player's position
+            // and the farthest edge at AttackRange in world units.
+            float nearEdge = horizontal
+                ? bounds.min.x
+                : bounds.min.y;
             swordRenderer.transform.localPosition =
-                Vector3.up * (-swordRenderer.sprite.bounds.min.y * scale);
+                Vector3.up * (-nearEdge * scale);
             swordRenderer.color = swordTint;
         }
 
@@ -469,6 +486,7 @@ namespace MixMaster.Combat
             float startAngle = targetAngle - swingArcDegrees * 0.5f;
             float endAngle = targetAngle + swingArcDegrees * 0.5f;
 
+            swordPivot.position = transform.position;
             swordPivot.gameObject.SetActive(true);
 
             float elapsed = 0f;
@@ -479,7 +497,10 @@ namespace MixMaster.Combat
                     elapsed / Mathf.Max(0.03f, swingDuration));
                 float ease = t * t * (3f - 2f * t);
 
-                swordPivot.localRotation = Quaternion.Euler(
+                // Follow the freely moving player without inheriting
+                // the player's local scale or movement locks.
+                swordPivot.position = transform.position;
+                swordPivot.rotation = Quaternion.Euler(
                     0f, 0f, Mathf.Lerp(startAngle, endAngle, ease));
                 yield return null;
             }
@@ -552,6 +573,7 @@ namespace MixMaster.Combat
             fallbackCriticalMultiplier = Mathf.Max(1f, fallbackCriticalMultiplier);
             targetRefreshInterval = Mathf.Max(0.02f, targetRefreshInterval);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
+            swordLengthMultiplier = Mathf.Max(0.1f, swordLengthMultiplier);
             swingDuration = Mathf.Max(0.03f, swingDuration);
             swingArcDegrees = Mathf.Clamp(swingArcDegrees, 15f, 150f);
 
