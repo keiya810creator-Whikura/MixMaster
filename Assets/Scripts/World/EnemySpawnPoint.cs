@@ -20,9 +20,9 @@ namespace MixMaster.World
 
         [Header("Spawn")]
         [SerializeField, Min(0f)] private float spawnInterval = 5f;
-        [SerializeField, Min(1)] private int maxAlive = 1;
+        [SerializeField, Min(1)] private int maxAlive = 5;
         [SerializeField] private bool spawnImmediately = true;
-        [SerializeField, Min(0f)] private float randomSpawnRadius = 0f;
+        [SerializeField, Min(0f)] private float randomSpawnRadius = 1f;
 
         [Header("Runtime / Altar Hook")]
         [Tooltip("1 = normal, 0.5 = twice as fast, 0 = instant respawn. Later the altar system can control this value.")]
