@@ -16,6 +16,7 @@ namespace MixMaster.UI
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
+        [SerializeField] private bool disableJoystickWhileOpen = true;
 
         public bool IsOpen { get; private set; }
         public MapBuildingType? CurrentBuilding { get; private set; }
@@ -24,6 +25,7 @@ namespace MixMaster.UI
         public event Action BuildingClosed;
 
         private PlayerController cachedPlayer;
+        private FloatingJoystick cachedJoystick;
 
         private void Awake()
         {
@@ -76,6 +78,8 @@ namespace MixMaster.UI
             SetPlayerMovementLocked(
                 lockPlayerMovementWhileOpen);
 
+            SetJoystickInteractionEnabled(false);
+
             BuildingOpened?.Invoke(type);
         }
 
@@ -105,6 +109,7 @@ namespace MixMaster.UI
             CurrentBuilding = null;
 
             SetPlayerMovementLocked(false);
+            SetJoystickInteractionEnabled(true);
 
             if (invokeEvent && wasOpen)
                 BuildingClosed?.Invoke();
@@ -119,6 +124,21 @@ namespace MixMaster.UI
                 cachedPlayer = FindFirstObjectByType<PlayerController>();
 
             cachedPlayer?.SetCombatMovementLocked(locked);
+        }
+
+        private void SetJoystickInteractionEnabled(
+            bool enabled)
+        {
+            if (!disableJoystickWhileOpen)
+                return;
+
+            if (cachedJoystick == null)
+            {
+                cachedJoystick =
+                    FindFirstObjectByType<FloatingJoystick>();
+            }
+
+            cachedJoystick?.SetInteractionEnabled(enabled);
         }
 
         private static void SetPanelActive(
