@@ -1,6 +1,7 @@
 using UnityEngine;
 using MixMaster.Player;
 using MixMaster.UI;
+using MixMaster.Combat;
 
 namespace MixMaster.World
 {
@@ -29,8 +30,23 @@ namespace MixMaster.World
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (other == null ||
-                other.GetComponentInParent<PlayerController>() == null)
+            if (other == null)
+                return;
+
+            PlayerController player =
+                other.GetComponentInParent<PlayerController>();
+
+            if (player == null)
+                return;
+
+            PlayerAutoAttack autoAttack =
+                player.GetComponent<PlayerAutoAttack>();
+
+            // Auto attack lunges the Player forward/backward.
+            // Entering a building trigger during that temporary movement
+            // must not open the UI.
+            if (autoAttack != null &&
+                autoAttack.IsLunging)
             {
                 return;
             }
