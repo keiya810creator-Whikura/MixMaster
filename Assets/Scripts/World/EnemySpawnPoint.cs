@@ -81,6 +81,11 @@ namespace MixMaster.World
                 nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
         }
 
+        public void SetEnemyPrefab(GameObject prefab)
+        {
+            enemyPrefab = prefab;
+        }
+
         public void SetSpawnIntervalMultiplier(float multiplier)
         {
             spawnIntervalMultiplier = Mathf.Max(0f, multiplier);
