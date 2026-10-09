@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MAT_002
   m_EditorClassIdentifier: 
   materialId: MAT_002
-  displayName: MAT_002
+  displayName: "\u707C\u71B1\u306E\u7C98\u6676"
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 07ec7ace8c2ca5a458d1c2a36335129b, type: 3}
   category: 0
