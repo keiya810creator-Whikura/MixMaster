@@ -30,6 +30,7 @@ namespace MixMaster.Core
             Ensure<DropManager>(root);
             Ensure<MaterialInventoryManager>(root);
             Ensure<MixMaster.UI.MaterialDropLogUI>(root);
+            Ensure<MixMaster.UI.MonsterObtainLogUI>(root);
             Ensure<BreedingManager>(root);
             Ensure<DungeonManager>(root);
             Ensure<EquipmentManager>(root);
