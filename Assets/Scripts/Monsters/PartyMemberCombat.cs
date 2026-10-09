@@ -529,6 +529,55 @@ namespace MixMaster.Monsters
                 : baseRange;
         }
 
+        /// <summary>
+        /// Applies the exact owned individual instead of the prefab's
+        /// placeholder combat values.
+        /// </summary>
+        public void ConfigureOwnedMonster(
+            MonsterSO definition,
+            CharacterStats calculatedStats)
+        {
+            if (definition == null || calculatedStats == null)
+                return;
+
+            stats = calculatedStats;
+
+            attackStyle = definition.attackType == MonsterAttackType.Ranged
+                ? PartyAttackStyle.Ranged
+                : PartyAttackStyle.Melee;
+
+            projectilePrefab = definition.projectilePrefab;
+            projectileSpeed = Mathf.Max(0.1f, definition.projectileSpeed);
+            projectileLifetime = Mathf.Max(0.1f, definition.projectileLifetime);
+            projectileHoming = definition.projectileHoming;
+            aggroRange = Mathf.Max(0.1f, definition.detectionRange);
+
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+            if (spriteRenderer != null && definition.sprite != null)
+            {
+                spriteRenderer.sprite = definition.sprite;
+                spriteRenderer.color = Color.white;
+                originalColor = spriteRenderer.color;
+            }
+
+            currentTarget = null;
+            targetRefreshTimer = 0f;
+            attackGauge = 0f;
+            RestoreFullResources();
+            SetAttackGauge(0f);
+
+            if (follower == null)
+                follower = GetComponent<MonsterTrailFollower>();
+
+            if (follower != null)
+            {
+                follower.SetCombatControlled(false);
+                follower.StopCombatMovement();
+            }
+        }
+
         public void SetCombatMode(PartyCombatMode mode)
         {
             combatMode = mode;
