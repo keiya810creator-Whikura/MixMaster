@@ -19,6 +19,9 @@ namespace MixMaster.EditorTools
         private const string GeneratedTileFolder =
             "Assets/Data/Tiles/Generated";
 
+        private const string CommonEnemyPrefabPath =
+            "Assets/Prefab/Enemy.prefab";
+
         private const int NormalMonsterTypeCount = 5;
         private const int SpawnLocationsPerNormalMonster = 2;
         private const int NormalSpawnLocationCount =
@@ -903,7 +906,8 @@ namespace MixMaster.EditorTools
             point.transform.position =
                 worldPosition;
 
-            point.AddComponent<EnemySpawnPoint>();
+            AddConfiguredEnemySpawnPoint(
+                point);
         }
 
         private static void CreateStrongSpawnArea(
@@ -925,7 +929,38 @@ namespace MixMaster.EditorTools
             point.transform.position =
                 worldPosition;
 
-            point.AddComponent<EnemySpawnPoint>();
+            AddConfiguredEnemySpawnPoint(
+                point);
+        }
+
+        private static void AddConfiguredEnemySpawnPoint(
+            GameObject point)
+        {
+            if (point == null)
+                return;
+
+            EnemySpawnPoint spawnPoint =
+                point.AddComponent<EnemySpawnPoint>();
+
+            GameObject enemyPrefab =
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    CommonEnemyPrefabPath);
+
+            if (enemyPrefab == null)
+            {
+                Debug.LogWarning(
+                    "[TilemapLayoutGenerator] Enemy Prefabが見つかりません: " +
+                    CommonEnemyPrefabPath,
+                    point);
+
+                return;
+            }
+
+            spawnPoint.SetEnemyPrefab(
+                enemyPrefab);
+
+            EditorUtility.SetDirty(
+                spawnPoint);
         }
 
         private static void EnsureBuildingUiRouter()
