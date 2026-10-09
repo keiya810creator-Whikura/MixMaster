@@ -36,11 +36,6 @@ namespace MixMaster.UI
         private MaterialInventoryManager inventoryManager;
         private SpawnManager spawnManager;
 
-        private long spawnBaseCost;
-        private long spawnCostStep;
-        private long dropBaseCost;
-        private long dropCostStep;
-
         private void Awake()
         {
             if (spawnUpgradeButton != null)
@@ -82,11 +77,7 @@ namespace MixMaster.UI
             MonsterSO definition,
             AltarManager altar,
             MaterialInventoryManager inventory,
-            SpawnManager spawn,
-            long newSpawnBaseCost,
-            long newSpawnCostStep,
-            long newDropBaseCost,
-            long newDropCostStep)
+            SpawnManager spawn)
         {
             mapId =
                 currentMapId ?? string.Empty;
@@ -95,18 +86,6 @@ namespace MixMaster.UI
             altarManager = altar;
             inventoryManager = inventory;
             spawnManager = spawn;
-
-            spawnBaseCost =
-                Math.Max(1L, newSpawnBaseCost);
-
-            spawnCostStep =
-                Math.Max(0L, newSpawnCostStep);
-
-            dropBaseCost =
-                Math.Max(1L, newDropBaseCost);
-
-            dropCostStep =
-                Math.Max(0L, newDropCostStep);
 
             Refresh();
         }
@@ -267,9 +246,7 @@ namespace MixMaster.UI
             }
 
             long cost =
-                GetCost(
-                    spawnBaseCost,
-                    spawnCostStep,
+                AltarBalance.GetUpgradeCost(
                     level);
 
             if (spawnCostText != null)
@@ -328,9 +305,7 @@ namespace MixMaster.UI
             }
 
             long cost =
-                GetCost(
-                    dropBaseCost,
-                    dropCostStep,
+                AltarBalance.GetUpgradeCost(
                     level);
 
             if (dropCostText != null)
@@ -455,34 +430,10 @@ namespace MixMaster.UI
                 return false;
 
             cost =
-                spawn
-                    ? GetCost(
-                        spawnBaseCost,
-                        spawnCostStep,
-                        level)
-                    : GetCost(
-                        dropBaseCost,
-                        dropCostStep,
-                        level);
+                AltarBalance.GetUpgradeCost(
+                    level);
 
             return inventoryManager.GetAmount(material) >= cost;
-        }
-
-        private static long GetCost(
-            long baseCost,
-            long step,
-            int currentLevel)
-        {
-            long levelCost =
-                LongMath.SaturatingMultiply(
-                    Math.Max(0L, step),
-                    Math.Max(0, currentLevel));
-
-            return Math.Max(
-                1L,
-                LongMath.SaturatingAdd(
-                    Math.Max(1L, baseCost),
-                    levelCost));
         }
 
         private void SetButtonsInteractable(
