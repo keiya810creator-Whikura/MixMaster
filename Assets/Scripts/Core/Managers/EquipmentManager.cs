@@ -17,6 +17,44 @@ namespace MixMaster.Core
         public IReadOnlyList<EquipmentRecord> Inventory => inventory;
         public IReadOnlyList<string> PlayerEquipmentUniqueIds => playerEquipmentUniqueIds;
 
+        public void RestoreEquipment(
+            IReadOnlyList<EquipmentRecord> savedInventory,
+            IReadOnlyList<string> savedPlayerEquippedIds)
+        {
+            inventory.Clear();
+            playerEquipmentUniqueIds.Clear();
+
+            if (savedInventory != null)
+            {
+                for (int i = 0; i < savedInventory.Count; i++)
+                {
+                    EquipmentRecord item = savedInventory[i];
+                    if (item == null || string.IsNullOrWhiteSpace(item.uniqueId))
+                        continue;
+
+                    item.level = Mathf.Clamp(
+                        item.level, MinEquipmentLevel, MaxEquipmentLevel);
+                    item.baseValue = Math.Max(0L, item.baseValue);
+                    inventory.Add(item);
+                }
+            }
+
+            if (savedPlayerEquippedIds != null)
+            {
+                for (int i = 0; i < savedPlayerEquippedIds.Count; i++)
+                {
+                    string id = savedPlayerEquippedIds[i];
+                    if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots)
+                        break;
+
+                    if (!string.IsNullOrWhiteSpace(id) &&
+                        !playerEquipmentUniqueIds.Contains(id) &&
+                        FindEquipment(id) != null)
+                        playerEquipmentUniqueIds.Add(id);
+                }
+            }
+        }
+
         public EquipmentRecord CreateEquipment(string equipmentId, int level, long baseValue)
         {
             var item = new EquipmentRecord
