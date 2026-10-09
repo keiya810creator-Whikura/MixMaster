@@ -31,6 +31,10 @@ namespace MixMaster.EditorTools
 
             CreatePanelPrefab(entry);
 
+            // Keep the detail screen connected even when the list prefab
+            // is regenerated from this menu.
+            OwnedMonsterDetailPrefabCreator.AttachFromListCreation();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
