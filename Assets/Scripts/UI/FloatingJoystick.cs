@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.Layouts;
+using UnityEngine.UI;
 using UnityEngine.InputSystem.OnScreen;
 
 namespace MixMaster.UI
@@ -39,6 +40,9 @@ namespace MixMaster.UI
 
         private int activePointerId = int.MinValue;
         private bool isPressed;
+        private Graphic touchAreaGraphic;
+        private bool originalRaycastTarget = true;
+        private bool interactionEnabled = true;
 
         protected override string controlPathInternal
         {
@@ -50,6 +54,18 @@ namespace MixMaster.UI
         {
             if (touchArea == null)
                 touchArea = transform as RectTransform;
+
+            if (touchArea != null)
+            {
+                touchAreaGraphic =
+                    touchArea.GetComponent<Graphic>();
+
+                if (touchAreaGraphic != null)
+                {
+                    originalRaycastTarget =
+                        touchAreaGraphic.raycastTarget;
+                }
+            }
 
             ResetJoystick();
 
@@ -64,7 +80,7 @@ namespace MixMaster.UI
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (isPressed)
+            if (!interactionEnabled || isPressed)
                 return;
 
             if (touchArea == null || joystickRoot == null || handle == null)
@@ -92,18 +108,58 @@ namespace MixMaster.UI
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!isPressed || eventData.pointerId != activePointerId)
+            if (!interactionEnabled ||
+                !isPressed ||
+                eventData.pointerId != activePointerId)
+            {
                 return;
+            }
 
             UpdateJoystick(eventData);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (!isPressed || eventData.pointerId != activePointerId)
+            if (!isPressed ||
+                eventData.pointerId != activePointerId)
+            {
                 return;
+            }
 
             ReleaseControl();
+        }
+
+        public void SetInteractionEnabled(bool enabled)
+        {
+            interactionEnabled = enabled;
+
+            if (!enabled)
+                ReleaseControl();
+
+            if (touchAreaGraphic == null &&
+                touchArea != null)
+            {
+                touchAreaGraphic =
+                    touchArea.GetComponent<Graphic>();
+
+                if (touchAreaGraphic != null)
+                {
+                    originalRaycastTarget =
+                        touchAreaGraphic.raycastTarget;
+                }
+            }
+
+            if (touchAreaGraphic != null)
+            {
+                touchAreaGraphic.raycastTarget =
+                    enabled && originalRaycastTarget;
+            }
+
+            if (!enabled &&
+                joystickRoot != null)
+            {
+                joystickRoot.gameObject.SetActive(false);
+            }
         }
 
         private void UpdateJoystick(PointerEventData eventData)
