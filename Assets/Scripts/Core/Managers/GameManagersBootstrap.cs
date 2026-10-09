@@ -25,6 +25,7 @@ namespace MixMaster.Core
             Ensure<MapManager>(root);
             Ensure<PlayerManager>(root);
             Ensure<MonsterManager>(root);
+            Ensure<MixMaster.Monsters.PartyFieldSpawner>(root);
             Ensure<AltarManager>(root);
             Ensure<SpawnManager>(root);
             Ensure<DropManager>(root);
