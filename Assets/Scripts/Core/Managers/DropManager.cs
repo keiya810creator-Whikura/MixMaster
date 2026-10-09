@@ -10,7 +10,11 @@ namespace MixMaster.Core
         private const string MaterialDropResourcePath =
             "Prefabs/MaterialDrop";
 
+        private const string MonsterDropResourcePath =
+            "Prefabs/MonsterDrop";
+
         private GameObject cachedMaterialDropPrefab;
+        private GameObject cachedMonsterDropPrefab;
 
         /// <summary>
         /// Generic 0..1 probability roll.
@@ -72,6 +76,25 @@ namespace MixMaster.Core
             return RollQuantityFromRate(finalRate);
         }
 
+        public bool RollMonsterBodyDrop(
+            double bodyDropRate,
+            double killerDropRateBonus)
+        {
+            double finalRate =
+                CalculateAdditiveRate(
+                    bodyDropRate,
+                    killerDropRateBonus);
+
+            if (finalRate >= 1d)
+                return true;
+
+            if (finalRate <= 0d)
+                return false;
+
+            return UnityEngine.Random.value <
+                   finalRate;
+        }
+
         public void SpawnMaterialDrop(
             MaterialSO material,
             long quantity,
@@ -125,6 +148,59 @@ namespace MixMaster.Core
                 sourceInfo);
         }
 
+        public void SpawnMonsterDrop(
+            MonsterDropRollData rollData,
+            Vector3 worldPosition)
+        {
+            if (rollData == null ||
+                rollData.monster == null)
+            {
+                return;
+            }
+
+            GameObject prefab =
+                GetMonsterDropPrefab();
+
+            GameObject dropObject;
+
+            if (prefab != null)
+            {
+                dropObject =
+                    Instantiate(
+                        prefab,
+                        worldPosition,
+                        Quaternion.identity);
+            }
+            else
+            {
+                dropObject =
+                    CreateRuntimeFallbackMonsterDrop(
+                        worldPosition);
+            }
+
+            if (dropObject == null)
+                return;
+
+            dropObject.name =
+                "MonsterDrop_" +
+                (!string.IsNullOrWhiteSpace(
+                    rollData.monster.monsterId)
+                    ? rollData.monster.monsterId
+                    : rollData.monster.name);
+
+            MonsterDropPickup pickup =
+                dropObject.GetComponent<MonsterDropPickup>();
+
+            if (pickup == null)
+            {
+                pickup =
+                    dropObject.AddComponent<MonsterDropPickup>();
+            }
+
+            pickup.Initialize(
+                rollData);
+        }
+
         private GameObject GetMaterialDropPrefab()
         {
             if (cachedMaterialDropPrefab != null)
@@ -135,6 +211,18 @@ namespace MixMaster.Core
                     MaterialDropResourcePath);
 
             return cachedMaterialDropPrefab;
+        }
+
+        private GameObject GetMonsterDropPrefab()
+        {
+            if (cachedMonsterDropPrefab != null)
+                return cachedMonsterDropPrefab;
+
+            cachedMonsterDropPrefab =
+                Resources.Load<GameObject>(
+                    MonsterDropResourcePath);
+
+            return cachedMonsterDropPrefab;
         }
 
         private static GameObject CreateRuntimeFallbackDrop(
@@ -152,6 +240,25 @@ namespace MixMaster.Core
             renderer.sortingOrder = 40;
 
             drop.AddComponent<MaterialDropPickup>();
+
+            return drop;
+        }
+
+        private static GameObject CreateRuntimeFallbackMonsterDrop(
+            Vector3 worldPosition)
+        {
+            GameObject drop =
+                new GameObject("MonsterDrop");
+
+            drop.transform.position =
+                worldPosition;
+
+            SpriteRenderer renderer =
+                drop.AddComponent<SpriteRenderer>();
+
+            renderer.sortingOrder = 41;
+
+            drop.AddComponent<MonsterDropPickup>();
 
             return drop;
         }
