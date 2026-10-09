@@ -249,7 +249,11 @@ namespace MixMaster.Core
             {
                 game.RestoreGold(data.gold);
                 game.SetCurrentMap(data.mapId);
-                game.SetMode(data.gameMode);
+                // In-progress dungeon runtime (room graph / enemies) is
+                // transient; do not claim to resume it without that state.
+                game.SetMode(data.gameMode == GameMode.Dungeon
+                    ? GameMode.Exploration
+                    : data.gameMode);
             }
 
             if (map != null)
