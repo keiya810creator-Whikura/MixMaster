@@ -38,6 +38,12 @@ namespace MixMaster.Core
             CurrentMapId = mapId ?? string.Empty;
         }
 
+        public void RestoreGold(long value)
+        {
+            Gold = Math.Max(0L, value);
+            GoldChanged?.Invoke(Gold);
+        }
+
         public void AddGold(long amount)
         {
             Gold = LongMath.SaturatingAdd(Gold, amount);
