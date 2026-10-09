@@ -288,6 +288,8 @@ namespace MixMaster.EditorTools
 
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
+
+                MonsterCatalogBuilder.RebuildCatalog();
             }
             finally
             {
