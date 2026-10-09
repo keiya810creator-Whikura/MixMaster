@@ -2481,15 +2481,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mapIdOverride: 
-  titleText: {fileID: 1390330450}
+  titleText: {fileID: 0}
   contentRoot: {fileID: 1136624894}
   entryPrefab: {fileID: 9103518374917768593, guid: 8f19dccc228b78447896047f992e89bc, type: 3}
   closeButton: {fileID: 960688177}
   manualMonsters: []
-  spawnUpgradeBaseCost: 1
-  spawnUpgradeCostStep: 1
-  dropUpgradeBaseCost: 1
-  dropUpgradeCostStep: 1
 --- !u!1 &767744566
 GameObject:
   m_ObjectHideFlags: 0
@@ -8435,6 +8431,7 @@ MonoBehaviour:
   altarPanel: {fileID: 658171801}
   dungeonEntrancePanel: {fileID: 0}
   lockPlayerMovementWhileOpen: 1
+  disableJoystickWhileOpen: 1
 --- !u!4 &1784329211
 Transform:
   m_ObjectHideFlags: 0
