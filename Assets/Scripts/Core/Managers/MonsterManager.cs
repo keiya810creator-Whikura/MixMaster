@@ -68,6 +68,62 @@ namespace MixMaster.Core
             return monster;
         }
 
+        public void RestoreMonsters(
+            IReadOnlyList<OwnedMonsterRecord> savedMonsters,
+            IReadOnlyList<string> savedPartyIds)
+        {
+            ownedMonsters.Clear();
+            partyMonsterUniqueIds.Clear();
+
+            HashSet<string> uniqueIds =
+                new HashSet<string>(StringComparer.Ordinal);
+
+            if (savedMonsters != null)
+            {
+                for (int i = 0; i < savedMonsters.Count; i++)
+                {
+                    OwnedMonsterRecord record = savedMonsters[i];
+                    if (record == null)
+                        continue;
+
+                    if (string.IsNullOrWhiteSpace(record.uniqueId))
+                        record.uniqueId = Guid.NewGuid().ToString("N");
+
+                    if (!uniqueIds.Add(record.uniqueId))
+                        continue;
+
+                    if (record.individualValues == null)
+                        record.individualValues = new MonsterIndividualValues();
+
+                    record.individualValues.ClampAll();
+                    record.level = Mathf.Max(1, record.level);
+                    record.experience = Math.Max(0L, record.experience);
+                    record.learnedSkillIds ??= new List<string>();
+                    record.equippedItemUniqueIds ??= new List<string>();
+                    ownedMonsters.Add(record);
+                }
+            }
+
+            if (savedPartyIds != null)
+            {
+                for (int i = 0; i < savedPartyIds.Count; i++)
+                {
+                    string id = savedPartyIds[i];
+                    if (partyMonsterUniqueIds.Count >= MaxPartySize)
+                        break;
+
+                    if (!string.IsNullOrWhiteSpace(id) &&
+                        !partyMonsterUniqueIds.Contains(id) &&
+                        FindOwnedMonster(id) != null)
+                    {
+                        partyMonsterUniqueIds.Add(id);
+                    }
+                }
+            }
+
+            PartyChanged?.Invoke();
+        }
+
         public bool AddToParty(string monsterUniqueId)
         {
             if (string.IsNullOrEmpty(monsterUniqueId)) return false;
