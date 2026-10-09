@@ -19,6 +19,11 @@ namespace MixMaster.EditorTools
         private const string GeneratedTileFolder =
             "Assets/Data/Tiles/Generated";
 
+        private const int NormalSpawnAreaCount = 10;
+        private const int SpawnPointsPerNormalArea = 2;
+        private const int StrongSpawnAreaCount = 1;
+        private const float SpawnPairOffset = 0.35f;
+
         [Serializable]
         private sealed class LayoutData
         {
@@ -150,6 +155,17 @@ namespace MixMaster.EditorTools
             int originY = -(layout.height / 2);
             int missing = 0;
 
+            List<Vector3Int> preferredSpawnCells =
+                new List<Vector3Int>();
+
+            List<Vector3Int> fallbackSpawnCells =
+                new List<Vector3Int>();
+
+            List<Vector3Int> reservedCells =
+                new List<Vector3Int>();
+
+            Vector3Int? playerSpawnCell = null;
+
             Transform mapObjectsRoot =
                 PrepareMapObjectsRoot(mapRoot.transform);
 
@@ -188,14 +204,29 @@ namespace MixMaster.EditorTools
                             ? row[xIndex]
                             : '.';
 
-                    if (HandleSpecialSymbol(
-                            symbol,
-                            cell,
-                            grid,
-                            mapObjectsRoot))
+                    bool isSpecial =
+                        symbol == 'A' ||
+                        symbol == 'D' ||
+                        symbol == 'P';
+
+                    if (isSpecial)
                     {
-                        continue;
+                        reservedCells.Add(cell);
+
+                        if (symbol == 'P')
+                            playerSpawnCell = cell;
+
+                        if (HandleSpecialSymbol(
+                                symbol,
+                                cell,
+                                grid,
+                                mapObjectsRoot))
+                        {
+                            continue;
+                        }
                     }
+
+                    bool isBlockedCell = false;
 
                     if (symbol != '.' &&
                         legend.TryGetValue(
@@ -205,11 +236,14 @@ namespace MixMaster.EditorTools
                         Tilemap target =
                             GetLayer(mapRoot, entry.layer);
 
-                        Tile.ColliderType colliderType =
+                        bool isCollisionLayer =
                             string.Equals(
                                 entry.layer,
                                 "Collision",
-                                StringComparison.OrdinalIgnoreCase)
+                                StringComparison.OrdinalIgnoreCase);
+
+                        Tile.ColliderType colliderType =
+                            isCollisionLayer
                                 ? Tile.ColliderType.Grid
                                 : Tile.ColliderType.None;
 
@@ -234,6 +268,19 @@ namespace MixMaster.EditorTools
                                 cell,
                                 invisibleCollision);
                         }
+
+                        isBlockedCell =
+                            entry.collision ||
+                            isCollisionLayer;
+                    }
+
+                    if (!isBlockedCell &&
+                        !isSpecial)
+                    {
+                        fallbackSpawnCells.Add(cell);
+
+                        if (symbol == '.')
+                            preferredSpawnCells.Add(cell);
                     }
 
                 }
@@ -250,6 +297,18 @@ namespace MixMaster.EditorTools
                     layout.width,
                     layout.height);
             }
+
+            CreateAutoEnemySpawnAreas(
+                grid,
+                mapObjectsRoot,
+                preferredSpawnCells,
+                fallbackSpawnCells,
+                reservedCells,
+                playerSpawnCell,
+                originX,
+                originY,
+                layout.width,
+                layout.height);
 
             mapRoot.Ground.CompressBounds();
             mapRoot.Decoration.CompressBounds();
@@ -448,6 +507,451 @@ namespace MixMaster.EditorTools
                 player.transform.position =
                     worldPosition;
             }
+        }
+
+        private static void CreateAutoEnemySpawnAreas(
+            Grid grid,
+            Transform parent,
+            List<Vector3Int> preferredCells,
+            List<Vector3Int> fallbackCells,
+            List<Vector3Int> reservedCells,
+            Vector3Int? playerSpawnCell,
+            int originX,
+            int originY,
+            int width,
+            int height)
+        {
+            const int totalAreaCount =
+                NormalSpawnAreaCount +
+                StrongSpawnAreaCount;
+
+            List<Vector3Int> candidates =
+                BuildSpawnCandidates(
+                    preferredCells,
+                    reservedCells,
+                    originX,
+                    originY,
+                    width,
+                    height,
+                    2,
+                    3f);
+
+            if (candidates.Count < totalAreaCount)
+            {
+                candidates =
+                    BuildSpawnCandidates(
+                        fallbackCells,
+                        reservedCells,
+                        originX,
+                        originY,
+                        width,
+                        height,
+                        1,
+                        1.5f);
+            }
+
+            if (candidates.Count == 0)
+            {
+                Debug.LogWarning(
+                    "[TilemapLayoutGenerator] EnemySpawnPointを置けるマスがありません。");
+                return;
+            }
+
+            Vector3Int referenceCell =
+                playerSpawnCell ??
+                new Vector3Int(
+                    originX + width / 2,
+                    originY + height / 2,
+                    0);
+
+            List<Vector3Int> selected =
+                SelectSpreadCells(
+                    candidates,
+                    Mathf.Min(
+                        totalAreaCount,
+                        candidates.Count),
+                    referenceCell,
+                    playerSpawnCell.HasValue);
+
+            if (selected.Count == 0)
+                return;
+
+            int strongIndex =
+                FindFarthestCellIndex(
+                    selected,
+                    referenceCell);
+
+            GameObject spawnRootObject =
+                new GameObject("_EnemySpawnAreas");
+
+            Undo.RegisterCreatedObjectUndo(
+                spawnRootObject,
+                "Create Enemy Spawn Areas");
+
+            spawnRootObject.transform.SetParent(
+                parent,
+                false);
+
+            int normalNumber = 1;
+
+            for (int i = 0; i < selected.Count; i++)
+            {
+                Vector3 worldPosition =
+                    grid != null
+                        ? grid.GetCellCenterWorld(
+                            selected[i])
+                        : (Vector3)selected[i];
+
+                bool isStrong =
+                    i == strongIndex;
+
+                if (isStrong)
+                {
+                    CreateStrongSpawnArea(
+                        spawnRootObject.transform,
+                        worldPosition);
+                    continue;
+                }
+
+                if (normalNumber >
+                    NormalSpawnAreaCount)
+                {
+                    continue;
+                }
+
+                CreateNormalSpawnArea(
+                    spawnRootObject.transform,
+                    worldPosition,
+                    normalNumber);
+
+                normalNumber++;
+            }
+
+            Debug.Log(
+                "[TilemapLayoutGenerator] EnemySpawn配置: 通常" +
+                (normalNumber - 1) +
+                "エリア × " +
+                SpawnPointsPerNormalArea +
+                "、強敵1エリア");
+        }
+
+        private static List<Vector3Int> BuildSpawnCandidates(
+            List<Vector3Int> source,
+            List<Vector3Int> reservedCells,
+            int originX,
+            int originY,
+            int width,
+            int height,
+            int borderMargin,
+            float reservedDistance)
+        {
+            List<Vector3Int> result =
+                new List<Vector3Int>();
+
+            if (source == null)
+                return result;
+
+            float reservedDistanceSqr =
+                reservedDistance *
+                reservedDistance;
+
+            int minX =
+                originX +
+                Mathf.Max(0, borderMargin);
+
+            int maxX =
+                originX +
+                width -
+                1 -
+                Mathf.Max(0, borderMargin);
+
+            int minY =
+                originY +
+                Mathf.Max(0, borderMargin);
+
+            int maxY =
+                originY +
+                height -
+                1 -
+                Mathf.Max(0, borderMargin);
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                Vector3Int cell = source[i];
+
+                if (cell.x < minX ||
+                    cell.x > maxX ||
+                    cell.y < minY ||
+                    cell.y > maxY)
+                {
+                    continue;
+                }
+
+                bool tooCloseToReserved = false;
+
+                if (reservedCells != null)
+                {
+                    for (int j = 0;
+                         j < reservedCells.Count;
+                         j++)
+                    {
+                        Vector2 delta =
+                            new Vector2(
+                                cell.x -
+                                reservedCells[j].x,
+                                cell.y -
+                                reservedCells[j].y);
+
+                        if (delta.sqrMagnitude <
+                            reservedDistanceSqr)
+                        {
+                            tooCloseToReserved = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!tooCloseToReserved)
+                    result.Add(cell);
+            }
+
+            return result;
+        }
+
+        private static List<Vector3Int> SelectSpreadCells(
+            List<Vector3Int> candidates,
+            int count,
+            Vector3Int referenceCell,
+            bool startFarFromReference)
+        {
+            List<Vector3Int> selected =
+                new List<Vector3Int>();
+
+            if (candidates == null ||
+                candidates.Count == 0 ||
+                count <= 0)
+            {
+                return selected;
+            }
+
+            int firstIndex =
+                startFarFromReference
+                    ? FindFarthestCellIndex(
+                        candidates,
+                        referenceCell)
+                    : FindNearestCellIndex(
+                        candidates,
+                        referenceCell);
+
+            selected.Add(
+                candidates[firstIndex]);
+
+            while (selected.Count < count)
+            {
+                int bestIndex = -1;
+                float bestDistance = -1f;
+
+                for (int i = 0;
+                     i < candidates.Count;
+                     i++)
+                {
+                    Vector3Int candidate =
+                        candidates[i];
+
+                    if (selected.Contains(candidate))
+                        continue;
+
+                    float minDistance =
+                        float.MaxValue;
+
+                    for (int j = 0;
+                         j < selected.Count;
+                         j++)
+                    {
+                        float distance =
+                            CellDistanceSqr(
+                                candidate,
+                                selected[j]);
+
+                        if (distance <
+                            minDistance)
+                        {
+                            minDistance =
+                                distance;
+                        }
+                    }
+
+                    if (minDistance >
+                        bestDistance)
+                    {
+                        bestDistance =
+                            minDistance;
+
+                        bestIndex = i;
+                    }
+                }
+
+                if (bestIndex < 0)
+                    break;
+
+                selected.Add(
+                    candidates[bestIndex]);
+            }
+
+            return selected;
+        }
+
+        private static int FindFarthestCellIndex(
+            IList<Vector3Int> cells,
+            Vector3Int reference)
+        {
+            int bestIndex = 0;
+            float bestDistance = -1f;
+
+            for (int i = 0; i < cells.Count; i++)
+            {
+                float distance =
+                    CellDistanceSqr(
+                        cells[i],
+                        reference);
+
+                if (distance >
+                    bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        private static int FindNearestCellIndex(
+            IList<Vector3Int> cells,
+            Vector3Int reference)
+        {
+            int bestIndex = 0;
+            float bestDistance =
+                float.MaxValue;
+
+            for (int i = 0; i < cells.Count; i++)
+            {
+                float distance =
+                    CellDistanceSqr(
+                        cells[i],
+                        reference);
+
+                if (distance <
+                    bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        private static float CellDistanceSqr(
+            Vector3Int a,
+            Vector3Int b)
+        {
+            float dx = a.x - b.x;
+            float dy = a.y - b.y;
+
+            return dx * dx +
+                   dy * dy;
+        }
+
+        private static void CreateNormalSpawnArea(
+            Transform parent,
+            Vector3 worldPosition,
+            int areaNumber)
+        {
+            GameObject area =
+                new GameObject(
+                    "SpawnArea_" +
+                    areaNumber.ToString("00"));
+
+            Undo.RegisterCreatedObjectUndo(
+                area,
+                "Create Enemy Spawn Area");
+
+            area.transform.SetParent(
+                parent,
+                false);
+
+            area.transform.position =
+                worldPosition;
+
+            for (int i = 0;
+                 i < SpawnPointsPerNormalArea;
+                 i++)
+            {
+                GameObject point =
+                    new GameObject(
+                        "EnemySpawnPoint_" +
+                        (char)('A' + i));
+
+                Undo.RegisterCreatedObjectUndo(
+                    point,
+                    "Create Enemy Spawn Point");
+
+                point.transform.SetParent(
+                    area.transform,
+                    false);
+
+                float direction =
+                    i == 0
+                        ? -1f
+                        : 1f;
+
+                point.transform.localPosition =
+                    new Vector3(
+                        SpawnPairOffset *
+                        direction,
+                        0f,
+                        0f);
+
+                point.AddComponent<EnemySpawnPoint>();
+            }
+        }
+
+        private static void CreateStrongSpawnArea(
+            Transform parent,
+            Vector3 worldPosition)
+        {
+            GameObject area =
+                new GameObject(
+                    "StrongSpawnArea");
+
+            Undo.RegisterCreatedObjectUndo(
+                area,
+                "Create Strong Enemy Spawn Area");
+
+            area.transform.SetParent(
+                parent,
+                false);
+
+            area.transform.position =
+                worldPosition;
+
+            GameObject point =
+                new GameObject(
+                    "StrongEnemySpawnPoint");
+
+            Undo.RegisterCreatedObjectUndo(
+                point,
+                "Create Strong Enemy Spawn Point");
+
+            point.transform.SetParent(
+                area.transform,
+                false);
+
+            point.transform.localPosition =
+                Vector3.zero;
+
+            point.AddComponent<EnemySpawnPoint>();
         }
 
         private static void EnsureBuildingUiRouter()
