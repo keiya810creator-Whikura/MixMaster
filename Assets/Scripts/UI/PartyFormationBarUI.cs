@@ -131,6 +131,18 @@ namespace MixMaster.UI
                             : record.monsterId)
                         : (record != null ? record.monsterId : "空き枠");
 
+                    TitleSO title = record != null && catalog != null
+                        ? catalog.GetTitle(record.titleId)
+                        : null;
+
+                    if (title != null)
+                    {
+                        string titleName = !string.IsNullOrWhiteSpace(
+                            title.displayName) ? title.displayName : title.titleId;
+
+                        displayName = "《" + titleName + "》" + displayName;
+                    }
+
                     slotNames[i].text = (i + 1) + ". " + displayName +
                         (record != null ? " Lv." + record.level : "");
                 }
