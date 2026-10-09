@@ -403,6 +403,15 @@ namespace MixMaster.Monsters
                     spawnPosition,
                     spawnRotation);
 
+            // MonsterSO may point to the same projectile prefab enemies use.
+            // Disable its enemy-only script so it cannot destroy or redirect
+            // an allied projectile before PartyMagicProjectile initializes.
+            EnemyMagicProjectile enemyProjectile =
+                projectileObject.GetComponent<EnemyMagicProjectile>();
+
+            if (enemyProjectile != null)
+                enemyProjectile.enabled = false;
+
             PartyMagicProjectile projectile =
                 projectileObject.GetComponent<PartyMagicProjectile>();
 
