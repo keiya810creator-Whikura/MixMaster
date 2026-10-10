@@ -286,7 +286,20 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                JsonLayout layout = BuildLayout(map);
+                JsonLayout layout;
+                try
+                {
+                    layout = BuildLayout(map);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
+                        ": " + ex.Message);
+                    skipped++;
+                    warnings++;
+                    continue;
+                }
+
                 string json = JsonUtility.ToJson(layout, true) + "\n";
                 string absolute = Path.Combine(
                     Directory.GetParent(Application.dataPath).FullName, path);
@@ -489,12 +502,30 @@ namespace MixMaster.EditorTools
 
             int middleX = map.width / 2;
             int middleY = map.height / 2;
+
+            // Keep the player spawn available before road routing.
             grid[map.height - 3, middleX] = 'P';
-            grid[2, middleX] = 'D';
-            grid[middleY, Mathf.Max(2, middleX - 3)] = 'A';
 
             if (roads.Count > 0)
                 DrawConnectedRoads(grid, roads, random);
+
+            // Place structures only after the final road network is decided.
+            // A full 3-cell buffer is required between each building and road.
+            var roadSymbols = new HashSet<char>();
+            foreach (TileSpec tile in map.tiles)
+                if (tile.category == Category.Road)
+                    roadSymbols.Add(tile.symbol);
+
+            if (!TryPlaceBuilding(grid, 'D', middleX, 2, roadSymbols))
+                throw new InvalidOperationException(
+                    "ダンジョン入口を道路から3マス離して配置できません。" +
+                    " マップを広くするか道の配置率を減らしてください。");
+
+            if (!TryPlaceBuilding(grid, 'A',
+                Mathf.Max(2, middleX - 3), middleY, roadSymbols))
+                throw new InvalidOperationException(
+                    "祭壇を道路から3マス離して配置できません。" +
+                    " マップを広くするか道の配置率を減らしてください。");
 
             // Place large objects first: all footprint cells must be empty.
             // Rates are the fraction of the total map AREA (not object count).
@@ -522,6 +553,89 @@ namespace MixMaster.EditorTools
                 legend = legend.ToArray(),
                 rows = lines
             };
+        }
+
+        // A minimum of three empty cells must separate each building
+        // from any road, including diagonally (Chebyshev distance >= 4).
+        private const int BuildingRoadClearance = 3;
+        private const int BuildingAccessClearance = 2;
+
+        private static bool TryPlaceBuilding(
+            char[,] grid,
+            char symbol,
+            int preferredX,
+            int preferredY,
+            HashSet<char> roadSymbols)
+        {
+            int height = grid.GetLength(0);
+            int width = grid.GetLength(1);
+            int bestX = -1;
+            int bestY = -1;
+            int bestDistance = int.MaxValue;
+
+            // Avoid the outer collision border when selecting a site.
+            for (int y = 2; y < height - 2; y++)
+            {
+                for (int x = 2; x < width - 2; x++)
+                {
+                    if (grid[y, x] != '.' ||
+                        !IsBuildingLocationClear(grid, x, y, roadSymbols))
+                        continue;
+
+                    int dx = x - preferredX;
+                    int dy = y - preferredY;
+                    int distance = dx * dx + dy * dy;
+                    if (distance >= bestDistance)
+                        continue;
+
+                    bestDistance = distance;
+                    bestX = x;
+                    bestY = y;
+                }
+            }
+
+            if (bestX < 0)
+                return false;
+
+            grid[bestY, bestX] = symbol;
+            return true;
+        }
+
+        private static bool IsBuildingLocationClear(
+            char[,] grid,
+            int x,
+            int y,
+            HashSet<char> roadSymbols)
+        {
+            int height = grid.GetLength(0);
+            int width = grid.GetLength(1);
+            for (int dy = -BuildingRoadClearance;
+                dy <= BuildingRoadClearance; dy++)
+            {
+                int checkY = y + dy;
+                if (checkY < 0 || checkY >= height)
+                    continue;
+
+                for (int dx = -BuildingRoadClearance;
+                    dx <= BuildingRoadClearance; dx++)
+                {
+                    int checkX = x + dx;
+                    if (checkX < 0 || checkX >= width)
+                        continue;
+
+                    char value = grid[checkY, checkX];
+                    if (roadSymbols.Contains(value))
+                        return false;
+
+                    // Also keep access to player, altar and dungeon clear.
+                    if (Mathf.Abs(dx) <= BuildingAccessClearance &&
+                        Mathf.Abs(dy) <= BuildingAccessClearance &&
+                        (value == 'P' || value == 'A' || value == 'D'))
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         private static void PlaceObjects(char[,] grid, TileSpec tile,
