@@ -269,6 +269,8 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained +=
                 HandleMonsterObtained;
+            monsterManager.MonsterExperienceChanged +=
+                HandleMonsterExperienceChanged;
 
             subscribed = true;
         }
@@ -283,6 +285,8 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained -=
                 HandleMonsterObtained;
+            monsterManager.MonsterExperienceChanged -=
+                HandleMonsterExperienceChanged;
 
             subscribed = false;
         }
@@ -346,6 +350,13 @@ namespace MixMaster.UI
             OwnedMonsterRecord record)
         {
             Rebuild();
+        }
+
+        private void HandleMonsterExperienceChanged(OwnedMonsterRecord record)
+        {
+            // Preserve the UI entries and their selected monster while
+            // refreshing levels and calculated stats in-place.
+            RefreshAll();
         }
 
         private void RefreshCount()
