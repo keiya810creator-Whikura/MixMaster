@@ -354,9 +354,21 @@ namespace MixMaster.UI
 
         private void HandleMonsterExperienceChanged(OwnedMonsterRecord record)
         {
-            // Preserve the UI entries and their selected monster while
-            // refreshing levels and calculated stats in-place.
-            RefreshAll();
+            if (record == null)
+                return;
+
+            // Only the affected entry needs recalculation; avoid rebuilding
+            // a large monster collection on every battle EXP gain.
+            for (int i = 0; i < entries.Count; i++)
+            {
+                OwnedMonsterEntryUI entry = entries[i];
+                if (entry == null || entry.Record == null ||
+                    entry.Record.uniqueId != record.uniqueId)
+                    continue;
+
+                entry.Bind(record, catalog, showIndividualValues);
+                break;
+            }
         }
 
         private void RefreshCount()
