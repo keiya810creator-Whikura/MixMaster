@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using TMPro;
 using MixMaster.Core;
 using MixMaster.Player;
+using MixMaster.UI;
 
 namespace MixMaster.Combat
 {
@@ -259,6 +260,7 @@ namespace MixMaster.Combat
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
             long actualDamage = Math.Max(0L, before - playerManager.CurrentHp);
+            DamagePopupText.Show(transform.position, actualDamage, true);
 
             if (playerSpriteRenderer != null)
             {
@@ -293,6 +295,7 @@ namespace MixMaster.Combat
 
             long actualDamage =
                 Math.Max(0L, before - playerManager.CurrentHp);
+            DamagePopupText.Show(transform.position, actualDamage, true);
 
             if (playerSpriteRenderer != null)
             {
