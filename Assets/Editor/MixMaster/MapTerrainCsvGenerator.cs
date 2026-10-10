@@ -53,6 +53,47 @@ namespace MixMaster.EditorTools
             public string name;
             public float percent;
             public char symbol;
+            public int cellsX = 1;
+            public int cellsY = 1;
+            public char[] componentSymbols = Array.Empty<char>();
+        }
+
+        private sealed class RoadFamily
+        {
+            public string name;
+            public TileSpec full;
+            public TileSpec vertical;
+            public TileSpec horizontal;
+            public TileSpec cross;
+            public float percent;
+
+            public char SymbolFor(int neighbors, bool up, bool down, bool left, bool right)
+            {
+                if (neighbors == 4 && cross != null) return cross.symbol;
+                if (neighbors >= 3) return FallbackSymbol();
+                if (up && down && !left && !right && vertical != null)
+                    return vertical.symbol;
+                if (left && right && !up && !down && horizontal != null)
+                    return horizontal.symbol;
+                if (neighbors == 1)
+                {
+                    if ((up || down) && vertical != null) return vertical.symbol;
+                    if ((left || right) && horizontal != null) return horizontal.symbol;
+                }
+
+                // A corner or three-way junction has no dedicated sprite in this
+                // CSV. Use the solid/full road tile to avoid disconnected ends.
+                return FallbackSymbol();
+            }
+
+            public char FallbackSymbol()
+            {
+                if (full != null) return full.symbol;
+                if (cross != null) return cross.symbol;
+                if (vertical != null) return vertical.symbol;
+                if (horizontal != null) return horizontal.symbol;
+                return '.';
+            }
         }
 
         private sealed class MapSpec
@@ -112,8 +153,8 @@ namespace MixMaster.EditorTools
             if (rows.Count == 0 || !IsHeaderValid(rows[0]))
             {
                 EditorUtility.DisplayDialog("マップ地形CSV",
-                    "ヘッダーは次の7列を使用してください:\n" +
-                    "地形生成用JSON名,幅,高さ,Seed,種類,素材名,配置率", "OK");
+                    "ヘッダーは次の8列を使用してください:\n" +
+                    "地形生成用JSON名,幅,高さ,Seed,マス,種類,素材名,配置率", "OK");
                 return;
             }
 
@@ -128,16 +169,16 @@ namespace MixMaster.EditorTools
                     continue;
 
                 int number = rowIndex + 1;
-                if (row.Count != 7)
+                if (row.Count != 8)
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] " + number +
-                        "行目: 7列で記述してください。");
+                        "行目: 8列で記述してください。");
                     warnings++;
                     continue;
                 }
 
                 string name = Cell(row, 0);
-                string tileName = Cell(row, 5);
+                string tileName = Cell(row, 6);
 
                 if (string.IsNullOrWhiteSpace(name) ||
                     string.IsNullOrWhiteSpace(tileName))
@@ -149,16 +190,30 @@ namespace MixMaster.EditorTools
                 }
 
                 Category category;
-                if (!TryCategory(Cell(row, 4), out category))
+                if (!TryCategory(Cell(row, 5), out category))
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] " + number +
-                        "行目: 不明な種類: " + Cell(row, 4));
+                        "行目: 不明な種類: " + Cell(row, 5));
                     warnings++;
                     continue;
                 }
 
-                int width, height, seed;
+                int width, height, seed, cellsX, cellsY;
                 float percent;
+
+                if (!TryParseFootprint(Cell(row, 4), out cellsX, out cellsY) ||
+                    cellsX > 8 || cellsY > 8 ||
+                    ((category == Category.Ground || category == Category.Road) &&
+                     (cellsX != 1 || cellsY != 1)))
+                {
+                    Debug.LogError("[MapTerrainCsvGenerator] " + number +
+                        "行目: マスは 1*1、2*2、3*2 など（最大8*8）。" +
+                        "地面・道は1*1のみ対応しています。");
+                    warnings++;
+                    if (maps.TryGetValue(name, out MapSpec invalidFootprint))
+                        invalidFootprint.invalid = true;
+                    continue;
+                }
 
                 if (!int.TryParse(Cell(row, 1), NumberStyles.Integer,
                         CultureInfo.InvariantCulture, out width) ||
@@ -166,7 +221,7 @@ namespace MixMaster.EditorTools
                         CultureInfo.InvariantCulture, out height) ||
                     !int.TryParse(Cell(row, 3), NumberStyles.Integer,
                         CultureInfo.InvariantCulture, out seed) ||
-                    !float.TryParse(Cell(row, 6), NumberStyles.Float,
+                    !float.TryParse(Cell(row, 7), NumberStyles.Float,
                         CultureInfo.InvariantCulture, out percent) ||
                     width < 12 || height < 12 || width > 250 || height > 250 ||
                     percent < 0f || percent > 100f)
@@ -212,7 +267,8 @@ namespace MixMaster.EditorTools
 
                 spec.tiles.Add(new TileSpec
                 {
-                    category = category, name = tileName, percent = percent
+                    category = category, name = tileName, percent = percent,
+                    cellsX = cellsX, cellsY = cellsY
                 });
             }
 
@@ -552,11 +608,24 @@ namespace MixMaster.EditorTools
             }
         }
 
+        private static bool TryParseFootprint(string cell, out int columns, out int rows)
+        {
+            columns = 0;
+            rows = 0;
+            string[] values = cell.ToLowerInvariant().Replace("×", "*")
+                .Replace("x", "*").Split('*');
+
+            return values.Length == 2 &&
+                int.TryParse(values[0].Trim(), out columns) &&
+                int.TryParse(values[1].Trim(), out rows) &&
+                columns >= 1 && rows >= 1;
+        }
+
         private static bool IsHeaderValid(List<string> row)
         {
             string[] expected =
             {
-                "地形生成用JSON名", "幅", "高さ", "Seed", "種類", "素材名", "配置率"
+                "地形生成用JSON名", "幅", "高さ", "Seed", "マス", "種類", "素材名", "配置率"
             };
             if (row.Count != expected.Length) return false;
             for (int i = 0; i < row.Count; i++)
