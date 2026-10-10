@@ -321,61 +321,131 @@ namespace MixMaster.EditorTools
 
         private static bool ValidateMap(MapSpec map)
         {
-            int groundCount = 0, symbolCount = 0;
-            float roadPercent = 0f, propPercent = 0f;
+            int groundCount = 0, symbolsRequired = 0;
+            float totalRoadPercent = 0f, propPercent = 0f;
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<RoadFamily> roads = BuildRoadFamilies(map);
+
+            foreach (RoadFamily family in roads)
+            {
+                totalRoadPercent += family.percent;
+                if (family.full == null)
+                {
+                    Debug.LogWarning("[MapTerrainCsvGenerator] " + map.name +
+                        ": 道の全面タイル '" + family.name +
+                        "' がないため曲がり角の描画に代替タイルを使います。");
+                }
+            }
 
             foreach (TileSpec tile in map.tiles)
             {
                 if (!names.Add(tile.name))
                 {
-                    Debug.LogError("[MapTerrainCsvGenerator] 重複する素材名: " + tile.name);
+                    Debug.LogError("[MapTerrainCsvGenerator] 素材名が重複しています: " +
+                        tile.name);
                     return false;
                 }
 
-                if (tile.category == Category.Ground) groundCount++;
+                if (tile.category == Category.Ground)
+                {
+                    groundCount++;
+                    if (tile.cellsX != 1 || tile.cellsY != 1)
+                        return false;
+                }
                 else
                 {
-                    symbolCount++;
-                    if (tile.category == Category.Road)
-                        roadPercent += tile.percent;
-                    else
+                    symbolsRequired += tile.cellsX * tile.cellsY;
+                    if (tile.category == Category.Decoration ||
+                        tile.category == Category.Collision)
                         propPercent += tile.percent;
                 }
 
-                if (FindOrImportSprite(tile.name) == null)
+                // Multi-cell objects use _1, _2, ... in row-major order.
+                int partCount = tile.cellsX * tile.cellsY;
+                for (int part = 1; part <= partCount; part++)
                 {
-                    Debug.LogError("[MapTerrainCsvGenerator] 素材がありません: " +
-                        tile.name + " / " + CsvSpriteFolder + "/" +
-                        tile.name + ".png (画像名とCSV名を一致させてください)");
+                    string spriteName = partCount > 1
+                        ? tile.name + "_" + part : tile.name;
+                    if (FindOrImportSprite(spriteName) != null)
+                        continue;
+
+                    Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
+                        ": PNGが見つかりません: " + CsvSpriteFolder + "/" +
+                        spriteName + ".png");
                     return false;
                 }
             }
 
-            if (groundCount != 1 || symbolCount > Symbols.Length ||
-                roadPercent > 40f || propPercent > 100f)
+            if (groundCount != 1 || symbolsRequired > Symbols.Length ||
+                totalRoadPercent > 40f || propPercent > 100f)
             {
                 Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
-                    ": 地面は1種類、その他は最大 " + Symbols.Length +
-                    " 種類、道の配置率合計40%以下、オブジェクトの配置率合計100%以下にしてください。");
+                    ": 地面は1種類、必要な記号数は " + Symbols.Length +
+                    " 以下、道の配置率合計40%以下、装飾・障害物の配置率合計100%以下にしてください。" +
+                    " 実際の記号数=" + symbolsRequired);
                 return false;
             }
 
             return true;
         }
 
-        // Exclude '.', 'A', 'D', and 'P': reserved by TilemapLayoutGenerator.
-        private const string SymbolAlphabet = "abcdefghijklmnoqrstuvwxyz0123456789BCEFGHIJKLMNOQRSTUVWXYZ";
-        private static readonly char[] Symbols =
-            SymbolAlphabet.ToCharArray();
+        // '.', 'A', 'D', 'P' are reserved by the existing JSON Tilemap importer.
+        private const string SymbolAlphabet =
+            "abcdefghijklmnoqrstuvwxyz0123456789BCEFGHIJKLMNOQRSTUVWXYZ";
+        private static readonly char[] Symbols = SymbolAlphabet.ToCharArray();
+
+        private static string RoadFamilyName(string name)
+        {
+            string[] suffixes = { "_十字", "_縦", "_横", "_全面" };
+            foreach (string suffix in suffixes)
+                if (name.EndsWith(suffix, StringComparison.Ordinal))
+                    return name.Substring(0, name.Length - suffix.Length);
+            return name;
+        }
+
+        private static List<RoadFamily> BuildRoadFamilies(MapSpec map)
+        {
+            var familyMap = new Dictionary<string, RoadFamily>(
+                StringComparer.OrdinalIgnoreCase);
+            var ordered = new List<RoadFamily>();
+
+            foreach (TileSpec tile in map.tiles)
+            {
+                if (tile.category != Category.Road)
+                    continue;
+
+                string baseName = RoadFamilyName(tile.name);
+                if (!familyMap.TryGetValue(baseName, out RoadFamily family))
+                {
+                    family = new RoadFamily { name = baseName, percent = tile.percent };
+                    familyMap.Add(baseName, family);
+                    ordered.Add(family);
+                }
+
+                if (tile.name.EndsWith("_十字", StringComparison.Ordinal))
+                    family.cross = tile;
+                else if (tile.name.EndsWith("_縦", StringComparison.Ordinal))
+                    family.vertical = tile;
+                else if (tile.name.EndsWith("_横", StringComparison.Ordinal))
+                    family.horizontal = tile;
+                else
+                {
+                    family.full = tile;
+                    // The full-tile row controls the family-wide road coverage.
+                    family.percent = tile.percent;
+                }
+            }
+
+            return ordered;
+        }
 
         private static JsonLayout BuildLayout(MapSpec map)
         {
             System.Random random = new System.Random(map.seed);
             TileSpec ground = null;
-            var roads = new List<TileSpec>();
             var props = new List<TileSpec>();
             var legend = new List<JsonLegend>();
+            List<RoadFamily> roads = BuildRoadFamilies(map);
             int nextSymbol = 0;
 
             foreach (TileSpec tile in map.tiles)
@@ -386,92 +456,56 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                tile.symbol = Symbols[nextSymbol++];
-                legend.Add(new JsonLegend
+                int count = tile.cellsX * tile.cellsY;
+                tile.componentSymbols = new char[count];
+                for (int i = 0; i < count; i++)
                 {
-                    symbol = tile.symbol.ToString(),
-                    tile = tile.name,
-                    layer = tile.category == Category.Road ? "Ground" : "Decoration",
-                    collision = tile.category == Category.Collision
-                });
+                    char symbol = Symbols[nextSymbol++];
+                    tile.componentSymbols[i] = symbol;
+                    if (i == 0) tile.symbol = symbol;
 
-                if (tile.category == Category.Road)
-                    roads.Add(tile);
-                else
+                    legend.Add(new JsonLegend
+                    {
+                        symbol = symbol.ToString(),
+                        tile = count == 1 ? tile.name : tile.name + "_" + (i + 1),
+                        layer = tile.category == Category.Road
+                            ? "Ground" : "Decoration",
+                        collision = tile.category == Category.Collision
+                    });
+                }
+
+                if (tile.category == Category.Decoration ||
+                    tile.category == Category.Collision)
                     props.Add(tile);
             }
 
+            // Existing JSON rows are top to bottom. A single char maps to
+            // exactly one tile in the TilemapLayoutGenerator.
             char[,] grid = new char[map.height, map.width];
             for (int y = 0; y < map.height; y++)
                 for (int x = 0; x < map.width; x++)
                     grid[y, x] = '.';
 
-            // Connected road backbone, extended by branches toward target coverage.
-            if (roads.Count > 0)
-            {
-                int cx = map.width / 2 + random.Next(-2, 3);
-                int cy = map.height / 2 + random.Next(-2, 3);
-                cx = Mathf.Clamp(cx, 2, map.width - 3);
-                cy = Mathf.Clamp(cy, 2, map.height - 3);
-
-                for (int x = 1; x < map.width - 1; x++)
-                    grid[cy, x] = WeightedSymbol(roads, random);
-                for (int y = 1; y < map.height - 1; y++)
-                    grid[y, cx] = WeightedSymbol(roads, random);
-
-                float roadPercent = 0f;
-                foreach (TileSpec road in roads) roadPercent += road.percent;
-                int goal = Mathf.RoundToInt(map.width * map.height *
-                    roadPercent * 0.01f);
-                int attempts = 0;
-
-                while (CountRoads(grid, roads) < goal && attempts++ < 120)
-                {
-                    bool fromHorizontal = random.Next(2) == 0;
-                    int startX = fromHorizontal
-                        ? random.Next(2, map.width - 2) : cx;
-                    int startY = fromHorizontal
-                        ? cy : random.Next(2, map.height - 2);
-                    int endX = random.Next(2, map.width - 2);
-                    int endY = random.Next(2, map.height - 2);
-
-                    // L-shaped branches are connected to the cross at their start.
-                    DrawRoad(grid, startX, startY, endX, startY, roads, random);
-                    DrawRoad(grid, endX, startY, endX, endY, roads, random);
-                }
-            }
-
-            // One item per cell. Rates are percentages of eligible free ground cells.
-            for (int y = 1; y < map.height - 1; y++)
-            {
-                for (int x = 1; x < map.width - 1; x++)
-                {
-                    if (grid[y, x] != '.') continue;
-
-                    double roll = random.NextDouble() * 100.0;
-                    foreach (TileSpec tile in props)
-                    {
-                        roll -= tile.percent;
-                        if (roll >= 0.0) continue;
-
-                        grid[y, x] = tile.symbol;
-                        break;
-                    }
-                }
-            }
-
-            // Buildings and player spawn are always kept free of collision.
-            // Row zero is the top of the map in the existing JSON format.
             int middleX = map.width / 2;
             int middleY = map.height / 2;
             grid[map.height - 3, middleX] = 'P';
             grid[2, middleX] = 'D';
             grid[middleY, Mathf.Max(2, middleX - 3)] = 'A';
 
+            if (roads.Count > 0)
+                DrawConnectedRoads(grid, roads, random);
+
+            // Place large objects first: all footprint cells must be empty.
+            // Rates are the fraction of the total map AREA (not object count).
+            props.Sort((a, b) =>
+                (b.cellsX * b.cellsY).CompareTo(a.cellsX * a.cellsY));
+            foreach (TileSpec tile in props)
+                PlaceObjects(grid, tile, map.width, map.height, random);
+
             string[] lines = new string[map.height];
             for (int y = 0; y < map.height; y++)
             {
-                var line = new char[map.width];
+                char[] line = new char[map.width];
                 for (int x = 0; x < map.width; x++)
                     line[x] = grid[y, x];
                 lines[y] = new string(line);
@@ -489,50 +523,192 @@ namespace MixMaster.EditorTools
             };
         }
 
-        private static int CountRoads(char[,] grid, List<TileSpec> roads)
+        private static void PlaceObjects(char[,] grid, TileSpec tile,
+            int width, int height, System.Random random)
         {
-            var roadSymbols = new HashSet<char>();
-            foreach (TileSpec t in roads) roadSymbols.Add(t.symbol);
+            if (tile.percent <= 0f)
+                return;
 
-            int count = 0;
-            for (int y = 1; y < grid.GetLength(0) - 1; y++)
-                for (int x = 1; x < grid.GetLength(1) - 1; x++)
-                    if (roadSymbols.Contains(grid[y, x])) count++;
-            return count;
+            int footprint = tile.cellsX * tile.cellsY;
+            int desired = Mathf.RoundToInt(
+                width * height * tile.percent / (100f * footprint));
+            int placed = 0;
+            if (desired <= 0)
+                return;
+
+            // Exclude outer one-cell border. Shuffle all legal anchors once,
+            // so placement is deterministic, efficient and non-overlapping.
+            var anchors = new List<int>();
+            for (int y = 1; y <= height - tile.cellsY - 1; y++)
+                for (int x = 1; x <= width - tile.cellsX - 1; x++)
+                    anchors.Add(y * width + x);
+
+            for (int i = anchors.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                int tmp = anchors[i];
+                anchors[i] = anchors[j];
+                anchors[j] = tmp;
+            }
+
+            foreach (int anchor in anchors)
+            {
+                if (placed >= desired) break;
+                int x = anchor % width;
+                int y = anchor / width;
+                if (!IsFootprintClear(grid, x, y, tile.cellsX, tile.cellsY))
+                    continue;
+
+                // _1 _2 ... are assigned from top-left, left-to-right,
+                // then row-by-row toward the bottom.
+                for (int dy = 0; dy < tile.cellsY; dy++)
+                    for (int dx = 0; dx < tile.cellsX; dx++)
+                        grid[y + dy, x + dx] =
+                            tile.componentSymbols[dy * tile.cellsX + dx];
+
+                placed++;
+            }
+
+            if (placed < desired)
+                Debug.LogWarning("[MapTerrainCsvGenerator] " + tile.name +
+                    ": 配置可能な空きマスが足りません (希望 " + desired +
+                    " 個 / 実際 " + placed + " 個)。");
         }
 
-        private static void DrawRoad(char[,] grid, int x0, int y0,
-            int x1, int y1, List<TileSpec> roads, System.Random random)
+        private static bool IsFootprintClear(
+            char[,] grid, int x, int y, int columns, int rows)
         {
-            int dx = Math.Sign(x1 - x0), dy = Math.Sign(y1 - y0);
-            int x = x0, y = y0;
+            for (int dy = 0; dy < rows; dy++)
+                for (int dx = 0; dx < columns; dx++)
+                    if (grid[y + dy, x + dx] != '.')
+                        return false;
+            return true;
+        }
+
+        private static void DrawConnectedRoads(
+            char[,] grid, List<RoadFamily> roadFamilies, System.Random random)
+        {
+            int height = grid.GetLength(0);
+            int width = grid.GetLength(1);
+            var membership = new RoadFamily[height, width];
+            int centerX = Mathf.Clamp(width / 2 + random.Next(-2, 3), 2, width - 3);
+            int centerY = Mathf.Clamp(height / 2 + random.Next(-2, 3), 2, height - 3);
+            RoadFamily backbone = PickRoadFamily(roadFamilies, random);
+
+            // Continuous central horizontal + vertical backbone.
+            for (int x = 1; x < width - 1; x++)
+                MarkRoad(grid, membership, x, centerY, backbone);
+            for (int y = 1; y < height - 1; y++)
+                MarkRoad(grid, membership, centerX, y, backbone);
+
+            float roadPercent = 0f;
+            foreach (RoadFamily family in roadFamilies)
+                roadPercent += family.percent;
+
+            int goal = Mathf.RoundToInt(width * height * roadPercent * 0.01f);
+            int attempts = 0;
+            int count = CountRoadCells(membership);
+            int maxAttempts = Mathf.Max(150, goal * 4);
+
+            while (count < goal && attempts++ < maxAttempts)
+            {
+                bool fromHorizontal = random.Next(2) == 0;
+                int startX = fromHorizontal
+                    ? random.Next(2, width - 2) : centerX;
+                int startY = fromHorizontal
+                    ? centerY : random.Next(2, height - 2);
+                int endX = random.Next(2, width - 2);
+                int endY = random.Next(2, height - 2);
+
+                RoadFamily family = PickRoadFamily(roadFamilies, random);
+                count += DrawRoadSegment(grid, membership,
+                    startX, startY, endX, startY, family);
+                count += DrawRoadSegment(grid, membership,
+                    endX, startY, endX, endY, family);
+            }
+
+            // Resolve road shape only AFTER the full network is complete.
+            // This allows crossroads and straight sections to join naturally.
+            for (int y = 1; y < height - 1; y++)
+            {
+                for (int x = 1; x < width - 1; x++)
+                {
+                    RoadFamily family = membership[y, x];
+                    if (family == null) continue;
+
+                    bool up = membership[y - 1, x] != null;
+                    bool down = membership[y + 1, x] != null;
+                    bool left = membership[y, x - 1] != null;
+                    bool right = membership[y, x + 1] != null;
+                    int neighbors = (up ? 1 : 0) + (down ? 1 : 0) +
+                        (left ? 1 : 0) + (right ? 1 : 0);
+
+                    grid[y, x] = family.SymbolFor(
+                        neighbors, up, down, left, right);
+                }
+            }
+        }
+
+        private static int DrawRoadSegment(
+            char[,] grid, RoadFamily[,] membership,
+            int startX, int startY, int endX, int endY, RoadFamily family)
+        {
+            int added = 0;
+            int x = startX, y = startY;
+            int dx = Math.Sign(endX - startX);
+            int dy = Math.Sign(endY - startY);
             while (true)
             {
-                if (x > 0 && y > 0 && x < grid.GetLength(1) - 1 &&
-                    y < grid.GetLength(0) - 1)
-                    grid[y, x] = WeightedSymbol(roads, random);
-
-                if (x == x1 && y == y1) break;
-                if (x != x1) x += dx;
-                else if (y != y1) y += dy;
+                if (MarkRoad(grid, membership, x, y, family))
+                    added++;
+                if (x == endX && y == endY)
+                    break;
+                if (x != endX) x += dx;
+                else if (y != endY) y += dy;
             }
+            return added;
         }
 
-        private static char WeightedSymbol(List<TileSpec> tiles, System.Random random)
+        private static bool MarkRoad(
+            char[,] grid, RoadFamily[,] membership,
+            int x, int y, RoadFamily family)
+        {
+            if (x <= 0 || y <= 0 ||
+                x >= grid.GetLength(1) - 1 ||
+                y >= grid.GetLength(0) - 1 ||
+                grid[y, x] != '.' || membership[y, x] != null)
+                return false;
+
+            membership[y, x] = family;
+            return true;
+        }
+
+        private static int CountRoadCells(RoadFamily[,] membership)
+        {
+            int total = 0;
+            foreach (RoadFamily family in membership)
+                if (family != null) total++;
+            return total;
+        }
+
+        private static RoadFamily PickRoadFamily(
+            List<RoadFamily> families, System.Random random)
         {
             double total = 0;
-            foreach (TileSpec tile in tiles) total += tile.percent;
+            foreach (RoadFamily family in families)
+                total += Math.Max(0f, family.percent);
+
             if (total <= 0)
-                return tiles[random.Next(tiles.Count)].symbol;
+                return families[random.Next(families.Count)];
 
-            double remaining = random.NextDouble() * total;
-            foreach (TileSpec tile in tiles)
+            double roll = random.NextDouble() * total;
+            foreach (RoadFamily family in families)
             {
-                remaining -= tile.percent;
-                if (remaining < 0) return tile.symbol;
+                roll -= Math.Max(0f, family.percent);
+                if (roll < 0)
+                    return family;
             }
-
-            return tiles[tiles.Count - 1].symbol;
+            return families[families.Count - 1];
         }
 
         private static Sprite FindOrImportSprite(string name)
