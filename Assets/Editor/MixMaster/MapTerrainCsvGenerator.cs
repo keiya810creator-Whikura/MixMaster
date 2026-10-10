@@ -96,6 +96,7 @@ namespace MixMaster.EditorTools
             }
 
             EnsureFolder(JsonFolder);
+            AssetDatabase.Refresh();
 
             List<List<string>> rows;
             try
@@ -308,9 +309,9 @@ namespace MixMaster.EditorTools
         }
 
         // Exclude '.', 'A', 'D', and 'P': reserved by TilemapLayoutGenerator.
-        private const string SymbolAlphabet = "abcdefghijklmnoqrstuvwxyz0123456789BC EFGHIJKLMNOQ RSTUVWXYZ";
+        private const string SymbolAlphabet = "abcdefghijklmnoqrstuvwxyz0123456789BCEFGHIJKLMNOQRSTUVWXYZ";
         private static readonly char[] Symbols =
-            SymbolAlphabet.Replace(" ", "").ToCharArray();
+            SymbolAlphabet.ToCharArray();
 
         private static JsonLayout BuildLayout(MapSpec map)
         {
@@ -496,11 +497,11 @@ namespace MixMaster.EditorTools
             if (path == null)
                 return null;
 
-            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite != null) return sprite;
-
             TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer != null && importer.textureType != TextureImporterType.Sprite)
+            if (importer != null &&
+                (importer.textureType != TextureImporterType.Sprite ||
+                 importer.spriteImportMode != SpriteImportMode.Single ||
+                 Mathf.Abs(importer.spritePixelsPerUnit - 32f) > 0.001f))
             {
                 importer.textureType = TextureImporterType.Sprite;
                 importer.spriteImportMode = SpriteImportMode.Single;
