@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using MixMaster.World;
+using MixMaster.Core;
 using MixMaster.Player;
 using MixMaster.UI;
 using UnityEditor;
@@ -74,6 +75,38 @@ namespace MixMaster.EditorTools
             return Selection.activeObject is TextAsset;
         }
 
+        [MenuItem("MixMaster/Map/選択MapSOからTilemap生成")]
+        public static void GenerateFromSelectedMap()
+        {
+            MapSO map = Selection.activeObject as MapSO;
+            if (map == null)
+                return;
+
+            TextAsset json = map.layoutJson;
+            if (json == null && !string.IsNullOrWhiteSpace(map.layoutJsonName))
+            {
+                json = AssetDatabase.LoadAssetAtPath<TextAsset>(
+                    "Assets/Data/MapLayouts/" + map.layoutJsonName + ".json");
+            }
+
+            if (json == null)
+            {
+                EditorUtility.DisplayDialog(
+                    "MapSOからTilemap生成",
+                    "MapSOの地形生成用JSONが見つかりません: " +
+                    map.layoutJsonName, "OK");
+                return;
+            }
+
+            Generate(json, map);
+        }
+
+        [MenuItem("MixMaster/Map/選択MapSOからTilemap生成", true)]
+        private static bool ValidateGenerateFromSelectedMap()
+        {
+            return Selection.activeObject is MapSO;
+        }
+
         [MenuItem("MixMaster/Map/サンプル/平野テストマップを生成")]
         public static void GenerateSamplePlainMap()
         {
@@ -94,8 +127,54 @@ namespace MixMaster.EditorTools
             Generate(json);
         }
 
-        private static void Generate(TextAsset jsonAsset)
+        private static MapSO FindMapForJson(TextAsset jsonAsset)
         {
+            if (jsonAsset == null)
+                return null;
+
+            string jsonName = Path.GetFileNameWithoutExtension(
+                AssetDatabase.GetAssetPath(jsonAsset));
+
+            MapSO match = null;
+            string[] guids = AssetDatabase.FindAssets("t:MapSO");
+
+            foreach (string guid in guids)
+            {
+                MapSO candidate = AssetDatabase.LoadAssetAtPath<MapSO>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+
+                if (candidate == null)
+                    continue;
+
+                bool sameJson = candidate.layoutJson == jsonAsset ||
+                    (!string.IsNullOrWhiteSpace(candidate.layoutJsonName) &&
+                     string.Equals(candidate.layoutJsonName, jsonName,
+                         StringComparison.OrdinalIgnoreCase));
+
+                if (!sameJson)
+                    continue;
+
+                if (match != null)
+                {
+                    Debug.LogWarning(
+                        "[TilemapLayoutGenerator] 同じJSONを使用するMapSOが複数あります。 " +
+                        "割り当てるMapSOを選択し「選択MapSOからTilemap生成」を使用してください。");
+                    return null;
+                }
+
+                match = candidate;
+            }
+
+            return match;
+        }
+
+        private static void Generate(TextAsset jsonAsset, MapSO mapDefinition = null)
+        {
+            // The original JSON menu also benefits from map CSV imports.
+            // If one imported MapSO references this JSON, use its spawn setup.
+            if (mapDefinition == null)
+                mapDefinition = FindMapForJson(jsonAsset);
+
             LayoutData layout;
 
             try
@@ -133,6 +212,7 @@ namespace MixMaster.EditorTools
             if (mapRoot == null)
                 return;
 
+            mapRoot.SetMapDefinition(mapDefinition);
             mapRoot.ClearAllTiles();
             EnsureFolder(GeneratedTileFolder);
 
@@ -314,7 +394,8 @@ namespace MixMaster.EditorTools
                 originX,
                 originY,
                 layout.width,
-                layout.height);
+                layout.height,
+                mapDefinition);
 
             mapRoot.Ground.CompressBounds();
             mapRoot.Decoration.CompressBounds();
@@ -530,7 +611,8 @@ namespace MixMaster.EditorTools
             int originX,
             int originY,
             int width,
-            int height)
+            int height,
+            MapSO mapDefinition)
         {
             const int totalAreaCount =
                 NormalSpawnLocationCount +
@@ -620,7 +702,8 @@ namespace MixMaster.EditorTools
                 {
                     CreateStrongSpawnArea(
                         spawnRootObject.transform,
-                        worldPosition);
+                        worldPosition,
+                        mapDefinition);
                     continue;
                 }
 
@@ -633,7 +716,8 @@ namespace MixMaster.EditorTools
                 CreateNormalSpawnLocation(
                     spawnRootObject.transform,
                     worldPosition,
-                    normalNumber);
+                    normalNumber,
+                    mapDefinition);
 
                 normalNumber++;
             }
@@ -879,7 +963,8 @@ namespace MixMaster.EditorTools
         private static void CreateNormalSpawnLocation(
             Transform parent,
             Vector3 worldPosition,
-            int locationNumber)
+            int locationNumber,
+            MapSO mapDefinition)
         {
             int monsterSlot =
                 ((locationNumber - 1) /
@@ -911,13 +996,26 @@ namespace MixMaster.EditorTools
             point.transform.position =
                 worldPosition;
 
+            MonsterSO monster = null;
+            if (mapDefinition != null &&
+                mapDefinition.normalMonsters != null &&
+                monsterSlot <= mapDefinition.normalMonsters.Count)
+            {
+                monster = mapDefinition.normalMonsters[monsterSlot - 1];
+            }
+
             AddConfiguredEnemySpawnPoint(
-                point);
+                point,
+                monster,
+                mapDefinition != null
+                    ? mapDefinition.normalMonsterLevel
+                    : 1);
         }
 
         private static void CreateStrongSpawnArea(
             Transform parent,
-            Vector3 worldPosition)
+            Vector3 worldPosition,
+            MapSO mapDefinition)
         {
             GameObject point =
                 new GameObject(
@@ -935,11 +1033,15 @@ namespace MixMaster.EditorTools
                 worldPosition;
 
             AddConfiguredEnemySpawnPoint(
-                point);
+                point,
+                mapDefinition != null ? mapDefinition.bossMonster : null,
+                mapDefinition != null ? mapDefinition.strongMonsterLevel : 1);
         }
 
         private static void AddConfiguredEnemySpawnPoint(
-            GameObject point)
+            GameObject point,
+            MonsterSO monster,
+            int level)
         {
             if (point == null)
                 return;
@@ -957,15 +1059,16 @@ namespace MixMaster.EditorTools
                     "[TilemapLayoutGenerator] Enemy Prefabが見つかりません: " +
                     CommonEnemyPrefabPath,
                     point);
-
-                return;
+            }
+            else
+            {
+                spawnPoint.SetEnemyPrefab(enemyPrefab);
             }
 
-            spawnPoint.SetEnemyPrefab(
-                enemyPrefab);
+            if (monster != null)
+                spawnPoint.SetMonster(monster, Mathf.Max(1, level));
 
-            EditorUtility.SetDirty(
-                spawnPoint);
+            EditorUtility.SetDirty(spawnPoint);
         }
 
         private static void EnsureBuildingUiRouter()

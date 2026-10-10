@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using MixMaster.Core;
 
 namespace MixMaster.World
 {
@@ -7,6 +8,9 @@ namespace MixMaster.World
     [RequireComponent(typeof(Grid))]
     public sealed class TilemapMapRoot : MonoBehaviour
     {
+        [Header("Map Data")]
+        [SerializeField] private MapSO mapDefinition;
+
         [Header("Tilemap Layers")]
         [SerializeField] private Tilemap ground;
         [SerializeField] private Tilemap decoration;
@@ -14,6 +18,7 @@ namespace MixMaster.World
         [SerializeField] private Tilemap above;
 
         public Grid Grid { get; private set; }
+        public MapSO MapDefinition => mapDefinition;
         public Tilemap Ground => ground;
         public Tilemap Decoration => decoration;
         public Tilemap Collision => collision;
@@ -22,6 +27,11 @@ namespace MixMaster.World
         private void Awake()
         {
             Grid = GetComponent<Grid>();
+        }
+
+        public void SetMapDefinition(MapSO map)
+        {
+            mapDefinition = map;
         }
 
         public void SetLayers(
