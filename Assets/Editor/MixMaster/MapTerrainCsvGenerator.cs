@@ -579,9 +579,30 @@ namespace MixMaster.EditorTools
             char[,] grid, int x, int y, int columns, int rows)
         {
             for (int dy = 0; dy < rows; dy++)
+            {
                 for (int dx = 0; dx < columns; dx++)
-                    if (grid[y + dy, x + dx] != '.')
+                {
+                    int cellX = x + dx;
+                    int cellY = y + dy;
+                    if (grid[cellY, cellX] != '.')
                         return false;
+
+                    // Leave at least a one-cell clearance around the player,
+                    // dungeon entrance and altar so blocking objects cannot
+                    // seal their access.
+                    for (int ny = Math.Max(0, cellY - 1);
+                        ny <= Math.Min(grid.GetLength(0) - 1, cellY + 1); ny++)
+                    {
+                        for (int nx = Math.Max(0, cellX - 1);
+                            nx <= Math.Min(grid.GetLength(1) - 1, cellX + 1); nx++)
+                        {
+                            char nearby = grid[ny, nx];
+                            if (nearby == 'P' || nearby == 'D' || nearby == 'A')
+                                return false;
+                        }
+                    }
+                }
+            }
             return true;
         }
 
@@ -593,6 +614,12 @@ namespace MixMaster.EditorTools
             var membership = new RoadFamily[height, width];
             int centerX = Mathf.Clamp(width / 2 + random.Next(-2, 3), 2, width - 3);
             int centerY = Mathf.Clamp(height / 2 + random.Next(-2, 3), 2, height - 3);
+            float roadPercent = 0f;
+            foreach (RoadFamily family in roadFamilies)
+                roadPercent += family.percent;
+            if (roadPercent <= 0f)
+                return;
+
             RoadFamily backbone = PickRoadFamily(roadFamilies, random);
 
             // Continuous central horizontal + vertical backbone.
@@ -600,10 +627,6 @@ namespace MixMaster.EditorTools
                 MarkRoad(grid, membership, x, centerY, backbone);
             for (int y = 1; y < height - 1; y++)
                 MarkRoad(grid, membership, centerX, y, backbone);
-
-            float roadPercent = 0f;
-            foreach (RoadFamily family in roadFamilies)
-                roadPercent += family.percent;
 
             int goal = Mathf.RoundToInt(width * height * roadPercent * 0.01f);
             int attempts = 0;
