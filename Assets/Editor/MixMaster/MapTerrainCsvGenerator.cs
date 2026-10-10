@@ -295,11 +295,11 @@ namespace MixMaster.EditorTools
                 }
             }
 
-            if (groundCount != 1 || symbolCount > SymbolAlphabet.Length ||
+            if (groundCount != 1 || symbolCount > Symbols.Length ||
                 roadPercent > 40f || propPercent > 100f)
             {
                 Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
-                    ": 地面は1種類、その他は最大 " + SymbolAlphabet.Length +
+                    ": 地面は1種類、その他は最大 " + Symbols.Length +
                     " 種類、道の配置率合計40%以下、オブジェクトの配置率合計100%以下にしてください。");
                 return false;
             }
@@ -486,7 +486,7 @@ namespace MixMaster.EditorTools
             foreach (string ext in extensions)
             {
                 string candidate = CsvSpriteFolder + "/" + name + ext;
-                if (AssetDatabase.LoadAssetAtPath<Texture2D>(candidate) != null)
+                if (AssetDatabase.LoadMainAssetAtPath(candidate) != null)
                 {
                     path = candidate;
                     break;
