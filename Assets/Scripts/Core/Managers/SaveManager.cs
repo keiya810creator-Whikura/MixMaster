@@ -165,6 +165,8 @@ namespace MixMaster.Core
             if (player != null)
             {
                 data.playerStats = player.Stats;
+                data.playerLevel = player.Level;
+                data.playerExperience = player.Experience;
                 data.playerCurrentHp = player.CurrentHp;
                 data.playerCurrentMp = player.CurrentMp;
             }
@@ -263,7 +265,9 @@ namespace MixMaster.Core
                 player.RestorePlayerState(
                     data.playerStats,
                     data.playerCurrentHp,
-                    data.playerCurrentMp);
+                    data.playerCurrentMp,
+                    data.playerLevel,
+                    data.playerExperience);
 
             if (offline != null)
                 offline.RestoreLastCompletedProfile(data.offlineProfile);
