@@ -109,9 +109,9 @@ namespace MixMaster.Core
                     record.level = restoredLevel;
                     record.experience = restoredExp;
                     if (restoredLevels > 0)
-                        record.skillPoints = Math.Min(int.MaxValue,
-                            (int)Math.Min((long)int.MaxValue,
-                                (long)record.skillPoints + restoredLevels));
+                        record.skillPoints = (int)Math.Min(
+                            int.MaxValue,
+                            (long)Math.Max(0, record.skillPoints) + restoredLevels);
                     record.learnedSkillIds ??= new List<string>();
                     record.equippedItemUniqueIds ??= new List<string>();
                     ownedMonsters.Add(record);
