@@ -1216,6 +1216,23 @@ namespace MixMaster.EditorTools
         private static Sprite FindSpriteExact(
             string spriteName)
         {
+            // CSV-generated layouts use exact PNG names in the dedicated folder.
+            // Resolve there first to avoid accidentally using same-named assets
+            // from unrelated map themes or other parts of the project.
+            string[] extensions = { ".png", ".jpg", ".jpeg" };
+            for (int i = 0; i < extensions.Length; i++)
+            {
+                string exactPath =
+                    MapTerrainCsvGenerator.CsvSpriteFolder + "/" +
+                    spriteName + extensions[i];
+
+                Sprite csvSprite =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(exactPath);
+
+                if (csvSprite != null)
+                    return csvSprite;
+            }
+
             string[] guids =
                 AssetDatabase.FindAssets(
                     spriteName,
