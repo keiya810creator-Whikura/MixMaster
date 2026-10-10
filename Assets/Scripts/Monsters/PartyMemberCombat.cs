@@ -222,10 +222,12 @@ namespace MixMaster.Monsters
             Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
             float slotDistance = Vector2.Distance(transform.position, attackPosition);
 
-            if (slotDistance > GetAttackSlotTolerance())
-                return;
+            // The attack gauge may finish charging before reaching the assigned
+            // slot. As long as the enemy is in range, attack from here.
+            // FixedUpdate continues moving toward the slot when not lunging.
+            if (slotDistance <= GetAttackSlotTolerance())
+                follower.StopCombatMovement();
 
-            follower.StopCombatMovement();
             follower.FaceDirection(toTarget);
 
             if (attackGauge < 1f)
@@ -646,6 +648,8 @@ namespace MixMaster.Monsters
 
             long actual = Math.Min(currentHp, damage);
             currentHp -= actual;
+
+            DamagePopupText.Show(transform.position, actual, true);
 
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
