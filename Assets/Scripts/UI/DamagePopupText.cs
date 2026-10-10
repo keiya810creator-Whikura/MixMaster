@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using TMPro;
 using UnityEngine;
+using MixMaster.Core;
 
 namespace MixMaster.UI
 {
@@ -21,8 +22,6 @@ namespace MixMaster.UI
             new Stack<DamagePopupText>();
         private static int activeCount;
 
-        private static readonly Color EnemyDamageColor =
-            new Color(1f, 0.87f, 0.30f, 1f);
         private static readonly Color AllyDamageColor =
             new Color(1f, 0.32f, 0.36f, 1f);
 
@@ -43,6 +42,16 @@ namespace MixMaster.UI
         /// <param name="takenByAlly">True for damage to the Player or party.</param>
         public static void Show(Vector3 worldPosition, long damage, bool takenByAlly = false)
         {
+            Show(worldPosition, damage, MaterialDropSourceType.Unknown, takenByAlly);
+        }
+
+        // The attacker's material-log color is also the damage-number color.
+        public static void Show(
+            Vector3 worldPosition,
+            long damage,
+            MaterialDropSourceType attackSource,
+            bool takenByAlly = false)
+        {
             if (!Application.isPlaying || damage <= 0L || activeCount >= MaxActive)
                 return;
 
@@ -59,7 +68,7 @@ namespace MixMaster.UI
             }
 
             popup.gameObject.SetActive(true);
-            popup.Begin(worldPosition, damage, takenByAlly);
+            popup.Begin(worldPosition, damage, attackSource, takenByAlly);
         }
 
         private void Awake()
@@ -78,14 +87,14 @@ namespace MixMaster.UI
             label.outlineColor = new Color32(23, 18, 27, 255);
             label.outlineWidth = 0.18f;
 
-            transform.localScale = Vector3.one * 0.12f;
+            transform.localScale = Vector3.one;
 
             MeshRenderer renderer = GetComponent<MeshRenderer>();
             if (renderer != null)
                 renderer.sortingOrder = 3000;
         }
 
-        private void Begin(Vector3 position, long damage, bool takenByAlly)
+        private void Begin(Vector3 position, long damage, MaterialDropSourceType attackSource, bool takenByAlly)
         {
             startPosition = position +
                 new Vector3(Random.Range(-0.15f, 0.15f), 0.72f, -0.2f);
@@ -93,7 +102,9 @@ namespace MixMaster.UI
             transform.position = startPosition;
             elapsed = 0f;
 
-            baseColor = takenByAlly ? AllyDamageColor : EnemyDamageColor;
+            baseColor = takenByAlly
+                ? AllyDamageColor
+                : MaterialDropLogUI.GetSourceColor(attackSource);
             label.text = damage.ToString("N0", CultureInfo.InvariantCulture);
             label.color = baseColor;
 
