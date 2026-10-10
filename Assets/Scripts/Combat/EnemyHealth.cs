@@ -167,6 +167,7 @@ namespace MixMaster.Combat
 
             wanderAI?.EnterCombat(1.5f);
 
+            DamagePopupText.Show(transform.position, actualDamage);
             Damaged?.Invoke(this, actualDamage);
 
             if (spriteRenderer != null)
