@@ -219,7 +219,7 @@ namespace MixMaster.UI
             layout.childForceExpandHeight = false;
         }
 
-        private static Color GetSourceColor(
+        public static Color GetSourceColor(
             MaterialDropSourceType sourceType)
         {
             switch (sourceType)
