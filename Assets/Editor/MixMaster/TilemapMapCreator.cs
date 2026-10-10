@@ -26,6 +26,10 @@ namespace MixMaster.EditorTools
                 root,
                 "Create Tilemap Map");
 
+            // Apply only to newly created TilemapMap roots.
+            // Existing scene roots keep their manually configured scale.
+            root.transform.localScale = Vector3.one * 0.5f;
+
             Grid grid = root.AddComponent<Grid>();
             grid.cellSize = Vector3.one;
             grid.cellGap = Vector3.zero;
