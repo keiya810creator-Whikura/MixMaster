@@ -19,7 +19,7 @@ namespace MixMaster.Monsters
         [SerializeField, Min(0)] private int followOrder = 0;
 
         [Tooltip("Distance between each party member.")]
-        [SerializeField, Min(0.1f)] private float followerSpacing = 1.15f;
+        [SerializeField, Min(0.1f)] private float followerSpacing = 0.65f;
 
         [Header("Movement")]
         [SerializeField, Min(0.1f)] private float followSpeed = 7f;
