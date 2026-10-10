@@ -38,10 +38,50 @@ namespace MixMaster.Monsters
             CacheComponents();
         }
 
+        private void OnEnable()
+        {
+            CacheComponents();
+            if (enemyHealth != null)
+            {
+                enemyHealth.Died -= HandleDefeated;
+                enemyHealth.Died += HandleDefeated;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (enemyHealth != null)
+                enemyHealth.Died -= HandleDefeated;
+        }
+
         private void Start()
         {
             if (!initialized && monsterDefinition != null)
                 ApplyDefinition();
+        }
+
+        private void HandleDefeated(EnemyHealth defeatedEnemy)
+        {
+            if (monsterDefinition == null ||
+                monsterDefinition.experienceReward <= 0L)
+                return;
+
+            // Every battle participant gets the same experience, regardless
+            // of which character landed the final hit.
+            long reward = LongMath.SaturatingMultiply(
+                monsterDefinition.experienceReward, Mathf.Max(1, level));
+
+            PlayerManager player = FindFirstObjectByType<PlayerManager>();
+            if (player != null)
+                player.AddExperience(reward);
+
+            MonsterManager monsters = FindFirstObjectByType<MonsterManager>();
+            if (monsters == null)
+                return;
+
+            var party = monsters.PartyMonsterUniqueIds;
+            for (int i = 0; i < party.Count; i++)
+                monsters.AddExperience(party[i], reward);
         }
 
         public void Initialize(
