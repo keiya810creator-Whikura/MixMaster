@@ -22,6 +22,10 @@ namespace MixMaster.Combat
         [Header("UI")]
         [SerializeField] private Slider hpSlider;
         [SerializeField] private TMP_Text hpText;
+        [Tooltip("Optional text displaying the player's current level.")]
+        [SerializeField] private TMP_Text levelText;
+        [Tooltip("Optional text displaying EXP progress toward the next level.")]
+        [SerializeField] private TMP_Text experienceText;
         [Tooltip("0 to 1 attack charge gauge. When full, the player attacks.")]
         [SerializeField] private Slider attackSpeedSlider;
         [SerializeField] private TMP_Text attackTimeText;
@@ -107,7 +111,10 @@ namespace MixMaster.Combat
             if (playerManager != null)
             {
                 playerManager.HpChanged += HandlePlayerHpChanged;
+                playerManager.ExperienceChanged += HandleExperienceChanged;
+                playerManager.LeveledUp += HandlePlayerLeveledUp;
                 RefreshHpSlider(playerManager.CurrentHp, playerManager.Stats.maxHp);
+                RefreshExperienceText();
             }
             else
             {
@@ -134,7 +141,11 @@ namespace MixMaster.Combat
         private void OnDestroy()
         {
             if (playerManager != null)
+            {
                 playerManager.HpChanged -= HandlePlayerHpChanged;
+                playerManager.ExperienceChanged -= HandleExperienceChanged;
+                playerManager.LeveledUp -= HandlePlayerLeveledUp;
+            }
 
             if (swordPivot != null)
                 Destroy(swordPivot.gameObject);
@@ -343,6 +354,34 @@ namespace MixMaster.Combat
         private void HandlePlayerHpChanged(long current, long max)
         {
             RefreshHpSlider(current, max);
+        }
+
+        private void HandleExperienceChanged(long current, long required)
+        {
+            RefreshExperienceText();
+        }
+
+        private void HandlePlayerLeveledUp(int newLevel)
+        {
+            RefreshExperienceText();
+        }
+
+        private void RefreshExperienceText()
+        {
+            if (playerManager == null)
+                return;
+
+            if (levelText != null)
+                levelText.text = "Lv." + playerManager.Level;
+
+            if (experienceText != null)
+            {
+                long needed = playerManager.ExperienceToNextLevel;
+                experienceText.text = needed > 0L
+                    ? "EXP " + playerManager.Experience.ToString("N0") +
+                      "/" + needed.ToString("N0")
+                    : "EXP MAX";
+            }
         }
 
         private void RefreshHpSlider(long current, long max)
