@@ -589,6 +589,35 @@ namespace MixMaster.Monsters
             }
         }
 
+        /// <summary>
+        /// Applies new growth stats without recreating the follower, resetting
+        /// the attack gauge, losing the target, or restoring an injured monster
+        /// to full HP.
+        /// </summary>
+        public void ApplyLevelUpStats(CharacterStats newStats)
+        {
+            if (newStats == null)
+                return;
+
+            long oldMaxHp = Math.Max(1L, stats.maxHp);
+            long oldMaxMp = Math.Max(0L, stats.maxMp);
+            stats = newStats;
+
+            if (isAlive)
+            {
+                currentHp = Math.Min(Math.Max(1L, stats.maxHp),
+                    LongMath.SaturatingAdd(currentHp,
+                        Math.Max(0L, stats.maxHp - oldMaxHp)));
+                currentMp = Math.Min(Math.Max(0L, stats.maxMp),
+                    LongMath.SaturatingAdd(currentMp,
+                        Math.Max(0L, stats.maxMp - oldMaxMp)));
+            }
+
+            RefreshHpSlider();
+            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+        }
+
         public void SetCombatMode(PartyCombatMode mode)
         {
             combatMode = mode;
