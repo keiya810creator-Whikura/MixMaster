@@ -61,7 +61,6 @@ namespace MixMaster.EditorTools
         private sealed class RoadFamily
         {
             public string name;
-            public TileSpec full;
             public TileSpec vertical;
             public TileSpec horizontal;
             public TileSpec cross;
@@ -69,30 +68,19 @@ namespace MixMaster.EditorTools
 
             public char SymbolFor(int neighbors, bool up, bool down, bool left, bool right)
             {
-                if (neighbors == 4 && cross != null) return cross.symbol;
-                if (neighbors >= 3) return FallbackSymbol();
-                if (up && down && !left && !right && vertical != null)
+                // Only three tile variants are used: vertical, horizontal, cross.
+                // A corner, T-junction, crossroad, or isolated road cell uses cross.
+                if (up && down && !left && !right)
                     return vertical.symbol;
-                if (left && right && !up && !down && horizontal != null)
+                if (left && right && !up && !down)
                     return horizontal.symbol;
                 if (neighbors == 1)
                 {
-                    if ((up || down) && vertical != null) return vertical.symbol;
-                    if ((left || right) && horizontal != null) return horizontal.symbol;
+                    if (up || down) return vertical.symbol;
+                    if (left || right) return horizontal.symbol;
                 }
 
-                // A corner or three-way junction has no dedicated sprite in this
-                // CSV. Use the solid/full road tile to avoid disconnected ends.
-                return FallbackSymbol();
-            }
-
-            public char FallbackSymbol()
-            {
-                if (full != null) return full.symbol;
-                if (cross != null) return cross.symbol;
-                if (vertical != null) return vertical.symbol;
-                if (horizontal != null) return horizontal.symbol;
-                return '.';
+                return cross.symbol;
             }
         }
 
@@ -329,11 +317,14 @@ namespace MixMaster.EditorTools
             foreach (RoadFamily family in roads)
             {
                 totalRoadPercent += family.percent;
-                if (family.full == null)
+                if (family.vertical == null || family.horizontal == null ||
+                    family.cross == null)
                 {
-                    Debug.LogWarning("[MapTerrainCsvGenerator] " + map.name +
-                        ": 道の全面タイル '" + family.name +
-                        "' がないため曲がり角の描画に代替タイルを使います。");
+                    Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
+                        ": 道の素材は '" + family.name +
+                        "_縦', '_横', '_十字' の3種類を登録してください。" +
+                        " 全面タイルは不要です。");
+                    return false;
                 }
             }
 
@@ -342,6 +333,15 @@ namespace MixMaster.EditorTools
                 if (!names.Add(tile.name))
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] 素材名が重複しています: " +
+                        tile.name);
+                    return false;
+                }
+
+                if (tile.category == Category.Road &&
+                    !IsRoadVariant(tile.name))
+                {
+                    Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
+                        ": 道は '_縦', '_横', '_十字' のみ対応しています: " +
                         tile.name);
                     return false;
                 }
@@ -394,9 +394,16 @@ namespace MixMaster.EditorTools
             "abcdefghijklmnoqrstuvwxyz0123456789BCEFGHIJKLMNOQRSTUVWXYZ";
         private static readonly char[] Symbols = SymbolAlphabet.ToCharArray();
 
+        private static bool IsRoadVariant(string name)
+        {
+            return name.EndsWith("_十字", StringComparison.Ordinal) ||
+                   name.EndsWith("_縦", StringComparison.Ordinal) ||
+                   name.EndsWith("_横", StringComparison.Ordinal);
+        }
+
         private static string RoadFamilyName(string name)
         {
-            string[] suffixes = { "_十字", "_縦", "_横", "_全面" };
+            string[] suffixes = { "_十字", "_縦", "_横" };
             foreach (string suffix in suffixes)
                 if (name.EndsWith(suffix, StringComparison.Ordinal))
                     return name.Substring(0, name.Length - suffix.Length);
@@ -428,12 +435,6 @@ namespace MixMaster.EditorTools
                     family.vertical = tile;
                 else if (tile.name.EndsWith("_横", StringComparison.Ordinal))
                     family.horizontal = tile;
-                else
-                {
-                    family.full = tile;
-                    // The full-tile row controls the family-wide road coverage.
-                    family.percent = tile.percent;
-                }
             }
 
             return ordered;
