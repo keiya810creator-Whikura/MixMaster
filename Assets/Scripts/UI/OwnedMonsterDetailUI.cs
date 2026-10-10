@@ -180,9 +180,13 @@ namespace MixMaster.UI
             SetText(elementText,
                 elementName + "属性｜" + attackTypeName);
 
-            // Experience-to-next-level has not been defined yet.
+            long requiredExp =
+                ExperienceProgression.RequiredExperience(selectedRecord.level);
             SetText(experienceText,
-                "累計EXP: " + selectedRecord.experience.ToString("N0"));
+                requiredExp > 0L
+                    ? "EXP: " + selectedRecord.experience.ToString("N0") +
+                      " / " + requiredExp.ToString("N0")
+                    : "EXP: MAX");
 
             SetText(intimacyText,
                 "親密度: " + selectedRecord.intimacy.ToString("0.##"));
@@ -244,6 +248,7 @@ namespace MixMaster.UI
                 return;
 
             monsterManager.PartyChanged += HandlePartyChanged;
+            monsterManager.MonsterExperienceChanged += HandleExperienceChanged;
             partySubscribed = true;
         }
 
@@ -253,7 +258,10 @@ namespace MixMaster.UI
                 return;
 
             if (monsterManager != null)
+            {
                 monsterManager.PartyChanged -= HandlePartyChanged;
+                monsterManager.MonsterExperienceChanged -= HandleExperienceChanged;
+            }
 
             partySubscribed = false;
         }
@@ -261,6 +269,13 @@ namespace MixMaster.UI
         private void HandlePartyChanged()
         {
             RefreshPartyControls();
+        }
+
+        private void HandleExperienceChanged(OwnedMonsterRecord record)
+        {
+            if (selectedRecord != null && record != null &&
+                selectedRecord.uniqueId == record.uniqueId)
+                Refresh();
         }
 
         private void ToggleParty()
