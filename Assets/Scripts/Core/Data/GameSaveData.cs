@@ -18,6 +18,8 @@ namespace MixMaster.Core
 
         public long gold;
         public CharacterStats playerStats = new CharacterStats();
+        public int playerLevel = 1;
+        public long playerExperience;
         public long playerCurrentHp;
         public long playerCurrentMp;
 
