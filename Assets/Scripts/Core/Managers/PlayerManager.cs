@@ -94,8 +94,12 @@ namespace MixMaster.Core
             stats.magicDefense = IncreaseByTenPercent(stats.magicDefense);
 
             // Preserve missing HP / MP instead of fully healing every level.
-            CurrentHp = Math.Min(stats.maxHp,
-                LongMath.SaturatingAdd(CurrentHp, stats.maxHp - previousMaxHp));
+            if (CurrentHp > 0L)
+            {
+                CurrentHp = Math.Min(stats.maxHp,
+                    LongMath.SaturatingAdd(CurrentHp,
+                        stats.maxHp - previousMaxHp));
+            }
             CurrentMp = Math.Min(stats.maxMp,
                 LongMath.SaturatingAdd(CurrentMp, stats.maxMp - previousMaxMp));
 
