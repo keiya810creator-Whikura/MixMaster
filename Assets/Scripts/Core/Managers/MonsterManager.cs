@@ -17,6 +17,8 @@ namespace MixMaster.Core
         public int MaxPartySize => Mathf.Clamp(maxPartySize, 1, 3);
 
         public event Action<OwnedMonsterRecord> MonsterObtained;
+        public event Action<OwnedMonsterRecord> MonsterExperienceChanged;
+        public event Action<OwnedMonsterRecord> MonsterLeveledUp;
         public event Action PartyChanged;
 
         public OwnedMonsterRecord ObtainMonster(
@@ -96,8 +98,20 @@ namespace MixMaster.Core
                         record.individualValues = new MonsterIndividualValues();
 
                     record.individualValues.ClampAll();
-                    record.level = Mathf.Max(1, record.level);
+                    record.level = Mathf.Clamp(record.level, 1, ExperienceProgression.MaxLevel);
                     record.experience = Math.Max(0L, record.experience);
+                    // Normalize experience from older saves without altering
+                    // the stored monster's individual values or title.
+                    int restoredLevel = record.level;
+                    long restoredExp = record.experience;
+                    ExperienceProgression.ApplyExperience(
+                        ref restoredLevel, ref restoredExp, 0L, out int restoredLevels);
+                    record.level = restoredLevel;
+                    record.experience = restoredExp;
+                    if (restoredLevels > 0)
+                        record.skillPoints = Math.Min(int.MaxValue,
+                            (int)Math.Min((long)int.MaxValue,
+                                (long)record.skillPoints + restoredLevels));
                     record.learnedSkillIds ??= new List<string>();
                     record.equippedItemUniqueIds ??= new List<string>();
                     ownedMonsters.Add(record);
@@ -155,7 +169,23 @@ namespace MixMaster.Core
             var monster = FindOwnedMonster(monsterUniqueId);
             if (monster == null) return;
 
-            monster.experience = LongMath.SaturatingAdd(monster.experience, amount);
+            int nextLevel = monster.level;
+            long nextExp = monster.experience;
+
+            ExperienceProgression.ApplyExperience(
+                ref nextLevel, ref nextExp, amount, out int gainedLevels);
+
+            monster.level = nextLevel;
+            monster.experience = nextExp;
+
+            if (gainedLevels > 0)
+            {
+                monster.skillPoints = (int)Math.Min(int.MaxValue,
+                    (long)monster.skillPoints + gainedLevels);
+                MonsterLeveledUp?.Invoke(monster);
+            }
+
+            MonsterExperienceChanged?.Invoke(monster);
         }
     }
 }
