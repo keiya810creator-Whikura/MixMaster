@@ -18,6 +18,8 @@ namespace MixMaster.Monsters
 
         private readonly List<GameObject> activeActors =
             new List<GameObject>();
+        private readonly Dictionary<string, PartyMemberCombat> activeByMonsterId =
+            new Dictionary<string, PartyMemberCombat>();
 
         private MonsterManager monsterManager;
         private MonsterCatalogSO catalog;
@@ -53,7 +55,10 @@ namespace MixMaster.Monsters
             SceneManager.sceneLoaded -= HandleSceneLoaded;
 
             if (monsterManager != null)
+            {
                 monsterManager.PartyChanged -= HandlePartyChanged;
+                monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
+            }
 
             ClearActors();
         }
@@ -84,6 +89,8 @@ namespace MixMaster.Monsters
             {
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.PartyChanged += HandlePartyChanged;
+                monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
+                monsterManager.MonsterLeveledUp += HandleMonsterLeveledUp;
             }
         }
 
@@ -92,6 +99,25 @@ namespace MixMaster.Monsters
             dirty = true;
             nextRetryTime = 0f;
             RefreshParty();
+        }
+
+        private void HandleMonsterLeveledUp(OwnedMonsterRecord record)
+        {
+            if (record == null || catalog == null)
+                return;
+
+            if (!activeByMonsterId.TryGetValue(record.uniqueId,
+                    out PartyMemberCombat combat) || combat == null)
+                return;
+
+            MonsterSO definition = catalog.GetMonster(record.monsterId);
+            if (definition == null)
+                return;
+
+            TitleSO title = catalog.GetTitle(record.titleId);
+            CharacterStats leveledStats = StatCalculator.CalculateMonsterStats(
+                definition, record.level, record.individualValues, title);
+            combat.ApplyLevelUpStats(leveledStats);
         }
 
         public void RefreshParty()
@@ -246,6 +272,7 @@ namespace MixMaster.Monsters
 
             combat.ConfigureOwnedMonster(monster, calculated);
             activeActors.Add(actor);
+            activeByMonsterId[record.uniqueId] = combat;
         }
 
         private static GameObject CreateFallbackActor(
@@ -266,6 +293,7 @@ namespace MixMaster.Monsters
 
         private void ClearActors()
         {
+            activeByMonsterId.Clear();
             for (int i = 0; i < activeActors.Count; i++)
             {
                 GameObject actor = activeActors[i];
