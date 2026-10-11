@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 
 namespace MixMaster.EditorTools
 {
@@ -92,10 +93,8 @@ namespace MixMaster.EditorTools
                 hudRect.localScale = Vector3.one;
             }
 
-            if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
-                Debug.LogWarning(
-                    "[PartyCircularHud] EventSystemがありません。" +
-                    "アイコンのクリックにはシーン内のEventSystemが必要です。");
+            EnsureMonsterListPanel(canvas);
+            EnsureEventSystem();
 
             Selection.activeGameObject = instance;
             EditorSceneManager.MarkSceneDirty(instance.scene);
@@ -352,6 +351,76 @@ namespace MixMaster.EditorTools
             }
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static void EnsureMonsterListPanel(Canvas canvas)
+        {
+            OwnedMonsterListUI[] sceneLists =
+                Object.FindObjectsByType<OwnedMonsterListUI>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (OwnedMonsterListUI list in sceneLists)
+            {
+                if (list != null && list.gameObject.scene.IsValid())
+                    return;
+            }
+
+            GameObject listPrefab =
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    OwnedMonsterUiPrefabCreator.PanelPrefabPath);
+            if (listPrefab == null)
+            {
+                Debug.LogWarning(
+                    "[PartyCircularHud] 仲間一覧Prefabがありません。" +
+                    "「MixMaster/UI/仲間一覧UIを作成」から準備してください。");
+                return;
+            }
+
+            // Ensure a detail panel is linked without replacing the list
+            // design, then install the panel hidden until portrait tap.
+            OwnedMonsterDetailPrefabCreator.AttachFromListCreation();
+            listPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                OwnedMonsterUiPrefabCreator.PanelPrefabPath);
+
+            GameObject listObject =
+                PrefabUtility.InstantiatePrefab(listPrefab, canvas.transform)
+                    as GameObject;
+            if (listObject == null)
+                return;
+
+            Undo.RegisterCreatedObjectUndo(
+                listObject, "Place Owned Monster List for HUD");
+            listObject.SetActive(false);
+            listObject.transform.SetAsLastSibling();
+
+            RectTransform listRect = listObject.GetComponent<RectTransform>();
+            if (listRect != null)
+            {
+                listRect.anchorMin = Vector2.zero;
+                listRect.anchorMax = Vector2.one;
+                listRect.offsetMin = Vector2.zero;
+                listRect.offsetMax = Vector2.zero;
+            }
+        }
+
+        private static void EnsureEventSystem()
+        {
+            EventSystem[] systems = Object.FindObjectsByType<EventSystem>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (systems.Length > 0)
+                return;
+
+            GameObject go = new GameObject(
+                "EventSystem", typeof(EventSystem));
+            System.Type inputSystemModule = System.Type.GetType(
+                "UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+
+            if (inputSystemModule != null &&
+                typeof(BaseInputModule).IsAssignableFrom(inputSystemModule))
+                go.AddComponent(inputSystemModule);
+            else
+                go.AddComponent<StandaloneInputModule>();
+
+            Undo.RegisterCreatedObjectUndo(go, "Create HUD EventSystem");
         }
 
         private static Canvas FindScreenCanvas()
