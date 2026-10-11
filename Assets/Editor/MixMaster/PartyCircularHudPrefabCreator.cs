@@ -21,6 +21,7 @@ namespace MixMaster.EditorTools
         private const string SpriteFolder = "Assets/素材/UI";
         private const string RingPath = SpriteFolder + "/PartyHudRing.png";
         private const string CirclePath = SpriteFolder + "/PartyHudCircleMask.png";
+        private const string SolidPath = SpriteFolder + "/PartyHudSolid.png";
 
         [MenuItem("MixMaster/UI/仲間の円形HP・MP HUDを作成・配置")]
         public static void CreateAndPlace()
@@ -30,7 +31,8 @@ namespace MixMaster.EditorTools
 
             Sprite ring = EnsureRingSprite();
             Sprite mask = EnsureCircleSprite();
-            if (ring == null || mask == null)
+            Sprite solid = EnsureSolidSprite();
+            if (ring == null || mask == null || solid == null)
             {
                 Debug.LogError("[PartyCircularHud] ゲージ用Spriteを生成できませんでした。");
                 return;
@@ -41,7 +43,7 @@ namespace MixMaster.EditorTools
 
             if (prefab == null)
             {
-                GameObject root = BuildPrefab(ring, mask);
+                GameObject root = BuildPrefab(ring, mask, solid);
                 prefab = PrefabUtility.SaveAsPrefabAsset(root, HudPrefabPath);
                 Object.DestroyImmediate(root);
             }
@@ -107,7 +109,8 @@ namespace MixMaster.EditorTools
                 "OK");
         }
 
-        private static GameObject BuildPrefab(Sprite ring, Sprite circle)
+        private static GameObject BuildPrefab(
+            Sprite ring, Sprite circle, Sprite solid)
         {
             GameObject root = new GameObject(
                 "PartyCircularStatusHUD",
@@ -149,11 +152,11 @@ namespace MixMaster.EditorTools
                 RectTransform gaugeParent = cell;
 
                 CreateBox(gaugeParent, "ExperienceTrack",
-                    new Vector2(67.5f, 134f), new Vector2(119f, 11f),
+                    new Vector2(67.5f, 141f), new Vector2(119f, 11f),
                     new Color(0.22f, 0.24f, 0.30f, 1f));
 
                 expFills[i] = CreateFill(gaugeParent, "ExperienceFill",
-                    null, new Vector2(67.5f, 134f), new Vector2(119f, 11f),
+                    solid, new Vector2(67.5f, 141f), new Vector2(119f, 11f),
                     new Color(1f, 0.76f, 0.19f, 1f), false);
 
                 Vector2 center = new Vector2(67.5f, 78f);
@@ -295,7 +298,13 @@ namespace MixMaster.EditorTools
             return EnsureSprite(CirclePath, false);
         }
 
-        private static Sprite EnsureSprite(string path, bool ring)
+        private static Sprite EnsureSolidSprite()
+        {
+            return EnsureSprite(SolidPath, false, true);
+        }
+
+        private static Sprite EnsureSprite(
+            string path, bool ring, bool solid = false)
         {
             if (AssetDatabase.LoadAssetAtPath<Sprite>(path) is Sprite old)
                 return old;
@@ -313,7 +322,7 @@ namespace MixMaster.EditorTools
                     float dy = y + 0.5f - size * 0.5f;
                     float radius = Mathf.Sqrt(dx * dx + dy * dy);
 
-                    float alpha = ring
+                    float alpha = solid ? 1f : ring
                         ? Mathf.Clamp01((radius - 99f) * 1.5f) *
                           Mathf.Clamp01((120f - radius) * 1.5f)
                         : Mathf.Clamp01((121f - radius) * 1.5f);
