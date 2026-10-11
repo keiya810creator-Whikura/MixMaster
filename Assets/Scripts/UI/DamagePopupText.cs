@@ -22,8 +22,8 @@ namespace MixMaster.UI
             new Stack<DamagePopupText>();
         private static int activeCount;
 
-        private static readonly Color AllyDamageColor =
-            new Color(1f, 0.32f, 0.36f, 1f);
+        // Damage dealt BY enemies to the player or party uses black.
+        private static readonly Color EnemyDamageColor = Color.black;
 
         private TextMeshPro label;
         private Vector3 startPosition;
@@ -84,7 +84,7 @@ namespace MixMaster.UI
             label.fontSize = 4.2f;
             label.fontStyle = FontStyles.Bold;
             label.enableWordWrapping = false;
-            label.outlineColor = new Color32(23, 18, 27, 255);
+            label.outlineColor = Color.white;
             label.outlineWidth = 0.18f;
 
             transform.localScale = Vector3.one;
@@ -103,7 +103,7 @@ namespace MixMaster.UI
             elapsed = 0f;
 
             baseColor = takenByAlly
-                ? AllyDamageColor
+                ? EnemyDamageColor
                 : MaterialDropLogUI.GetSourceColor(attackSource);
             label.text = damage.ToString("N0", CultureInfo.InvariantCulture);
             label.color = baseColor;
