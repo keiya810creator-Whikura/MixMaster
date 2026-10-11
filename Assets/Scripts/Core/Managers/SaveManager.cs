@@ -167,6 +167,7 @@ namespace MixMaster.Core
                 data.playerStats = player.Stats;
                 data.playerLevel = player.Level;
                 data.playerExperience = player.Experience;
+                data.playerAutoAttackEnabled = player.AutoAttackEnabled;
                 data.playerCurrentHp = player.CurrentHp;
                 data.playerCurrentMp = player.CurrentMp;
             }
@@ -267,7 +268,8 @@ namespace MixMaster.Core
                     data.playerCurrentHp,
                     data.playerCurrentMp,
                     data.playerLevel,
-                    data.playerExperience);
+                    data.playerExperience,
+                    data.playerAutoAttackEnabled);
 
             if (offline != null)
                 offline.RestoreLastCompletedProfile(data.offlineProfile);
