@@ -458,7 +458,9 @@ namespace MixMaster.Monsters
                 return null;
 
             float bestDistanceSqr = float.MaxValue;
+            float fallbackDistanceSqr = float.MaxValue;
             EnemyHealth best = null;
+            EnemyHealth fallback = null;
             IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
 
             float playerRange = playerAutoAttack != null
@@ -502,6 +504,21 @@ namespace MixMaster.Monsters
                 // AutoHunt: search the entire current map, independently
                 // of the player's location or the monster's detection range.
 
+                if (combatMode == PartyCombatMode.AutoHunt)
+                {
+                    if (memberDistanceSqr < fallbackDistanceSqr)
+                    {
+                        fallbackDistanceSqr = memberDistanceSqr;
+                        fallback = enemy;
+                    }
+
+                    // Spread auto-hunters across different enemies when
+                    // possible. Still attack a shared target if there are
+                    // fewer enemies than available party members.
+                    if (IsClaimedByOtherAutoHunter(enemy))
+                        continue;
+                }
+
                 if (memberDistanceSqr >= bestDistanceSqr)
                     continue;
 
@@ -509,7 +526,23 @@ namespace MixMaster.Monsters
                 best = enemy;
             }
 
-            return best;
+            return best != null ? best : fallback;
+        }
+
+        private bool IsClaimedByOtherAutoHunter(EnemyHealth enemy)
+        {
+            for (int i = 0; i < activeMembers.Count; i++)
+            {
+                PartyMemberCombat member = activeMembers[i];
+                if (member == null || member == this || !member.isAlive)
+                    continue;
+
+                if (member.combatMode == PartyCombatMode.AutoHunt &&
+                    member.currentTarget == enemy)
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsTargetValid(EnemyHealth target)
