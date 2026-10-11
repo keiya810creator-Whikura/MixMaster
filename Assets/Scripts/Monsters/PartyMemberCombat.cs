@@ -12,8 +12,10 @@ namespace MixMaster.Monsters
 {
     public enum PartyCombatMode
     {
-        Follow,
-        AutoHunt
+        Follow = 0,
+        AutoHunt = 1,
+        HostileEnemies = 2,
+        NoAttack = 3
     }
 
     public enum PartyAttackStyle
@@ -195,6 +197,14 @@ namespace MixMaster.Monsters
         {
             if (!isAlive)
                 return;
+
+            if (combatMode == PartyCombatMode.NoAttack)
+            {
+                if (currentTarget != null)
+                    currentTarget = null;
+                follower.SetCombatControlled(isAttackLunging);
+                return;
+            }
 
             targetRefreshTimer -= Time.deltaTime;
 
@@ -456,10 +466,6 @@ namespace MixMaster.Monsters
                 : Mathf.Max(0.1f, stats.attackRange);
 
             float playerRangeSqr = playerRange * playerRange;
-            float autoHuntRange = Mathf.Max(aggroRange, GetEffectiveAttackRange());
-            float autoHuntRangeSqr = autoHuntRange * autoHuntRange;
-            float maxFromPlayerSqr =
-                maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
 
             for (int i = 0; i < enemies.Count; i++)
             {
@@ -482,16 +488,19 @@ namespace MixMaster.Monsters
                     if (fromPlayer.sqrMagnitude > playerRangeSqr)
                         continue;
                 }
-                else
+                else if (combatMode == PartyCombatMode.HostileEnemies)
                 {
-                    // Auto Hunt uses the party member's own detection range,
-                    // but will not chase infinitely far away from the player.
-                    if (memberDistanceSqr > autoHuntRangeSqr)
-                        continue;
-
-                    if (fromPlayer.sqrMagnitude > maxFromPlayerSqr)
+                    // Hostile enemies actively target the player or party.
+                    EnemyCombatAI ai = enemy.GetComponent<EnemyCombatAI>();
+                    if (ai == null || !ai.HasTarget)
                         continue;
                 }
+                else if (combatMode == PartyCombatMode.NoAttack)
+                {
+                    continue;
+                }
+                // AutoHunt: search the entire current map, independently
+                // of the player's location or the monster's detection range.
 
                 if (memberDistanceSqr >= bestDistanceSqr)
                     continue;
@@ -511,6 +520,18 @@ namespace MixMaster.Monsters
             if (requireEnemyTag && !target.CompareTag(enemyTag))
                 return false;
 
+            if (combatMode == PartyCombatMode.NoAttack)
+                return false;
+
+            if (combatMode == PartyCombatMode.AutoHunt)
+                return true;
+
+            if (combatMode == PartyCombatMode.HostileEnemies)
+            {
+                EnemyCombatAI ai = target.GetComponent<EnemyCombatAI>();
+                return ai != null && ai.HasTarget;
+            }
+
             if (playerTransform == null)
                 return false;
 
@@ -525,10 +546,7 @@ namespace MixMaster.Monsters
                 return fromPlayer.sqrMagnitude <= playerRange * playerRange;
             }
 
-            float maxSqr =
-                maxCombatDistanceFromPlayer * maxCombatDistanceFromPlayer;
-
-            return fromPlayer.sqrMagnitude <= maxSqr;
+            return false;
         }
 
         private float GetEffectiveAttackRange()
@@ -622,6 +640,9 @@ namespace MixMaster.Monsters
         {
             combatMode = mode;
             currentTarget = null;
+            targetRefreshTimer = 0f;
+            if (combatMode == PartyCombatMode.NoAttack)
+                SetAttackGauge(0f);
 
             if (!isAttackLunging)
             {
