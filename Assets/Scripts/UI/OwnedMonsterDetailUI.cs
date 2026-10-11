@@ -258,9 +258,15 @@ namespace MixMaster.UI
             if (monsterManager == null)
                 return;
 
-            monsterManager.SetMonsterCombatBehavior(
-                selectedRecord.uniqueId,
-                (MonsterCombatBehavior)Mathf.Clamp(selectedIndex, 0, 3));
+            MonsterCombatBehavior behavior;
+            switch (selectedIndex)
+            {
+                case 0: behavior = MonsterCombatBehavior.HostileEnemies; break;
+                case 2: behavior = MonsterCombatBehavior.AutoHunt; break;
+                case 3: behavior = MonsterCombatBehavior.NoAttack; break;
+                default: behavior = MonsterCombatBehavior.PlayerAttackRange; break;
+            }
+            monsterManager.SetMonsterCombatBehavior(selectedRecord.uniqueId, behavior);
         }
 
         private void RefreshBehaviorDropdown()
@@ -268,10 +274,17 @@ namespace MixMaster.UI
             if (behaviorDropdown == null)
                 return;
 
-            behaviorDropdown.SetValueWithoutNotify(
-                selectedRecord != null
-                    ? Mathf.Clamp((int)selectedRecord.combatBehavior, 0, 3)
-                    : 0);
+            int selectedIndex = 1; // Default: player attack range.
+            if (selectedRecord != null)
+            {
+                switch (selectedRecord.combatBehavior)
+                {
+                    case MonsterCombatBehavior.HostileEnemies: selectedIndex = 0; break;
+                    case MonsterCombatBehavior.AutoHunt: selectedIndex = 2; break;
+                    case MonsterCombatBehavior.NoAttack: selectedIndex = 3; break;
+                }
+            }
+            behaviorDropdown.SetValueWithoutNotify(selectedIndex);
         }
 
         private void EnsureBehaviorDropdown()
@@ -295,8 +308,7 @@ namespace MixMaster.UI
                 "自動狩りモード（マップ全体）",
                 "攻撃しない"
             });
-            // The options' display order differs from the saved enum order.
-            // Map the visible option indexes explicitly when reading/writing.
+            // Default displayed option is the player attack-range behavior.
             behaviorDropdown.SetValueWithoutNotify(1);
         }
 
@@ -723,5 +735,6 @@ namespace MixMaster.UI
         public void SetPartyButton(Button value) => partyButton = value;
         public void SetPartyButtonText(TMP_Text value) => partyButtonText = value;
         public void SetPartyStatusText(TMP_Text value) => partyStatusText = value;
+        public void SetBehaviorDropdown(TMP_Dropdown value) => behaviorDropdown = value;
     }
 }
