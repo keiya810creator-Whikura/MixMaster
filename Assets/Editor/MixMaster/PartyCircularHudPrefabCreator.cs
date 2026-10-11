@@ -504,7 +504,7 @@ namespace MixMaster.EditorTools
             return canvas;
         }
 
-        private static void EnsureFolder(string folder)
+        internal static void EnsureFolder(string folder)
         {
             string current = "Assets";
             string[] parts = folder.Split('/');
