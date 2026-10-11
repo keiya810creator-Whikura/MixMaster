@@ -134,6 +134,7 @@ namespace MixMaster.Combat
 
         private void Start()
         {
+            TryAutoBindResourceSliders();
             playerManager = FindFirstObjectByType<PlayerManager>();
 
             if (playerManager != null)
@@ -490,6 +491,41 @@ namespace MixMaster.Combat
 
             if (hpText != null)
                 hpText.text = $"HP {safeCurrent:N0}/{safeMax:N0}";
+        }
+
+        // Auto-detect commonly named sliders on HUDs. Explicit inspector
+        // references take precedence when multiple UI panels are present.
+        private void TryAutoBindResourceSliders()
+        {
+            if (mpSlider != null && experienceSlider != null)
+                return;
+
+            Slider[] sliders = FindObjectsByType<Slider>(FindObjectsSortMode.None);
+            for (int i = 0; i < sliders.Length; i++)
+            {
+                Slider slider = sliders[i];
+                if (slider == null) continue;
+
+                string name = slider.gameObject.name
+                    .Replace("_", "").Replace(" ", "").ToLowerInvariant();
+                if (mpSlider == null &&
+                    (name == "mpslider" || name == "mpbar" ||
+                     name == "playermpslider" || name == "playermpbar"))
+                {
+                    mpSlider = slider;
+                    ConfigureSlider(mpSlider);
+                }
+
+                if (experienceSlider == null &&
+                    (name == "expslider" || name == "experienceslider" ||
+                     name == "expbar" || name == "experiencebar" ||
+                     name == "playerexpslider" ||
+                     name == "playerexperienceslider"))
+                {
+                    experienceSlider = slider;
+                    ConfigureSlider(experienceSlider);
+                }
+            }
         }
 
         // Optional inspector/runtime wiring for existing UI elements.
