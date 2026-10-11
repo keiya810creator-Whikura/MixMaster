@@ -30,6 +30,7 @@ namespace MixMaster.Monsters
         private void OnEnable()
         {
             SceneManager.sceneLoaded += HandleSceneLoaded;
+            monsterManager = null; // Re-subscribe after component re-enable.
             TrySubscribe();
             dirty = true;
         }
