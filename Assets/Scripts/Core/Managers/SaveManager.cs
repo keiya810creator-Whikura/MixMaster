@@ -269,7 +269,7 @@ namespace MixMaster.Core
                     data.playerCurrentMp,
                     data.playerLevel,
                     data.playerExperience,
-                    data.playerAutoAttackEnabled);
+                    data.version < 2 || data.playerAutoAttackEnabled);
 
             if (offline != null)
                 offline.RestoreLastCompletedProfile(data.offlineProfile);
