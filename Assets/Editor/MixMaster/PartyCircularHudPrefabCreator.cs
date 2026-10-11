@@ -192,6 +192,12 @@ namespace MixMaster.EditorTools
                     Vector2.zero, new Vector2(72f, 72f),
                     Color.white, false);
                 avatar.preserveAspect = true;
+                // A nested RectTransform must be centered in its circular
+                // parent; anchoring it at (0,0) would show just a quadrant.
+                RectTransform avatarRect = avatar.rectTransform;
+                avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
+                avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
+                avatarRect.anchoredPosition = Vector2.zero;
                 avatar.enabled = false;
                 portraits[i] = avatar;
 
@@ -318,7 +324,9 @@ namespace MixMaster.EditorTools
 
             texture.SetPixels32(pixels);
             texture.Apply(false);
-            File.WriteAllBytes(Path.GetFullPath(path), texture.EncodeToPNG());
+            string absolutePath = Path.Combine(
+                Directory.GetParent(Application.dataPath).FullName, path);
+            File.WriteAllBytes(absolutePath, texture.EncodeToPNG());
             Object.DestroyImmediate(texture);
 
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
