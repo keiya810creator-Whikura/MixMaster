@@ -151,6 +151,14 @@ namespace MixMaster.Monsters
             if (!activeMembers.Contains(this))
                 activeMembers.Add(this);
 
+            // A dead member must stay frozen even after re-enabling the
+            // component, regardless of its previously selected AI behavior.
+            if (!isAlive && follower != null)
+            {
+                follower.SetCombatControlled(true);
+                follower.StopCombatMovement();
+            }
+
             WorldUIManager.TryRegisterParty(this);
         }
 
@@ -182,7 +190,7 @@ namespace MixMaster.Monsters
 
             if (follower != null)
             {
-                follower.SetCombatControlled(false);
+                follower.SetCombatControlled(!isAlive);
                 follower.StopCombatMovement();
             }
         }
@@ -677,6 +685,18 @@ namespace MixMaster.Monsters
             if (combatMode == PartyCombatMode.NoAttack)
                 SetAttackGauge(0f);
 
+            if (follower == null)
+                return;
+
+            if (!isAlive)
+            {
+                // Changing a dead monster's strategy must not re-enable
+                // trail following. Only explicit resurrection can move it.
+                follower.SetCombatControlled(true);
+                follower.StopCombatMovement();
+                return;
+            }
+
             if (!isAttackLunging)
             {
                 follower.SetCombatControlled(false);
@@ -688,6 +708,16 @@ namespace MixMaster.Monsters
         {
             attackStyle = style;
             currentTarget = null;
+
+            if (follower == null)
+                return;
+
+            if (!isAlive)
+            {
+                follower.SetCombatControlled(true);
+                follower.StopCombatMovement();
+                return;
+            }
 
             if (!isAttackLunging)
             {
