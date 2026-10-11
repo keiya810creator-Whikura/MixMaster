@@ -51,9 +51,9 @@ namespace MixMaster.UI
         {
             for (int i = 0; i < 3; i++)
             {
-                Transform slot = transform.Find("PartySlot_" + (i + 1));
-                if (slot != null)
-                    slotBackgrounds[i] = slot.GetComponent<Image>();
+                Transform slotTransform = transform.Find("PartySlot_" + (i + 1));
+                if (slotTransform != null)
+                    slotBackgrounds[i] = slotTransform.GetComponent<Image>();
 
                 if (portraitButtons == null || i >= portraitButtons.Length ||
                     portraitButtons[i] == null)
