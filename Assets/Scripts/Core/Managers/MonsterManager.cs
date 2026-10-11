@@ -19,6 +19,7 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action<OwnedMonsterRecord> MonsterExperienceChanged;
         public event Action<OwnedMonsterRecord> MonsterLeveledUp;
+        public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action PartyChanged;
 
         public OwnedMonsterRecord ObtainMonster(
@@ -98,6 +99,8 @@ namespace MixMaster.Core
                         record.individualValues = new MonsterIndividualValues();
 
                     record.individualValues.ClampAll();
+                    if (!Enum.IsDefined(typeof(MonsterCombatBehavior), record.combatBehavior))
+                        record.combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
                     record.level = Mathf.Clamp(record.level, 1, ExperienceProgression.MaxLevel);
                     record.experience = Math.Max(0L, record.experience);
                     // Normalize experience from older saves without altering
@@ -161,6 +164,34 @@ namespace MixMaster.Core
         public OwnedMonsterRecord FindOwnedMonster(string monsterUniqueId)
         {
             return ownedMonsters.Find(x => x.uniqueId == monsterUniqueId);
+        }
+
+        public bool SetMonsterCombatBehavior(
+            string monsterUniqueId, MonsterCombatBehavior behavior)
+        {
+            if (!Enum.IsDefined(typeof(MonsterCombatBehavior), behavior))
+                return false;
+
+            OwnedMonsterRecord record = FindOwnedMonster(monsterUniqueId);
+            if (record == null)
+                return false;
+
+            if (record.combatBehavior != behavior)
+            {
+                record.combatBehavior = behavior;
+                MonsterBehaviorChanged?.Invoke(record);
+            }
+
+            return true;
+        }
+
+        public void ClearParty()
+        {
+            if (partyMonsterUniqueIds.Count == 0)
+                return;
+
+            partyMonsterUniqueIds.Clear();
+            PartyChanged?.Invoke();
         }
 
         public void AddExperience(string monsterUniqueId, long amount)
