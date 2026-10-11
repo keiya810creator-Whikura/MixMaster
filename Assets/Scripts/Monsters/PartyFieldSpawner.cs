@@ -58,6 +58,7 @@ namespace MixMaster.Monsters
             {
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
+                monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
             }
 
             ClearActors();
@@ -91,6 +92,8 @@ namespace MixMaster.Monsters
                 monsterManager.PartyChanged += HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterLeveledUp += HandleMonsterLeveledUp;
+                monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
+                monsterManager.MonsterBehaviorChanged += HandleMonsterBehaviorChanged;
             }
         }
 
@@ -118,6 +121,18 @@ namespace MixMaster.Monsters
             CharacterStats leveledStats = StatCalculator.CalculateMonsterStats(
                 definition, record.level, record.individualValues, title);
             combat.ApplyLevelUpStats(leveledStats);
+        }
+
+        private void HandleMonsterBehaviorChanged(OwnedMonsterRecord record)
+        {
+            if (record == null)
+                return;
+
+            if (activeByMonsterId.TryGetValue(record.uniqueId,
+                out PartyMemberCombat combat) && combat != null)
+            {
+                combat.SetCombatMode((PartyCombatMode)record.combatBehavior);
+            }
         }
 
         public void RefreshParty()
@@ -271,6 +286,7 @@ namespace MixMaster.Monsters
                     title);
 
             combat.ConfigureOwnedMonster(monster, calculated);
+            combat.SetCombatMode((PartyCombatMode)record.combatBehavior);
             activeActors.Add(actor);
             activeByMonsterId[record.uniqueId] = combat;
         }
