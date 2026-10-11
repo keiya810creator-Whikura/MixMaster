@@ -305,6 +305,23 @@ namespace MixMaster.UI
             if (behaviorDropdown == null)
                 return;
 
+            // Also repair old/prefab-assigned dropdowns, not only runtime
+            // generated ones. All four options should remain visible without
+            // a scrollbar.
+            if (behaviorDropdown.template != null)
+            {
+                ScrollRect existingScroll =
+                    behaviorDropdown.template.GetComponent<ScrollRect>();
+                if (existingScroll != null)
+                {
+                    existingScroll.vertical = false;
+                    existingScroll.horizontal = false;
+                    existingScroll.inertia = false;
+                    existingScroll.scrollSensitivity = 0f;
+                    existingScroll.movementType = ScrollRect.MovementType.Clamped;
+                }
+            }
+
             behaviorDropdown.ClearOptions();
             behaviorDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
@@ -419,7 +436,12 @@ namespace MixMaster.UI
             scroller.viewport = viewport;
             scroller.content = itemContent;
             scroller.horizontal = false;
-            scroller.vertical = true;
+            // All four options fit entirely in the viewport (4 x 55px).
+            // Disable nested dragging to avoid scrolling beyond the last
+            // option or passing accidental drag input into the detail panel.
+            scroller.vertical = false;
+            scroller.inertia = false;
+            scroller.scrollSensitivity = 0f;
             scroller.movementType = ScrollRect.MovementType.Clamped;
 
             dropdown.template = template;
