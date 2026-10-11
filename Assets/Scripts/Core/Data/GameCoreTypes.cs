@@ -10,6 +10,15 @@ namespace MixMaster.Core
         Dungeon
     }
 
+    // Serialized on each owned monster. Explicit numeric values preserve old saves.
+    public enum MonsterCombatBehavior
+    {
+        PlayerAttackRange = 0,
+        AutoHunt = 1,
+        HostileEnemies = 2,
+        NoAttack = 3
+    }
+
     [Serializable]
     public class OwnedMonsterRecord
     {
@@ -18,6 +27,7 @@ namespace MixMaster.Core
 
         public int level = 1;
         public long experience;
+        public MonsterCombatBehavior combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
 
         public MonsterIndividualValues individualValues =
             new MonsterIndividualValues();
