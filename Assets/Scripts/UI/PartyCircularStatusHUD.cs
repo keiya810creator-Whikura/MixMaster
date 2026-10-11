@@ -23,6 +23,8 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text[] levelTexts = new TMP_Text[3];
         [SerializeField, Min(0.05f)] private float refreshInterval = 0.15f;
 
+        private readonly Image[] slotBackgrounds = new Image[3];
+
         private MonsterManager monsterManager;
         private PartyFieldSpawner partySpawner;
         private MonsterCatalogSO catalog;
@@ -49,6 +51,10 @@ namespace MixMaster.UI
         {
             for (int i = 0; i < 3; i++)
             {
+                Transform slot = transform.Find("PartySlot_" + (i + 1));
+                if (slot != null)
+                    slotBackgrounds[i] = slot.GetComponent<Image>();
+
                 if (portraitButtons == null || i >= portraitButtons.Length ||
                     portraitButtons[i] == null)
                     continue;
@@ -132,6 +138,14 @@ namespace MixMaster.UI
                 Image health = GetAt(hpFills, i);
                 Image mana = GetAt(mpFills, i);
                 Image experience = GetAt(expFills, i);
+
+                Image slotBackground = slotBackgrounds[i];
+                if (slotBackground != null)
+                {
+                    Color color = GetSlotBackgroundColor(i, record != null);
+                    if (slotBackground.color != color)
+                        slotBackground.color = color;
+                }
 
                 if (record == null)
                 {
@@ -223,6 +237,23 @@ namespace MixMaster.UI
 
             list.Open();
             list.OpenDetail(record);
+        }
+
+        public static Color GetSlotBackgroundColor(int slot, bool occupied)
+        {
+            if (!occupied)
+                return new Color(0.09f, 0.12f, 0.18f, 0.75f);
+
+            MaterialDropSourceType source = slot == 0
+                ? MaterialDropSourceType.Party1
+                : slot == 1 ? MaterialDropSourceType.Party2
+                : MaterialDropSourceType.Party3;
+            Color color = MaterialDropLogUI.GetSourceColor(source);
+
+            // Slightly darken the source hue so HP/MP rings and portrait
+            // remain legible; the slot order stays red / blue / green.
+            return new Color(color.r * 0.55f,
+                color.g * 0.55f, color.b * 0.55f, 0.93f);
         }
 
         private static T GetAt<T>(T[] array, int i) where T : Object
