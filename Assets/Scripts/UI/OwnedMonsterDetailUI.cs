@@ -47,6 +47,7 @@ namespace MixMaster.UI
         private OwnedMonsterRecord selectedRecord;
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
+        private Color defaultPartyButtonColor = Color.white;
 
         public OwnedMonsterRecord SelectedRecord => selectedRecord;
 
@@ -60,7 +61,11 @@ namespace MixMaster.UI
                 closeButton.onClick.AddListener(Hide);
 
             if (partyButton != null)
+            {
+                if (partyButton.targetGraphic is Image background)
+                    defaultPartyButtonColor = background.color;
                 partyButton.onClick.AddListener(ToggleParty);
+            }
 
             if (individualValuesToggle != null)
             {
@@ -539,7 +544,37 @@ namespace MixMaster.UI
             SetText(partyButtonText, selected ? "編成から外す" : "パーティに編成");
 
             if (partyButton != null)
+            {
                 partyButton.interactable = selected || current < max;
+                if (partyButton.targetGraphic is Image background)
+                {
+                    Color color = defaultPartyButtonColor;
+                    if (selected)
+                    {
+                        int order = -1;
+                        for (int i = 0; i < monsterManager.PartyMonsterUniqueIds.Count; i++)
+                        {
+                            if (monsterManager.PartyMonsterUniqueIds[i] == selectedRecord.uniqueId)
+                            {
+                                order = i;
+                                break;
+                            }
+                        }
+
+                        if (order >= 0 && order < 3)
+                        {
+                            MaterialDropSourceType source = order == 0
+                                ? MaterialDropSourceType.Party1
+                                : order == 1
+                                    ? MaterialDropSourceType.Party2
+                                    : MaterialDropSourceType.Party3;
+                            color = MaterialDropLogUI.GetSourceColor(source);
+                        }
+                    }
+
+                    background.color = color;
+                }
+            }
         }
 
         private void HandleModeChanged(bool showIvs)
