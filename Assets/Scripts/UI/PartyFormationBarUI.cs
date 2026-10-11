@@ -14,6 +14,9 @@ namespace MixMaster.UI
         [SerializeField] private Button[] slotButtons = new Button[3];
         [SerializeField] private Image[] slotIcons = new Image[3];
         [SerializeField] private TMP_Text[] slotNames = new TMP_Text[3];
+        [SerializeField] private Button clearAllButton;
+
+        private readonly Color[] emptySlotColors = new Color[3];
 
         private MonsterManager manager;
         private MonsterCatalogSO catalog;
@@ -23,10 +26,18 @@ namespace MixMaster.UI
         private void Awake()
         {
             listUI = GetComponentInParent<OwnedMonsterListUI>();
+            EnsureClearAllButton();
+            if (clearAllButton != null)
+                clearAllButton.onClick.AddListener(ClearAllParty);
+
             for (int i = 0; i < slotButtons.Length; i++)
             {
                 if (slotButtons[i] == null)
                     continue;
+
+                if (i < emptySlotColors.Length &&
+                    slotButtons[i].targetGraphic is Image background)
+                    emptySlotColors[i] = background.color;
 
                 int index = i;
                 slotButtons[i].onClick.AddListener(
@@ -43,6 +54,67 @@ namespace MixMaster.UI
         private void OnDisable()
         {
             Unsubscribe();
+        }
+
+        private void OnDestroy()
+        {
+            if (clearAllButton != null)
+                clearAllButton.onClick.RemoveListener(ClearAllParty);
+        }
+
+        private void ClearAllParty()
+        {
+            if (manager == null)
+                manager = FindFirstObjectByType<MonsterManager>();
+
+            manager?.ClearParty();
+        }
+
+        private void EnsureClearAllButton()
+        {
+            if (clearAllButton != null)
+                return;
+
+            Transform existing = transform.Find("ClearAllPartyButton");
+            if (existing != null)
+                clearAllButton = existing.GetComponent<Button>();
+
+            if (clearAllButton != null)
+                return;
+
+            GameObject go = new GameObject(
+                "ClearAllPartyButton",
+                typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(transform, false);
+
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.one;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = Vector2.one;
+            rect.anchoredPosition = new Vector2(-12f, -7f);
+            rect.sizeDelta = new Vector2(165f, 38f);
+
+            Image background = go.GetComponent<Image>();
+            background.color = new Color(0.36f, 0.23f, 0.24f, 1f);
+
+            GameObject labelObject = new GameObject(
+                "Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(go.transform, false);
+
+            RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+            label.text = "編成一括解除";
+            label.fontSize = 22f;
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = Color.white;
+            label.raycastTarget = false;
+
+            clearAllButton = go.GetComponent<Button>();
         }
 
         public void SetReferences(
@@ -91,6 +163,8 @@ namespace MixMaster.UI
                 return;
 
             IReadOnlyList<string> ids = manager.PartyMonsterUniqueIds;
+            if (clearAllButton != null)
+                clearAllButton.interactable = ids.Count > 0;
 
             if (partyCountText != null)
                 partyCountText.text =
@@ -150,7 +224,24 @@ namespace MixMaster.UI
                 if (slotButtons != null && i < slotButtons.Length &&
                     slotButtons[i] != null)
                 {
-                    slotButtons[i].interactable = record != null;
+                    Button button = slotButtons[i];
+                    button.interactable = record != null;
+
+                    // Same colors as party drop/damage text (red/blue/green).
+                    Color slotColor = i < emptySlotColors.Length
+                        ? emptySlotColors[i] : Color.white;
+                    if (record != null)
+                    {
+                        MaterialDropSourceType source = i == 0
+                            ? MaterialDropSourceType.Party1
+                            : i == 1
+                                ? MaterialDropSourceType.Party2
+                                : MaterialDropSourceType.Party3;
+                        slotColor = MaterialDropLogUI.GetSourceColor(source);
+                    }
+
+                    if (button.targetGraphic is Image background)
+                        background.color = slotColor;
                 }
             }
         }
