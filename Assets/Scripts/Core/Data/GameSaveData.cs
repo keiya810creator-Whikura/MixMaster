@@ -20,6 +20,7 @@ namespace MixMaster.Core
         public CharacterStats playerStats = new CharacterStats();
         public int playerLevel = 1;
         public long playerExperience;
+        public bool playerAutoAttackEnabled = true;
         public long playerCurrentHp;
         public long playerCurrentMp;
 
