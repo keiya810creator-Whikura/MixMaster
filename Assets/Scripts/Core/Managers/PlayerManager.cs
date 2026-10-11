@@ -99,40 +99,25 @@ namespace MixMaster.Core
 
         private void ApplyLevelUpStats()
         {
-            long previousMaxHp = Math.Max(1L, stats.maxHp);
-            long previousMaxMp = Math.Max(0L, stats.maxMp);
+            // Before the reincarnation system is implemented, use fixed
+            // base-stat gains (NOT multiplicative/percentage growth).
+            // Preserve all other stats, equipment, resistance, crit and speed.
+            stats.maxHp = LongMath.SaturatingAdd(Math.Max(1L, stats.maxHp), 5L);
+            stats.maxMp = LongMath.SaturatingAdd(Math.Max(0L, stats.maxMp), 1L);
+            stats.attack = LongMath.SaturatingAdd(stats.attack, 1L);
+            stats.magic = LongMath.SaturatingAdd(stats.magic, 1L);
+            stats.defense = LongMath.SaturatingAdd(stats.defense, 1L);
+            stats.magicDefense = LongMath.SaturatingAdd(stats.magicDefense, 1L);
 
-            // Grow combat attributes; do not alter movement, criticals,
-            // range, equipment, resistances, or drop rate.
-            stats.maxHp = IncreaseByTenPercent(previousMaxHp);
-            stats.maxMp = previousMaxMp > 0L
-                ? IncreaseByTenPercent(previousMaxMp) : 0L;
-            stats.attack = IncreaseByTenPercent(stats.attack);
-            stats.magic = IncreaseByTenPercent(stats.magic);
-            stats.defense = IncreaseByTenPercent(stats.defense);
-            stats.magicDefense = IncreaseByTenPercent(stats.magicDefense);
-
-            // Preserve missing HP / MP instead of fully healing every level.
+            // Keep missing HP/MP unchanged and never resurrect on level-up.
             if (CurrentHp > 0L)
-            {
                 CurrentHp = Math.Min(stats.maxHp,
-                    LongMath.SaturatingAdd(CurrentHp,
-                        stats.maxHp - previousMaxHp));
-            }
+                    LongMath.SaturatingAdd(CurrentHp, 5L));
             CurrentMp = Math.Min(stats.maxMp,
-                LongMath.SaturatingAdd(CurrentMp, stats.maxMp - previousMaxMp));
+                LongMath.SaturatingAdd(CurrentMp, 1L));
 
             HpChanged?.Invoke(CurrentHp, stats.maxHp);
             MpChanged?.Invoke(CurrentMp, stats.maxMp);
-        }
-
-        private static long IncreaseByTenPercent(long value)
-        {
-            if (value <= 0L)
-                return 0L;
-
-            double grown = Math.Ceiling(value * 1.1d);
-            return grown >= long.MaxValue ? long.MaxValue : (long)grown;
         }
 
         public void RestoreFullHp()
