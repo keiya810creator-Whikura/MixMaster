@@ -105,6 +105,10 @@ namespace MixMaster.UI
             baseColor = takenByAlly
                 ? EnemyDamageColor
                 : MaterialDropLogUI.GetSourceColor(attackSource);
+            // White outline improves contrast for black enemy-origin damage;
+            // party-colored damage retains its original dark outline.
+            label.outlineColor = takenByAlly
+                ? Color.white : new Color32(23, 18, 27, 255);
             label.text = damage.ToString("N0", CultureInfo.InvariantCulture);
             label.color = baseColor;
 
