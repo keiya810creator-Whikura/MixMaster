@@ -181,7 +181,7 @@ namespace MixMaster.UI
                 elementName + "属性｜" + attackTypeName);
 
             long requiredExp =
-                ExperienceProgression.RequiredExperience(selectedRecord.level);
+                ExperienceProgression.RequiredExperience(selectedRecord.level, true);
             SetText(experienceText,
                 requiredExp > 0L
                     ? "EXP: " + selectedRecord.experience.ToString("N0") +

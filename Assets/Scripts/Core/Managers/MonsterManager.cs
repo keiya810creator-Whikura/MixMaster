@@ -105,7 +105,8 @@ namespace MixMaster.Core
                     int restoredLevel = record.level;
                     long restoredExp = record.experience;
                     ExperienceProgression.ApplyExperience(
-                        ref restoredLevel, ref restoredExp, 0L, out int restoredLevels);
+                        ref restoredLevel, ref restoredExp, 0L,
+                        out int restoredLevels, true);
                     record.level = restoredLevel;
                     record.experience = restoredExp;
                     if (restoredLevels > 0)
@@ -173,7 +174,7 @@ namespace MixMaster.Core
             long nextExp = monster.experience;
 
             ExperienceProgression.ApplyExperience(
-                ref nextLevel, ref nextExp, amount, out int gainedLevels);
+                ref nextLevel, ref nextExp, amount, out int gainedLevels, true);
 
             monster.level = nextLevel;
             monster.experience = nextExp;
