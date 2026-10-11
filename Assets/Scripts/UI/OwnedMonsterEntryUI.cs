@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,6 +24,7 @@ namespace MixMaster.UI
 
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
+        private Color defaultButtonColor = Color.white;
 
         public OwnedMonsterRecord Record { get; private set; }
 
@@ -34,6 +36,12 @@ namespace MixMaster.UI
             // Support already-generated prefab entries without a Button.
             if (selectionButton == null)
                 selectionButton = gameObject.AddComponent<Button>();
+
+            Image background = selectionButton.targetGraphic as Image;
+            if (background == null)
+                background = GetComponent<Image>();
+            if (background != null)
+                defaultButtonColor = background.color;
 
             selectionButton.onClick.AddListener(HandleSelected);
         }
@@ -58,11 +66,14 @@ namespace MixMaster.UI
         public void Bind(
             OwnedMonsterRecord record,
             MonsterCatalogSO newCatalog,
-            bool showIvs = false)
+            bool showIvs = false,
+            IReadOnlyList<string> partyIds = null)
         {
             Record = record;
             catalog = newCatalog;
             showIndividualValues = showIvs;
+
+            UpdatePartyButtonColor(record, partyIds);
 
             if (record == null)
             {
@@ -137,6 +148,39 @@ namespace MixMaster.UI
                 record,
                 monster,
                 title);
+        }
+
+        private void UpdatePartyButtonColor(
+            OwnedMonsterRecord record, IReadOnlyList<string> partyIds)
+        {
+            if (selectionButton == null)
+                return;
+
+            Image background = selectionButton.targetGraphic as Image;
+            if (background == null)
+                background = GetComponent<Image>();
+            if (background == null)
+                return;
+
+            Color color = defaultButtonColor;
+            if (record != null && partyIds != null)
+            {
+                for (int i = 0; i < partyIds.Count && i < 3; i++)
+                {
+                    if (partyIds[i] != record.uniqueId)
+                        continue;
+
+                    MaterialDropSourceType source = i == 0
+                        ? MaterialDropSourceType.Party1
+                        : i == 1
+                            ? MaterialDropSourceType.Party2
+                            : MaterialDropSourceType.Party3;
+                    color = MaterialDropLogUI.GetSourceColor(source);
+                    break;
+                }
+            }
+
+            background.color = color;
         }
 
         public void SetDisplayMode(
