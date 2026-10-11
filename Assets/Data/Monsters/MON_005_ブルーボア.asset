@@ -46,7 +46,7 @@ MonoBehaviour:
   projectileSpeed: 0.1
   projectileLifetime: 0.1
   projectileHoming: 0
-  baseRespawnInterval: 11
+  baseRespawnInterval: 0
   uniqueMaterial: {fileID: 11400000, guid: b3ba06e2d5a632342b5f417fb93996ad, type: 2}
   materialBaseDropRate: 0.25
   baseMonsterDropRate: 0.0001

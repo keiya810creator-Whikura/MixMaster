@@ -131,7 +131,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTrail: {fileID: 0}
   followOrder: 0
-  followerSpacing: 1.15
+  followerSpacing: 0.65
   followSpeed: 7
   stopDistance: 0.03
   snapDistance: 8

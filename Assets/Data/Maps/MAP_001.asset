@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdbe3b6a04e34005a8bab0479db16554, type: 3}
+  m_Name: MAP_001
+  m_EditorClassIdentifier: 
+  mapId: MAP_001
+  displayName: "\u59CB\u307E\u308A\u306E\u5E73\u91CE"
+  description: "\u30B9\u30E9\u30A4\u30E0\u3068\u30DC\u30A2\u304C\u751F\u606F\u3059\u308B\u5E73\u539F"
+  thumbnail: {fileID: 0}
+  explorationSceneName: 
+  dungeonSceneName: 
+  layoutJsonName: "\u5E73\u91CE"
+  layoutJson: {fileID: 4900000, guid: 4d2839a0e4c1b2140a77660f0c804bb0, type: 3}
+  thumbnailKey: 1
+  recommendedLevel: 1
+  monsters:
+  - {fileID: 11400000, guid: 5ed5adfba29ad844f9830d539dc715f6, type: 2}
+  - {fileID: 11400000, guid: ac8dc47d7d7ec984e82cc2939746862d, type: 2}
+  - {fileID: 11400000, guid: a99c3c4090ad85b44b5df59ec7b6d660, type: 2}
+  - {fileID: 11400000, guid: 6d0120c421e016f4e97a3d97fa04e566, type: 2}
+  - {fileID: 11400000, guid: 1c3871689d2469a4686f0688cf2ddd0b, type: 2}
+  - {fileID: 11400000, guid: f5a74deec871b7242902ecfd4a005b60, type: 2}
+  normalMonsters:
+  - {fileID: 11400000, guid: 5ed5adfba29ad844f9830d539dc715f6, type: 2}
+  - {fileID: 11400000, guid: ac8dc47d7d7ec984e82cc2939746862d, type: 2}
+  - {fileID: 11400000, guid: a99c3c4090ad85b44b5df59ec7b6d660, type: 2}
+  - {fileID: 11400000, guid: 6d0120c421e016f4e97a3d97fa04e566, type: 2}
+  - {fileID: 11400000, guid: 1c3871689d2469a4686f0688cf2ddd0b, type: 2}
+  bossMonster: {fileID: 11400000, guid: f5a74deec871b7242902ecfd4a005b60, type: 2}
+  normalMonsterLevel: 1
+  strongMonsterLevel: 5
+  dungeonMaterial: {fileID: 11400000, guid: c500dfa10be8a4f48b77cdd55e4851cd, type: 2}
