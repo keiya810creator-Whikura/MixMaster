@@ -18,6 +18,21 @@ namespace MixMaster.Core
         public event Action<long, long> ExperienceChanged;
         public event Action<int> LeveledUp;
 
+        [Header("Combat")]
+        [SerializeField] private bool autoAttackEnabled = true;
+
+        public bool AutoAttackEnabled => autoAttackEnabled;
+        public event Action<bool> AutoAttackSettingChanged;
+
+        public void SetAutoAttackEnabled(bool enabled)
+        {
+            if (autoAttackEnabled == enabled)
+                return;
+
+            autoAttackEnabled = enabled;
+            AutoAttackSettingChanged?.Invoke(enabled);
+        }
+
         public CharacterStats Stats => stats;
         public long CurrentHp { get; private set; }
         public long CurrentMp { get; private set; }
@@ -37,10 +52,14 @@ namespace MixMaster.Core
             long health,
             long mana,
             int restoredLevel = 1,
-            long restoredExperience = 0L)
+            long restoredExperience = 0L,
+            bool restoredAutoAttackEnabled = true)
         {
             if (restoredStats != null)
                 stats = restoredStats;
+
+            autoAttackEnabled = restoredAutoAttackEnabled;
+            AutoAttackSettingChanged?.Invoke(autoAttackEnabled);
 
             level = Math.Max(1, Math.Min(ExperienceProgression.MaxLevel, restoredLevel));
             experience = Math.Max(0L, restoredExperience);
