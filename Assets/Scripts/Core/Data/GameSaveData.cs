@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public int version = 1;
+        public int version = 2;
         public string savedUtc = string.Empty;
 
         public string mapId = string.Empty;
