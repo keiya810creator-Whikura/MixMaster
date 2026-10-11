@@ -49,6 +49,9 @@ namespace MixMaster.EditorTools
                 Object.DestroyImmediate(root);
             }
 
+            if (prefab != null)
+                UpgradeSlotBackgroundColors();
+
             if (prefab == null)
             {
                 Debug.LogError("[PartyCircularHud] Prefab作成に失敗しました。");
@@ -108,6 +111,37 @@ namespace MixMaster.EditorTools
                 "OK");
         }
 
+        [MenuItem("MixMaster/UI/仲間円形HUDの枠色を更新")]
+        public static void UpgradeSlotBackgroundColors()
+        {
+            GameObject existing =
+                AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+            if (existing == null)
+                return;
+
+            GameObject contents = PrefabUtility.LoadPrefabContents(HudPrefabPath);
+            try
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    Transform slot = contents.transform.Find("PartySlot_" + (i + 1));
+                    if (slot == null)
+                        continue;
+
+                    Image background = slot.GetComponent<Image>();
+                    if (background != null)
+                        background.color =
+                            PartyCircularStatusHUD.GetSlotBackgroundColor(i, true);
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(contents, HudPrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
         private static GameObject BuildPrefab(
             Sprite ring, Sprite circle, Sprite solid)
         {
@@ -145,7 +179,8 @@ namespace MixMaster.EditorTools
                 cell.anchoredPosition = new Vector2(9f + 145f * i, 0f);
                 cell.sizeDelta = new Vector2(135f, 150f);
                 Image bg = cellObject.GetComponent<Image>();
-                bg.color = new Color(0.09f, 0.12f, 0.18f, 0.75f);
+                // Match slot 1/2/3 to the drop and damage log colors.
+                bg.color = PartyCircularStatusHUD.GetSlotBackgroundColor(i, true);
                 bg.raycastTarget = false;
 
                 RectTransform gaugeParent = cell;
@@ -287,17 +322,17 @@ namespace MixMaster.EditorTools
             return label;
         }
 
-        private static Sprite EnsureRingSprite()
+        internal static Sprite EnsureRingSprite()
         {
             return EnsureSprite(RingPath, true);
         }
 
-        private static Sprite EnsureCircleSprite()
+        internal static Sprite EnsureCircleSprite()
         {
             return EnsureSprite(CirclePath, false);
         }
 
-        private static Sprite EnsureSolidSprite()
+        internal static Sprite EnsureSolidSprite()
         {
             return EnsureSprite(SolidPath, false, true);
         }
@@ -402,7 +437,7 @@ namespace MixMaster.EditorTools
             }
         }
 
-        private static void EnsureEventSystem()
+        internal static void EnsureEventSystem()
         {
             EventSystem[] systems = Object.FindObjectsByType<EventSystem>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -423,7 +458,7 @@ namespace MixMaster.EditorTools
             Undo.RegisterCreatedObjectUndo(go, "Create HUD EventSystem");
         }
 
-        private static Canvas FindScreenCanvas()
+        internal static Canvas FindScreenCanvas()
         {
             if (Selection.activeGameObject != null)
             {
@@ -447,7 +482,7 @@ namespace MixMaster.EditorTools
             return null;
         }
 
-        private static Canvas CreateCanvas()
+        internal static Canvas CreateCanvas()
         {
             GameObject go = new GameObject(
                 "PartyStatusHUDCanvas",
