@@ -22,6 +22,12 @@ namespace MixMaster.Combat
         [Header("UI")]
         [SerializeField] private Slider hpSlider;
         [SerializeField] private TMP_Text hpText;
+        [SerializeField] private Slider mpSlider;
+        [SerializeField] private TMP_Text mpText;
+        [SerializeField] private Slider experienceSlider;
+        [Tooltip("Optional UI toggle for player auto-attack. State is saved.")]
+        [SerializeField] private Toggle autoAttackToggle;
+        [SerializeField] private bool autoAttackEnabledWithoutManager = true;
         [Tooltip("Optional text displaying the player's current level.")]
         [SerializeField] private TMP_Text levelText;
         [Tooltip("Optional text displaying EXP progress toward the next level.")]
@@ -79,6 +85,19 @@ namespace MixMaster.Combat
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public float AttackRange => GetAttackRange();
+        public bool AutoAttackEnabled => playerManager != null
+            ? playerManager.AutoAttackEnabled : autoAttackEnabledWithoutManager;
+
+        public void SetAutoAttackEnabled(bool enabled)
+        {
+            if (playerManager != null)
+                playerManager.SetAutoAttackEnabled(enabled);
+            else
+            {
+                autoAttackEnabledWithoutManager = enabled;
+                HandleAutoAttackChanged(enabled);
+            }
+        }
         // Compatibility with MapBuildingAccess; sword swings never lunge.
         public bool IsLunging => false;
         public bool IsAlive => playerManager == null || playerManager.CurrentHp > 0L;
@@ -100,6 +119,10 @@ namespace MixMaster.Combat
 
             ConfigureSlider(attackSpeedSlider);
             ConfigureSlider(hpSlider);
+            ConfigureSlider(mpSlider);
+            ConfigureSlider(experienceSlider);
+            if (autoAttackToggle != null)
+                autoAttackToggle.onValueChanged.AddListener(SetAutoAttackEnabled);
             SetAttackGauge(0f);
             CreateSwordVisual();
         }
@@ -113,12 +136,19 @@ namespace MixMaster.Combat
                 playerManager.HpChanged += HandlePlayerHpChanged;
                 playerManager.ExperienceChanged += HandleExperienceChanged;
                 playerManager.LeveledUp += HandlePlayerLeveledUp;
+                playerManager.MpChanged += HandlePlayerMpChanged;
+                playerManager.AutoAttackSettingChanged += HandleAutoAttackChanged;
                 RefreshHpSlider(playerManager.CurrentHp, playerManager.Stats.maxHp);
+                RefreshMpSlider(playerManager.CurrentMp, playerManager.Stats.maxMp);
                 RefreshExperienceText();
+                HandleAutoAttackChanged(playerManager.AutoAttackEnabled);
             }
             else
             {
                 RefreshHpSlider(1L, 1L);
+                RefreshMpSlider(0L, 1L);
+                RefreshExperienceSlider(0L, 1L);
+                HandleAutoAttackChanged(autoAttackEnabledWithoutManager);
             }
 
             RefreshAttackTimeText();
@@ -145,7 +175,12 @@ namespace MixMaster.Combat
                 playerManager.HpChanged -= HandlePlayerHpChanged;
                 playerManager.ExperienceChanged -= HandleExperienceChanged;
                 playerManager.LeveledUp -= HandlePlayerLeveledUp;
+                playerManager.MpChanged -= HandlePlayerMpChanged;
+                playerManager.AutoAttackSettingChanged -= HandleAutoAttackChanged;
             }
+
+            if (autoAttackToggle != null)
+                autoAttackToggle.onValueChanged.RemoveListener(SetAutoAttackEnabled);
 
             if (swordPivot != null)
                 Destroy(swordPivot.gameObject);
@@ -159,6 +194,12 @@ namespace MixMaster.Combat
 
         private void Update()
         {
+            if (!AutoAttackEnabled)
+            {
+                currentTarget = null;
+                return;
+            }
+
             targetRefreshTimer -= Time.deltaTime;
 
             if (targetRefreshTimer <= 0f || !IsTargetValid(currentTarget))
@@ -361,6 +402,52 @@ namespace MixMaster.Combat
             RefreshExperienceText();
         }
 
+        private void HandlePlayerMpChanged(long current, long max)
+        {
+            RefreshMpSlider(current, max);
+        }
+
+        private void HandleAutoAttackChanged(bool enabled)
+        {
+            if (autoAttackToggle != null)
+                autoAttackToggle.SetIsOnWithoutNotify(enabled);
+
+            if (enabled)
+                return;
+
+            currentTarget = null;
+            if (swingRoutine != null)
+            {
+                StopCoroutine(swingRoutine);
+                swingRoutine = null;
+            }
+            if (swordPivot != null)
+                swordPivot.gameObject.SetActive(false);
+
+            SetAttackGauge(0f);
+        }
+
+        private void RefreshMpSlider(long current, long max)
+        {
+            long safeMax = Math.Max(1L, max);
+            long safeCurrent = Math.Max(0L, Math.Min(current, safeMax));
+            if (mpSlider != null)
+                mpSlider.SetValueWithoutNotify(
+                    Mathf.Clamp01((float)((double)safeCurrent / safeMax)));
+
+            if (mpText != null)
+                mpText.text = "MP " + current.ToString("N0") +
+                    "/" + Math.Max(0L, max).ToString("N0");
+        }
+
+        private void RefreshExperienceSlider(long current, long required)
+        {
+            float normalized = required > 0L
+                ? Mathf.Clamp01((float)((double)current / required)) : 1f;
+            if (experienceSlider != null)
+                experienceSlider.SetValueWithoutNotify(normalized);
+        }
+
         private void HandlePlayerLeveledUp(int newLevel)
         {
             RefreshExperienceText();
@@ -370,6 +457,9 @@ namespace MixMaster.Combat
         {
             if (playerManager == null)
                 return;
+
+            RefreshExperienceSlider(
+                playerManager.Experience, playerManager.ExperienceToNextLevel);
 
             if (levelText != null)
                 levelText.text = "Lv." + playerManager.Level;
@@ -395,6 +485,36 @@ namespace MixMaster.Combat
 
             if (hpText != null)
                 hpText.text = $"HP {safeCurrent:N0}/{safeMax:N0}";
+        }
+
+        // Optional inspector/runtime wiring for existing UI elements.
+        public void SetExperienceSlider(Slider slider)
+        {
+            experienceSlider = slider;
+            ConfigureSlider(experienceSlider);
+            if (playerManager != null)
+                RefreshExperienceText();
+        }
+
+        public void SetMpSlider(Slider slider)
+        {
+            mpSlider = slider;
+            ConfigureSlider(mpSlider);
+            if (playerManager != null)
+                RefreshMpSlider(playerManager.CurrentMp, playerManager.Stats.maxMp);
+        }
+
+        public void SetAutoAttackToggle(Toggle toggle)
+        {
+            if (autoAttackToggle != null)
+                autoAttackToggle.onValueChanged.RemoveListener(SetAutoAttackEnabled);
+
+            autoAttackToggle = toggle;
+            if (autoAttackToggle != null)
+            {
+                autoAttackToggle.onValueChanged.AddListener(SetAutoAttackEnabled);
+                autoAttackToggle.SetIsOnWithoutNotify(AutoAttackEnabled);
+            }
         }
 
         private static void ConfigureSlider(Slider slider)
