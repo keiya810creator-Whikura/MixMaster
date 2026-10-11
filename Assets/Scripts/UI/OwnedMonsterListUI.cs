@@ -165,7 +165,8 @@ namespace MixMaster.UI
                 entry.Bind(
                     record,
                     catalog,
-                    showIndividualValues);
+                    showIndividualValues,
+                    monsterManager.PartyMonsterUniqueIds);
                 entry.SetSelectionHandler(OpenDetail);
 
                 entries.Add(entry);
@@ -188,7 +189,8 @@ namespace MixMaster.UI
                     entry.Bind(
                         entry.Record,
                         catalog,
-                        showIndividualValues);
+                        showIndividualValues,
+                        monsterManager.PartyMonsterUniqueIds);
                 }
             }
 
@@ -271,6 +273,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterExperienceChanged +=
                 HandleMonsterExperienceChanged;
+            monsterManager.PartyChanged += RefreshAll;
 
             subscribed = true;
         }
@@ -287,6 +290,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterExperienceChanged -=
                 HandleMonsterExperienceChanged;
+            monsterManager.PartyChanged -= RefreshAll;
 
             subscribed = false;
         }
@@ -366,7 +370,8 @@ namespace MixMaster.UI
                     entry.Record.uniqueId != record.uniqueId)
                     continue;
 
-                entry.Bind(record, catalog, showIndividualValues);
+                entry.Bind(record, catalog, showIndividualValues,
+                    monsterManager.PartyMonsterUniqueIds);
                 break;
             }
         }
