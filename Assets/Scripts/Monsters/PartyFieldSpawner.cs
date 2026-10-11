@@ -21,6 +21,19 @@ namespace MixMaster.Monsters
         private readonly Dictionary<string, PartyMemberCombat> activeByMonsterId =
             new Dictionary<string, PartyMemberCombat>();
 
+        /// <summary>
+        /// Read-only accessor for HUDs. Does not respawn party members.
+        /// </summary>
+        public PartyMemberCombat GetActiveMember(string ownedUniqueId)
+        {
+            if (string.IsNullOrWhiteSpace(ownedUniqueId))
+                return null;
+
+            return activeByMonsterId.TryGetValue(
+                ownedUniqueId, out PartyMemberCombat member)
+                ? member : null;
+        }
+
         private MonsterManager monsterManager;
         private MonsterCatalogSO catalog;
         private GameObject actorsRoot;
