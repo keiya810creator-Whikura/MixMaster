@@ -88,6 +88,11 @@ namespace MixMaster.Combat
         public bool AutoAttackEnabled => playerManager != null
             ? playerManager.AutoAttackEnabled : autoAttackEnabledWithoutManager;
 
+        public void ToggleAutoAttack()
+        {
+            SetAutoAttackEnabled(!AutoAttackEnabled);
+        }
+
         public void SetAutoAttackEnabled(bool enabled)
         {
             if (playerManager != null)
