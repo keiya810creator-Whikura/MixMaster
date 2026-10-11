@@ -38,6 +38,9 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text partyButtonText;
         [SerializeField] private TMP_Text partyStatusText;
 
+        [Header("Behavior")]
+        [SerializeField] private TMP_Dropdown behaviorDropdown;
+
         private MonsterManager monsterManager;
         private bool partySubscribed;
 
@@ -49,6 +52,10 @@ namespace MixMaster.UI
 
         private void Awake()
         {
+            EnsureBehaviorDropdown();
+            if (behaviorDropdown != null)
+                behaviorDropdown.onValueChanged.AddListener(HandleBehaviorChanged);
+
             if (closeButton != null)
                 closeButton.onClick.AddListener(Hide);
 
@@ -75,6 +82,8 @@ namespace MixMaster.UI
         private void OnDestroy()
         {
             UnsubscribeParty();
+            if (behaviorDropdown != null)
+                behaviorDropdown.onValueChanged.RemoveListener(HandleBehaviorChanged);
 
             if (closeButton != null)
                 closeButton.onClick.RemoveListener(Hide);
@@ -237,6 +246,202 @@ namespace MixMaster.UI
                 FormatEquipment(selectedRecord));
 
             RefreshPartyControls();
+            RefreshBehaviorDropdown();
+        }
+
+        private void HandleBehaviorChanged(int selectedIndex)
+        {
+            if (selectedRecord == null)
+                return;
+
+            SubscribeParty();
+            if (monsterManager == null)
+                return;
+
+            monsterManager.SetMonsterCombatBehavior(
+                selectedRecord.uniqueId,
+                (MonsterCombatBehavior)Mathf.Clamp(selectedIndex, 0, 3));
+        }
+
+        private void RefreshBehaviorDropdown()
+        {
+            if (behaviorDropdown == null)
+                return;
+
+            behaviorDropdown.SetValueWithoutNotify(
+                selectedRecord != null
+                    ? Mathf.Clamp((int)selectedRecord.combatBehavior, 0, 3)
+                    : 0);
+        }
+
+        private void EnsureBehaviorDropdown()
+        {
+            if (behaviorDropdown == null)
+            {
+                behaviorDropdown = GetComponentInChildren<TMP_Dropdown>(true);
+            }
+
+            if (behaviorDropdown == null)
+                behaviorDropdown = CreateBehaviorDropdown();
+
+            if (behaviorDropdown == null)
+                return;
+
+            behaviorDropdown.ClearOptions();
+            behaviorDropdown.AddOptions(new System.Collections.Generic.List<string>
+            {
+                "敵対した敵を攻撃",
+                "プレイヤーの攻撃範囲内の敵を攻撃",
+                "自動狩りモード（マップ全体）",
+                "攻撃しない"
+            });
+            // The options' display order differs from the saved enum order.
+            // Map the visible option indexes explicitly when reading/writing.
+            behaviorDropdown.SetValueWithoutNotify(1);
+        }
+
+        private TMP_Dropdown CreateBehaviorDropdown()
+        {
+            Transform content = transform.Find("ScrollView/Viewport/Content");
+            if (content == null)
+            {
+                Debug.LogWarning(
+                    "[OwnedMonsterDetailUI] 行動選択を生成するスクロールContentがありません。", this);
+                return null;
+            }
+
+            GameObject sectionObject = new GameObject(
+                "CombatBehaviorSection",
+                typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            sectionObject.transform.SetParent(content, false);
+            RectTransform section = sectionObject.GetComponent<RectTransform>();
+            section.sizeDelta = new Vector2(900f, 150f);
+            LayoutElement layout = sectionObject.GetComponent<LayoutElement>();
+            layout.preferredHeight = 150f;
+            layout.minHeight = 150f;
+            sectionObject.GetComponent<Image>().color =
+                new Color(0.095f, 0.13f, 0.19f, 0.97f);
+            sectionObject.GetComponent<Image>().raycastTarget = false;
+
+            TextMeshProUGUI header = CreateBehaviorText(
+                section, "Header", "仲間の行動",
+                new Vector2(16f, -10f), new Vector2(750f, 40f), 28f);
+
+            GameObject dropdownObject = new GameObject(
+                "CombatBehaviorDropdown",
+                typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
+            dropdownObject.transform.SetParent(section, false);
+            RectTransform rect = dropdownObject.GetComponent<RectTransform>();
+            SetTopLeft(rect, new Vector2(16f, -60f), new Vector2(840f, 60f));
+            dropdownObject.GetComponent<Image>().color =
+                new Color(0.20f, 0.26f, 0.35f, 1f);
+            TMP_Dropdown dropdown = dropdownObject.GetComponent<TMP_Dropdown>();
+
+            TextMeshProUGUI caption = CreateBehaviorText(
+                rect, "Label", string.Empty,
+                new Vector2(18f, -9f), new Vector2(790f, 45f), 24f);
+            caption.alignment = TextAlignmentOptions.MidlineLeft;
+            dropdown.captionText = caption;
+
+            // TMP_Dropdown needs a fully configured template, with ScrollRect,
+            // masked viewport and an item Toggle to clone for every option.
+            GameObject templateObject = new GameObject(
+                "Template", typeof(RectTransform),
+                typeof(Image), typeof(ScrollRect));
+            templateObject.transform.SetParent(rect, false);
+            RectTransform template = templateObject.GetComponent<RectTransform>();
+            template.anchorMin = Vector2.zero;
+            template.anchorMax = new Vector2(1f, 0f);
+            template.pivot = new Vector2(0.5f, 1f);
+            template.anchoredPosition = Vector2.zero;
+            template.sizeDelta = new Vector2(0f, 224f);
+            templateObject.GetComponent<Image>().color =
+                new Color(0.12f, 0.16f, 0.22f, 1f);
+
+            GameObject viewportObject = new GameObject(
+                "Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewportObject.transform.SetParent(template, false);
+            RectTransform viewport = viewportObject.GetComponent<RectTransform>();
+            StretchBehaviorRect(viewport);
+            viewportObject.GetComponent<Image>().color = Color.white;
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject contentObject = new GameObject(
+                "Content", typeof(RectTransform));
+            contentObject.transform.SetParent(viewport, false);
+            RectTransform itemContent = contentObject.GetComponent<RectTransform>();
+            itemContent.anchorMin = new Vector2(0f, 1f);
+            itemContent.anchorMax = Vector2.one;
+            itemContent.pivot = new Vector2(0.5f, 1f);
+            itemContent.sizeDelta = new Vector2(0f, 220f);
+            itemContent.anchoredPosition = Vector2.zero;
+
+            GameObject itemObject = new GameObject(
+                "Item", typeof(RectTransform),
+                typeof(Image), typeof(Toggle));
+            itemObject.transform.SetParent(itemContent, false);
+            RectTransform itemRect = itemObject.GetComponent<RectTransform>();
+            itemRect.anchorMin = new Vector2(0f, 1f);
+            itemRect.anchorMax = new Vector2(1f, 1f);
+            itemRect.pivot = new Vector2(0.5f, 1f);
+            itemRect.anchoredPosition = new Vector2(0f, -27.5f);
+            itemRect.sizeDelta = new Vector2(0f, 55f);
+            Image itemImage = itemObject.GetComponent<Image>();
+            itemImage.color = new Color(0.18f, 0.22f, 0.31f, 1f);
+            Toggle toggle = itemObject.GetComponent<Toggle>();
+            toggle.targetGraphic = itemImage;
+            toggle.isOn = true;
+
+            TextMeshProUGUI itemText = CreateBehaviorText(
+                itemRect, "Item Label", "行動",
+                new Vector2(18f, -6f), new Vector2(790f, 44f), 23f);
+            itemText.alignment = TextAlignmentOptions.MidlineLeft;
+            dropdown.itemText = itemText;
+
+            ScrollRect scroller = templateObject.GetComponent<ScrollRect>();
+            scroller.viewport = viewport;
+            scroller.content = itemContent;
+            scroller.horizontal = false;
+            scroller.vertical = true;
+            scroller.movementType = ScrollRect.MovementType.Clamped;
+
+            dropdown.template = template;
+            templateObject.SetActive(false);
+            return dropdown;
+        }
+
+        private static TextMeshProUGUI CreateBehaviorText(
+            Transform parent, string name, string value,
+            Vector2 position, Vector2 size, float fontSize)
+        {
+            GameObject go = new GameObject(
+                name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            SetTopLeft(go.GetComponent<RectTransform>(), position, size);
+            TextMeshProUGUI result = go.GetComponent<TextMeshProUGUI>();
+            result.text = value;
+            result.fontSize = fontSize;
+            result.color = Color.white;
+            result.raycastTarget = false;
+            return result;
+        }
+
+        private static void SetTopLeft(
+            RectTransform rect, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = rect.anchorMin;
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+
+        private static void StretchBehaviorRect(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private void SubscribeParty()
