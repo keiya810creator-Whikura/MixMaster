@@ -20,6 +20,9 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/UI/プレイヤー円形HP・MP HUDを作成・配置")]
         public static void CreateAndPlace()
         {
+            PartyCircularHudPrefabCreator.EnsureFolder("Assets/Prefab/UI");
+            PartyCircularHudPrefabCreator.EnsureFolder("Assets/素材/UI");
+
             Sprite ring = PartyCircularHudPrefabCreator.EnsureRingSprite();
             Sprite circle = PartyCircularHudPrefabCreator.EnsureCircleSprite();
             Sprite solid = PartyCircularHudPrefabCreator.EnsureSolidSprite();
