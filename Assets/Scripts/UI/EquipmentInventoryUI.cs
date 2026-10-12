@@ -26,6 +26,8 @@ namespace MixMaster.UI
         private bool subscribed;
         private string inspectedId;
         private OwnedMonsterRecord targetMonster;
+        private PlayerManager playerManager;
+        private EquipmentComparisonPanelUI comparisonPanel;
         private TMP_Text ownerHeading;
         private Button[] equipSlotButtons = new Button[3];
         private Button unequipButton;
@@ -65,6 +67,7 @@ namespace MixMaster.UI
 
             EnsureControls();
             EnsureEquipmentActions();
+            EnsureComparisonPanel();
             if (closeButton != null)
                 closeButton.onClick.AddListener(Close);
         }
@@ -77,6 +80,8 @@ namespace MixMaster.UI
 
         private void OnDisable()
         {
+            if (comparisonPanel != null)
+                comparisonPanel.Close();
             if (subscribed && manager != null)
                 manager.InventoryChanged -= Rebuild;
             subscribed = false;
@@ -118,6 +123,8 @@ namespace MixMaster.UI
 
         public void Close()
         {
+            if (comparisonPanel != null)
+                comparisonPanel.Close();
             gameObject.SetActive(false);
         }
 
@@ -340,7 +347,7 @@ namespace MixMaster.UI
                 rt.anchoredPosition = new Vector2(23f + i * 180f, 13f);
                 equipSlotButtons[i] = button;
                 slotButtonTexts[i] = button.GetComponentInChildren<TMP_Text>();
-                button.onClick.AddListener(() => EquipSelected(slot));
+                button.onClick.AddListener(() => PreviewEquip(slot));
             }
 
             unequipButton = InventoryUiFactory.Button(transform,
@@ -351,7 +358,7 @@ namespace MixMaster.UI
             un.anchorMax = Vector2.zero;
             un.pivot = Vector2.zero;
             un.anchoredPosition = new Vector2(566f, 13f);
-            unequipButton.onClick.AddListener(UnequipSelected);
+            unequipButton.onClick.AddListener(PreviewUnequip);
 
             // Keep the selected-item text visible above the action buttons.
             if (detailText != null)
@@ -407,29 +414,153 @@ namespace MixMaster.UI
                 ? def.displayName : record.equipmentId;
         }
 
-        private void EquipSelected(int slot)
+        private void EnsureComparisonPanel()
         {
-            if (manager == null || string.IsNullOrEmpty(inspectedId)) return;
-            bool success = targetMonster == null
-                ? manager.EquipToPlayer(inspectedId, slot)
-                : manager.EquipToMonster(targetMonster, inspectedId, slot);
+            if (comparisonPanel != null)
+                return;
 
-            if (!success && detailText != null)
-                detailText.text = "ほかのキャラクターが装備中です。" +
-                    "\n先に装備者から解除してください。";
-            else
-                Inspect(manager.FindEquipment(inspectedId));
-            RefreshActionControls();
+            comparisonPanel = GetComponentInChildren<EquipmentComparisonPanelUI>(
+                true);
+            if (comparisonPanel == null)
+                comparisonPanel = EquipmentComparisonPanelUI.Create(transform);
         }
 
-        private void UnequipSelected()
+        // Called by each of the three equip-slot buttons.
+        public void PreviewEquip(int slot)
         {
-            if (manager == null || string.IsNullOrEmpty(inspectedId)) return;
-            bool success = targetMonster == null
-                ? manager.UnequipFromPlayer(inspectedId)
-                : manager.UnequipFromMonster(targetMonster, inspectedId);
-            if (success)
-                Inspect(manager.FindEquipment(inspectedId));
+            OpenComparison(slot, false);
+        }
+
+        // Called by the unequip button. Removing equipment also shows
+        // resulting final stats before actually changing the loadout.
+        public void PreviewUnequip()
+        {
+            if (manager == null || string.IsNullOrWhiteSpace(inspectedId))
+                return;
+            int slot = -1;
+            IReadOnlyList<string> equipped = CurrentEquipmentIds;
+            if (equipped != null)
+            {
+                for (int i = 0; i < equipped.Count; i++)
+                    if (equipped[i] == inspectedId)
+                    {
+                        slot = i;
+                        break;
+                    }
+            }
+
+            if (slot >= 0)
+                OpenComparison(slot, true);
+        }
+
+        private void OpenComparison(int slot, bool unequip)
+        {
+            if (manager == null || string.IsNullOrWhiteSpace(inspectedId))
+                return;
+
+            EnsureComparisonPanel();
+            if (playerManager == null)
+                playerManager = FindFirstObjectByType<PlayerManager>();
+
+            string id = inspectedId;
+            OwnedMonsterRecord owner = targetMonster;
+            if (!EquipmentComparisonCalculator.TryCalculate(
+                    manager, playerManager, owner, id, slot, unequip,
+                    out EquipmentComparisonCalculator.Comparison preview,
+                    out string error))
+            {
+                if (detailText != null)
+                    detailText.text = error;
+                return;
+            }
+
+            comparisonPanel.Show(preview, () =>
+            {
+                // No real changes are made while comparison is displayed.
+                // If an external event changed gear during the preview,
+                // require the user to confirm the updated figures again.
+                if (!EquipmentComparisonCalculator.TryCalculate(
+                        manager, playerManager, owner, id, slot, unequip,
+                        out EquipmentComparisonCalculator.Comparison latest,
+                        out string latestError))
+                {
+                    if (detailText != null)
+                        detailText.text = latestError;
+                    return;
+                }
+
+                if (!SameComparison(preview, latest))
+                {
+                    comparisonPanel.Show(latest, () =>
+                        ApplyComparisonIfValid(id, slot, owner, unequip, latest));
+                    return;
+                }
+
+                ApplyComparisonIfValid(id, slot, owner, unequip, latest);
+            });
+        }
+
+        private static bool SameComparison(
+            EquipmentComparisonCalculator.Comparison a,
+            EquipmentComparisonCalculator.Comparison b)
+        {
+            if (a.previousItem != b.previousItem ||
+                a.newItem != b.newItem ||
+                a.slot != b.slot || a.isUnequip != b.isUnequip)
+                return false;
+
+            for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
+            {
+                InventoryStat stat = (InventoryStat)i;
+                if (Math.Abs(InventoryStatFilter.GetValue(a.before, stat) -
+                    InventoryStatFilter.GetValue(b.before, stat)) > 0.00001d ||
+                    Math.Abs(InventoryStatFilter.GetValue(a.after, stat) -
+                    InventoryStatFilter.GetValue(b.after, stat)) > 0.00001d)
+                    return false;
+            }
+            return true;
+        }
+
+        private void ApplyComparisonIfValid(string id, int slot,
+            OwnedMonsterRecord owner, bool unequip,
+            EquipmentComparisonCalculator.Comparison confirmed)
+        {
+            if (!EquipmentComparisonCalculator.TryCalculate(
+                    manager, playerManager, owner, id, slot, unequip,
+                    out EquipmentComparisonCalculator.Comparison current,
+                    out string error))
+            {
+                if (detailText != null) detailText.text = error;
+                return;
+            }
+
+            if (!SameComparison(confirmed, current))
+            {
+                comparisonPanel.Show(current, () =>
+                    ApplyComparisonIfValid(id, slot, owner, unequip, current));
+                return;
+            }
+
+            bool success = unequip
+                ? (owner == null
+                    ? manager.UnequipFromPlayer(id)
+                    : manager.UnequipFromMonster(owner, id))
+                : (owner == null
+                    ? manager.EquipToPlayer(id, slot)
+                    : manager.EquipToMonster(owner, id, slot));
+
+            if (!success)
+            {
+                if (detailText != null)
+                    detailText.text = "装備を変更できません。装備状況を確認してください。";
+            }
+            else
+            {
+                EquipmentRecord selected = manager.FindEquipment(id);
+                if (selected != null)
+                    Inspect(selected);
+            }
+
             RefreshActionControls();
         }
 
