@@ -312,8 +312,15 @@ namespace MixMaster.UI
                             equipment.PlayerEquipmentUniqueIds[i]);
                         if (item != null)
                         {
-                            info.Append(string.IsNullOrEmpty(item.equipmentId)
-                                ? "不明な装備" : item.equipmentId);
+                            EquipmentSO definition =
+                                equipment.GetEquipmentDefinition(item.equipmentId);
+                            string equipmentName = definition != null &&
+                                !string.IsNullOrWhiteSpace(definition.displayName)
+                                    ? definition.displayName
+                                    : string.IsNullOrEmpty(item.equipmentId)
+                                        ? "不明な装備" : item.equipmentId;
+
+                            info.Append(equipmentName);
                             info.Append("  Lv.").Append(item.level);
                             info.Append("  基礎値 ")
                                 .Append(equipment.GetScaledValue(item).ToString("N0"));
