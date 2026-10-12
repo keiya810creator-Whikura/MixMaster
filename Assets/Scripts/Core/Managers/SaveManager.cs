@@ -20,6 +20,7 @@ namespace MixMaster.Core
         private const float AutoSaveIntervalSeconds = 30f;
 
         private bool initialized;
+        private bool starterEquipmentGranted;
         private bool hasLastLocation;
         private string lastLocationScene = string.Empty;
         private string lastLocationMapId = string.Empty;
@@ -48,11 +49,7 @@ namespace MixMaster.Core
             // Start. Restore once; no save is made over existing data first.
             bool loaded = LoadGame();
             if (!loaded && !HasSaveData)
-            {
-                EquipmentManager equipment = GetComponent<EquipmentManager>();
-                if (equipment != null)
-                    equipment.GrantNewGameStarterEquipment();
-            }
+                EnsureStarterEquipment();
 
             initialized = true;
         }
@@ -143,6 +140,16 @@ namespace MixMaster.Core
             }
         }
 
+        private void EnsureStarterEquipment()
+        {
+            EquipmentManager equipment = GetComponent<EquipmentManager>();
+            if (equipment == null)
+                return;
+
+            equipment.GrantStarterEquipmentIfMissing();
+            starterEquipmentGranted = true;
+        }
+
         private GameSaveData Capture()
         {
             GameSaveData data = new GameSaveData();
@@ -201,6 +208,7 @@ namespace MixMaster.Core
 
             if (equipment != null)
             {
+                data.starterEquipmentGranted = starterEquipmentGranted;
                 data.equipment = new List<EquipmentRecord>(
                     equipment.Inventory);
                 data.playerEquippedIds = new List<string>(
@@ -247,6 +255,11 @@ namespace MixMaster.Core
             if (equipment != null)
                 equipment.RestoreEquipment(
                     data.equipment, data.playerEquippedIds);
+
+            starterEquipmentGranted =
+                data.version >= 3 && data.starterEquipmentGranted;
+            if (!starterEquipmentGranted)
+                EnsureStarterEquipment();
 
             if (materials != null)
                 materials.RestoreMaterials(data.materials);
