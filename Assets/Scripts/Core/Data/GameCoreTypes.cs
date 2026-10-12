@@ -10,6 +10,17 @@ namespace MixMaster.Core
         Dungeon
     }
 
+    // Party-wide tactical override. "Individual" keeps each monster's saved
+    // behavior; other entries temporarily supersede it without modifying it.
+    public enum PartyCombatOrder
+    {
+        Individual = 0,
+        HostileEnemies = 1,
+        PlayerAttackRange = 2,
+        AutoHunt = 3,
+        NoAttack = 4
+    }
+
     // Serialized on each owned monster. Explicit numeric values preserve old saves.
     public enum MonsterCombatBehavior
     {
