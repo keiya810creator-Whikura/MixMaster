@@ -10,8 +10,8 @@ namespace MixMaster.UI
 {
     /// <summary>
     /// Player portrait with radial HP/MP and horizontal EXP.
-    /// The portrait invokes StatusMenuRequested, a UnityEvent reserved for
-    /// the future player status menu. No status menu is created here.
+    /// The portrait opens the player status menu and also invokes the
+    /// existing UnityEvent for optional custom behavior.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerCircularStatusHUD : MonoBehaviour
@@ -25,7 +25,8 @@ namespace MixMaster.UI
         [SerializeField] private Button portraitButton;
         [SerializeField] private Sprite portraitOverride;
         [SerializeField] private TMP_Text levelText;
-        [Header("Future Status Menu")]
+        [Header("Status Menu")]
+        [SerializeField] private PlayerStatusMenuUI statusMenu;
         [SerializeField] private UnityEvent onStatusMenuRequested = new UnityEvent();
 
         private PlayerManager player;
@@ -35,6 +36,11 @@ namespace MixMaster.UI
         private float nextAvatarRefreshTime;
 
         public UnityEvent StatusMenuRequested => onStatusMenuRequested;
+
+        public void SetStatusMenu(PlayerStatusMenuUI panel)
+        {
+            statusMenu = panel;
+        }
 
         public void SetReferences(
             Image hp, Image mp, Image exp,
@@ -142,8 +148,19 @@ namespace MixMaster.UI
 
         public void OpenStatusMenu()
         {
-            // Intentionally no fallback panel: it has not been implemented yet.
-            // Connect this event in the Inspector once the status menu exists.
+            if (statusMenu == null)
+                statusMenu = FindFirstObjectByType<PlayerStatusMenuUI>(
+                    FindObjectsInactive.Include);
+
+            if (statusMenu != null)
+                statusMenu.Open();
+            else
+                Debug.LogWarning(
+                    "[PlayerCircularStatusHUD] ステータスメニューがありません。" +
+                    "Unityメニューから『プレイヤーステータスメニューを作成・接続』" +
+                    "を実行してください。", this);
+
+            // Preserve custom listeners in existing HUD instances.
             onStatusMenuRequested?.Invoke();
         }
 
