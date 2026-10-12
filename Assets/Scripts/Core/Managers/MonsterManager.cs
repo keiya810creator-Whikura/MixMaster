@@ -8,6 +8,8 @@ namespace MixMaster.Core
     public sealed class MonsterManager : MonoBehaviour
     {
         [SerializeField] private int maxPartySize = 3;
+        [SerializeField] private PartyCombatOrder partyCombatOrder =
+            PartyCombatOrder.Individual;
 
         private readonly List<OwnedMonsterRecord> ownedMonsters = new List<OwnedMonsterRecord>();
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
@@ -15,6 +17,49 @@ namespace MixMaster.Core
         public IReadOnlyList<OwnedMonsterRecord> OwnedMonsters => ownedMonsters;
         public IReadOnlyList<string> PartyMonsterUniqueIds => partyMonsterUniqueIds;
         public int MaxPartySize => Mathf.Clamp(maxPartySize, 1, 3);
+        public PartyCombatOrder CurrentPartyCombatOrder => partyCombatOrder;
+        public event Action<PartyCombatOrder> PartyCombatOrderChanged;
+
+        public void SetPartyCombatOrder(PartyCombatOrder order)
+        {
+            if (!Enum.IsDefined(typeof(PartyCombatOrder), order) ||
+                partyCombatOrder == order)
+                return;
+
+            partyCombatOrder = order;
+            PartyCombatOrderChanged?.Invoke(order);
+        }
+
+        // Called during load, including old saves with no order field.
+        public void RestorePartyCombatOrder(PartyCombatOrder order)
+        {
+            if (!Enum.IsDefined(typeof(PartyCombatOrder), order))
+                order = PartyCombatOrder.Individual;
+
+            partyCombatOrder = order;
+            PartyCombatOrderChanged?.Invoke(order);
+        }
+
+        public MonsterCombatBehavior GetEffectiveCombatBehavior(
+            OwnedMonsterRecord record)
+        {
+            if (partyCombatOrder == PartyCombatOrder.Individual)
+                return record != null
+                    ? record.combatBehavior
+                    : MonsterCombatBehavior.PlayerAttackRange;
+
+            switch (partyCombatOrder)
+            {
+                case PartyCombatOrder.HostileEnemies:
+                    return MonsterCombatBehavior.HostileEnemies;
+                case PartyCombatOrder.AutoHunt:
+                    return MonsterCombatBehavior.AutoHunt;
+                case PartyCombatOrder.NoAttack:
+                    return MonsterCombatBehavior.NoAttack;
+                default:
+                    return MonsterCombatBehavior.PlayerAttackRange;
+            }
+        }
 
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action<OwnedMonsterRecord> MonsterExperienceChanged;
