@@ -23,6 +23,7 @@ namespace MixMaster.UI
         private Action<OwnedMonsterRecord> onSelected;
 
         private MonsterCatalogSO catalog;
+        private EquipmentManager equipmentManager;
         private bool showIndividualValues;
         private Color defaultButtonColor = Color.white;
 
@@ -225,16 +226,16 @@ namespace MixMaster.UI
                 return;
             }
 
-            EquipmentManager equipment =
-                FindFirstObjectByType<EquipmentManager>();
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
             CharacterStats stats =
                 StatCalculator.CalculateMonsterStats(
                     monster,
                     Mathf.Max(1, record.level),
                     record.individualValues,
                     title,
-                    equipment != null
-                        ? equipment.GetEquippedModifiers(
+                    equipmentManager != null
+                        ? equipmentManager.GetEquippedModifiers(
                             record.equippedItemUniqueIds)
                         : null);
 
