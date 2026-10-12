@@ -34,6 +34,7 @@ namespace MixMaster.UI
         private PlayerController player;
         private FloatingJoystick joystick;
         private bool subscribed;
+        private EquipmentManager equipmentManager;
         private bool showIndividualValues;
 
         private TMP_Dropdown sortDropdown;
@@ -351,6 +352,11 @@ namespace MixMaster.UI
             if (monsterManager == null)
                 return;
 
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
+            if (equipmentManager != null)
+                equipmentManager.EquipmentChanged += HandleEquipmentChanged;
+
             monsterManager.MonsterObtained +=
                 HandleMonsterObtained;
             monsterManager.MonsterExperienceChanged +=
@@ -368,6 +374,9 @@ namespace MixMaster.UI
             {
                 return;
             }
+
+            if (equipmentManager != null)
+                equipmentManager.EquipmentChanged -= HandleEquipmentChanged;
 
             monsterManager.MonsterObtained -=
                 HandleMonsterObtained;
@@ -440,6 +449,11 @@ namespace MixMaster.UI
             Rebuild();
         }
 
+        private void HandleEquipmentChanged()
+        {
+            Rebuild();
+        }
+
         private void HandleMonsterLevelChanged(OwnedMonsterRecord record)
         {
             if (sortDropdown != null && sortDropdown.value != 0 ||
@@ -508,9 +522,13 @@ namespace MixMaster.UI
                 ? catalog.GetMonster(record.monsterId) : null;
             TitleSO title = catalog != null
                 ? catalog.GetTitle(record.titleId) : null;
+            EquipmentManager equipment =
+                FindFirstObjectByType<EquipmentManager>();
             return StatCalculator.CalculateMonsterStats(
                 monster, Mathf.Max(1, record.level),
-                record.individualValues, title);
+                record.individualValues, title,
+                equipment != null ? equipment.GetEquippedModifiers(
+                    record.equippedItemUniqueIds) : null);
         }
 
         private static string[] CreateSortOptions()
