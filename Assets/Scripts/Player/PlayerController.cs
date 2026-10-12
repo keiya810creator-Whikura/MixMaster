@@ -83,6 +83,7 @@ namespace MixMaster.Player
 
         private Rigidbody2D body;
         private SpriteRenderer spriteRenderer;
+        private MixMaster.Core.PlayerManager playerManager;
 
         private Vector2 moveInput;
         private Direction8 facingDirection;
@@ -153,9 +154,15 @@ namespace MixMaster.Player
 
         private void FixedUpdate()
         {
+            if (playerManager == null)
+                playerManager = FindFirstObjectByType<MixMaster.Core.PlayerManager>();
+
+            float effectiveSpeed = playerManager != null
+                ? Mathf.Max(0f, playerManager.Stats.moveSpeed)
+                : moveSpeed;
             body.linearVelocity = combatMovementLocked
                 ? Vector2.zero
-                : moveInput * moveSpeed;
+                : moveInput * effectiveSpeed;
         }
 
         private void ReadMovementInput()
