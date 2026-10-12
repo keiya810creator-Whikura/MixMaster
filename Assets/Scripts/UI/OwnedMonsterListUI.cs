@@ -276,7 +276,7 @@ namespace MixMaster.UI
                 }
             }
 
-            RefreshCount();
+            RefreshCount(entries.Count);
         }
 
         private void HandlePanelOpened()
