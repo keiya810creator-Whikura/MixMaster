@@ -558,6 +558,13 @@ namespace MixMaster.UI
             directionText =
                 sortDirectionButton.GetComponentInChildren<TMP_Text>();
 
+            InventoryUiFactory.Text(controls, "SortHint", "並び替え",
+                new Vector2(36f, -68f), new Vector2(210f, 25f), 17f);
+            InventoryUiFactory.Text(controls, "FilterHint", "ステータス絞り込み",
+                new Vector2(271f, -68f), new Vector2(250f, 25f), 17f);
+            InventoryUiFactory.Text(controls, "ThresholdHint", "基準",
+                new Vector2(542f, -68f), new Vector2(195f, 25f), 17f);
+
             sortDropdown.onValueChanged.AddListener(_ => Rebuild());
             statFilterDropdown.onValueChanged.AddListener(_ => Rebuild());
             thresholdDropdown.onValueChanged.AddListener(_ => Rebuild());
