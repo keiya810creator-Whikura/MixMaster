@@ -67,11 +67,12 @@ namespace MixMaster.EditorTools
                 canvas.GetComponentInChildren<PlayerCircularStatusHUD>(true);
             if (existing != null)
             {
+                PlayerStatusMenuPrefabCreator.EnsureAndConnect(canvas);
                 Selection.activeGameObject = existing.gameObject;
                 EditorUtility.DisplayDialog(
                     "プレイヤー円形ゲージ",
                     "既にこのCanvasに配置されています。" +
-                    "再配置・上書きは行いませんでした。", "OK");
+                    "既存HUDを維持し、ステータスメニューを接続しました。", "OK");
                 return;
             }
 
@@ -91,6 +92,7 @@ namespace MixMaster.EditorTools
             rect.localScale = Vector3.one;
 
             PartyCircularHudPrefabCreator.EnsureEventSystem();
+            PlayerStatusMenuPrefabCreator.EnsureAndConnect(canvas);
             Selection.activeGameObject = instance;
             EditorSceneManager.MarkSceneDirty(instance.scene);
             AssetDatabase.SaveAssets();
@@ -99,9 +101,7 @@ namespace MixMaster.EditorTools
                 "プレイヤー円形ゲージ",
                 "HUDのPrefabを生成し、シーンに配置しました。" +
                 "\n外側=HP、内側=MP、上部=EXP、中央=プレイヤー画像。" +
-                "\n\n将来ステータス画面を実装したら、" +
-                "PlayerCircularStatusHUD の On Status Menu Requested に" +
-                "開く関数を接続してください。" +
+                "\n\n中央アイコンを押すとステータスメニューが開きます。" +
                 "\n\n" + PrefabPath, "OK");
         }
 
