@@ -52,6 +52,17 @@ namespace MixMaster.UI
 
         private void Awake()
         {
+            // Inventory may be opened from a monster panel on a different
+            // Canvas. Give it a top-level sorting layer so it is never
+            // hidden behind the previous screen.
+            Canvas overlay = GetComponent<Canvas>();
+            if (overlay == null)
+                overlay = gameObject.AddComponent<Canvas>();
+            overlay.overrideSorting = true;
+            overlay.sortingOrder = 500;
+            if (GetComponent<GraphicRaycaster>() == null)
+                gameObject.AddComponent<GraphicRaycaster>();
+
             EnsureControls();
             EnsureEquipmentActions();
             if (closeButton != null)
@@ -301,8 +312,10 @@ namespace MixMaster.UI
         }
 
         private IReadOnlyList<string> CurrentEquipmentIds =>
-            targetMonster == null ? manager.PlayerEquipmentUniqueIds :
-                targetMonster.equippedItemUniqueIds;
+            targetMonster == null
+                ? manager.PlayerEquipmentUniqueIds
+                : (IReadOnlyList<string>)(targetMonster.equippedItemUniqueIds
+                    ?? new List<string>());
 
         private void EnsureEquipmentActions()
         {
