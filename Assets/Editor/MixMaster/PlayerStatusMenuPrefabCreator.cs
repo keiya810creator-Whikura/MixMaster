@@ -138,6 +138,10 @@ namespace MixMaster.EditorTools
                 EditorUtility.SetDirty(huds[i]);
             }
 
+            // Keep the equipment inventory available from the status screen
+            // even in scenes generated before this feature was added.
+            EquipmentInventoryPrefabCreator.EnsureAndConnect(canvas, current);
+
             EditorSceneManager.MarkSceneDirty(canvas.gameObject.scene);
             AssetDatabase.SaveAssets();
             return current;
