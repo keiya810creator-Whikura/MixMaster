@@ -8,6 +8,10 @@ namespace MixMaster.Core
         public const int MonsterDropRateMaxLevel = 100;
         public const float MaxMonsterBodyDropRate = 0.10f;
 
+        // Per-level monster acquisition chance increase is 1/10 of the
+        // previous balance. Keep the original 10% absolute design cap.
+        public const float MonsterDropRateUpgradeScale = 0.10f;
+
         public const long UpgradeCostPerLevel = 10L;
 
         /// <summary>
@@ -45,10 +49,19 @@ namespace MixMaster.Core
                     0,
                     MonsterDropRateMaxLevel);
 
+            // Reaching Lv100 now adds one tenth of the original
+            // (MaxMonsterBodyDropRate - baseRate) improvement.
+            // The previous Lv100 special case used to jump directly to 10%;
+            // do not allow that jump after reducing the upgrade gain.
+            float maxLeveledRate = Mathf.Lerp(
+                baseRate,
+                MaxMonsterBodyDropRate,
+                MonsterDropRateUpgradeScale);
+
             if (level >= MonsterDropRateMaxLevel)
             {
                 return Mathf.Clamp01(
-                    MaxMonsterBodyDropRate *
+                    maxLeveledRate *
                     Mathf.Clamp01(
                         record.postMaxMonsterDropRateScale));
             }
@@ -61,7 +74,7 @@ namespace MixMaster.Core
 
             return Mathf.Lerp(
                 baseRate,
-                MaxMonsterBodyDropRate,
+                maxLeveledRate,
                 t);
         }
     }
