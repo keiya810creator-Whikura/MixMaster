@@ -68,6 +68,12 @@ namespace MixMaster.UI
 
         private void OnEnable()
         {
+            // Existing scenes get the tactical dropdown automatically without
+            // rebuilding or overwriting the circular HUD prefab.
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas != null)
+                PartyCombatOrdersHUD.EnsureOnCanvas(canvas);
+
             EnsureManagers();
             RefreshAll();
         }
