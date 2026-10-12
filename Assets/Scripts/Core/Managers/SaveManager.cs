@@ -192,6 +192,7 @@ namespace MixMaster.Core
                     monster.OwnedMonsters);
                 data.partyIds = new List<string>(
                     monster.PartyMonsterUniqueIds);
+                data.partyCombatOrder = monster.CurrentPartyCombatOrder;
             }
 
             if (materials != null)
@@ -295,7 +296,13 @@ namespace MixMaster.Core
                 offline.RestoreLastCompletedProfile(data.offlineProfile);
 
             if (monster != null)
+            {
+                monster.RestorePartyCombatOrder(
+                    data.version >= 4
+                        ? data.partyCombatOrder
+                        : PartyCombatOrder.Individual);
                 monster.RestoreMonsters(data.monsters, data.partyIds);
+            }
 
             // Equipment and monsters must both be loaded before ensuring
             // that one item is never assigned to two characters.
