@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public int version = 2;
+        public int version = 3;
         public string savedUtc = string.Empty;
 
         public string mapId = string.Empty;
@@ -36,6 +36,7 @@ namespace MixMaster.Core
         public List<MapAltarProgressRecord> mapAltars =
             new List<MapAltarProgressRecord>();
 
+        public bool starterEquipmentGranted;
         public List<EquipmentRecord> equipment =
             new List<EquipmentRecord>();
         public List<string> playerEquippedIds =
