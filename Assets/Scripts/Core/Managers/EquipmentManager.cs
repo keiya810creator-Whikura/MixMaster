@@ -179,11 +179,6 @@ namespace MixMaster.Core
 
         // Assign an item to a chosen slot. A replaced item remains in inventory.
         // One physical equipment instance cannot be worn by multiple owners.
-        public bool EquipToPlayer(string uniqueId, int slot)
-        {
-            return EquipInternal(null, uniqueId, slot);
-        }
-
         public bool EquipToPlayer(string uniqueId, int slot) =>
             EquipInternal(null, uniqueId, slot);
 
