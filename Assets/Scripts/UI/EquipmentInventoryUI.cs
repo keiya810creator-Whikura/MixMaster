@@ -310,7 +310,7 @@ namespace MixMaster.UI
 
             ownerHeading = InventoryUiFactory.Text(transform,
                 "CurrentOwner", "装備先: プレイヤー",
-                new Vector2(26f, -178f), new Vector2(440f, 38f), 23f);
+                new Vector2(470f, -83f), new Vector2(440f, 36f), 23f);
 
             for (int i = 0; i < 3; i++)
             {
