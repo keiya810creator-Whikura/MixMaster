@@ -37,6 +37,12 @@ namespace MixMaster.UI
         [SerializeField] private Button backButton;
         [SerializeField] private Button equipmentCloseButton;
         [SerializeField] private bool showEquipmentOverviewOnClick = true;
+        [SerializeField] private EquipmentInventoryUI equipmentInventory;
+
+        public void SetEquipmentInventory(EquipmentInventoryUI inventory)
+        {
+            equipmentInventory = inventory;
+        }
 
         [Header("Future Equipment UI")]
         [SerializeField] private UnityEvent onEquipmentMenuRequested =
@@ -138,6 +144,19 @@ namespace MixMaster.UI
 
         public void OpenEquipment()
         {
+            // Prefer the new searchable inventory. Keep the old overview
+            // as a fallback for scenes that have not installed the prefab.
+            if (equipmentInventory == null)
+                equipmentInventory = FindFirstObjectByType<EquipmentInventoryUI>(
+                    FindObjectsInactive.Include);
+
+            if (equipmentInventory != null)
+            {
+                equipmentInventory.Open();
+                onEquipmentMenuRequested?.Invoke();
+                return;
+            }
+
             if (showEquipmentOverviewOnClick)
             {
                 if (statusPage != null) statusPage.SetActive(false);
