@@ -46,7 +46,14 @@ namespace MixMaster.Core
         {
             // Other manager components are created by the bootstrap before
             // Start. Restore once; no save is made over existing data first.
-            LoadGame();
+            bool loaded = LoadGame();
+            if (!loaded && !HasSaveData)
+            {
+                EquipmentManager equipment = GetComponent<EquipmentManager>();
+                if (equipment != null)
+                    equipment.GrantNewGameStarterEquipment();
+            }
+
             initialized = true;
         }
 
