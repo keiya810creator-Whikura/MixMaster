@@ -115,6 +115,7 @@ namespace MixMaster.Monsters
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
+                monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
             }
 
             if (equipmentManager != null)
@@ -156,6 +157,8 @@ namespace MixMaster.Monsters
                 monsterManager.MonsterLeveledUp += HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
                 monsterManager.MonsterBehaviorChanged += HandleMonsterBehaviorChanged;
+                monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
+                monsterManager.PartyCombatOrderChanged += HandlePartyCombatOrderChanged;
             }
         }
 
@@ -190,7 +193,25 @@ namespace MixMaster.Monsters
             if (activeByMonsterId.TryGetValue(record.uniqueId,
                 out PartyMemberCombat combat) && combat != null)
             {
-                combat.SetCombatMode((PartyCombatMode)record.combatBehavior);
+                combat.SetCombatMode((PartyCombatMode)
+                    monsterManager.GetEffectiveCombatBehavior(record));
+            }
+        }
+
+        private void HandlePartyCombatOrderChanged(PartyCombatOrder order)
+        {
+            // Switching orders must not rebuild the party, heal defeated
+            // members or reset combat stats. Only update each live AI.
+            if (monsterManager == null) return;
+
+            foreach (var pair in activeByMonsterId)
+            {
+                if (pair.Value == null) continue;
+                OwnedMonsterRecord record =
+                    monsterManager.FindOwnedMonster(pair.Key);
+                if (record != null)
+                    pair.Value.SetCombatMode((PartyCombatMode)
+                        monsterManager.GetEffectiveCombatBehavior(record));
             }
         }
 
@@ -337,7 +358,8 @@ namespace MixMaster.Monsters
             CharacterStats calculated = BuildStats(record, monster);
 
             combat.ConfigureOwnedMonster(monster, calculated);
-            combat.SetCombatMode((PartyCombatMode)record.combatBehavior);
+            combat.SetCombatMode((PartyCombatMode)
+                monsterManager.GetEffectiveCombatBehavior(record));
             activeActors.Add(actor);
             activeByMonsterId[record.uniqueId] = combat;
         }
