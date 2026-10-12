@@ -72,6 +72,7 @@ namespace MixMaster.UI
                 case InventoryStat.WaterResistance: return r != null ? r.water : 0;
                 case InventoryStat.WindResistance: return r != null ? r.wind : 0;
                 case InventoryStat.LightningResistance: return r != null ? r.lightning : 0;
+                case InventoryStat.LightResistance: return r != null ? r.light : 0;
                 case InventoryStat.DarkResistance: return r != null ? r.dark : 0;
                 case InventoryStat.DropRate: return s.dropRateBonus;
                 default: return 0d;
