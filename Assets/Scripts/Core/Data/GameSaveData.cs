@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
@@ -28,6 +28,7 @@ namespace MixMaster.Core
         public List<OwnedMonsterRecord> monsters =
             new List<OwnedMonsterRecord>();
         public List<string> partyIds = new List<string>();
+        public PartyCombatOrder partyCombatOrder = PartyCombatOrder.Individual;
 
         public List<MaterialInventoryRecord> materials =
             new List<MaterialInventoryRecord>();
