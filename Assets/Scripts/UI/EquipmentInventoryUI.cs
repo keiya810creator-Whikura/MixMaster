@@ -304,6 +304,13 @@ namespace MixMaster.UI
                 new Vector2(135f, 54f));
             directionLabel = directionButton.GetComponentInChildren<TMP_Text>();
 
+            InventoryUiFactory.Text(control, "SortHint", "並び替え",
+                new Vector2(24f, -70f), new Vector2(230f, 28f), 18f);
+            InventoryUiFactory.Text(control, "StatHint", "ステータス絞り込み",
+                new Vector2(273f, -70f), new Vector2(270f, 28f), 18f);
+            InventoryUiFactory.Text(control, "RarityHint", "レア度絞り込み",
+                new Vector2(528f, -70f), new Vector2(240f, 28f), 18f);
+
             sortDropdown.onValueChanged.AddListener(SortBy);
             statFilter.onValueChanged.AddListener(FilterByStat);
             rarityFilter.onValueChanged.AddListener(FilterByRarity);
