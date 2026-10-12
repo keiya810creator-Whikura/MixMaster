@@ -332,6 +332,12 @@ namespace MixMaster.UI
                 "CurrentOwner", "装備先: プレイヤー",
                 new Vector2(470f, -83f), new Vector2(440f, 36f), 23f);
 
+            TMP_Text compareHint = InventoryUiFactory.Text(transform,
+                "ComparisonHint",
+                "装備を選択 → 1～3枠を押して比較 → 確定",
+                new Vector2(25f, -225f), new Vector2(850f, 28f), 20f);
+            compareHint.color = new Color32(184, 184, 184, 255);
+
             for (int i = 0; i < 3; i++)
             {
                 int slot = i;
