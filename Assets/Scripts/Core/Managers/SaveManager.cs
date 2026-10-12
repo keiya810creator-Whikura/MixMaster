@@ -178,7 +178,7 @@ namespace MixMaster.Core
 
             if (player != null)
             {
-                data.playerStats = player.Stats;
+                data.playerStats = player.BaseStats;
                 data.playerLevel = player.Level;
                 data.playerExperience = player.Experience;
                 data.playerAutoAttackEnabled = player.AutoAttackEnabled;
@@ -296,6 +296,11 @@ namespace MixMaster.Core
 
             if (monster != null)
                 monster.RestoreMonsters(data.monsters, data.partyIds);
+
+            // Equipment and monsters must both be loaded before ensuring
+            // that one item is never assigned to two characters.
+            if (equipment != null)
+                equipment.NormalizeMonsterEquipment();
 
             hasLastLocation = data.hasPlayerPosition &&
                 !string.IsNullOrWhiteSpace(data.sceneName);
