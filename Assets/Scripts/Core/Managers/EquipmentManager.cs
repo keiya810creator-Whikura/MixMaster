@@ -269,6 +269,53 @@ namespace MixMaster.Core
         }
 
         /// <summary>
+        /// Remove all three equipped items from the player, preserving their
+        /// ownership in inventory and preserving fixed slot positions.
+        /// One notification pair ensures stats/UI are recalculated only once.
+        /// </summary>
+        public bool UnequipAllFromPlayer()
+        {
+            if (!ClearEquippedSlots(playerEquipmentUniqueIds))
+                return false;
+
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Remove all equipment from only this owned monster. Other party
+        /// members and player equipment are not affected.
+        /// </summary>
+        public bool UnequipAllFromMonster(OwnedMonsterRecord monster)
+        {
+            if (monster == null ||
+                !ClearEquippedSlots(monster.equippedItemUniqueIds))
+                return false;
+
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+            return true;
+        }
+
+        private static bool ClearEquippedSlots(List<string> slots)
+        {
+            if (slots == null) return false;
+
+            bool changed = false;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(slots[i]))
+                    continue;
+
+                slots[i] = string.Empty;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        /// <summary>
         /// Repair obsolete saves where an item could be worn simultaneously
         /// by player and multiple monsters. Player assignment wins.
         /// </summary>
