@@ -820,13 +820,24 @@ namespace MixMaster.UI
                 }
 
                 string uniqueId = record.equippedItemUniqueIds[i];
+                if (string.IsNullOrWhiteSpace(uniqueId))
+                {
+                    result.Append("未装備");
+                    continue;
+                }
+
                 EquipmentRecord item = equipmentManager != null
                     ? equipmentManager.FindEquipment(uniqueId)
                     : null;
-
-                result.Append(item != null
-                    ? item.equipmentId + " Lv." + item.level
-                    : "装備ID: " + uniqueId);
+                EquipmentSO definition = item != null && equipmentManager != null
+                    ? equipmentManager.GetEquipmentDefinition(item.equipmentId)
+                    : null;
+                string name = definition != null &&
+                    !string.IsNullOrWhiteSpace(definition.displayName)
+                        ? definition.displayName
+                        : item != null ? item.equipmentId : "不明な装備";
+                result.Append(name);
+                if (item != null) result.Append(" Lv.").Append(item.level);
             }
 
             return result.ToString();
