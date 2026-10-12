@@ -17,6 +17,21 @@ namespace MixMaster.Core
         public IReadOnlyList<EquipmentRecord> Inventory => inventory;
         public IReadOnlyList<string> PlayerEquipmentUniqueIds => playerEquipmentUniqueIds;
 
+        public event Action InventoryChanged;
+
+        /// <summary>
+        /// Grants starter items only for new games, never when loading an
+        /// existing save. IDs match the equipment CSV example rows.
+        /// </summary>
+        public void GrantNewGameStarterEquipment()
+        {
+            if (inventory.Count != 0)
+                return;
+
+            CreateEquipment("EQP_001", 50, 1L);
+            CreateEquipment("EQP_002", 50, 1L);
+        }
+
         public void RestoreEquipment(
             IReadOnlyList<EquipmentRecord> savedInventory,
             IReadOnlyList<string> savedPlayerEquippedIds)
@@ -53,6 +68,8 @@ namespace MixMaster.Core
                         playerEquipmentUniqueIds.Add(id);
                 }
             }
+
+            InventoryChanged?.Invoke();
         }
 
         public EquipmentRecord CreateEquipment(string equipmentId, int level, long baseValue)
@@ -66,6 +83,7 @@ namespace MixMaster.Core
             };
 
             inventory.Add(item);
+            InventoryChanged?.Invoke();
             return item;
         }
 
@@ -85,12 +103,15 @@ namespace MixMaster.Core
             if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots) return false;
 
             playerEquipmentUniqueIds.Add(equipmentUniqueId);
+            InventoryChanged?.Invoke();
             return true;
         }
 
         public bool UnequipFromPlayer(string equipmentUniqueId)
         {
-            return playerEquipmentUniqueIds.Remove(equipmentUniqueId);
+            bool removed = playerEquipmentUniqueIds.Remove(equipmentUniqueId);
+            if (removed) InventoryChanged?.Invoke();
+            return removed;
         }
 
         public bool EquipToMonster(OwnedMonsterRecord monster, string equipmentUniqueId)
@@ -104,6 +125,7 @@ namespace MixMaster.Core
             if (monster.equippedItemUniqueIds.Count >= MaxEquipmentSlots) return false;
 
             monster.equippedItemUniqueIds.Add(equipmentUniqueId);
+            InventoryChanged?.Invoke();
             return true;
         }
 
