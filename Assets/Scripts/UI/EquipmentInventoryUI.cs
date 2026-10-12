@@ -25,6 +25,11 @@ namespace MixMaster.UI
         private bool ascending;
         private bool subscribed;
         private string inspectedId;
+        private OwnedMonsterRecord targetMonster;
+        private TMP_Text ownerHeading;
+        private Button[] equipSlotButtons = new Button[3];
+        private Button unequipButton;
+        private TMP_Text[] slotButtonTexts = new TMP_Text[3];
 
         private readonly List<GameObject> activeRows = new List<GameObject>();
 
@@ -48,6 +53,7 @@ namespace MixMaster.UI
         private void Awake()
         {
             EnsureControls();
+            EnsureEquipmentActions();
             if (closeButton != null)
                 closeButton.onClick.AddListener(Close);
         }
@@ -73,6 +79,21 @@ namespace MixMaster.UI
 
         public void Open()
         {
+            targetMonster = null;
+            inspectedId = null;
+            OpenPanel();
+        }
+
+        public void OpenForMonster(OwnedMonsterRecord monster)
+        {
+            if (monster == null) return;
+            targetMonster = monster;
+            inspectedId = null;
+            OpenPanel();
+        }
+
+        private void OpenPanel()
+        {
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
             else
@@ -81,6 +102,7 @@ namespace MixMaster.UI
                 Rebuild();
             }
             transform.SetAsLastSibling();
+            RefreshActionControls();
         }
 
         public void Close()
@@ -134,6 +156,7 @@ namespace MixMaster.UI
             if (manager == null || contentRoot == null)
                 return;
 
+            RefreshActionControls();
             IReadOnlyList<EquipmentRecord> source = manager.Inventory;
             var matches = new List<int>();
             int statIndex = statFilter != null ? statFilter.value : 0;
@@ -180,9 +203,9 @@ namespace MixMaster.UI
                         manager.GetEquipmentDefinition(right.equipmentId);
 
                     double x = first != null
-                        ? InventoryStatFilter.GetValue(first.modifiers, stat) : 0d;
+                        ? InventoryStatFilter.GetValue(manager.GetScaledModifiers(left), stat) : 0d;
                     double y = second != null
-                        ? InventoryStatFilter.GetValue(second.modifiers, stat) : 0d;
+                        ? InventoryStatFilter.GetValue(manager.GetScaledModifiers(right), stat) : 0d;
                     compare = y.CompareTo(x);
                 }
 
@@ -242,8 +265,9 @@ namespace MixMaster.UI
             string label = name + "   Lv." + record.level +
                 " 《" + EquipmentRarityUtility.Labels[(int)rarity] + "》" +
                 "\n" + (definition != null
-                    ? InventoryStatFilter.FormatModifiers(definition.modifiers)
-                    : "装備定義が見つかりません");
+                    ? InventoryStatFilter.FormatModifiers(manager.GetScaledModifiers(record))
+                    : "装備定義が見つかりません") +
+                (manager.GetEquippedOwner(record.uniqueId).Length > 0 ? "  [装備中]" : "");
             TMP_Text text = InventoryUiFactory.Text(
                 row.transform, "Summary", label,
                 new Vector2(112f, -10f), new Vector2(790f, 104f), 23f);
@@ -262,14 +286,138 @@ namespace MixMaster.UI
             var rarity = EquipmentRarityUtility.GetRarity(record.level);
             if (detailText != null)
             {
+                string owner = manager.GetEquippedOwner(record.uniqueId);
                 detailText.text = name + "　Lv." + record.level +
                     "　[" + EquipmentRarityUtility.Labels[(int)rarity] + "]" +
                     "\n" + (definition != null
-                        ? InventoryStatFilter.FormatModifiers(definition.modifiers) +
+                        ? InventoryStatFilter.FormatModifiers(
+                            manager.GetScaledModifiers(record)) +
                             "\n" + definition.description
                         : "装備定義が未登録です。") +
-                    "\n※装備の付け替えは次回実装予定";
+                    (string.IsNullOrEmpty(owner) ? "" :
+                        "\n装備者: " + (owner == "プレイヤー" ? owner : "仲間"));
             }
+            RefreshActionControls();
+        }
+
+        private IReadOnlyList<string> CurrentEquipmentIds =>
+            targetMonster == null ? manager.PlayerEquipmentUniqueIds :
+                targetMonster.equippedItemUniqueIds;
+
+        private void EnsureEquipmentActions()
+        {
+            if (unequipButton != null) return;
+
+            ownerHeading = InventoryUiFactory.Text(transform,
+                "CurrentOwner", "装備先: プレイヤー",
+                new Vector2(26f, -178f), new Vector2(440f, 38f), 23f);
+
+            for (int i = 0; i < 3; i++)
+            {
+                int slot = i;
+                Button button = InventoryUiFactory.Button(transform,
+                    "EquipSlot" + (i + 1),
+                    (i + 1) + "枠に装備",
+                    new Vector2(23f + i * 180f, 18f),
+                    new Vector2(170f, 53f));
+                RectTransform rt = button.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.zero;
+                rt.pivot = Vector2.zero;
+                rt.anchoredPosition = new Vector2(23f + i * 180f, 13f);
+                equipSlotButtons[i] = button;
+                slotButtonTexts[i] = button.GetComponentInChildren<TMP_Text>();
+                button.onClick.AddListener(() => EquipSelected(slot));
+            }
+
+            unequipButton = InventoryUiFactory.Button(transform,
+                "UnequipButton", "装備解除",
+                new Vector2(566f, 18f), new Vector2(170f, 53f));
+            RectTransform un = unequipButton.GetComponent<RectTransform>();
+            un.anchorMin = Vector2.zero;
+            un.anchorMax = Vector2.zero;
+            un.pivot = Vector2.zero;
+            un.anchoredPosition = new Vector2(566f, 13f);
+            unequipButton.onClick.AddListener(UnequipSelected);
+
+            // Keep the selected-item text visible above the action buttons.
+            if (detailText != null)
+            {
+                RectTransform rt = detailText.rectTransform;
+                rt.anchorMin = new Vector2(0f, 0f);
+                rt.anchorMax = new Vector2(1f, 0f);
+                rt.pivot = new Vector2(0f, 0f);
+                rt.anchoredPosition = new Vector2(28f, 75f);
+                rt.sizeDelta = new Vector2(-56f, 125f);
+            }
+        }
+
+        private void RefreshActionControls()
+        {
+            if (manager == null) return;
+            IReadOnlyList<string> ids = CurrentEquipmentIds;
+            if (ownerHeading != null)
+            {
+                ownerHeading.text = targetMonster == null
+                    ? "装備先: プレイヤー"
+                    : "装備先: 仲間  " + targetMonster.monsterId;
+            }
+
+            EquipmentRecord selected = manager.FindEquipment(inspectedId);
+            string owner = selected != null
+                ? manager.GetEquippedOwner(selected.uniqueId) : "";
+            string targetOwner = targetMonster == null
+                ? "プレイヤー" : targetMonster.uniqueId;
+            bool equipAllowed = selected != null &&
+                (owner == "" || owner == targetOwner);
+
+            for (int i = 0; i < equipSlotButtons.Length; i++)
+            {
+                if (equipSlotButtons[i] == null) continue;
+                equipSlotButtons[i].interactable = equipAllowed;
+                string itemName = i < ids.Count ?
+                    GetDisplayName(manager.FindEquipment(ids[i])) : "空き";
+                if (slotButtonTexts[i] != null)
+                    slotButtonTexts[i].text = (i + 1) + "枠: " + itemName;
+            }
+
+            if (unequipButton != null)
+                unequipButton.interactable =
+                    selected != null && owner == targetOwner;
+        }
+
+        private string GetDisplayName(EquipmentRecord record)
+        {
+            if (record == null) return "空き";
+            EquipmentSO def = manager.GetEquipmentDefinition(record.equipmentId);
+            return def != null && !string.IsNullOrEmpty(def.displayName)
+                ? def.displayName : record.equipmentId;
+        }
+
+        private void EquipSelected(int slot)
+        {
+            if (manager == null || string.IsNullOrEmpty(inspectedId)) return;
+            bool success = targetMonster == null
+                ? manager.EquipToPlayer(inspectedId, slot)
+                : manager.EquipToMonster(targetMonster, inspectedId, slot);
+
+            if (!success && detailText != null)
+                detailText.text = "ほかのキャラクターが装備中です。" +
+                    "\n先に装備者から解除してください。";
+            else
+                Inspect(manager.FindEquipment(inspectedId));
+            RefreshActionControls();
+        }
+
+        private void UnequipSelected()
+        {
+            if (manager == null || string.IsNullOrEmpty(inspectedId)) return;
+            bool success = targetMonster == null
+                ? manager.UnequipFromPlayer(inspectedId)
+                : manager.UnequipFromMonster(targetMonster, inspectedId);
+            if (success)
+                Inspect(manager.FindEquipment(inspectedId));
+            RefreshActionControls();
         }
 
         private void EnsureControls()
