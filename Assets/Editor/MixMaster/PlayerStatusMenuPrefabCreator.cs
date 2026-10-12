@@ -20,7 +20,29 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/UI/プレイヤーステータスメニューを作成・接続")]
         public static void CreateAndAttach()
         {
-            Canvas canvas = PartyCircularHudPrefabCreator.FindScreenCanvas();
+            // Prefer the HUD's own Canvas; a scene may contain several
+            // screen canvases with different sorting and scale settings.
+            Canvas canvas = null;
+            PlayerCircularStatusHUD[] huds =
+                Object.FindObjectsByType<PlayerCircularStatusHUD>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+            foreach (PlayerCircularStatusHUD hud in huds)
+            {
+                if (hud == null || !hud.gameObject.scene.IsValid())
+                    continue;
+
+                Canvas hudCanvas = hud.GetComponentInParent<Canvas>();
+                if (hudCanvas != null &&
+                    hudCanvas.renderMode != RenderMode.WorldSpace)
+                {
+                    canvas = hudCanvas.rootCanvas;
+                    break;
+                }
+            }
+
+            if (canvas == null)
+                canvas = PartyCircularHudPrefabCreator.FindScreenCanvas();
             if (canvas == null)
                 canvas = PartyCircularHudPrefabCreator.CreateCanvas();
 
