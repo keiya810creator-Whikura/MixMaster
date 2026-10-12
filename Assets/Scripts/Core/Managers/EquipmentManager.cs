@@ -111,5 +111,15 @@ namespace MixMaster.Core
         {
             return inventory.Find(x => x.uniqueId == uniqueId);
         }
+
+        /// <summary>
+        /// Resolve the shared definition imported from 装備.csv.
+        /// Old saved equipment remains valid if its definition is missing.
+        /// </summary>
+        public EquipmentSO GetEquipmentDefinition(string equipmentId)
+        {
+            EquipmentCatalogSO catalog = EquipmentCatalogSO.Load();
+            return catalog != null ? catalog.GetEquipment(equipmentId) : null;
+        }
     }
 }
