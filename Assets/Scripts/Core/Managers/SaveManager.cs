@@ -422,7 +422,9 @@ namespace MixMaster.Core
                     GameSaveData parsed =
                         JsonUtility.FromJson<GameSaveData>(candidate);
 
-                    if (parsed != null && parsed.version == 1 &&
+                    if (parsed != null &&
+                        parsed.version >= 1 &&
+                        parsed.version <= GameSaveData.CurrentVersion &&
                         candidate.Contains("\"savedUtc\""))
                         return parsed;
                 }
