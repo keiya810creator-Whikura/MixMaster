@@ -92,6 +92,45 @@ namespace MixMaster.Monsters
         private PlayerAutoAttack playerAutoAttack;
         private EnemyHealth currentTarget;
 
+        private void SetCurrentTarget(EnemyHealth next)
+        {
+            if (currentTarget == next)
+                return;
+
+            if (currentTarget != null)
+                currentTarget.Died -= HandleCurrentTargetDied;
+
+            currentTarget = next != null && next.IsAlive ? next : null;
+            if (currentTarget != null)
+                currentTarget.Died += HandleCurrentTargetDied;
+        }
+
+        private void RetargetBeforeFollowing()
+        {
+            if (!isAlive || combatMode == PartyCombatMode.NoAttack)
+            {
+                SetCurrentTarget(null);
+                if (follower != null)
+                    follower.SetCombatControlled(!isAlive || isAttackLunging);
+                return;
+            }
+
+            // Search immediately after a kill, *before* trail following
+            // resumes. Do not wait for the ordinary refresh interval.
+            targetRefreshTimer = targetRefreshInterval;
+            SetCurrentTarget(FindNearestTarget());
+            if (follower != null)
+                follower.SetCombatControlled(
+                    currentTarget != null || isAttackLunging);
+        }
+
+        private void HandleCurrentTargetDied(EnemyHealth defeated)
+        {
+            if (defeated != currentTarget) return;
+            SetCurrentTarget(null);
+            RetargetBeforeFollowing();
+        }
+
         private long currentHp;
         private long currentMp;
         private bool isAlive = true;
@@ -197,6 +236,7 @@ namespace MixMaster.Monsters
 
         private void OnDestroy()
         {
+            SetCurrentTarget(null);
             if (slashMaterial != null)
                 Destroy(slashMaterial);
         }
@@ -209,17 +249,19 @@ namespace MixMaster.Monsters
             if (combatMode == PartyCombatMode.NoAttack)
             {
                 if (currentTarget != null)
-                    currentTarget = null;
+                    SetCurrentTarget(null);
                 follower.SetCombatControlled(isAttackLunging);
                 return;
             }
 
             targetRefreshTimer -= Time.deltaTime;
 
-            if (targetRefreshTimer <= 0f || !IsTargetValid(currentTarget))
+            if (!IsTargetValid(currentTarget))
+                RetargetBeforeFollowing();
+            else if (targetRefreshTimer <= 0f)
             {
                 targetRefreshTimer = targetRefreshInterval;
-                currentTarget = FindNearestTarget();
+                SetCurrentTarget(FindNearestTarget());
             }
 
             bool hasTarget = IsTargetValid(currentTarget);
@@ -257,7 +299,12 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
-            if (!isAlive || isAttackLunging || !IsTargetValid(currentTarget))
+            if (!isAlive || isAttackLunging)
+                return;
+
+            if (!IsTargetValid(currentTarget))
+                RetargetBeforeFollowing();
+            if (!IsTargetValid(currentTarget))
                 return;
 
             Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
@@ -378,6 +425,9 @@ namespace MixMaster.Monsters
             target.TakePhysicalHit(
                 attackPower,
                 CreateDropSourceInfo());
+
+            if (!IsTargetValid(currentTarget))
+                RetargetBeforeFollowing();
 
             if (slashRoutine != null)
                 StopCoroutine(slashRoutine);
@@ -632,7 +682,7 @@ namespace MixMaster.Monsters
                 originalColor = spriteRenderer.color;
             }
 
-            currentTarget = null;
+            SetCurrentTarget(null);
             targetRefreshTimer = 0f;
             attackGauge = 0f;
             RestoreFullResources();
@@ -680,7 +730,7 @@ namespace MixMaster.Monsters
         public void SetCombatMode(PartyCombatMode mode)
         {
             combatMode = mode;
-            currentTarget = null;
+            SetCurrentTarget(null);
             targetRefreshTimer = 0f;
             if (combatMode == PartyCombatMode.NoAttack)
                 SetAttackGauge(0f);
@@ -707,7 +757,7 @@ namespace MixMaster.Monsters
         public void SetAttackStyle(PartyAttackStyle style)
         {
             attackStyle = style;
-            currentTarget = null;
+            SetCurrentTarget(null);
 
             if (follower == null)
                 return;
@@ -859,7 +909,7 @@ namespace MixMaster.Monsters
 
             isAttackLunging = false;
             isAlive = false;
-            currentTarget = null;
+            SetCurrentTarget(null);
 
             follower.SetCombatControlled(true);
             follower.StopCombatMovement();
@@ -975,6 +1025,9 @@ namespace MixMaster.Monsters
             body.MovePosition(lungeStartPosition);
             isAttackLunging = false;
             lungeRoutine = null;
+            if (isAlive && combatMode != PartyCombatMode.NoAttack &&
+                !IsTargetValid(currentTarget))
+                RetargetBeforeFollowing();
         }
 
         private void CreateSlashRenderer()
