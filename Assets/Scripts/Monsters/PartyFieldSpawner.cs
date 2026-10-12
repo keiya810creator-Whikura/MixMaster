@@ -35,6 +35,7 @@ namespace MixMaster.Monsters
         }
 
         private MonsterManager monsterManager;
+        private EquipmentManager equipmentManager;
         private MonsterCatalogSO catalog;
         private GameObject actorsRoot;
         private bool dirty = true;
@@ -50,7 +51,48 @@ namespace MixMaster.Monsters
 
         private void Start()
         {
+            EnsureEquipmentSubscription();
             RefreshParty();
+        }
+
+        private void EnsureEquipmentSubscription()
+        {
+            if (equipmentManager == null)
+            {
+                equipmentManager = GetComponent<EquipmentManager>() ??
+                    FindFirstObjectByType<EquipmentManager>();
+                if (equipmentManager != null)
+                    equipmentManager.EquipmentChanged += HandleEquipmentChanged;
+            }
+        }
+
+        private CharacterStats BuildStats(OwnedMonsterRecord record, MonsterSO definition)
+        {
+            TitleSO title = catalog != null
+                ? catalog.GetTitle(record.titleId) : null;
+            EnsureEquipmentSubscription();
+            var mods = equipmentManager != null
+                ? equipmentManager.GetEquippedModifiers(record.equippedItemUniqueIds)
+                : null;
+            return StatCalculator.CalculateMonsterStats(
+                definition, record.level, record.individualValues, title, mods);
+        }
+
+        private void HandleEquipmentChanged()
+        {
+            if (monsterManager == null || catalog == null)
+                return;
+            foreach (var pair in activeByMonsterId)
+            {
+                PartyMemberCombat combat = pair.Value;
+                if (combat == null) continue;
+                OwnedMonsterRecord record =
+                    monsterManager.FindOwnedMonster(pair.Key);
+                MonsterSO definition = record != null
+                    ? catalog.GetMonster(record.monsterId) : null;
+                if (definition != null)
+                    combat.ApplyLevelUpStats(BuildStats(record, definition));
+            }
         }
 
         private void Update()
@@ -73,6 +115,12 @@ namespace MixMaster.Monsters
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
+            }
+
+            if (equipmentManager != null)
+            {
+                equipmentManager.EquipmentChanged -= HandleEquipmentChanged;
+                equipmentManager = null;
             }
 
             ClearActors();
@@ -131,10 +179,7 @@ namespace MixMaster.Monsters
             if (definition == null)
                 return;
 
-            TitleSO title = catalog.GetTitle(record.titleId);
-            CharacterStats leveledStats = StatCalculator.CalculateMonsterStats(
-                definition, record.level, record.individualValues, title);
-            combat.ApplyLevelUpStats(leveledStats);
+            combat.ApplyLevelUpStats(BuildStats(record, definition));
         }
 
         private void HandleMonsterBehaviorChanged(OwnedMonsterRecord record)
@@ -151,6 +196,7 @@ namespace MixMaster.Monsters
 
         public void RefreshParty()
         {
+            EnsureEquipmentSubscription();
             if (monsterManager == null)
             {
                 TrySubscribe();
@@ -288,16 +334,7 @@ namespace MixMaster.Monsters
             if (combat == null)
                 combat = actor.AddComponent<PartyMemberCombat>();
 
-            TitleSO title = catalog != null
-                ? catalog.GetTitle(record.titleId)
-                : null;
-
-            CharacterStats calculated =
-                StatCalculator.CalculateMonsterStats(
-                    monster,
-                    record.level,
-                    record.individualValues,
-                    title);
+            CharacterStats calculated = BuildStats(record, monster);
 
             combat.ConfigureOwnedMonster(monster, calculated);
             combat.SetCombatMode((PartyCombatMode)record.combatBehavior);
