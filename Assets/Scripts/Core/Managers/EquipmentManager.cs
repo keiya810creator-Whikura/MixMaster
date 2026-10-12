@@ -63,10 +63,11 @@ namespace MixMaster.Core
                 foreach (string id in savedPlayerEquippedIds)
                 {
                     if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots) break;
-                    if (!string.IsNullOrWhiteSpace(id) &&
+                    bool valid = !string.IsNullOrWhiteSpace(id) &&
                         !playerEquipmentUniqueIds.Contains(id) &&
-                        FindEquipment(id) != null)
-                        playerEquipmentUniqueIds.Add(id);
+                        FindEquipment(id) != null;
+                    // Empty strings preserve the original slot positions.
+                    playerEquipmentUniqueIds.Add(valid ? id : string.Empty);
                 }
 
             InventoryChanged?.Invoke();
@@ -183,23 +184,26 @@ namespace MixMaster.Core
             return EquipInternal(null, uniqueId, slot);
         }
 
-        public bool EquipToPlayer(string uniqueId)
-        {
-            return EquipToPlayer(uniqueId, playerEquipmentUniqueIds.Count);
-        }
+        public bool EquipToPlayer(string uniqueId, int slot) =>
+            EquipInternal(null, uniqueId, slot);
 
-        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId, int slot)
-        {
-            if (monster == null) return false;
-            return EquipInternal(monster, uniqueId, slot);
-        }
+        public bool EquipToPlayer(string uniqueId) =>
+            EquipToPlayer(uniqueId, FirstEmptySlot(playerEquipmentUniqueIds));
 
-        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId)
+        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId, int slot) =>
+            monster != null && EquipInternal(monster, uniqueId, slot);
+
+        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId) =>
+            monster != null && EquipToMonster(monster, uniqueId,
+                FirstEmptySlot(monster.equippedItemUniqueIds));
+
+        private static int FirstEmptySlot(IReadOnlyList<string> slots)
         {
-            return monster != null && EquipToMonster(
-                monster, uniqueId,
-                monster.equippedItemUniqueIds != null
-                    ? monster.equippedItemUniqueIds.Count : 0);
+            if (slots == null) return 0;
+            for (int i = 0; i < MaxEquipmentSlots; i++)
+                if (i >= slots.Count || string.IsNullOrWhiteSpace(slots[i]))
+                    return i;
+            return -1;
         }
 
         private bool EquipInternal(OwnedMonsterRecord monster, string uniqueId, int slot)
@@ -208,39 +212,30 @@ namespace MixMaster.Core
                 slot < 0 || slot >= MaxEquipmentSlots)
                 return false;
 
-            List<string> target = monster == null
-                ? playerEquipmentUniqueIds
-                : monster.equippedItemUniqueIds;
-
-            if (target == null)
+            List<string> slots = monster == null
+                ? playerEquipmentUniqueIds : monster.equippedItemUniqueIds;
+            if (slots == null)
             {
-                monster.equippedItemUniqueIds = new List<string>();
-                target = monster.equippedItemUniqueIds;
+                slots = new List<string>(MaxEquipmentSlots);
+                monster.equippedItemUniqueIds = slots;
             }
 
             string owner = GetEquippedOwner(uniqueId);
-            string targetOwner = monster == null ? "プレイヤー" : monster.uniqueId;
-            if (!string.IsNullOrEmpty(owner) && owner != targetOwner)
+            string intendedOwner = monster == null ? "プレイヤー" : monster.uniqueId;
+            if (!string.IsNullOrEmpty(owner) && owner != intendedOwner)
                 return false;
 
-            // Already equipped at this slot.
-            if (slot < target.Count && target[slot] == uniqueId)
+            while (slots.Count < MaxEquipmentSlots)
+                slots.Add(string.Empty);
+
+            if (slots[slot] == uniqueId)
                 return true;
 
-            // Move within the same owner's list without duplicating an item.
-            int oldIndex = target.IndexOf(uniqueId);
+            int oldIndex = slots.IndexOf(uniqueId);
             if (oldIndex >= 0)
-            {
-                target.RemoveAt(oldIndex);
-                if (oldIndex < slot) slot--;
-            }
+                slots[oldIndex] = slots[slot]; // Swap slots if already worn.
 
-            slot = Mathf.Min(slot, target.Count);
-            if (slot < target.Count)
-                target[slot] = uniqueId;
-            else
-                target.Add(uniqueId);
-
+            slots[slot] = uniqueId;
             InventoryChanged?.Invoke();
             EquipmentChanged?.Invoke();
             return true;
@@ -248,7 +243,9 @@ namespace MixMaster.Core
 
         public bool UnequipFromPlayer(string uniqueId)
         {
-            if (!playerEquipmentUniqueIds.Remove(uniqueId)) return false;
+            int index = playerEquipmentUniqueIds.IndexOf(uniqueId);
+            if (index < 0) return false;
+            playerEquipmentUniqueIds[index] = string.Empty;
             InventoryChanged?.Invoke();
             EquipmentChanged?.Invoke();
             return true;
@@ -256,9 +253,11 @@ namespace MixMaster.Core
 
         public bool UnequipFromMonster(OwnedMonsterRecord monster, string uniqueId)
         {
-            if (monster == null || monster.equippedItemUniqueIds == null ||
-                !monster.equippedItemUniqueIds.Remove(uniqueId))
+            if (monster == null || monster.equippedItemUniqueIds == null)
                 return false;
+            int index = monster.equippedItemUniqueIds.IndexOf(uniqueId);
+            if (index < 0) return false;
+            monster.equippedItemUniqueIds[index] = string.Empty;
             InventoryChanged?.Invoke();
             EquipmentChanged?.Invoke();
             return true;
@@ -283,38 +282,34 @@ namespace MixMaster.Core
             MonsterManager monsters = Monsters;
             if (monsters == null) return;
 
-            var taken = new HashSet<string>(
-                playerEquipmentUniqueIds, StringComparer.Ordinal);
-            bool changed = false;
+            var taken = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < playerEquipmentUniqueIds.Count; i++)
+            {
+                string id = playerEquipmentUniqueIds[i];
+                if (string.IsNullOrWhiteSpace(id)) continue;
+                if (FindEquipment(id) == null || !taken.Add(id))
+                    playerEquipmentUniqueIds[i] = string.Empty;
+            }
+
             foreach (OwnedMonsterRecord monster in monsters.OwnedMonsters)
             {
                 if (monster == null) continue;
-                if (monster.equippedItemUniqueIds == null)
-                    monster.equippedItemUniqueIds = new List<string>();
-                for (int i = monster.equippedItemUniqueIds.Count - 1; i >= 0; i--)
+                monster.equippedItemUniqueIds ??= new List<string>();
+                List<string> slots = monster.equippedItemUniqueIds;
+                for (int i = 0; i < slots.Count; i++)
                 {
-                    string id = monster.equippedItemUniqueIds[i];
-                    if (FindEquipment(id) == null)
-                    {
-                        monster.equippedItemUniqueIds.RemoveAt(i);
-                        changed = true;
-                    }
-                }
-
-                // Walk forward: the first assignment of any item wins.
-                for (int i = 0; i < monster.equippedItemUniqueIds.Count;)
-                {
+                    string id = slots[i];
+                    if (string.IsNullOrWhiteSpace(id)) continue;
                     if (i >= MaxEquipmentSlots ||
-                        !taken.Add(monster.equippedItemUniqueIds[i]))
-                    {
-                        monster.equippedItemUniqueIds.RemoveAt(i);
-                        changed = true;
-                    }
-                    else i++;
+                        FindEquipment(id) == null || !taken.Add(id))
+                        slots[i] = string.Empty;
                 }
+                if (slots.Count > MaxEquipmentSlots)
+                    slots.RemoveRange(MaxEquipmentSlots,
+                        slots.Count - MaxEquipmentSlots);
             }
 
-            if (changed) InventoryChanged?.Invoke();
+            InventoryChanged?.Invoke();
             EquipmentChanged?.Invoke();
         }
     }
