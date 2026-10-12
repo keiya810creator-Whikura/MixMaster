@@ -341,8 +341,9 @@ namespace MixMaster.UI
 
                             info.Append(equipmentName);
                             info.Append("  Lv.").Append(item.level);
-                            info.Append("  基礎値 ")
-                                .Append(equipment.GetScaledValue(item).ToString("N0"));
+                            info.Append("  ")
+                                .Append(InventoryStatFilter.FormatModifiers(
+                                    equipment.GetScaledModifiers(item)));
                         }
                         else info.Append("空き");
                     }
