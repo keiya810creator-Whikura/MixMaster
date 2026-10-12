@@ -66,6 +66,8 @@ namespace MixMaster.EditorTools
                 canvas.GetComponentInChildren<PartyCircularStatusHUD>(true);
             if (old != null)
             {
+                PartyCombatOrdersHudPrefabCreator.EnsureAndPlace(canvas);
+                EnsureEventSystem();
                 Selection.activeObject = old.gameObject;
                 EditorUtility.DisplayDialog(
                     "仲間円形ゲージHUD",
@@ -97,6 +99,7 @@ namespace MixMaster.EditorTools
             }
 
             EnsureMonsterListPanel(canvas);
+            PartyCombatOrdersHudPrefabCreator.EnsureAndPlace(canvas);
             EnsureEventSystem();
 
             Selection.activeGameObject = instance;
