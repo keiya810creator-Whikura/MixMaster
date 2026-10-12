@@ -225,14 +225,18 @@ namespace MixMaster.UI
                 return;
             }
 
+            EquipmentManager equipment =
+                FindFirstObjectByType<EquipmentManager>();
             CharacterStats stats =
                 StatCalculator.CalculateMonsterStats(
                     monster,
-                    Mathf.Max(
-                        1,
-                        record.level),
+                    Mathf.Max(1, record.level),
                     record.individualValues,
-                    title);
+                    title,
+                    equipment != null
+                        ? equipment.GetEquippedModifiers(
+                            record.equippedItemUniqueIds)
+                        : null);
 
             ivText.text =
                 BuildStatsText(
