@@ -13,26 +13,29 @@ namespace MixMaster.Core
 
         private readonly List<EquipmentRecord> inventory = new List<EquipmentRecord>();
         private readonly List<string> playerEquipmentUniqueIds = new List<string>();
+        private MonsterManager monsterManager;
 
         public IReadOnlyList<EquipmentRecord> Inventory => inventory;
         public IReadOnlyList<string> PlayerEquipmentUniqueIds => playerEquipmentUniqueIds;
-
         public event Action InventoryChanged;
+        public event Action EquipmentChanged;
 
-        /// <summary>
-        /// Give the two starter items once, preserving existing owned copies.
-        /// Called by save initialization/migration with a saved claimed flag.
-        /// </summary>
+        private MonsterManager Monsters
+        {
+            get
+            {
+                if (monsterManager == null)
+                    monsterManager = GetComponent<MonsterManager>() ??
+                        FindFirstObjectByType<MonsterManager>();
+                return monsterManager;
+            }
+        }
+
         public void GrantStarterEquipmentIfMissing()
         {
-            bool swordOwned = inventory.Exists(
-                x => x != null && x.equipmentId == "EQP_001");
-            bool robeOwned = inventory.Exists(
-                x => x != null && x.equipmentId == "EQP_002");
-
-            if (!swordOwned)
+            if (!inventory.Exists(x => x != null && x.equipmentId == "EQP_001"))
                 CreateEquipment("EQP_001", 50, 1L);
-            if (!robeOwned)
+            if (!inventory.Exists(x => x != null && x.equipmentId == "EQP_002"))
                 CreateEquipment("EQP_002", 50, 1L);
         }
 
@@ -42,38 +45,32 @@ namespace MixMaster.Core
         {
             inventory.Clear();
             playerEquipmentUniqueIds.Clear();
+            var uniqueIds = new HashSet<string>(StringComparer.Ordinal);
 
             if (savedInventory != null)
-            {
-                for (int i = 0; i < savedInventory.Count; i++)
+                foreach (EquipmentRecord item in savedInventory)
                 {
-                    EquipmentRecord item = savedInventory[i];
-                    if (item == null || string.IsNullOrWhiteSpace(item.uniqueId))
-                        continue;
+                    if (item == null || string.IsNullOrWhiteSpace(item.uniqueId) ||
+                        !uniqueIds.Add(item.uniqueId)) continue;
 
-                    item.level = Mathf.Clamp(
-                        item.level, MinEquipmentLevel, MaxEquipmentLevel);
+                    item.level = Mathf.Clamp(item.level,
+                        MinEquipmentLevel, MaxEquipmentLevel);
                     item.baseValue = Math.Max(0L, item.baseValue);
                     inventory.Add(item);
                 }
-            }
 
             if (savedPlayerEquippedIds != null)
-            {
-                for (int i = 0; i < savedPlayerEquippedIds.Count; i++)
+                foreach (string id in savedPlayerEquippedIds)
                 {
-                    string id = savedPlayerEquippedIds[i];
-                    if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots)
-                        break;
-
+                    if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots) break;
                     if (!string.IsNullOrWhiteSpace(id) &&
                         !playerEquipmentUniqueIds.Contains(id) &&
                         FindEquipment(id) != null)
                         playerEquipmentUniqueIds.Add(id);
                 }
-            }
 
             InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
         }
 
         public EquipmentRecord CreateEquipment(string equipmentId, int level, long baseValue)
@@ -85,7 +82,6 @@ namespace MixMaster.Core
                 level = Mathf.Clamp(level, MinEquipmentLevel, MaxEquipmentLevel),
                 baseValue = Math.Max(0L, baseValue)
             };
-
             inventory.Add(item);
             InventoryChanged?.Invoke();
             return item;
@@ -94,43 +90,9 @@ namespace MixMaster.Core
         public long GetScaledValue(EquipmentRecord equipment)
         {
             if (equipment == null) return 0L;
-            int level = Mathf.Clamp(equipment.level, MinEquipmentLevel, MaxEquipmentLevel);
-
-            // Requirement: base value 1 => Lv1: 1, Lv100: 100.
-            return LongMath.SaturatingMultiply(equipment.baseValue, level);
-        }
-
-        public bool EquipToPlayer(string equipmentUniqueId)
-        {
-            if (FindEquipment(equipmentUniqueId) == null) return false;
-            if (playerEquipmentUniqueIds.Contains(equipmentUniqueId)) return true;
-            if (playerEquipmentUniqueIds.Count >= MaxEquipmentSlots) return false;
-
-            playerEquipmentUniqueIds.Add(equipmentUniqueId);
-            InventoryChanged?.Invoke();
-            return true;
-        }
-
-        public bool UnequipFromPlayer(string equipmentUniqueId)
-        {
-            bool removed = playerEquipmentUniqueIds.Remove(equipmentUniqueId);
-            if (removed) InventoryChanged?.Invoke();
-            return removed;
-        }
-
-        public bool EquipToMonster(OwnedMonsterRecord monster, string equipmentUniqueId)
-        {
-            if (monster == null || FindEquipment(equipmentUniqueId) == null) return false;
-
-            if (monster.equippedItemUniqueIds == null)
-                monster.equippedItemUniqueIds = new List<string>(MaxEquipmentSlots);
-
-            if (monster.equippedItemUniqueIds.Contains(equipmentUniqueId)) return true;
-            if (monster.equippedItemUniqueIds.Count >= MaxEquipmentSlots) return false;
-
-            monster.equippedItemUniqueIds.Add(equipmentUniqueId);
-            InventoryChanged?.Invoke();
-            return true;
+            return LongMath.SaturatingMultiply(
+                equipment.baseValue,
+                Mathf.Clamp(equipment.level, MinEquipmentLevel, MaxEquipmentLevel));
         }
 
         public EquipmentRecord FindEquipment(string uniqueId)
@@ -138,14 +100,222 @@ namespace MixMaster.Core
             return inventory.Find(x => x.uniqueId == uniqueId);
         }
 
-        /// <summary>
-        /// Resolve the shared definition imported from 装備.csv.
-        /// Old saved equipment remains valid if its definition is missing.
-        /// </summary>
         public EquipmentSO GetEquipmentDefinition(string equipmentId)
         {
             EquipmentCatalogSO catalog = EquipmentCatalogSO.Load();
             return catalog != null ? catalog.GetEquipment(equipmentId) : null;
+        }
+
+        /// <summary>
+        /// CSV values define the boost at Lv1. Each stat/elemental resistance
+        /// and drop rate scales linearly with the instance's equipment level.
+        /// Original SO modifiers are never mutated.
+        /// </summary>
+        public StatPercentageModifiers GetScaledModifiers(EquipmentRecord record)
+        {
+            EquipmentSO def = record != null
+                ? GetEquipmentDefinition(record.equipmentId) : null;
+            if (def == null || def.modifiers == null)
+                return StatPercentageModifiers.CreateZero();
+
+            float scale = Mathf.Clamp(record.level,
+                MinEquipmentLevel, MaxEquipmentLevel);
+            StatPercentageModifiers src = def.modifiers;
+            ElementResistanceSet r = src.resistanceBonus;
+            return new StatPercentageModifiers
+            {
+                maxHp = src.maxHp * scale,
+                maxMp = src.maxMp * scale,
+                attack = src.attack * scale,
+                magic = src.magic * scale,
+                defense = src.defense * scale,
+                magicDefense = src.magicDefense * scale,
+                criticalRate = src.criticalRate * scale,
+                criticalMultiplier = src.criticalMultiplier * scale,
+                moveSpeed = src.moveSpeed * scale,
+                attackSpeed = src.attackSpeed * scale,
+                attackRange = src.attackRange * scale,
+                dropRateBonus = src.dropRateBonus * scale,
+                resistanceBonus = new ElementResistanceSet
+                {
+                    fire = r != null ? r.fire * scale : 0f,
+                    water = r != null ? r.water * scale : 0f,
+                    wind = r != null ? r.wind * scale : 0f,
+                    lightning = r != null ? r.lightning * scale : 0f,
+                    light = r != null ? r.light * scale : 0f,
+                    dark = r != null ? r.dark * scale : 0f
+                }
+            };
+        }
+
+        public List<StatPercentageModifiers> GetEquippedModifiers(
+            IReadOnlyList<string> equippedIds)
+        {
+            var results = new List<StatPercentageModifiers>(MaxEquipmentSlots);
+            if (equippedIds == null) return results;
+            foreach (string id in equippedIds)
+            {
+                EquipmentRecord record = FindEquipment(id);
+                if (record != null)
+                    results.Add(GetScaledModifiers(record));
+            }
+            return results;
+        }
+
+        public string GetEquippedOwner(string uniqueId)
+        {
+            if (string.IsNullOrWhiteSpace(uniqueId)) return "";
+            if (playerEquipmentUniqueIds.Contains(uniqueId)) return "プレイヤー";
+
+            MonsterManager monsters = Monsters;
+            if (monsters == null) return "";
+            foreach (OwnedMonsterRecord monster in monsters.OwnedMonsters)
+                if (monster?.equippedItemUniqueIds != null &&
+                    monster.equippedItemUniqueIds.Contains(uniqueId))
+                    return monster.uniqueId;
+            return "";
+        }
+
+        // Assign an item to a chosen slot. A replaced item remains in inventory.
+        // One physical equipment instance cannot be worn by multiple owners.
+        public bool EquipToPlayer(string uniqueId, int slot)
+        {
+            return EquipInternal(null, uniqueId, slot);
+        }
+
+        public bool EquipToPlayer(string uniqueId)
+        {
+            return EquipToPlayer(uniqueId, playerEquipmentUniqueIds.Count);
+        }
+
+        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId, int slot)
+        {
+            if (monster == null) return false;
+            return EquipInternal(monster, uniqueId, slot);
+        }
+
+        public bool EquipToMonster(OwnedMonsterRecord monster, string uniqueId)
+        {
+            return monster != null && EquipToMonster(
+                monster, uniqueId,
+                monster.equippedItemUniqueIds != null
+                    ? monster.equippedItemUniqueIds.Count : 0);
+        }
+
+        private bool EquipInternal(OwnedMonsterRecord monster, string uniqueId, int slot)
+        {
+            if (FindEquipment(uniqueId) == null ||
+                slot < 0 || slot >= MaxEquipmentSlots)
+                return false;
+
+            List<string> target = monster == null
+                ? playerEquipmentUniqueIds
+                : monster.equippedItemUniqueIds;
+
+            if (target == null)
+            {
+                monster.equippedItemUniqueIds = new List<string>();
+                target = monster.equippedItemUniqueIds;
+            }
+
+            string owner = GetEquippedOwner(uniqueId);
+            string targetOwner = monster == null ? "プレイヤー" : monster.uniqueId;
+            if (!string.IsNullOrEmpty(owner) && owner != targetOwner)
+                return false;
+
+            // Already equipped at this slot.
+            if (slot < target.Count && target[slot] == uniqueId)
+                return true;
+
+            // Move within the same owner's list without duplicating an item.
+            int oldIndex = target.IndexOf(uniqueId);
+            if (oldIndex >= 0)
+            {
+                target.RemoveAt(oldIndex);
+                if (oldIndex < slot) slot--;
+            }
+
+            slot = Mathf.Min(slot, target.Count);
+            if (slot < target.Count)
+                target[slot] = uniqueId;
+            else
+                target.Add(uniqueId);
+
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+            return true;
+        }
+
+        public bool UnequipFromPlayer(string uniqueId)
+        {
+            if (!playerEquipmentUniqueIds.Remove(uniqueId)) return false;
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+            return true;
+        }
+
+        public bool UnequipFromMonster(OwnedMonsterRecord monster, string uniqueId)
+        {
+            if (monster == null || monster.equippedItemUniqueIds == null ||
+                !monster.equippedItemUniqueIds.Remove(uniqueId))
+                return false;
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+            return true;
+        }
+
+        public bool UnequipCurrentOwner(string uniqueId)
+        {
+            if (UnequipFromPlayer(uniqueId)) return true;
+            MonsterManager monsters = Monsters;
+            if (monsters == null) return false;
+            foreach (OwnedMonsterRecord record in monsters.OwnedMonsters)
+                if (UnequipFromMonster(record, uniqueId)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Repair obsolete saves where an item could be worn simultaneously
+        /// by player and multiple monsters. Player assignment wins.
+        /// </summary>
+        public void NormalizeMonsterEquipment()
+        {
+            MonsterManager monsters = Monsters;
+            if (monsters == null) return;
+
+            var taken = new HashSet<string>(
+                playerEquipmentUniqueIds, StringComparer.Ordinal);
+            bool changed = false;
+            foreach (OwnedMonsterRecord monster in monsters.OwnedMonsters)
+            {
+                if (monster == null) continue;
+                if (monster.equippedItemUniqueIds == null)
+                    monster.equippedItemUniqueIds = new List<string>();
+                for (int i = monster.equippedItemUniqueIds.Count - 1; i >= 0; i--)
+                {
+                    string id = monster.equippedItemUniqueIds[i];
+                    if (FindEquipment(id) == null)
+                    {
+                        monster.equippedItemUniqueIds.RemoveAt(i);
+                        changed = true;
+                    }
+                }
+
+                // Walk forward: the first assignment of any item wins.
+                for (int i = 0; i < monster.equippedItemUniqueIds.Count;)
+                {
+                    if (i >= MaxEquipmentSlots ||
+                        !taken.Add(monster.equippedItemUniqueIds[i]))
+                    {
+                        monster.equippedItemUniqueIds.RemoveAt(i);
+                        changed = true;
+                    }
+                    else i++;
+                }
+            }
+
+            if (changed) InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
         }
     }
 }
