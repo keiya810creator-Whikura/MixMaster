@@ -20,16 +20,20 @@ namespace MixMaster.Core
         public event Action InventoryChanged;
 
         /// <summary>
-        /// Grants starter items only for new games, never when loading an
-        /// existing save. IDs match the equipment CSV example rows.
+        /// Give the two starter items once, preserving existing owned copies.
+        /// Called by save initialization/migration with a saved claimed flag.
         /// </summary>
-        public void GrantNewGameStarterEquipment()
+        public void GrantStarterEquipmentIfMissing()
         {
-            if (inventory.Count != 0)
-                return;
+            bool swordOwned = inventory.Exists(
+                x => x != null && x.equipmentId == "EQP_001");
+            bool robeOwned = inventory.Exists(
+                x => x != null && x.equipmentId == "EQP_002");
 
-            CreateEquipment("EQP_001", 50, 1L);
-            CreateEquipment("EQP_002", 50, 1L);
+            if (!swordOwned)
+                CreateEquipment("EQP_001", 50, 1L);
+            if (!robeOwned)
+                CreateEquipment("EQP_002", 50, 1L);
         }
 
         public void RestoreEquipment(
