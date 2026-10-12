@@ -730,6 +730,9 @@ namespace MixMaster.Monsters
 
         public void SetCombatMode(PartyCombatMode mode)
         {
+            if (combatMode == mode)
+                return;
+
             combatMode = mode;
             SetCurrentTarget(null);
             targetRefreshTimer = 0f;
@@ -750,13 +753,16 @@ namespace MixMaster.Monsters
 
             if (!isAttackLunging)
             {
-                follower.SetCombatControlled(false);
+                RetargetBeforeFollowing();
                 follower.StopCombatMovement();
             }
         }
 
         public void SetAttackStyle(PartyAttackStyle style)
         {
+            if (attackStyle == style)
+                return;
+
             attackStyle = style;
             SetCurrentTarget(null);
 
@@ -772,7 +778,7 @@ namespace MixMaster.Monsters
 
             if (!isAttackLunging)
             {
-                follower.SetCombatControlled(false);
+                RetargetBeforeFollowing();
                 follower.StopCombatMovement();
             }
         }
