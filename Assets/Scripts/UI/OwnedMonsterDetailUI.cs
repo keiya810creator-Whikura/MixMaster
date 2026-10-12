@@ -31,6 +31,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text skillPointsText;
         [SerializeField] private TMP_Text learnedSkillsText;
         [SerializeField] private TMP_Text equipmentText;
+        [SerializeField] private Button equipmentInventoryButton;
         [SerializeField] private Button closeButton;
 
         [Header("Party")]
@@ -54,6 +55,9 @@ namespace MixMaster.UI
         private void Awake()
         {
             EnsureBehaviorDropdown();
+            EnsureEquipmentButton();
+            if (equipmentInventoryButton != null)
+                equipmentInventoryButton.onClick.AddListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
                 behaviorDropdown.onValueChanged.AddListener(HandleBehaviorChanged);
 
@@ -77,16 +81,21 @@ namespace MixMaster.UI
         private void OnEnable()
         {
             SubscribeParty();
+            SubscribeEquipment();
         }
 
         private void OnDisable()
         {
             UnsubscribeParty();
+            UnsubscribeEquipment();
         }
 
         private void OnDestroy()
         {
             UnsubscribeParty();
+            UnsubscribeEquipment();
+            if (equipmentInventoryButton != null)
+                equipmentInventoryButton.onClick.RemoveListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
                 behaviorDropdown.onValueChanged.RemoveListener(HandleBehaviorChanged);
 
@@ -121,6 +130,7 @@ namespace MixMaster.UI
 
             if (!gameObject.activeSelf)
                 gameObject.SetActive(true);
+            SubscribeEquipment();
 
             if (individualValuesToggle != null)
             {
@@ -216,7 +226,8 @@ namespace MixMaster.UI
                     monster,
                     Mathf.Max(1, selectedRecord.level),
                     selectedRecord.individualValues,
-                    title)
+                    title,
+                    GetEquippedModifiers())
                 : null;
 
             // Drop-rate bonus is a shared additive stat (not an
@@ -252,6 +263,74 @@ namespace MixMaster.UI
 
             RefreshPartyControls();
             RefreshBehaviorDropdown();
+        }
+
+        private EquipmentManager equipmentManager;
+
+        private System.Collections.Generic.List<StatPercentageModifiers>
+            GetEquippedModifiers()
+        {
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
+            return equipmentManager != null && selectedRecord != null
+                ? equipmentManager.GetEquippedModifiers(
+                    selectedRecord.equippedItemUniqueIds) : null;
+        }
+
+        private void SubscribeEquipment()
+        {
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
+            if (equipmentManager != null)
+            {
+                equipmentManager.EquipmentChanged -= HandleEquipmentChanged;
+                equipmentManager.EquipmentChanged += HandleEquipmentChanged;
+            }
+        }
+
+        private void UnsubscribeEquipment()
+        {
+            if (equipmentManager != null)
+                equipmentManager.EquipmentChanged -= HandleEquipmentChanged;
+        }
+
+        private void HandleEquipmentChanged()
+        {
+            if (isActiveAndEnabled && selectedRecord != null)
+                Refresh();
+        }
+
+        private void OpenEquipmentInventory()
+        {
+            if (selectedRecord == null) return;
+            EquipmentInventoryUI inventory =
+                FindFirstObjectByType<EquipmentInventoryUI>(
+                    FindObjectsInactive.Include);
+            if (inventory != null)
+                inventory.OpenForMonster(selectedRecord);
+            else
+                Debug.LogWarning(
+                    "[OwnedMonsterDetailUI] 装備インベントリを設置してください。" +
+                    "「MixMaster/UI/装備インベントリを作成・接続」を実行します。", this);
+        }
+
+        private void EnsureEquipmentButton()
+        {
+            if (equipmentInventoryButton != null) return;
+            Transform area = transform.Find(
+                "ScrollView/Viewport/Content/Equipment");
+            if (area == null) return;
+
+            Transform existing = area.Find("OpenEquipmentInventory");
+            if (existing != null)
+            {
+                equipmentInventoryButton = existing.GetComponent<Button>();
+                return;
+            }
+
+            equipmentInventoryButton = InventoryUiFactory.Button(
+                area, "OpenEquipmentInventory", "装備変更",
+                new Vector2(680f, -10f), new Vector2(180f, 48f));
         }
 
         private void HandleBehaviorChanged(int selectedIndex)
