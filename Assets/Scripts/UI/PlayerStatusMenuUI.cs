@@ -330,7 +330,7 @@ namespace MixMaster.UI
             SetText(equipmentPreviewText, info.ToString());
 
             SetText(equipmentPageText,
-                info +
+                info.ToString() +
                 "\n\n所持装備数   " +
                 (equipment != null
                     ? equipment.Inventory.Count.ToString("N0") : "-") +
