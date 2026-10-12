@@ -31,6 +31,7 @@ namespace MixMaster.UI
         private TMP_Text ownerHeading;
         private Button[] equipSlotButtons = new Button[3];
         private Button unequipButton;
+        private Button unequipAllButton;
         private TMP_Text[] slotButtonTexts = new TMP_Text[3];
 
         private readonly List<GameObject> activeRows = new List<GameObject>();
@@ -334,7 +335,7 @@ namespace MixMaster.UI
 
             TMP_Text compareHint = InventoryUiFactory.Text(transform,
                 "ComparisonHint",
-                "装備を選択 → 1～3枠を押して比較 → 確定",
+                "装備：比較して確定 ／ 解除：すぐに反映",
                 new Vector2(25f, -225f), new Vector2(850f, 28f), 20f);
             compareHint.color = new Color32(184, 184, 184, 255);
 
@@ -364,7 +365,19 @@ namespace MixMaster.UI
             un.anchorMax = Vector2.zero;
             un.pivot = Vector2.zero;
             un.anchoredPosition = new Vector2(566f, 13f);
-            unequipButton.onClick.AddListener(PreviewUnequip);
+            unequipButton.onClick.AddListener(UnequipSelected);
+
+            unequipAllButton = InventoryUiFactory.Button(transform,
+                "UnequipAllButton", "装備全解除",
+                new Vector2(745f, 18f), new Vector2(170f, 53f));
+            RectTransform allRect = unequipAllButton.GetComponent<RectTransform>();
+            allRect.anchorMin = Vector2.zero;
+            allRect.anchorMax = Vector2.zero;
+            allRect.pivot = Vector2.zero;
+            allRect.anchoredPosition = new Vector2(745f, 13f);
+            unequipAllButton.GetComponent<Image>().color =
+                new Color(0.43f, 0.22f, 0.23f, 1f);
+            unequipAllButton.onClick.AddListener(UnequipAll);
 
             // Keep the selected-item text visible above the action buttons.
             if (detailText != null)
@@ -410,6 +423,23 @@ namespace MixMaster.UI
             if (unequipButton != null)
                 unequipButton.interactable =
                     selected != null && owner == targetOwner;
+
+            if (unequipAllButton != null)
+            {
+                bool hasEquippedItem = false;
+                if (ids != null)
+                {
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(ids[i]))
+                        {
+                            hasEquippedItem = true;
+                            break;
+                        }
+                    }
+                }
+                unequipAllButton.interactable = hasEquippedItem;
+            }
         }
 
         private string GetDisplayName(EquipmentRecord record)
@@ -437,26 +467,52 @@ namespace MixMaster.UI
             OpenComparison(slot, false);
         }
 
-        // Called by the unequip button. Removing equipment also shows
-        // resulting final stats before actually changing the loadout.
-        public void PreviewUnequip()
+        // Unequip actions apply immediately; only equipping requires a
+        // before/after comparison and an explicit confirmation.
+        public void UnequipSelected()
         {
             if (manager == null || string.IsNullOrWhiteSpace(inspectedId))
                 return;
-            int slot = -1;
-            IReadOnlyList<string> equipped = CurrentEquipmentIds;
-            if (equipped != null)
+
+            string id = inspectedId;
+            bool removed = targetMonster == null
+                ? manager.UnequipFromPlayer(id)
+                : manager.UnequipFromMonster(targetMonster, id);
+
+            if (removed)
             {
-                for (int i = 0; i < equipped.Count; i++)
-                    if (equipped[i] == inspectedId)
-                    {
-                        slot = i;
-                        break;
-                    }
+                EquipmentRecord selected = manager.FindEquipment(id);
+                if (selected != null)
+                    Inspect(selected);
+                if (detailText != null)
+                    detailText.text += "\n装備を解除しました。";
             }
 
-            if (slot >= 0)
-                OpenComparison(slot, true);
+            RefreshActionControls();
+        }
+
+        public void UnequipAll()
+        {
+            if (manager == null)
+                return;
+
+            bool removed = targetMonster == null
+                ? manager.UnequipAllFromPlayer()
+                : manager.UnequipAllFromMonster(targetMonster);
+
+            if (removed)
+            {
+                // Do not clear the actual owned equipment inventory or
+                // the current selection; only the owner's equipped slots.
+                EquipmentRecord selected = manager.FindEquipment(inspectedId);
+                if (selected != null)
+                    Inspect(selected);
+                if (detailText != null)
+                    detailText.text = "装備3枠をすべて解除しました。" +
+                        "\n装備は所持品に残っています。";
+            }
+
+            RefreshActionControls();
         }
 
         private void OpenComparison(int slot, bool unequip)
