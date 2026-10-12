@@ -219,6 +219,7 @@ namespace MixMaster.Monsters
 
         private void OnDisable()
         {
+            SetCurrentTarget(null);
             activeMembers.Remove(this);
             WorldUIManager.TryUnregisterParty(this);
 
@@ -256,7 +257,7 @@ namespace MixMaster.Monsters
 
             targetRefreshTimer -= Time.deltaTime;
 
-            if (!IsTargetValid(currentTarget))
+            if (currentTarget != null && !IsTargetValid(currentTarget))
                 RetargetBeforeFollowing();
             else if (targetRefreshTimer <= 0f)
             {
@@ -302,7 +303,7 @@ namespace MixMaster.Monsters
             if (!isAlive || isAttackLunging)
                 return;
 
-            if (!IsTargetValid(currentTarget))
+            if (currentTarget != null && !IsTargetValid(currentTarget))
                 RetargetBeforeFollowing();
             if (!IsTargetValid(currentTarget))
                 return;
