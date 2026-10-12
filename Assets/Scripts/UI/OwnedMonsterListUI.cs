@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -35,6 +36,19 @@ namespace MixMaster.UI
         private bool subscribed;
         private bool showIndividualValues;
 
+        private TMP_Dropdown sortDropdown;
+        private TMP_Dropdown statFilterDropdown;
+        private TMP_Dropdown thresholdDropdown;
+        private Button sortDirectionButton;
+        private TMP_Text directionText;
+        private bool ascending;
+
+        private static readonly string[] SortOptions = CreateSortOptions();
+        private static readonly string[] ThresholdOptions =
+        {
+            "上位25%", "上位50%", "上位75%", "0以外"
+        };
+
         private void Awake()
         {
             if (panelRoot == null)
@@ -64,6 +78,7 @@ namespace MixMaster.UI
             }
 
             RefreshDisplayModeText();
+            EnsureSortingControls();
         }
 
         private void OnEnable()
@@ -143,15 +158,82 @@ namespace MixMaster.UI
             IReadOnlyList<OwnedMonsterRecord> owned =
                 monsterManager.OwnedMonsters;
 
-            for (int i = owned.Count - 1;
-                 i >= 0;
-                 i--)
+            var statsById = new Dictionary<string, CharacterStats>();
+            var indices = new List<int>();
+            for (int i = 0; i < owned.Count; i++)
             {
-                OwnedMonsterRecord record =
-                    owned[i];
+                OwnedMonsterRecord record = owned[i];
+                if (record == null) continue;
+                indices.Add(i);
+                statsById[record.uniqueId] = CalculateStats(record);
+            }
 
-                if (record == null)
-                    continue;
+            int sortValue = sortDropdown != null ? sortDropdown.value : 0;
+            int filterValue = statFilterDropdown != null
+                ? statFilterDropdown.value : 0;
+            int thresholdValue = thresholdDropdown != null
+                ? thresholdDropdown.value : 0;
+
+            // Choose a relative threshold among all owned monsters. This is
+            // meaningful for raw HP/Attack/etc., which are usually nonzero
+            // on every monster (unlike equipment modifiers).
+            if (filterValue > 0 && indices.Count > 0)
+            {
+                var orderedScores = new List<double>();
+                foreach (int index in indices)
+                {
+                    CharacterStats stats = statsById[owned[index].uniqueId];
+                    orderedScores.Add(InventoryStatFilter.GetValue(
+                        stats, (InventoryStat)filterValue));
+                }
+
+                if (thresholdValue < 3)
+                {
+                    orderedScores.Sort((a, b) => b.CompareTo(a));
+                    float fraction = thresholdValue == 0 ? 0.25f :
+                        thresholdValue == 1 ? 0.50f : 0.75f;
+                    int cutoff = Mathf.Clamp(
+                        Mathf.CeilToInt(orderedScores.Count * fraction) - 1,
+                        0, orderedScores.Count - 1);
+                    double minimum = orderedScores[cutoff];
+                    indices.RemoveAll(index =>
+                        InventoryStatFilter.GetValue(
+                            statsById[owned[index].uniqueId],
+                            (InventoryStat)filterValue) < minimum);
+                }
+                else
+                {
+                    indices.RemoveAll(index =>
+                        Math.Abs(InventoryStatFilter.GetValue(
+                            statsById[owned[index].uniqueId],
+                            (InventoryStat)filterValue)) < 0.000001d);
+                }
+            }
+
+            indices.Sort((a, b) =>
+            {
+                int cmp;
+                if (sortValue == 0)
+                    cmp = b.CompareTo(a);
+                else if (sortValue == 1)
+                    cmp = owned[b].level.CompareTo(owned[a].level);
+                else
+                {
+                    InventoryStat metric = (InventoryStat)(sortValue - 1);
+                    double x = InventoryStatFilter.GetValue(
+                        statsById[owned[a].uniqueId], metric);
+                    double y = InventoryStatFilter.GetValue(
+                        statsById[owned[b].uniqueId], metric);
+                    cmp = y.CompareTo(x);
+                }
+
+                if (cmp == 0) cmp = b.CompareTo(a);
+                return ascending ? -cmp : cmp;
+            });
+
+            foreach (int index in indices)
+            {
+                OwnedMonsterRecord record = owned[index];
 
                 OwnedMonsterEntryUI entry =
                     Instantiate(
@@ -172,7 +254,7 @@ namespace MixMaster.UI
                 entries.Add(entry);
             }
 
-            RefreshCount();
+            RefreshCount(indices.Count);
         }
 
         public void RefreshAll()
@@ -273,6 +355,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterExperienceChanged +=
                 HandleMonsterExperienceChanged;
+            monsterManager.MonsterLeveledUp += HandleMonsterLevelChanged;
             monsterManager.PartyChanged += RefreshAll;
 
             subscribed = true;
@@ -290,6 +373,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterExperienceChanged -=
                 HandleMonsterExperienceChanged;
+            monsterManager.MonsterLeveledUp -= HandleMonsterLevelChanged;
             monsterManager.PartyChanged -= RefreshAll;
 
             subscribed = false;
@@ -356,6 +440,15 @@ namespace MixMaster.UI
             Rebuild();
         }
 
+        private void HandleMonsterLevelChanged(OwnedMonsterRecord record)
+        {
+            if (sortDropdown != null && sortDropdown.value != 0 ||
+                statFilterDropdown != null && statFilterDropdown.value != 0)
+            {
+                Rebuild();
+            }
+        }
+
         private void HandleMonsterExperienceChanged(OwnedMonsterRecord record)
         {
             if (record == null)
@@ -376,7 +469,7 @@ namespace MixMaster.UI
             }
         }
 
-        private void RefreshCount()
+        private void RefreshCount(int displayed = -1)
         {
             int count =
                 monsterManager != null
@@ -385,16 +478,16 @@ namespace MixMaster.UI
 
             if (countText != null)
             {
-                countText.text =
-                    "仲間 " +
-                    count.ToString("N0") +
-                    "体";
+                countText.text = displayed >= 0
+                    ? "仲間 " + displayed.ToString("N0") + " / " +
+                      count.ToString("N0") + "体"
+                    : "仲間 " + count.ToString("N0") + "体";
             }
 
             if (emptyState != null)
             {
                 emptyState.SetActive(
-                    count <= 0);
+                    displayed >= 0 ? displayed == 0 : count <= 0);
             }
         }
 
@@ -407,6 +500,99 @@ namespace MixMaster.UI
             }
 
             entries.Clear();
+        }
+
+        private CharacterStats CalculateStats(OwnedMonsterRecord record)
+        {
+            MonsterSO monster = catalog != null
+                ? catalog.GetMonster(record.monsterId) : null;
+            TitleSO title = catalog != null
+                ? catalog.GetTitle(record.titleId) : null;
+            return StatCalculator.CalculateMonsterStats(
+                monster, Mathf.Max(1, record.level),
+                record.individualValues, title);
+        }
+
+        private static string[] CreateSortOptions()
+        {
+            var choices = new List<string> { "入手順", "レベル" };
+            for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
+                choices.Add(InventoryStatFilter.Labels[i]);
+            return choices.ToArray();
+        }
+
+        private void EnsureSortingControls()
+        {
+            if (sortDropdown != null)
+                return;
+
+            Transform existing = transform.Find("InventoryFilters");
+            RectTransform controls;
+            if (existing != null)
+                controls = existing as RectTransform;
+            else
+            {
+                GameObject go = new GameObject(
+                    "InventoryFilters", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                controls = go.GetComponent<RectTransform>();
+                controls.anchorMin = new Vector2(0f, 1f);
+                controls.anchorMax = new Vector2(1f, 1f);
+                controls.pivot = new Vector2(0.5f, 1f);
+                controls.anchoredPosition = new Vector2(0f, -95f);
+                controls.sizeDelta = new Vector2(0f, 85f);
+            }
+
+            sortDropdown = InventoryUiFactory.Dropdown(
+                controls, "SortDropdown", new Vector2(32f, -8f),
+                new Vector2(225f, 56f), SortOptions);
+            statFilterDropdown = InventoryUiFactory.Dropdown(
+                controls, "StatFilter", new Vector2(267f, -8f),
+                new Vector2(260f, 56f), InventoryStatFilter.Labels);
+            thresholdDropdown = InventoryUiFactory.Dropdown(
+                controls, "ThresholdFilter", new Vector2(537f, -8f),
+                new Vector2(205f, 56f), ThresholdOptions);
+            sortDirectionButton = InventoryUiFactory.Button(
+                controls, "SortDirection", "降順",
+                new Vector2(753f, -8f), new Vector2(130f, 56f));
+            directionText =
+                sortDirectionButton.GetComponentInChildren<TMP_Text>();
+
+            sortDropdown.onValueChanged.AddListener(_ => Rebuild());
+            statFilterDropdown.onValueChanged.AddListener(_ => Rebuild());
+            thresholdDropdown.onValueChanged.AddListener(_ => Rebuild());
+            sortDirectionButton.onClick.AddListener(() =>
+            {
+                ascending = !ascending;
+                if (directionText != null)
+                    directionText.text = ascending ? "昇順" : "降順";
+                Rebuild();
+            });
+
+            Transform scroll = transform.Find("ScrollView");
+            RectTransform scrollRect = scroll as RectTransform;
+            if (scrollRect != null)
+            {
+                Vector2 offset = scrollRect.offsetMax;
+                offset.y = Mathf.Min(offset.y, -186f);
+                scrollRect.offsetMax = offset;
+            }
+        }
+
+        public void SortBy(int index)
+        {
+            if (sortDropdown != null)
+                sortDropdown.SetValueWithoutNotify(
+                    Mathf.Clamp(index, 0, SortOptions.Length - 1));
+            Rebuild();
+        }
+
+        public void FilterByStat(int index)
+        {
+            if (statFilterDropdown != null)
+                statFilterDropdown.SetValueWithoutNotify(
+                    Mathf.Clamp(index, 0, InventoryStatFilter.Labels.Length - 1));
+            Rebuild();
         }
 
         public void SetPanelRoot(GameObject value) => panelRoot = value;
