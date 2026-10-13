@@ -160,6 +160,7 @@ namespace MixMaster.UI
             if (sortDropdown != null)
                 sortDropdown.SetValueWithoutNotify(
                     Mathf.Clamp(selected, 0, SortChoices.Length - 1));
+            pageIndex = 0;
             Rebuild();
         }
 
@@ -168,6 +169,7 @@ namespace MixMaster.UI
             if (statFilter != null)
                 statFilter.SetValueWithoutNotify(
                     Mathf.Clamp(selected, 0, StatChoices.Length - 1));
+            pageIndex = 0;
             Rebuild();
         }
 
@@ -176,6 +178,7 @@ namespace MixMaster.UI
             if (rarityFilter != null)
                 rarityFilter.SetValueWithoutNotify(
                     Mathf.Clamp(selected, 0, RarityChoices.Length - 1));
+            pageIndex = 0;
             Rebuild();
         }
 
@@ -890,6 +893,67 @@ namespace MixMaster.UI
                 });
         }
 
+        private void EnsurePagingControls()
+        {
+            if (previousPageButton != null) return;
+
+            GameObject barObject = new GameObject(
+                "EquipmentPageControls", typeof(RectTransform));
+            barObject.transform.SetParent(transform, false);
+            RectTransform bar = barObject.GetComponent<RectTransform>();
+            bar.anchorMin = new Vector2(0f, 0f);
+            bar.anchorMax = new Vector2(1f, 0f);
+            bar.pivot = new Vector2(0.5f, 0f);
+            bar.anchoredPosition = new Vector2(0f, 275f);
+            bar.sizeDelta = new Vector2(0f, 60f);
+
+            previousPageButton = InventoryUiFactory.Button(bar,
+                "PreviousPage", "◀ 前へ",
+                new Vector2(24f, -3f), new Vector2(185f, 54f));
+            nextPageButton = InventoryUiFactory.Button(bar,
+                "NextPage", "次へ ▶",
+                Vector2.zero, new Vector2(185f, 54f));
+            RectTransform nextRect = nextPageButton.GetComponent<RectTransform>();
+            nextRect.anchorMin = new Vector2(1f, 1f);
+            nextRect.anchorMax = Vector2.one;
+            nextRect.pivot = Vector2.one;
+            nextRect.anchoredPosition = new Vector2(-24f, -3f);
+            nextRect.sizeDelta = new Vector2(185f, 54f);
+
+            pageText = InventoryUiFactory.Text(bar, "PageNumber",
+                "1 / 1", Vector2.zero, new Vector2(330f, 53f), 25f);
+            RectTransform labelRect = pageText.rectTransform;
+            labelRect.anchorMin = new Vector2(0.5f, 1f);
+            labelRect.anchorMax = labelRect.anchorMin;
+            labelRect.pivot = new Vector2(0.5f, 1f);
+            labelRect.anchoredPosition = new Vector2(0f, -3f);
+            pageText.alignment = TextAlignmentOptions.Center;
+
+            previousPageButton.onClick.AddListener(PreviousPage);
+            nextPageButton.onClick.AddListener(NextPage);
+            ScrollRect scroll = contentRoot != null
+                ? contentRoot.GetComponentInParent<ScrollRect>(true) : null;
+            if (scroll != null)
+            {
+                RectTransform rect = scroll.GetComponent<RectTransform>();
+                rect.offsetMin = new Vector2(rect.offsetMin.x,
+                    Mathf.Max(rect.offsetMin.y, 355f));
+            }
+        }
+
+        private void RefreshPageControls()
+        {
+            int pages = Math.Max(1,
+                (filteredIds.Count + PageSize - 1) / PageSize);
+            if (pageText != null)
+                pageText.text = (pageIndex + 1) + " / " + pages +
+                    " (30個/ページ)";
+            if (previousPageButton != null)
+                previousPageButton.interactable = pageIndex > 0;
+            if (nextPageButton != null)
+                nextPageButton.interactable = pageIndex + 1 < pages;
+        }
+
         private void EnsureControls()
         {
             Transform parent = transform.Find("FilterControls");
@@ -948,14 +1012,23 @@ namespace MixMaster.UI
             sortDropdown.onValueChanged.AddListener(SortBy);
             statFilter.onValueChanged.AddListener(FilterByStat);
             rarityFilter.onValueChanged.AddListener(FilterByRarity);
-            favoriteFilter.onValueChanged.AddListener(_ => Rebuild());
-            lockFilter.onValueChanged.AddListener(_ => Rebuild());
+            favoriteFilter.onValueChanged.AddListener(_ =>
+            {
+                pageIndex = 0;
+                Rebuild();
+            });
+            lockFilter.onValueChanged.AddListener(_ =>
+            {
+                pageIndex = 0;
+                Rebuild();
+            });
             bulkSellButton.onClick.AddListener(ConfirmBulkSale);
             directionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
                 if (directionLabel != null)
                     directionLabel.text = ascending ? "昇順" : "降順";
+                pageIndex = 0;
                 Rebuild();
             });
         }
