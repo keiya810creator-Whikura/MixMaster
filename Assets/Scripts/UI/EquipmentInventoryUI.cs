@@ -34,6 +34,11 @@ namespace MixMaster.UI
         private TMP_Text sellLabel;
         private InventoryBulkSaleDialog saleDialog;
         private readonly List<string> filteredIds = new List<string>();
+        private const int PageSize = 30;
+        private int pageIndex;
+        private Button previousPageButton;
+        private Button nextPageButton;
+        private TMP_Text pageText;
         private Button directionButton;
         private TMP_Text directionLabel;
         private bool ascending;
@@ -83,6 +88,7 @@ namespace MixMaster.UI
             EnsureControls();
             EnsureEquipmentActions();
             EnsureSaleActions();
+            EnsurePagingControls();
             EnsureComparisonPanel();
             saleDialog = InventoryBulkSaleDialog.Ensure(transform);
             if (closeButton != null)
@@ -188,9 +194,7 @@ namespace MixMaster.UI
         {
             if (manager == null) BindManager();
 
-            foreach (GameObject row in activeRows)
-                if (row != null) Destroy(row);
-            activeRows.Clear();
+            // Preserve the 30 pooled row views between all rebuilds.
             filteredIds.Clear();
 
             if (manager == null || contentRoot == null)
@@ -268,72 +272,133 @@ namespace MixMaster.UI
                     " / " + source.Count.ToString("N0");
 
             foreach (int index in matches)
-            {
-                EquipmentRecord record = source[index];
-                filteredIds.Add(record.uniqueId);
-                BuildEntry(record, index);
-            }
+                filteredIds.Add(source[index].uniqueId);
 
-            RefreshBulkSellButton();
-            RefreshSaleActions();
-
+            pageIndex = Mathf.Clamp(pageIndex, 0, Math.Max(0,
+                (filteredIds.Count + PageSize - 1) / PageSize - 1));
+            RenderPage();
             if (matches.Count == 0 && detailText != null)
                 detailText.text = "条件に一致する装備がありません。";
         }
 
-        private void BuildEntry(EquipmentRecord record, int index)
+        private GameObject CreateRow()
         {
-            EquipmentSO definition =
-                manager.GetEquipmentDefinition(record.equipmentId);
-            GameObject row = new GameObject(
-                "Equipment_" + record.uniqueId, typeof(RectTransform),
-                typeof(Image), typeof(Button), typeof(LayoutElement));
+            GameObject row = new GameObject("EquipmentRow",
+                typeof(RectTransform), typeof(Image),
+                typeof(Button), typeof(LayoutElement));
             row.transform.SetParent(contentRoot, false);
             LayoutElement layout = row.GetComponent<LayoutElement>();
             layout.preferredHeight = 120f;
             layout.minHeight = 120f;
 
-            Image bg = row.GetComponent<Image>();
-            bg.color = RarityColor(EquipmentRarityUtility.GetRarity(record.level));
+            GameObject icon = new GameObject("Icon",
+                typeof(RectTransform), typeof(Image));
+            icon.transform.SetParent(row.transform, false);
+            InventoryUiFactory.TopLeft(icon.GetComponent<RectTransform>(),
+                new Vector2(10f, -17f), new Vector2(84f, 84f));
+            Image iconImage = icon.GetComponent<Image>();
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+
+            TMP_Text summary = InventoryUiFactory.Text(
+                row.transform, "Summary", "",
+                new Vector2(112f, -10f), new Vector2(790f, 104f), 23f);
+            summary.enableWordWrapping = true;
+            return row;
+        }
+
+        private void BindEntry(GameObject row, EquipmentRecord record)
+        {
+            row.name = "Equipment_" + record.uniqueId;
+            EquipmentSO definition =
+                manager.GetEquipmentDefinition(record.equipmentId);
+            Image background = row.GetComponent<Image>();
+            background.color = RarityColor(
+                EquipmentRarityUtility.GetRarity(record.level));
+
             Button button = row.GetComponent<Button>();
-            button.targetGraphic = bg;
+            button.targetGraphic = background;
+            button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => Inspect(record));
 
-            if (definition != null && definition.icon != null)
-            {
-                GameObject icon = new GameObject(
-                    "Icon", typeof(RectTransform), typeof(Image));
-                icon.transform.SetParent(row.transform, false);
-                RectTransform iconRect = icon.GetComponent<RectTransform>();
-                InventoryUiFactory.TopLeft(iconRect,
-                    new Vector2(10f, -17f), new Vector2(84f, 84f));
-                Image iconImage = icon.GetComponent<Image>();
-                iconImage.sprite = definition.icon;
-                iconImage.preserveAspect = true;
-                iconImage.raycastTarget = false;
-            }
+            Image icon = row.transform.Find("Icon").GetComponent<Image>();
+            icon.sprite = definition != null ? definition.icon : null;
+            icon.enabled = icon.sprite != null;
 
             string name = definition != null &&
                 !string.IsNullOrWhiteSpace(definition.displayName)
                     ? definition.displayName : record.equipmentId;
-
-            var rarity = EquipmentRarityUtility.GetRarity(record.level);
-            string label = name + "   Lv." + record.level +
-                " 《" + EquipmentRarityUtility.Labels[(int)rarity] + "》" +
-                "\n" + (definition != null
-                    ? InventoryStatFilter.FormatModifiers(manager.GetScaledModifiers(record))
+            EquipmentRarity rarity =
+                EquipmentRarityUtility.GetRarity(record.level);
+            TMP_Text summary =
+                row.transform.Find("Summary").GetComponent<TMP_Text>();
+            summary.text = name + "  Lv." + record.level +
+                " 《" + EquipmentRarityUtility.Labels[(int)rarity] + "》\n" +
+                (definition != null
+                    ? InventoryStatFilter.FormatModifiers(
+                        manager.GetScaledModifiers(record))
                     : "装備定義が見つかりません") +
-                (manager.GetEquippedOwner(record.uniqueId).Length > 0 ? "  [装備中]" : "");
-            TMP_Text text = InventoryUiFactory.Text(
-                row.transform, "Summary", label,
-                new Vector2(112f, -10f), new Vector2(790f, 104f), 23f);
-            text.enableWordWrapping = true;
-
+                (!string.IsNullOrEmpty(manager.GetEquippedOwner(record.uniqueId))
+                    ? "  [装備中]" : "");
             InventoryProtectionIcons.Set(row.transform,
                 record.isFavorite, record.isLocked,
                 favoriteSprite, lockSprite,
                 new Vector2(10f, -10f), new Vector2(53f, -10f));
-            activeRows.Add(row);
+        }
+
+        private void RenderPage()
+        {
+            if (manager == null || contentRoot == null)
+                return;
+
+            int start = pageIndex * PageSize;
+            int visible = Mathf.Min(PageSize,
+                Mathf.Max(0, filteredIds.Count - start));
+
+            // Maximum 30 entry objects even when thousands are owned.
+            while (activeRows.Count < visible)
+                activeRows.Add(CreateRow());
+
+            for (int i = 0; i < activeRows.Count; i++)
+            {
+                GameObject row = activeRows[i];
+                bool active = i < visible;
+                if (row.activeSelf != active)
+                    row.SetActive(active);
+                if (!active) continue;
+
+                EquipmentRecord record = manager.FindEquipment(
+                    filteredIds[start + i]);
+                if (record != null) BindEntry(row, record);
+            }
+
+            if (countText != null)
+                countText.text = "装備 " + filteredIds.Count.ToString("N0") +
+                    " / " + manager.Inventory.Count.ToString("N0");
+            RefreshActionControls();
+            RefreshBulkSellButton();
+            RefreshSaleActions();
+            RefreshPageControls();
+
+            ScrollRect scroll =
+                contentRoot.GetComponentInParent<ScrollRect>();
+            if (scroll != null)
+                scroll.verticalNormalizedPosition = 1f;
+        }
+
+        public void NextPage()
+        {
+            if ((pageIndex + 1) * PageSize >= filteredIds.Count)
+                return;
+            pageIndex++;
+            RenderPage();
+        }
+
+        public void PreviousPage()
+        {
+            if (pageIndex <= 0) return;
+            pageIndex--;
+            RenderPage();
         }
 
         private void Inspect(EquipmentRecord record)
