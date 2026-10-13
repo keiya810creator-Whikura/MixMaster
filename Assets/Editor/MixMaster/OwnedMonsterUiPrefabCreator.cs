@@ -31,6 +31,10 @@ namespace MixMaster.EditorTools
 
             CreatePanelPrefab(entry);
 
+            // Newly rebuilt prefab assets must already include their
+            // existing sort/filter dropdowns before entering Play Mode.
+            InventoryFilterPrefabBaker.BakeAll(false);
+
             // Keep the detail screen connected even when the list prefab
             // is regenerated from this menu.
             OwnedMonsterDetailPrefabCreator.AttachFromListCreation();
