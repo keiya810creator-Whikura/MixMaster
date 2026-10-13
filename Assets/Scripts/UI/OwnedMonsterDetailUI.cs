@@ -609,6 +609,7 @@ namespace MixMaster.UI
         private void HandlePartyChanged()
         {
             RefreshPartyControls();
+            RefreshProtectionControls();
         }
 
         private void HandleProtectionChanged(OwnedMonsterRecord record)
