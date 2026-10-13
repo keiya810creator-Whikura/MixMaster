@@ -72,7 +72,10 @@ namespace MixMaster.UI
             // rebuilding or overwriting the circular HUD prefab.
             Canvas canvas = GetComponentInParent<Canvas>();
             if (canvas != null)
+            {
                 PartyCombatOrdersHUD.EnsureOnCanvas(canvas);
+                GoldCounterHUD.EnsureOnCanvas(canvas);
+            }
 
             EnsureManagers();
             RefreshAll();
