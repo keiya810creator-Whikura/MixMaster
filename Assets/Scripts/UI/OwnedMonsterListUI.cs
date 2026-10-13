@@ -41,7 +41,9 @@ namespace MixMaster.UI
         private TMP_Text pageNumberText;
         private TMP_Text goldText;
         private Button bulkSellButton;
+        private Button autoSellSettingsButton;
         private InventoryBulkSaleDialog bulkSaleDialog;
+        private InventoryAutoSellDialog autoSellDialog;
         private GameManager gameManager;
 
         private MonsterManager monsterManager;
@@ -97,6 +99,7 @@ namespace MixMaster.UI
             EnsureSortingControls();
             EnsurePagingControls();
             EnsureBulkSaleDialog();
+            autoSellDialog = InventoryAutoSellDialog.Ensure(transform);
         }
 
         private void OnEnable()
@@ -111,6 +114,8 @@ namespace MixMaster.UI
 
         private void OnDisable()
         {
+            if (autoSellDialog != null)
+                autoSellDialog.Close();
             if (panelRoot == null ||
                 panelRoot == gameObject)
             {
@@ -154,6 +159,8 @@ namespace MixMaster.UI
                 panelRoot = gameObject;
 
             HandlePanelClosed();
+            if (autoSellDialog != null)
+                autoSellDialog.Close();
 
             if (panelRoot.activeSelf)
                 panelRoot.SetActive(false);
@@ -675,9 +682,11 @@ namespace MixMaster.UI
                 controls.Find("SortDirection")?.GetComponent<Button>();
             bulkSellButton =
                 controls.Find("SellFilteredMonsters")?.GetComponent<Button>();
+            autoSellSettingsButton =
+                controls.Find("AutoSellMonsters")?.GetComponent<Button>();
             if (sortDropdown == null || statFilterDropdown == null ||
                 thresholdDropdown == null || sortDirectionButton == null ||
-                bulkSellButton == null)
+                bulkSellButton == null || autoSellSettingsButton == null)
             {
                 Debug.LogError(
                     "[OwnedMonsterListUI] Prefabのフィルター項目が不足しています。" +
@@ -709,6 +718,8 @@ namespace MixMaster.UI
             });
             thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
             bulkSellButton.onClick.AddListener(ConfirmFilteredMonsterSale);
+            autoSellSettingsButton.onClick.AddListener(() =>
+                autoSellDialog?.OpenMonsters());
             sortDirectionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
