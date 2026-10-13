@@ -863,6 +863,51 @@ namespace MixMaster.Monsters
             HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
         }
 
+        /// <summary>
+        /// Revive a fallen member with a percentage of their current maximum
+        /// HP. Does not heal to full or change their individual battle order.
+        /// MP stays at the amount present when the member fell.
+        /// </summary>
+        public bool ReviveWithHpPercent(float hpPercent)
+        {
+            if (isAlive)
+                return false;
+
+            long maximum = Math.Max(1L, stats.maxHp);
+            double desired = Math.Ceiling(maximum *
+                (double)Mathf.Clamp01(hpPercent));
+            currentHp = desired >= long.MaxValue
+                ? long.MaxValue
+                : Math.Max(1L, (long)desired);
+            currentHp = Math.Min(maximum, currentHp);
+            isAlive = true;
+
+            if (hitFlashRoutine != null)
+            {
+                StopCoroutine(hitFlashRoutine);
+                hitFlashRoutine = null;
+            }
+
+            if (spriteRenderer != null)
+                spriteRenderer.color = originalColor;
+
+            SetCurrentTarget(null);
+            targetRefreshTimer = 0f;
+            SetAttackGauge(0f);
+            if (follower == null)
+                follower = GetComponent<MonsterTrailFollower>();
+            if (follower != null)
+            {
+                follower.SetCombatControlled(false);
+                follower.StopCombatMovement();
+            }
+
+            RefreshHpSlider();
+            HpChanged?.Invoke(currentHp, maximum);
+            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            return true;
+        }
+
         public void RestoreFullMp()
         {
             currentMp = Math.Max(0L, stats.maxMp);
