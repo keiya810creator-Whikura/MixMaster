@@ -69,7 +69,9 @@ namespace MixMaster.UI
             MonsterCatalogSO newCatalog,
             bool showIvs = false,
             IReadOnlyList<string> partyIds = null,
-            CharacterStats preparedStats = null)
+            CharacterStats preparedStats = null,
+            Sprite favoriteSprite = null,
+            Sprite lockSprite = null)
         {
             Record = record;
             catalog = newCatalog;
@@ -79,9 +81,17 @@ namespace MixMaster.UI
 
             if (record == null)
             {
+                InventoryProtectionIcons.Set(transform, false, false,
+                    favoriteSprite, lockSprite,
+                    new Vector2(20f, -26f), new Vector2(64f, -26f));
                 Clear();
                 return;
             }
+
+            InventoryProtectionIcons.Set(transform,
+                record.isFavorite, record.isLocked,
+                favoriteSprite, lockSprite,
+                new Vector2(20f, -26f), new Vector2(64f, -26f));
 
             MonsterSO monster =
                 catalog != null
@@ -127,10 +137,7 @@ namespace MixMaster.UI
                           "》"
                         : string.Empty;
 
-                monsterNameText.text =
-                    (record.isLocked ? "🔒 " : "") +
-                    (record.isFavorite ? "★ " : "") +
-                    titlePrefix + monsterName;
+                monsterNameText.text = titlePrefix + monsterName;
             }
 
             if (levelText != null)
