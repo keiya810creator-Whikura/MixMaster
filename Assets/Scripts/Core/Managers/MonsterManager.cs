@@ -103,13 +103,31 @@ namespace MixMaster.Core
             return true;
         }
 
-        // Default economy: each monster sells for 100 gold per level.
-        // Clamp to a safe long value for future high-level monsters.
+        /// <summary>
+        /// Gold = numeric suffix of monster ID (MON_025 -> 25) x level.
+        /// A titled individual sells for twice the normal value.
+        /// Saturating multiplication protects long overflow.
+        /// </summary>
         public long GetMonsterSaleGold(OwnedMonsterRecord record)
         {
-            return record == null ? 0L
-                : LongMath.SaturatingMultiply(
-                    Math.Max(1, record.level), 100L);
+            if (record == null || string.IsNullOrWhiteSpace(record.monsterId))
+                return 0L;
+
+            string id = record.monsterId.Trim();
+            int underscore = id.LastIndexOf('_');
+            string numeric = underscore >= 0
+                ? id.Substring(underscore + 1) : id;
+            if (!long.TryParse(numeric,
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out long number) || number <= 0L)
+                return 0L;
+
+            long gold = LongMath.SaturatingMultiply(
+                number, Math.Max(1, record.level));
+            if (!string.IsNullOrWhiteSpace(record.titleId))
+                gold = LongMath.SaturatingMultiply(gold, 2L);
+            return gold;
         }
 
         public bool TrySellMonster(string uniqueId, out long goldGained)
