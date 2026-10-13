@@ -62,8 +62,33 @@ namespace MixMaster.Monsters
 
         private void HandleDefeated(EnemyHealth defeatedEnemy)
         {
-            if (monsterDefinition == null ||
-                monsterDefinition.experienceReward <= 0L)
+            if (monsterDefinition == null) return;
+
+            // Award exactly once from the enemy death event, regardless of
+            // the killing attacker. The reward follows monster sale pricing:
+            // numeric ID x enemy level, doubled for titled enemies.
+            string monsterId = monsterDefinition.monsterId ?? string.Empty;
+            int suffix = monsterId.LastIndexOf('_');
+            string numberText = suffix >= 0
+                ? monsterId.Substring(suffix + 1) : monsterId;
+            if (long.TryParse(numberText,
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out long monsterNumber) && monsterNumber > 0L)
+            {
+                long goldReward = LongMath.SaturatingMultiply(
+                    monsterNumber, Mathf.Max(1, level));
+                if (title != null)
+                    goldReward = LongMath.SaturatingMultiply(goldReward, 2L);
+
+                GameManager game = GameManager.Instance != null
+                    ? GameManager.Instance
+                    : FindFirstObjectByType<GameManager>();
+                if (game != null)
+                    game.AddGold(goldReward);
+            }
+
+            if (monsterDefinition.experienceReward <= 0L)
                 return;
 
             // Every battle participant gets the same experience, regardless
