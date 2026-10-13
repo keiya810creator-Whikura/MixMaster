@@ -21,6 +21,9 @@ namespace MixMaster.UI
         [SerializeField] private Toggle displayModeToggle;
         [SerializeField] private TMP_Text displayModeText;
         [SerializeField] private OwnedMonsterDetailUI detailPanel;
+        [Header("Protection Icons")]
+        [SerializeField] private Sprite favoriteSprite;
+        [SerializeField] private Sprite lockSprite;
 
         [Header("Input")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -37,6 +40,10 @@ namespace MixMaster.UI
         private Button nextPageButton;
         private TMP_Text pageNumberText;
         private TMP_Text goldText;
+        private TMP_Dropdown favoriteFilter;
+        private TMP_Dropdown lockFilter;
+        private Button bulkSellButton;
+        private InventoryBulkSaleDialog bulkSaleDialog;
         private GameManager gameManager;
 
         private MonsterManager monsterManager;
@@ -91,6 +98,7 @@ namespace MixMaster.UI
             RefreshDisplayModeText();
             EnsureSortingControls();
             EnsurePagingControls();
+            EnsureBulkSaleDialog();
         }
 
         private void OnEnable()
@@ -171,9 +179,17 @@ namespace MixMaster.UI
             int sortValue = sortDropdown != null ? sortDropdown.value : 0;
             int filterValue = statFilterDropdown != null ? statFilterDropdown.value : 0;
             int thresholdValue = thresholdDropdown != null ? thresholdDropdown.value : 0;
+            int favoriteValue = favoriteFilter != null ? favoriteFilter.value : 0;
+            int lockValue = lockFilter != null ? lockFilter.value : 0;
 
             for (int i = 0; i < owned.Count; i++)
-                if (owned[i] != null) filteredIndices.Add(i);
+            {
+                OwnedMonsterRecord record = owned[i];
+                if (record != null &&
+                    InventoryProtectionIcons.Pass(record.isFavorite, favoriteValue) &&
+                    InventoryProtectionIcons.Pass(record.isLocked, lockValue))
+                    filteredIndices.Add(i);
+            }
 
             // Lazy: with acquisition or level ordering and no numeric
             // filters, calculate stats only for the visible page.
@@ -211,6 +227,10 @@ namespace MixMaster.UI
                     cmp = b.CompareTo(a);
                 else if (sortValue == 1)
                     cmp = owned[b].level.CompareTo(owned[a].level);
+                else if (sortValue == InventoryStatFilter.Labels.Length + 1)
+                    cmp = owned[b].isFavorite.CompareTo(owned[a].isFavorite);
+                else if (sortValue == InventoryStatFilter.Labels.Length + 2)
+                    cmp = owned[b].isLocked.CompareTo(owned[a].isLocked);
                 else
                 {
                     InventoryStat stat = (InventoryStat)(sortValue - 1);
@@ -272,11 +292,13 @@ namespace MixMaster.UI
                 entry.name = "OwnedMonster_" + record.uniqueId;
                 entry.Bind(record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
-                    showIndividualValues ? null : GetCachedStats(record));
+                    showIndividualValues ? null : GetCachedStats(record),
+                    favoriteSprite, lockSprite);
             }
 
             RefreshCount(filteredIndices.Count);
             RefreshPageControls();
+            RefreshBulkSaleButton();
             ScrollRect scroll = contentRoot.GetComponentInParent<ScrollRect>();
             if (scroll != null) scroll.verticalNormalizedPosition = 1f;
         }
@@ -298,7 +320,8 @@ namespace MixMaster.UI
                     entry.Record == null) continue;
                 entry.Bind(entry.Record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
-                    showIndividualValues ? null : GetCachedStats(entry.Record));
+                    showIndividualValues ? null : GetCachedStats(entry.Record),
+                    favoriteSprite, lockSprite);
             }
             RefreshCount(filteredIndices.Count);
             RefreshGoldText();
@@ -411,6 +434,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
             monsterManager.MonsterSold += HandleMonsterSold;
+            monsterManager.MonstersBulkSold += HandleMonstersBulkSold;
             if (gameManager != null)
             {
                 gameManager.GoldChanged -= HandleGoldChanged;
@@ -439,6 +463,7 @@ namespace MixMaster.UI
                 HandleMonsterObtained;
             monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
             monsterManager.MonsterSold -= HandleMonsterSold;
+            monsterManager.MonstersBulkSold -= HandleMonstersBulkSold;
             if (gameManager != null)
                 gameManager.GoldChanged -= HandleGoldChanged;
             monsterManager.MonsterExperienceChanged -=
@@ -512,7 +537,7 @@ namespace MixMaster.UI
 
         private void HandleProtectionChanged(OwnedMonsterRecord record)
         {
-            RefreshAll();
+            Rebuild();
         }
 
         private void HandleMonsterSold(string uniqueId)
@@ -520,6 +545,16 @@ namespace MixMaster.UI
             statCache.Remove(uniqueId);
             if (detailPanel != null && detailPanel.SelectedRecord != null &&
                 detailPanel.SelectedRecord.uniqueId == uniqueId)
+                detailPanel.Hide();
+            Rebuild();
+        }
+
+        private void HandleMonstersBulkSold()
+        {
+            statCache.Clear();
+            if (detailPanel != null && detailPanel.SelectedRecord != null &&
+                monsterManager.FindOwnedMonster(
+                    detailPanel.SelectedRecord.uniqueId) == null)
                 detailPanel.Hide();
             Rebuild();
         }
@@ -560,7 +595,8 @@ namespace MixMaster.UI
 
                 entry.Bind(record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
-                    showIndividualValues ? null : GetCachedStats(record));
+                    showIndividualValues ? null : GetCachedStats(record),
+                    favoriteSprite, lockSprite);
                 break;
             }
         }
@@ -610,6 +646,8 @@ namespace MixMaster.UI
             var choices = new List<string> { "入手順", "レベル" };
             for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
                 choices.Add(InventoryStatFilter.Labels[i]);
+            choices.Add("お気に入り優先");
+            choices.Add("ロック優先");
             return choices.ToArray();
         }
 
