@@ -668,6 +668,163 @@ namespace MixMaster.UI
             RefreshActionControls();
         }
 
+        private void EnsureSaleActions()
+        {
+            if (favoriteButton != null) return;
+
+            favoriteButton = InventoryUiFactory.Button(transform,
+                "FavoriteEquipment", "☆ お気に入り",
+                new Vector2(23f, 0f), new Vector2(240f, 54f));
+            lockButton = InventoryUiFactory.Button(transform,
+                "LockEquipment", "ロックする",
+                new Vector2(278f, 0f), new Vector2(240f, 54f));
+            sellButton = InventoryUiFactory.Button(transform,
+                "SellEquipment", "売却",
+                new Vector2(533f, 0f), new Vector2(300f, 54f));
+
+            var controls = new[] { favoriteButton, lockButton, sellButton };
+            float[] positions = { 23f, 278f, 533f };
+            for (int i = 0; i < controls.Length; i++)
+            {
+                RectTransform rect = controls[i].GetComponent<RectTransform>();
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.zero;
+                rect.pivot = Vector2.zero;
+                rect.anchoredPosition = new Vector2(positions[i], 215f);
+            }
+            favoriteLabel = favoriteButton.GetComponentInChildren<TMP_Text>();
+            lockLabel = lockButton.GetComponentInChildren<TMP_Text>();
+            sellLabel = sellButton.GetComponentInChildren<TMP_Text>();
+            sellButton.GetComponent<Image>().color =
+                new Color(0.49f, 0.24f, 0.22f, 1f);
+
+            favoriteButton.onClick.AddListener(() =>
+            {
+                EquipmentRecord selected = manager != null
+                    ? manager.FindEquipment(inspectedId) : null;
+                if (selected == null) return;
+                manager.SetFavorite(selected.uniqueId, !selected.isFavorite);
+                Inspect(selected);
+            });
+            lockButton.onClick.AddListener(() =>
+            {
+                EquipmentRecord selected = manager != null
+                    ? manager.FindEquipment(inspectedId) : null;
+                if (selected == null) return;
+                manager.SetLocked(selected.uniqueId, !selected.isLocked);
+                Inspect(selected);
+            });
+            sellButton.onClick.AddListener(ConfirmSingleSale);
+
+            // Keep paging/detail actions clear of the longer filtering bar.
+            ScrollRect scroll = contentRoot != null
+                ? contentRoot.GetComponentInParent<ScrollRect>(true) : null;
+            if (scroll != null)
+            {
+                RectTransform rect = scroll.GetComponent<RectTransform>();
+                rect.offsetMax = new Vector2(rect.offsetMax.x,
+                    Mathf.Min(rect.offsetMax.y, -325f));
+                rect.offsetMin = new Vector2(rect.offsetMin.x,
+                    Mathf.Max(rect.offsetMin.y, 300f));
+            }
+        }
+
+        private void RefreshSaleActions()
+        {
+            EquipmentRecord selected = manager != null
+                ? manager.FindEquipment(inspectedId) : null;
+            if (favoriteButton == null) return;
+
+            favoriteButton.interactable = selected != null;
+            lockButton.interactable = selected != null;
+            bool canSell = manager != null && manager.CanSell(selected);
+            sellButton.interactable = canSell;
+
+            if (favoriteLabel != null)
+                favoriteLabel.text = selected != null && selected.isFavorite
+                    ? "★ お気に入り" : "☆ お気に入り";
+            if (lockLabel != null)
+                lockLabel.text = selected != null && selected.isLocked
+                    ? "ロック解除" : "ロックする";
+            if (sellLabel != null)
+                sellLabel.text = selected != null && manager != null
+                    ? "売却 " + manager.GetEquipmentSaleGold(selected).ToString("N0") + " G"
+                    : "売却";
+        }
+
+        private void RefreshBulkSellButton()
+        {
+            if (bulkSellButton == null || manager == null) return;
+            bool any = false;
+            foreach (string id in filteredIds)
+            {
+                if (!manager.CanSell(manager.FindEquipment(id))) continue;
+                any = true;
+                break;
+            }
+            bulkSellButton.interactable = any;
+        }
+
+        private void ConfirmSingleSale()
+        {
+            if (manager == null || string.IsNullOrEmpty(inspectedId)) return;
+            EquipmentRecord selected = manager.FindEquipment(inspectedId);
+            if (!manager.CanSell(selected)) return;
+
+            string id = selected.uniqueId;
+            string name = GetDisplayName(selected);
+            long gold = manager.GetEquipmentSaleGold(selected);
+            saleDialog.Show(
+                name + " を売却しますか？\n\n" +
+                "獲得: " + gold.ToString("N0") + " G\n" +
+                "※装備は消失し、元に戻せません。",
+                () =>
+                {
+                    if (!manager.TrySellEquipment(id, out long earned)) return;
+                    if (inspectedId == id) inspectedId = null;
+                    if (detailText != null)
+                        detailText.text = "売却しました: " + earned.ToString("N0") + " G";
+                    RefreshActionControls();
+                });
+        }
+
+        private void ConfirmBulkSale()
+        {
+            if (manager == null) return;
+            var ids = new List<string>();
+            long gold = 0L;
+            foreach (string id in filteredIds)
+            {
+                EquipmentRecord record = manager.FindEquipment(id);
+                if (!manager.CanSell(record)) continue;
+                ids.Add(id);
+                gold = LongMath.SaturatingAdd(
+                    gold, manager.GetEquipmentSaleGold(record));
+            }
+            if (ids.Count == 0) return;
+
+            saleDialog.Show(
+                "絞り込んだ装備を一括売却しますか？\n\n" +
+                "対象: " + ids.Count.ToString("N0") +
+                "個 ／ 合計: " + gold.ToString("N0") + " G\n\n" +
+                "ロック・お気に入り・装備中は除外済みです。" +
+                "\nこの操作は元に戻せません。",
+                () =>
+                {
+                    if (manager == null) return;
+                    int sold = manager.SellEquipmentBatch(ids,
+                        out long earned);
+                    if (sold > 0 && manager.FindEquipment(inspectedId) == null)
+                    {
+                        inspectedId = null;
+                        if (detailText != null)
+                            detailText.text = "一括売却: " +
+                                sold.ToString("N0") + "個  " +
+                                earned.ToString("N0") + " G";
+                    }
+                });
+        }
+
         private void EnsureControls()
         {
             Transform parent = transform.Find("FilterControls");
