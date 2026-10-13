@@ -68,6 +68,7 @@ namespace MixMaster.Core
         public event Action PartyChanged;
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
         public event Action<string> MonsterSold;
+        public event Action MonstersBulkSold;
 
         /// <summary>
         /// Selling is intentionally restricted for party, favorite and locked
@@ -128,6 +129,55 @@ namespace MixMaster.Core
             if (!string.IsNullOrWhiteSpace(record.titleId))
                 gold = LongMath.SaturatingMultiply(gold, 2L);
             return gold;
+        }
+
+        /// <summary>
+        /// Sell only eligible monsters from a *snapshot* of filtered IDs.
+        /// Party, favorite and locked records are always excluded.
+        /// All changes are published once to avoid 500 UI rebuilds.
+        /// </summary>
+        public int SellMonstersBatch(IReadOnlyList<string> selectedIds,
+            out long earnedGold)
+        {
+            earnedGold = 0L;
+            if (selectedIds == null || selectedIds.Count == 0)
+                return 0;
+
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            if (game == null)
+                return 0;
+
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            var toSell = new List<OwnedMonsterRecord>();
+            foreach (string id in selectedIds)
+            {
+                if (string.IsNullOrWhiteSpace(id) || !unique.Add(id))
+                    continue;
+                OwnedMonsterRecord record = FindOwnedMonster(id);
+                if (IsProtectedFromConsumption(record))
+                    continue;
+
+                toSell.Add(record);
+                earnedGold = LongMath.SaturatingAdd(
+                    earnedGold, GetMonsterSaleGold(record));
+            }
+
+            if (toSell.Count == 0)
+                return 0;
+
+            EquipmentManager equipment = GetComponent<EquipmentManager>() ??
+                FindFirstObjectByType<EquipmentManager>();
+            foreach (OwnedMonsterRecord record in toSell)
+            {
+                if (equipment != null)
+                    equipment.UnequipAllFromMonster(record);
+                ownedMonsters.Remove(record);
+            }
+
+            game.AddGold(earnedGold);
+            MonstersBulkSold?.Invoke();
+            return toSell.Count;
         }
 
         public bool TrySellMonster(string uniqueId, out long goldGained)
