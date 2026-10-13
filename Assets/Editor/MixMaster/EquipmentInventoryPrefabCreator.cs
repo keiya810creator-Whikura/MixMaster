@@ -10,7 +10,7 @@ namespace MixMaster.EditorTools
 {
     public static class EquipmentInventoryPrefabCreator
     {
-        private const string PrefabPath =
+        internal const string PrefabPath =
             "Assets/Prefab/UI/EquipmentInventoryPanel.prefab";
 
         [MenuItem("MixMaster/UI/装備インベントリを作成・接続")]
@@ -121,7 +121,7 @@ namespace MixMaster.EditorTools
             return inventory;
         }
 
-        private static GameObject BuildPrefab()
+        internal static GameObject BuildPrefab()
         {
             GameObject root = new GameObject(
                 "EquipmentInventoryPanel", typeof(RectTransform),
