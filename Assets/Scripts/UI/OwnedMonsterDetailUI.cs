@@ -43,6 +43,15 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Dropdown behaviorDropdown;
 
         private MonsterManager monsterManager;
+        private Button favoriteButton;
+        private Button lockButton;
+        private Button sellButton;
+        private TMP_Text favoriteButtonText;
+        private TMP_Text lockButtonText;
+        private TMP_Text saleStatusText;
+        private GameObject sellConfirmOverlay;
+        private TMP_Text saleConfirmText;
+        private Button confirmSellButton;
         private bool partySubscribed;
 
         private OwnedMonsterRecord selectedRecord;
@@ -56,6 +65,7 @@ namespace MixMaster.UI
         {
             EnsureBehaviorDropdown();
             EnsureEquipmentButton();
+            EnsureProtectionControls();
             if (equipmentInventoryButton != null)
                 equipmentInventoryButton.onClick.AddListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
@@ -263,6 +273,7 @@ namespace MixMaster.UI
 
             RefreshPartyControls();
             RefreshBehaviorDropdown();
+            RefreshProtectionControls();
         }
 
         private EquipmentManager equipmentManager;
@@ -571,6 +582,8 @@ namespace MixMaster.UI
                 return;
 
             monsterManager.PartyChanged += HandlePartyChanged;
+            monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
+            monsterManager.MonsterSold += HandleMonsterSold;
             monsterManager.MonsterExperienceChanged += HandleExperienceChanged;
             partySubscribed = true;
         }
@@ -583,6 +596,8 @@ namespace MixMaster.UI
             if (monsterManager != null)
             {
                 monsterManager.PartyChanged -= HandlePartyChanged;
+                monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
+                monsterManager.MonsterSold -= HandleMonsterSold;
                 monsterManager.MonsterExperienceChanged -= HandleExperienceChanged;
             }
 
@@ -594,11 +609,196 @@ namespace MixMaster.UI
             RefreshPartyControls();
         }
 
+        private void HandleProtectionChanged(OwnedMonsterRecord record)
+        {
+            if (selectedRecord != null && record != null &&
+                selectedRecord.uniqueId == record.uniqueId)
+                RefreshProtectionControls();
+        }
+
+        private void HandleMonsterSold(string uniqueId)
+        {
+            if (selectedRecord != null &&
+                selectedRecord.uniqueId == uniqueId)
+            {
+                selectedRecord = null;
+                Hide();
+            }
+        }
+
         private void HandleExperienceChanged(OwnedMonsterRecord record)
         {
             if (selectedRecord != null && record != null &&
                 selectedRecord.uniqueId == record.uniqueId)
                 Refresh();
+        }
+
+        private void EnsureProtectionControls()
+        {
+            if (favoriteButton != null) return;
+            Transform content = transform.Find("ScrollView/Viewport/Content");
+            if (content == null) return;
+
+            GameObject section = new GameObject(
+                "MonsterProtectionAndSale", typeof(RectTransform),
+                typeof(Image), typeof(LayoutElement));
+            section.transform.SetParent(content, false);
+            LayoutElement layout = section.GetComponent<LayoutElement>();
+            layout.preferredHeight = 175f;
+            layout.minHeight = 175f;
+            Image image = section.GetComponent<Image>();
+            image.color = new Color(0.12f, 0.17f, 0.23f, 1f);
+            image.raycastTarget = false;
+
+            favoriteButton = InventoryUiFactory.Button(section.transform,
+                "FavoriteButton", "☆ お気に入り",
+                new Vector2(15f, -20f), new Vector2(265f, 60f));
+            lockButton = InventoryUiFactory.Button(section.transform,
+                "LockButton", "ロック",
+                new Vector2(294f, -20f), new Vector2(250f, 60f));
+            sellButton = InventoryUiFactory.Button(section.transform,
+                "SellMonsterButton", "売却",
+                new Vector2(557f, -20f), new Vector2(265f, 60f));
+            sellButton.GetComponent<Image>().color =
+                new Color(0.47f, 0.25f, 0.22f, 1f);
+            favoriteButtonText = favoriteButton.GetComponentInChildren<TMP_Text>();
+            lockButtonText = lockButton.GetComponentInChildren<TMP_Text>();
+
+            saleStatusText = InventoryUiFactory.Text(
+                section.transform, "SaleStatus",
+                "売却額: -", new Vector2(18f, -96f),
+                new Vector2(805f, 60f), 23f);
+
+            favoriteButton.onClick.AddListener(ToggleFavorite);
+            lockButton.onClick.AddListener(ToggleLock);
+            sellButton.onClick.AddListener(OpenSellConfirmation);
+
+            CreateSellConfirmation();
+        }
+
+        private void CreateSellConfirmation()
+        {
+            if (sellConfirmOverlay != null) return;
+            GameObject overlay = new GameObject(
+                "MonsterSellConfirmation", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(transform, false);
+            InventoryUiFactory.Stretch(overlay.GetComponent<RectTransform>());
+            Image cover = overlay.GetComponent<Image>();
+            cover.color = new Color(0.015f, 0.026f, 0.042f, 0.96f);
+            cover.raycastTarget = true;
+
+            GameObject box = new GameObject(
+                "ConfirmBox", typeof(RectTransform), typeof(Image));
+            box.transform.SetParent(overlay.transform, false);
+            RectTransform boxRect = box.GetComponent<RectTransform>();
+            boxRect.anchorMin = new Vector2(0.08f, 0.32f);
+            boxRect.anchorMax = new Vector2(0.92f, 0.69f);
+            boxRect.offsetMin = Vector2.zero;
+            boxRect.offsetMax = Vector2.zero;
+            box.GetComponent<Image>().color =
+                new Color(0.12f, 0.18f, 0.26f, 1f);
+
+            saleConfirmText = InventoryUiFactory.Text(
+                box.transform, "ConfirmMessage",
+                "このモンスターを売却しますか？",
+                new Vector2(26f, -32f), new Vector2(740f, 135f), 30f);
+            saleConfirmText.enableWordWrapping = true;
+
+            Button cancel = InventoryUiFactory.Button(
+                box.transform, "Cancel", "キャンセル",
+                new Vector2(30f, -200f), new Vector2(320f, 70f));
+            confirmSellButton = InventoryUiFactory.Button(
+                box.transform, "ConfirmSell", "売却する",
+                new Vector2(385f, -200f), new Vector2(320f, 70f));
+            confirmSellButton.GetComponent<Image>().color =
+                new Color(0.52f, 0.22f, 0.21f, 1f);
+
+            cancel.onClick.AddListener(() => overlay.SetActive(false));
+            confirmSellButton.onClick.AddListener(ConfirmSale);
+            sellConfirmOverlay = overlay;
+            overlay.SetActive(false);
+        }
+
+        private void RefreshProtectionControls()
+        {
+            if (favoriteButton == null || selectedRecord == null) return;
+            bool protectedFromSale = monsterManager == null ||
+                monsterManager.IsProtectedFromConsumption(selectedRecord);
+            if (favoriteButtonText != null)
+                favoriteButtonText.text = selectedRecord.isFavorite
+                    ? "★ お気に入り" : "☆ お気に入り";
+            if (lockButtonText != null)
+                lockButtonText.text = selectedRecord.isLocked
+                    ? "🔒 ロック中" : "ロックする";
+
+            if (saleStatusText != null)
+                saleStatusText.text = monsterManager == null
+                    ? "売却データを取得できません"
+                    : "売却額: " +
+                        monsterManager.GetMonsterSaleGold(selectedRecord)
+                            .ToString("N0") + " G" +
+                        (protectedFromSale
+                            ? "　(編成中・ロック・お気に入りは売却不可)"
+                            : "");
+            if (sellButton != null)
+                sellButton.interactable = !protectedFromSale;
+        }
+
+        private void ToggleFavorite()
+        {
+            if (monsterManager == null || selectedRecord == null) return;
+            monsterManager.SetFavorite(
+                selectedRecord.uniqueId, !selectedRecord.isFavorite);
+            RefreshProtectionControls();
+        }
+
+        private void ToggleLock()
+        {
+            if (monsterManager == null || selectedRecord == null) return;
+            monsterManager.SetLocked(
+                selectedRecord.uniqueId, !selectedRecord.isLocked);
+            RefreshProtectionControls();
+        }
+
+        private void OpenSellConfirmation()
+        {
+            if (monsterManager == null || selectedRecord == null ||
+                monsterManager.IsProtectedFromConsumption(selectedRecord) ||
+                sellConfirmOverlay == null) return;
+
+            MonsterSO monster = catalog != null
+                ? catalog.GetMonster(selectedRecord.monsterId) : null;
+            string name = monster != null &&
+                !string.IsNullOrWhiteSpace(monster.displayName)
+                ? monster.displayName : selectedRecord.monsterId;
+            if (saleConfirmText != null)
+                saleConfirmText.text = name + " (Lv." +
+                    selectedRecord.level + ") を売却しますか？\n" +
+                    "獲得: " + monsterManager.GetMonsterSaleGold(
+                        selectedRecord).ToString("N0") + " G\n" +
+                    "※売却した仲間は戻せません。装備品は残ります。";
+            sellConfirmOverlay.SetActive(true);
+            sellConfirmOverlay.transform.SetAsLastSibling();
+        }
+
+        private void ConfirmSale()
+        {
+            if (monsterManager == null || selectedRecord == null) return;
+            string id = selectedRecord.uniqueId;
+            if (!monsterManager.TrySellMonster(id, out long goldEarned))
+            {
+                if (sellConfirmText != null)
+                    sellConfirmText.text =
+                        "売却できません。編成・ロック・お気に入りを確認してください。";
+                RefreshProtectionControls();
+                return;
+            }
+
+            if (sellConfirmOverlay != null)
+                sellConfirmOverlay.SetActive(false);
+            // MonsterSold also hides this panel and rebuilds the inventory.
+            selectedRecord = null;
+            Hide();
         }
 
         private void ToggleParty()
