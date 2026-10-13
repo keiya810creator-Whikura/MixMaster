@@ -52,6 +52,11 @@ namespace MixMaster.Core
 
         public float intimacy;
 
+        // Saved per individual. Both prevent selling and future breeding
+        // consumption until explicitly turned off.
+        public bool isFavorite;
+        public bool isLocked;
+
         public List<string> equippedItemUniqueIds =
             new List<string>(3);
     }
