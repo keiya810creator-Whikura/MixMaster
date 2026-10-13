@@ -153,6 +153,8 @@ namespace MixMaster.UI
 
         public void Hide()
         {
+            if (sellConfirmOverlay != null)
+                sellConfirmOverlay.SetActive(false);
             if (gameObject.activeSelf)
                 gameObject.SetActive(false);
         }
