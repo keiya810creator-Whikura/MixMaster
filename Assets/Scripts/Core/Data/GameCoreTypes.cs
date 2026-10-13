@@ -96,6 +96,8 @@ namespace MixMaster.Core
         public string equipmentId;
         public int level = 1;
         public long baseValue = 1;
+        public bool isFavorite;
+        public bool isLocked;
     }
 
     [Serializable]
