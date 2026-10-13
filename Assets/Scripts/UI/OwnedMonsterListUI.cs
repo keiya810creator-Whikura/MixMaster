@@ -26,8 +26,18 @@ namespace MixMaster.UI
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
         [SerializeField] private bool disableJoystickWhileOpen = true;
 
+        private const int PageSize = 30;
         private readonly List<OwnedMonsterEntryUI> entries =
-            new List<OwnedMonsterEntryUI>();
+            new List<OwnedMonsterEntryUI>(PageSize);
+        private readonly List<int> filteredIndices = new List<int>();
+        private readonly Dictionary<string, CharacterStats> statCache =
+            new Dictionary<string, CharacterStats>(StringComparer.Ordinal);
+        private int pageIndex;
+        private Button previousPageButton;
+        private Button nextPageButton;
+        private TMP_Text pageNumberText;
+        private TMP_Text goldText;
+        private GameManager gameManager;
 
         private MonsterManager monsterManager;
         private MonsterCatalogSO catalog;
@@ -80,6 +90,7 @@ namespace MixMaster.UI
 
             RefreshDisplayModeText();
             EnsureSortingControls();
+            EnsurePagingControls();
         }
 
         private void OnEnable()
@@ -145,73 +156,55 @@ namespace MixMaster.UI
         public void Rebuild()
         {
             CacheReferences();
+            filteredIndices.Clear();
 
-            ClearEntries();
-
-            if (contentRoot == null ||
-                entryPrefab == null ||
+            if (contentRoot == null || entryPrefab == null ||
                 monsterManager == null)
             {
-                RefreshCount();
+                HidePooledEntries();
+                RefreshCount(0);
+                RefreshPageControls();
                 return;
             }
 
-            IReadOnlyList<OwnedMonsterRecord> owned =
-                monsterManager.OwnedMonsters;
-
-            var statsById = new Dictionary<string, CharacterStats>();
-            var indices = new List<int>();
-            for (int i = 0; i < owned.Count; i++)
-            {
-                OwnedMonsterRecord record = owned[i];
-                if (record == null) continue;
-                indices.Add(i);
-                statsById[record.uniqueId] = CalculateStats(record);
-            }
-
+            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
             int sortValue = sortDropdown != null ? sortDropdown.value : 0;
-            int filterValue = statFilterDropdown != null
-                ? statFilterDropdown.value : 0;
-            int thresholdValue = thresholdDropdown != null
-                ? thresholdDropdown.value : 0;
+            int filterValue = statFilterDropdown != null ? statFilterDropdown.value : 0;
+            int thresholdValue = thresholdDropdown != null ? thresholdDropdown.value : 0;
 
-            // Choose a relative threshold among all owned monsters. This is
-            // meaningful for raw HP/Attack/etc., which are usually nonzero
-            // on every monster (unlike equipment modifiers).
-            if (filterValue > 0 && indices.Count > 0)
+            for (int i = 0; i < owned.Count; i++)
+                if (owned[i] != null) filteredIndices.Add(i);
+
+            // Lazy: with acquisition or level ordering and no numeric
+            // filters, calculate stats only for the visible page.
+            if (filterValue > 0 && filteredIndices.Count > 0)
             {
-                var orderedScores = new List<double>();
-                foreach (int index in indices)
-                {
-                    CharacterStats stats = statsById[owned[index].uniqueId];
-                    orderedScores.Add(InventoryStatFilter.GetValue(
-                        stats, (InventoryStat)filterValue));
-                }
-
+                InventoryStat selected = (InventoryStat)filterValue;
                 if (thresholdValue < 3)
                 {
-                    orderedScores.Sort((a, b) => b.CompareTo(a));
+                    var scores = new List<double>(filteredIndices.Count);
+                    foreach (int index in filteredIndices)
+                        scores.Add(InventoryStatFilter.GetValue(
+                            GetCachedStats(owned[index]), selected));
+
+                    scores.Sort((x, y) => y.CompareTo(x));
                     float fraction = thresholdValue == 0 ? 0.25f :
-                        thresholdValue == 1 ? 0.50f : 0.75f;
+                        thresholdValue == 1 ? 0.5f : 0.75f;
                     int cutoff = Mathf.Clamp(
-                        Mathf.CeilToInt(orderedScores.Count * fraction) - 1,
-                        0, orderedScores.Count - 1);
-                    double minimum = orderedScores[cutoff];
-                    indices.RemoveAll(index =>
+                        Mathf.CeilToInt(scores.Count * fraction) - 1,
+                        0, scores.Count - 1);
+                    double minimum = scores[cutoff];
+                    filteredIndices.RemoveAll(index =>
                         InventoryStatFilter.GetValue(
-                            statsById[owned[index].uniqueId],
-                            (InventoryStat)filterValue) < minimum);
+                            GetCachedStats(owned[index]), selected) < minimum);
                 }
                 else
-                {
-                    indices.RemoveAll(index =>
+                    filteredIndices.RemoveAll(index =>
                         Math.Abs(InventoryStatFilter.GetValue(
-                            statsById[owned[index].uniqueId],
-                            (InventoryStat)filterValue)) < 0.000001d);
-                }
+                            GetCachedStats(owned[index]), selected)) < 0.000001d);
             }
 
-            indices.Sort((a, b) =>
+            filteredIndices.Sort((a, b) =>
             {
                 int cmp;
                 if (sortValue == 0)
@@ -220,64 +213,115 @@ namespace MixMaster.UI
                     cmp = owned[b].level.CompareTo(owned[a].level);
                 else
                 {
-                    InventoryStat metric = (InventoryStat)(sortValue - 1);
-                    double x = InventoryStatFilter.GetValue(
-                        statsById[owned[a].uniqueId], metric);
-                    double y = InventoryStatFilter.GetValue(
-                        statsById[owned[b].uniqueId], metric);
-                    cmp = y.CompareTo(x);
+                    InventoryStat stat = (InventoryStat)(sortValue - 1);
+                    cmp = InventoryStatFilter.GetValue(
+                        GetCachedStats(owned[b]), stat).CompareTo(
+                        InventoryStatFilter.GetValue(
+                            GetCachedStats(owned[a]), stat));
                 }
 
                 if (cmp == 0) cmp = b.CompareTo(a);
                 return ascending ? -cmp : cmp;
             });
 
-            foreach (int index in indices)
+            int pages = Math.Max(1, (filteredIndices.Count + PageSize - 1) / PageSize);
+            pageIndex = Mathf.Clamp(pageIndex, 0, pages - 1);
+            RenderPage();
+        }
+
+        private CharacterStats GetCachedStats(OwnedMonsterRecord record)
+        {
+            if (record == null) return null;
+            string key = record.uniqueId ?? string.Empty;
+            if (!statCache.TryGetValue(key, out CharacterStats stats))
             {
-                OwnedMonsterRecord record = owned[index];
+                stats = CalculateStats(record);
+                statCache[key] = stats;
+            }
+            return stats;
+        }
 
-                OwnedMonsterEntryUI entry =
-                    Instantiate(
-                        entryPrefab,
-                        contentRoot);
+        private void RenderPage()
+        {
+            if (monsterManager == null || entryPrefab == null || contentRoot == null)
+                return;
+            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
+            int start = pageIndex * PageSize;
+            int visible = Mathf.Min(PageSize, Mathf.Max(0,
+                filteredIndices.Count - start));
 
-                entry.name =
-                    "OwnedMonster_" +
-                    record.uniqueId;
-
-                entry.Bind(
-                    record,
-                    catalog,
-                    showIndividualValues,
-                    monsterManager.PartyMonsterUniqueIds);
+            // No more than 30 instantiated entry prefabs, even with 5000
+            // owned monsters. Rebind these existing views every page.
+            while (entries.Count < visible)
+            {
+                OwnedMonsterEntryUI entry = Instantiate(entryPrefab, contentRoot);
                 entry.SetSelectionHandler(OpenDetail);
-
                 entries.Add(entry);
             }
 
-            RefreshCount(indices.Count);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                OwnedMonsterEntryUI entry = entries[i];
+                if (entry == null) continue;
+                bool show = i < visible;
+                if (entry.gameObject.activeSelf != show)
+                    entry.gameObject.SetActive(show);
+                if (!show) continue;
+
+                OwnedMonsterRecord record = owned[filteredIndices[start + i]];
+                entry.name = "OwnedMonster_" + record.uniqueId;
+                entry.Bind(record, catalog, showIndividualValues,
+                    monsterManager.PartyMonsterUniqueIds,
+                    showIndividualValues ? null : GetCachedStats(record));
+            }
+
+            RefreshCount(filteredIndices.Count);
+            RefreshPageControls();
+            ScrollRect scroll = contentRoot.GetComponentInParent<ScrollRect>();
+            if (scroll != null) scroll.verticalNormalizedPosition = 1f;
+        }
+
+        private void HidePooledEntries()
+        {
+            foreach (OwnedMonsterEntryUI entry in entries)
+                if (entry != null)
+                    entry.gameObject.SetActive(false);
         }
 
         public void RefreshAll()
         {
             CacheReferences();
-
-            for (int i = 0; i < entries.Count; i++)
+            if (monsterManager == null) return;
+            foreach (OwnedMonsterEntryUI entry in entries)
             {
-                OwnedMonsterEntryUI entry =
-                    entries[i];
-
-                if (entry != null)
-                {
-                    entry.Bind(
-                        entry.Record,
-                        catalog,
-                        showIndividualValues,
-                        monsterManager.PartyMonsterUniqueIds);
-                }
+                if (entry == null || !entry.gameObject.activeSelf ||
+                    entry.Record == null) continue;
+                entry.Bind(entry.Record, catalog, showIndividualValues,
+                    monsterManager.PartyMonsterUniqueIds,
+                    showIndividualValues ? null : GetCachedStats(entry.Record));
             }
+            RefreshCount(filteredIndices.Count);
+            RefreshGoldText();
+        }
 
-            RefreshCount(entries.Count);
+        public void NextPage()
+        {
+            if ((pageIndex + 1) * PageSize >= filteredIndices.Count) return;
+            pageIndex++;
+            RenderPage();
+        }
+
+        public void PreviousPage()
+        {
+            if (pageIndex <= 0) return;
+            pageIndex--;
+            RenderPage();
+        }
+
+        private void RequestFirstPage()
+        {
+            pageIndex = 0;
+            Rebuild();
         }
 
         private void HandlePanelOpened()
@@ -297,6 +341,8 @@ namespace MixMaster.UI
                 joystick.SetInteractionEnabled(false);
             }
 
+            // Combat can progress while the list is closed.
+            statCache.Clear();
             Rebuild();
         }
 
@@ -342,6 +388,10 @@ namespace MixMaster.UI
                 joystick =
                     FindFirstObjectByType<FloatingJoystick>();
             }
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
+            if (gameManager == null)
+                gameManager = FindFirstObjectByType<GameManager>();
         }
 
         private void Subscribe()
@@ -359,6 +409,13 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained +=
                 HandleMonsterObtained;
+            monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
+            monsterManager.MonsterSold += HandleMonsterSold;
+            if (gameManager != null)
+            {
+                gameManager.GoldChanged -= HandleGoldChanged;
+                gameManager.GoldChanged += HandleGoldChanged;
+            }
             monsterManager.MonsterExperienceChanged +=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp += HandleMonsterLevelChanged;
@@ -380,6 +437,10 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained -=
                 HandleMonsterObtained;
+            monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
+            monsterManager.MonsterSold -= HandleMonsterSold;
+            if (gameManager != null)
+                gameManager.GoldChanged -= HandleGoldChanged;
             monsterManager.MonsterExperienceChanged -=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp -= HandleMonsterLevelChanged;
@@ -446,21 +507,41 @@ namespace MixMaster.UI
         private void HandleMonsterObtained(
             OwnedMonsterRecord record)
         {
+            RequestFirstPage();
+        }
+
+        private void HandleProtectionChanged(OwnedMonsterRecord record)
+        {
+            RefreshAll();
+        }
+
+        private void HandleMonsterSold(string uniqueId)
+        {
+            statCache.Remove(uniqueId);
+            if (detailPanel != null && detailPanel.SelectedRecord != null &&
+                detailPanel.SelectedRecord.uniqueId == uniqueId)
+                detailPanel.Hide();
             Rebuild();
+        }
+
+        private void HandleGoldChanged(long amount)
+        {
+            RefreshGoldText();
         }
 
         private void HandleEquipmentChanged()
         {
+            statCache.Clear();
             Rebuild();
         }
 
         private void HandleMonsterLevelChanged(OwnedMonsterRecord record)
         {
-            if (sortDropdown != null && sortDropdown.value != 0 ||
-                statFilterDropdown != null && statFilterDropdown.value != 0)
-            {
+            if (record != null) statCache.Remove(record.uniqueId);
+            if ((sortDropdown != null && sortDropdown.value != 0) ||
+                (statFilterDropdown != null && statFilterDropdown.value != 0))
                 Rebuild();
-            }
+            else RefreshAll();
         }
 
         private void HandleMonsterExperienceChanged(OwnedMonsterRecord record)
@@ -478,7 +559,8 @@ namespace MixMaster.UI
                     continue;
 
                 entry.Bind(record, catalog, showIndividualValues,
-                    monsterManager.PartyMonsterUniqueIds);
+                    monsterManager.PartyMonsterUniqueIds,
+                    showIndividualValues ? null : GetCachedStats(record));
                 break;
             }
         }
@@ -507,13 +589,7 @@ namespace MixMaster.UI
 
         private void ClearEntries()
         {
-            for (int i = 0; i < entries.Count; i++)
-            {
-                if (entries[i] != null)
-                    Destroy(entries[i].gameObject);
-            }
-
-            entries.Clear();
+            HidePooledEntries();
         }
 
         private CharacterStats CalculateStats(OwnedMonsterRecord record)
@@ -522,12 +598,10 @@ namespace MixMaster.UI
                 ? catalog.GetMonster(record.monsterId) : null;
             TitleSO title = catalog != null
                 ? catalog.GetTitle(record.titleId) : null;
-            EquipmentManager equipment =
-                FindFirstObjectByType<EquipmentManager>();
             return StatCalculator.CalculateMonsterStats(
                 monster, Mathf.Max(1, record.level),
                 record.individualValues, title,
-                equipment != null ? equipment.GetEquippedModifiers(
+                equipmentManager != null ? equipmentManager.GetEquippedModifiers(
                     record.equippedItemUniqueIds) : null);
         }
 
@@ -583,15 +657,15 @@ namespace MixMaster.UI
             InventoryUiFactory.Text(controls, "ThresholdHint", "基準",
                 new Vector2(542f, -68f), new Vector2(195f, 25f), 17f);
 
-            sortDropdown.onValueChanged.AddListener(_ => Rebuild());
-            statFilterDropdown.onValueChanged.AddListener(_ => Rebuild());
-            thresholdDropdown.onValueChanged.AddListener(_ => Rebuild());
+            sortDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
+            statFilterDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
+            thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
             sortDirectionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
                 if (directionText != null)
                     directionText.text = ascending ? "昇順" : "降順";
-                Rebuild();
+                RequestFirstPage();
             });
 
             Transform scroll = transform.Find("ScrollView");
@@ -604,12 +678,95 @@ namespace MixMaster.UI
             }
         }
 
+        private void EnsurePagingControls()
+        {
+            if (previousPageButton != null) return;
+            GameObject area = new GameObject(
+                "MonsterPageControls", typeof(RectTransform));
+            area.transform.SetParent(transform, false);
+            RectTransform bar = area.GetComponent<RectTransform>();
+            bar.anchorMin = new Vector2(0f, 0f);
+            bar.anchorMax = new Vector2(1f, 0f);
+            bar.pivot = new Vector2(0.5f, 0f);
+            bar.anchoredPosition = new Vector2(0f, 12f);
+            bar.sizeDelta = new Vector2(0f, 92f);
+
+            previousPageButton = InventoryUiFactory.Button(
+                bar, "PreviousPage", "◀ 前へ",
+                new Vector2(24f, -9f), new Vector2(180f, 53f));
+            nextPageButton = InventoryUiFactory.Button(
+                bar, "NextPage", "次へ ▶",
+                Vector2.zero, new Vector2(180f, 53f));
+            RectTransform next = nextPageButton.GetComponent<RectTransform>();
+            next.anchorMin = new Vector2(1f, 1f);
+            next.anchorMax = new Vector2(1f, 1f);
+            next.pivot = new Vector2(1f, 1f);
+            next.anchoredPosition = new Vector2(-24f, -9f);
+
+            pageNumberText = InventoryUiFactory.Text(
+                bar, "PageNumber", "1 / 1",
+                Vector2.zero, new Vector2(265f, 48f), 26f);
+            RectTransform pageRect = pageNumberText.rectTransform;
+            pageRect.anchorMin = new Vector2(0.5f, 1f);
+            pageRect.anchorMax = new Vector2(0.5f, 1f);
+            pageRect.pivot = new Vector2(0.5f, 1f);
+            pageRect.anchoredPosition = new Vector2(0f, -10f);
+            pageNumberText.alignment = TextAlignmentOptions.Center;
+
+            goldText = InventoryUiFactory.Text(
+                bar, "GoldDisplay", "Gold: 0 G",
+                Vector2.zero, new Vector2(420f, 29f), 19f);
+            RectTransform goldRect = goldText.rectTransform;
+            goldRect.anchorMin = new Vector2(0.5f, 0f);
+            goldRect.anchorMax = new Vector2(0.5f, 0f);
+            goldRect.pivot = new Vector2(0.5f, 0f);
+            goldRect.anchoredPosition = Vector2.zero;
+            goldText.alignment = TextAlignmentOptions.Center;
+            goldText.color = new Color(1f, 0.83f, 0.46f);
+            previousPageButton.onClick.AddListener(PreviousPage);
+            nextPageButton.onClick.AddListener(NextPage);
+
+            RectTransform scroll =
+                transform.Find("ScrollView") as RectTransform;
+            if (scroll != null)
+            {
+                Vector2 min = scroll.offsetMin;
+                min.y = Mathf.Max(min.y, 110f);
+                scroll.offsetMin = min;
+            }
+            RefreshPageControls();
+        }
+
+        private void RefreshPageControls()
+        {
+            int pages = Math.Max(1,
+                (filteredIndices.Count + PageSize - 1) / PageSize);
+            if (pageNumberText != null)
+                pageNumberText.text = (pageIndex + 1) + " / " + pages +
+                    "  (30体/ページ)";
+            if (previousPageButton != null)
+                previousPageButton.interactable = pageIndex > 0;
+            if (nextPageButton != null)
+                nextPageButton.interactable = pageIndex + 1 < pages;
+            RefreshGoldText();
+        }
+
+        private void RefreshGoldText()
+        {
+            if (goldText == null) return;
+            if (gameManager == null)
+                gameManager = FindFirstObjectByType<GameManager>();
+            goldText.text = "Gold: " +
+                (gameManager != null ? gameManager.Gold.ToString("N0") : "0")
+                + " G";
+        }
+
         public void SortBy(int index)
         {
             if (sortDropdown != null)
                 sortDropdown.SetValueWithoutNotify(
                     Mathf.Clamp(index, 0, SortOptions.Length - 1));
-            Rebuild();
+            RequestFirstPage();
         }
 
         public void FilterByStat(int index)
@@ -617,7 +774,7 @@ namespace MixMaster.UI
             if (statFilterDropdown != null)
                 statFilterDropdown.SetValueWithoutNotify(
                     Mathf.Clamp(index, 0, InventoryStatFilter.Labels.Length - 1));
-            Rebuild();
+            RequestFirstPage();
         }
 
         public void SetPanelRoot(GameObject value) => panelRoot = value;
