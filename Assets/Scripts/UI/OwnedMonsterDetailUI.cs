@@ -789,8 +789,8 @@ namespace MixMaster.UI
             string id = selectedRecord.uniqueId;
             if (!monsterManager.TrySellMonster(id, out long goldEarned))
             {
-                if (sellConfirmText != null)
-                    sellConfirmText.text =
+                if (saleConfirmText != null)
+                    saleConfirmText.text =
                         "売却できません。編成・ロック・お気に入りを確認してください。";
                 RefreshProtectionControls();
                 return;
