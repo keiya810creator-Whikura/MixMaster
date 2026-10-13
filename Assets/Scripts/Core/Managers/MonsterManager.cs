@@ -166,12 +166,12 @@ namespace MixMaster.Core
             if (toSell.Count == 0)
                 return 0;
 
-            EquipmentManager equipment = GetComponent<EquipmentManager>() ??
-                FindFirstObjectByType<EquipmentManager>();
+            // All equipped items remain owned in EquipmentManager.
+            // Clearing removed monsters' slot IDs directly avoids repeated
+            // EquipmentChanged events and 500 unnecessary UI rebuilds.
             foreach (OwnedMonsterRecord record in toSell)
             {
-                if (equipment != null)
-                    equipment.UnequipAllFromMonster(record);
+                record.equippedItemUniqueIds?.Clear();
                 ownedMonsters.Remove(record);
             }
 
