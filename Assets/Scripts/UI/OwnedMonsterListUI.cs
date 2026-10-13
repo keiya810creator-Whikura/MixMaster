@@ -40,8 +40,6 @@ namespace MixMaster.UI
         private Button nextPageButton;
         private TMP_Text pageNumberText;
         private TMP_Text goldText;
-        private TMP_Dropdown favoriteFilter;
-        private TMP_Dropdown lockFilter;
         private Button bulkSellButton;
         private InventoryBulkSaleDialog bulkSaleDialog;
         private GameManager gameManager;
@@ -179,21 +177,22 @@ namespace MixMaster.UI
             int sortValue = sortDropdown != null ? sortDropdown.value : 0;
             int filterValue = statFilterDropdown != null ? statFilterDropdown.value : 0;
             int thresholdValue = thresholdDropdown != null ? thresholdDropdown.value : 0;
-            int favoriteValue = favoriteFilter != null ? favoriteFilter.value : 0;
-            int lockValue = lockFilter != null ? lockFilter.value : 0;
+
 
             for (int i = 0; i < owned.Count; i++)
             {
                 OwnedMonsterRecord record = owned[i];
                 if (record != null &&
-                    InventoryProtectionIcons.Pass(record.isFavorite, favoriteValue) &&
-                    InventoryProtectionIcons.Pass(record.isLocked, lockValue))
+                    InventoryProtectionIcons.MatchesCombinedStatFilter(
+                        filterValue, record.isFavorite, record.isLocked))
                     filteredIndices.Add(i);
             }
 
             // Lazy: with acquisition or level ordering and no numeric
             // filters, calculate stats only for the visible page.
-            if (filterValue > 0 && filteredIndices.Count > 0)
+            if (filterValue > 0 &&
+                filterValue < InventoryStatFilter.Labels.Length &&
+                filteredIndices.Count > 0)
             {
                 InventoryStat selected = (InventoryStat)filterValue;
                 if (thresholdValue < 3)
@@ -575,7 +574,8 @@ namespace MixMaster.UI
         {
             if (record != null) statCache.Remove(record.uniqueId);
             if ((sortDropdown != null && sortDropdown.value != 0) ||
-                (statFilterDropdown != null && statFilterDropdown.value != 0))
+                (statFilterDropdown != null && statFilterDropdown.value > 0 &&
+                 statFilterDropdown.value < InventoryStatFilter.Labels.Length))
                 Rebuild();
             else RefreshAll();
         }
@@ -671,7 +671,7 @@ namespace MixMaster.UI
                 controls.anchorMax = new Vector2(1f, 1f);
                 controls.pivot = new Vector2(0.5f, 1f);
                 controls.anchoredPosition = new Vector2(0f, -95f);
-                controls.sizeDelta = new Vector2(0f, 166f);
+                controls.sizeDelta = new Vector2(0f, 85f);
             }
 
             sortDropdown = InventoryUiFactory.Dropdown(
@@ -679,7 +679,8 @@ namespace MixMaster.UI
                 new Vector2(225f, 56f), SortOptions);
             statFilterDropdown = InventoryUiFactory.Dropdown(
                 controls, "StatFilter", new Vector2(267f, -8f),
-                new Vector2(260f, 56f), InventoryStatFilter.Labels);
+                new Vector2(260f, 56f),
+                InventoryProtectionIcons.CombinedStatFilterLabels);
             thresholdDropdown = InventoryUiFactory.Dropdown(
                 controls, "ThresholdFilter", new Vector2(537f, -8f),
                 new Vector2(205f, 56f), ThresholdOptions);
@@ -696,32 +697,23 @@ namespace MixMaster.UI
             InventoryUiFactory.Text(controls, "ThresholdHint", "基準",
                 new Vector2(542f, -68f), new Vector2(195f, 25f), 17f);
 
-            favoriteFilter = InventoryUiFactory.Dropdown(
-                controls, "FavoriteFilter",
-                new Vector2(32f, -99f), new Vector2(245f, 56f),
-                InventoryProtectionIcons.FilterOptions);
-            lockFilter = InventoryUiFactory.Dropdown(
-                controls, "LockFilter",
-                new Vector2(291f, -99f), new Vector2(245f, 56f),
-                InventoryProtectionIcons.FilterOptions);
             bulkSellButton = InventoryUiFactory.Button(
                 controls, "SellFilteredMonsters",
                 "絞り込みを一括売却",
                 new Vector2(549f, -99f), new Vector2(330f, 56f));
             bulkSellButton.GetComponent<Image>().color =
                 new Color(0.46f, 0.24f, 0.20f, 1f);
-            InventoryUiFactory.Text(controls, "FavoriteFilterLabel",
-                "お気に入り", new Vector2(36f, -160f),
-                new Vector2(240f, 27f), 17f);
-            InventoryUiFactory.Text(controls, "LockFilterLabel",
-                "ロック", new Vector2(295f, -160f),
-                new Vector2(235f, 27f), 17f);
+
 
             sortDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
-            statFilterDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
+            statFilterDropdown.onValueChanged.AddListener(_ =>
+            {
+                if (thresholdDropdown != null)
+                    thresholdDropdown.interactable = statFilterDropdown.value > 0 &&
+                        statFilterDropdown.value < InventoryStatFilter.Labels.Length;
+                RequestFirstPage();
+            });
             thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
-            favoriteFilter.onValueChanged.AddListener(_ => RequestFirstPage());
-            lockFilter.onValueChanged.AddListener(_ => RequestFirstPage());
             bulkSellButton.onClick.AddListener(ConfirmFilteredMonsterSale);
             sortDirectionButton.onClick.AddListener(() =>
             {
@@ -736,7 +728,7 @@ namespace MixMaster.UI
             if (scrollRect != null)
             {
                 Vector2 offset = scrollRect.offsetMax;
-                offset.y = Mathf.Min(offset.y, -285f);
+                offset.y = Mathf.Min(offset.y, -186f);
                 scrollRect.offsetMax = offset;
             }
         }
@@ -906,7 +898,8 @@ namespace MixMaster.UI
         {
             if (statFilterDropdown != null)
                 statFilterDropdown.SetValueWithoutNotify(
-                    Mathf.Clamp(index, 0, InventoryStatFilter.Labels.Length - 1));
+                    Mathf.Clamp(index, 0,
+                        InventoryProtectionIcons.CombinedStatFilterLabels.Length - 1));
             RequestFirstPage();
         }
 
