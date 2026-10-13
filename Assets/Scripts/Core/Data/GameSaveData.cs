@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
@@ -43,6 +43,16 @@ namespace MixMaster.Core
             new List<EquipmentRecord>();
         public List<string> playerEquippedIds =
             new List<string>();
+
+        // Automatic selling applies to newly acquired records only.
+        // Defaults are intentionally disabled for older save versions.
+        public bool equipmentAutoSellEnabled;
+        public int equipmentAutoSellKeepLevel = 50;
+
+        public bool monsterAutoSellEnabled;
+        public bool monsterAutoSellUntitled;
+        public int monsterAutoSellIvThreshold = 90;
+        public int monsterAutoSellRequiredStats = 1;
 
         public OfflineRecordProfile offlineProfile;
     }
