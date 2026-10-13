@@ -670,7 +670,7 @@ namespace MixMaster.UI
                 controls.anchorMax = new Vector2(1f, 1f);
                 controls.pivot = new Vector2(0.5f, 1f);
                 controls.anchoredPosition = new Vector2(0f, -95f);
-                controls.sizeDelta = new Vector2(0f, 85f);
+                controls.sizeDelta = new Vector2(0f, 166f);
             }
 
             sortDropdown = InventoryUiFactory.Dropdown(
@@ -695,9 +695,33 @@ namespace MixMaster.UI
             InventoryUiFactory.Text(controls, "ThresholdHint", "基準",
                 new Vector2(542f, -68f), new Vector2(195f, 25f), 17f);
 
+            favoriteFilter = InventoryUiFactory.Dropdown(
+                controls, "FavoriteFilter",
+                new Vector2(32f, -99f), new Vector2(245f, 56f),
+                InventoryProtectionIcons.FilterOptions);
+            lockFilter = InventoryUiFactory.Dropdown(
+                controls, "LockFilter",
+                new Vector2(291f, -99f), new Vector2(245f, 56f),
+                InventoryProtectionIcons.FilterOptions);
+            bulkSellButton = InventoryUiFactory.Button(
+                controls, "SellFilteredMonsters",
+                "絞り込みを一括売却",
+                new Vector2(549f, -99f), new Vector2(330f, 56f));
+            bulkSellButton.GetComponent<Image>().color =
+                new Color(0.46f, 0.24f, 0.20f, 1f);
+            InventoryUiFactory.Text(controls, "FavoriteFilterLabel",
+                "お気に入り", new Vector2(36f, -160f),
+                new Vector2(240f, 27f), 17f);
+            InventoryUiFactory.Text(controls, "LockFilterLabel",
+                "ロック", new Vector2(295f, -160f),
+                new Vector2(235f, 27f), 17f);
+
             sortDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
             statFilterDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
             thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
+            favoriteFilter.onValueChanged.AddListener(_ => RequestFirstPage());
+            lockFilter.onValueChanged.AddListener(_ => RequestFirstPage());
+            bulkSellButton.onClick.AddListener(ConfirmFilteredMonsterSale);
             sortDirectionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
@@ -711,9 +735,79 @@ namespace MixMaster.UI
             if (scrollRect != null)
             {
                 Vector2 offset = scrollRect.offsetMax;
-                offset.y = Mathf.Min(offset.y, -186f);
+                offset.y = Mathf.Min(offset.y, -285f);
                 scrollRect.offsetMax = offset;
             }
+        }
+
+        private void EnsureBulkSaleDialog()
+        {
+            if (bulkSaleDialog == null)
+                bulkSaleDialog = InventoryBulkSaleDialog.Ensure(transform);
+        }
+
+        private void GetEligibleFilteredMonsters(List<string> destination,
+            out long totalGold)
+        {
+            destination.Clear();
+            totalGold = 0L;
+            if (monsterManager == null) return;
+            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
+            foreach (int index in filteredIndices)
+            {
+                if (index < 0 || index >= owned.Count) continue;
+                OwnedMonsterRecord record = owned[index];
+                if (monsterManager.IsProtectedFromConsumption(record))
+                    continue;
+
+                destination.Add(record.uniqueId);
+                totalGold = LongMath.SaturatingAdd(
+                    totalGold, monsterManager.GetMonsterSaleGold(record));
+            }
+        }
+
+        private void RefreshBulkSaleButton()
+        {
+            if (bulkSellButton == null || monsterManager == null)
+                return;
+
+            bool found = false;
+            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
+            foreach (int index in filteredIndices)
+            {
+                if (index >= 0 && index < owned.Count &&
+                    !monsterManager.IsProtectedFromConsumption(owned[index]))
+                {
+                    found = true;
+                    break;
+                }
+            }
+            bulkSellButton.interactable = found;
+        }
+
+        private void ConfirmFilteredMonsterSale()
+        {
+            CacheReferences();
+            if (monsterManager == null) return;
+            var selection = new List<string>();
+            GetEligibleFilteredMonsters(selection, out long gold);
+            if (selection.Count == 0) return;
+            EnsureBulkSaleDialog();
+            bulkSaleDialog.Show(
+                "フィルター結果を一括売却しますか？\n\n" +
+                "対象: " + selection.Count.ToString("N0") + "体" +
+                "　／　合計: " + gold.ToString("N0") + " G\n\n" +
+                "編成中・お気に入り・ロック中は除外しています。" +
+                "\nこの操作は元に戻せません。",
+                () =>
+                {
+                    if (monsterManager == null) return;
+                    // IDs are frozen at preview time, and the manager
+                    // rechecks all protection flags at commit time.
+                    int sold = monsterManager.SellMonstersBatch(selection,
+                        out long received);
+                    if (sold == 0) Rebuild();
+                });
         }
 
         private void EnsurePagingControls()
