@@ -11,6 +11,54 @@ namespace MixMaster.Core
         [SerializeField] private PartyCombatOrder partyCombatOrder =
             PartyCombatOrder.Individual;
 
+        public const int IndividualValueCount = 11;
+
+        public bool AutoSellEnabled { get; private set; }
+        public bool AutoSellUntitled { get; private set; }
+        public int AutoSellIvThreshold { get; private set; } = 90;
+        public int AutoSellRequiredStats { get; private set; } = 1;
+
+        /// <summary>
+        /// Rule changes affect future acquisitions only. A missing title can
+        /// optionally override the IV requirement and trigger an immediate sale.
+        /// </summary>
+        public void SetAutoSellSettings(bool enabled, bool sellUntitled,
+            int ivThreshold, int requiredStats)
+        {
+            AutoSellEnabled = enabled;
+            AutoSellUntitled = sellUntitled;
+            AutoSellIvThreshold = Mathf.Clamp(ivThreshold, 0, 100);
+            AutoSellRequiredStats = Mathf.Clamp(requiredStats, 1,
+                IndividualValueCount);
+        }
+
+        private bool ShouldAutoSell(OwnedMonsterRecord monster)
+        {
+            if (!AutoSellEnabled || monster == null)
+                return false;
+
+            if (AutoSellUntitled &&
+                string.IsNullOrWhiteSpace(monster.titleId))
+                return true;
+
+            MonsterIndividualValues iv = monster.individualValues;
+            if (iv == null) return false; // Preserve unknown data.
+            int threshold = AutoSellIvThreshold;
+            int count = 0;
+            if (iv.hp >= threshold) count++;
+            if (iv.mp >= threshold) count++;
+            if (iv.attack >= threshold) count++;
+            if (iv.magic >= threshold) count++;
+            if (iv.defense >= threshold) count++;
+            if (iv.magicDefense >= threshold) count++;
+            if (iv.criticalRate >= threshold) count++;
+            if (iv.criticalMultiplier >= threshold) count++;
+            if (iv.moveSpeed >= threshold) count++;
+            if (iv.attackSpeed >= threshold) count++;
+            if (iv.attackRange >= threshold) count++;
+            return count < AutoSellRequiredStats;
+        }
+
         private readonly List<OwnedMonsterRecord> ownedMonsters = new List<OwnedMonsterRecord>();
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
 
@@ -248,6 +296,14 @@ namespace MixMaster.Core
             monster.individualValues.ClampAll();
 
             ownedMonsters.Add(monster);
+
+            // Newly obtained monsters are not in a party, but use the
+            // existing validated sale operation to preserve the same rules
+            // for lock/favorite/party safety and gold accounting.
+            if (ShouldAutoSell(monster) &&
+                TrySellMonster(monster.uniqueId, out _))
+                return null;
+
             MonsterObtained?.Invoke(monster);
             return monster;
         }

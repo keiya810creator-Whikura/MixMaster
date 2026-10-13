@@ -20,6 +20,19 @@ namespace MixMaster.Core
         public event Action InventoryChanged;
         public event Action EquipmentChanged;
 
+        public bool AutoSellEnabled { get; private set; }
+        public int AutoSellKeepLevel { get; private set; } = 50;
+
+        /// <summary>
+        /// Changing the rule never sells items already in the inventory.
+        /// </summary>
+        public void SetAutoSellSettings(bool enabled, int minimumLevelToKeep)
+        {
+            AutoSellEnabled = enabled;
+            AutoSellKeepLevel = Mathf.Clamp(minimumLevelToKeep,
+                MinEquipmentLevel, MaxEquipmentLevel);
+        }
+
         private MonsterManager Monsters
         {
             get
@@ -34,9 +47,9 @@ namespace MixMaster.Core
         public void GrantStarterEquipmentIfMissing()
         {
             if (!inventory.Exists(x => x != null && x.equipmentId == "EQP_001"))
-                CreateEquipment("EQP_001", 50, 1L);
+                CreateEquipment("EQP_001", 50, 1L, false);
             if (!inventory.Exists(x => x != null && x.equipmentId == "EQP_002"))
-                CreateEquipment("EQP_002", 50, 1L);
+                CreateEquipment("EQP_002", 50, 1L, false);
         }
 
         public void RestoreEquipment(
@@ -74,7 +87,8 @@ namespace MixMaster.Core
             EquipmentChanged?.Invoke();
         }
 
-        public EquipmentRecord CreateEquipment(string equipmentId, int level, long baseValue)
+        public EquipmentRecord CreateEquipment(string equipmentId, int level,
+            long baseValue, bool allowAutoSell = true)
         {
             var item = new EquipmentRecord
             {
@@ -84,6 +98,15 @@ namespace MixMaster.Core
                 baseValue = Math.Max(0L, baseValue)
             };
             inventory.Add(item);
+
+            // Reuse the ordinary validated sale path, including gold credit.
+            // Starter grants bypass this to avoid immediately selling a new
+            // player's guaranteed equipment.
+            if (allowAutoSell && AutoSellEnabled &&
+                item.level < AutoSellKeepLevel &&
+                TrySellEquipment(item.uniqueId, out _))
+                return item;
+
             InventoryChanged?.Invoke();
             return item;
         }

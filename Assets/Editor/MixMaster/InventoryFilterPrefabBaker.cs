@@ -149,6 +149,8 @@ namespace MixMaster.EditorTools
                 new Vector2(542f, -68f), new Vector2(195f, 25f), ref changed);
             Button(controls, "SellFilteredMonsters", "絞り込みを一括売却",
                 new Vector2(549f, -99f), new Vector2(330f, 56f), ref changed);
+            Button(controls, "AutoSellMonsters", "自動売却設定",
+                new Vector2(65f, -99f), new Vector2(335f, 56f), ref changed);
 
             // Remove obsolete EXTRA dropdowns in older generated prefab versions.
             changed |= DeleteIfPresent(controls, "FavoriteFilter");
@@ -193,6 +195,8 @@ namespace MixMaster.EditorTools
                 new Vector2(528f, -70f), new Vector2(240f, 28f), ref changed);
             Button(controls, "BulkSellEquipment", "絞り込みを一括売却",
                 new Vector2(560f, -96f), new Vector2(310f, 50f), ref changed);
+            Button(controls, "AutoSellEquipment", "自動売却設定",
+                new Vector2(58f, -96f), new Vector2(330f, 50f), ref changed);
 
             changed |= DeleteIfPresent(controls, "FavoriteFilter");
             changed |= DeleteIfPresent(controls, "LockFilter");

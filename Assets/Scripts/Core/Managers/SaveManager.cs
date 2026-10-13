@@ -193,6 +193,10 @@ namespace MixMaster.Core
                 data.partyIds = new List<string>(
                     monster.PartyMonsterUniqueIds);
                 data.partyCombatOrder = monster.CurrentPartyCombatOrder;
+                data.monsterAutoSellEnabled = monster.AutoSellEnabled;
+                data.monsterAutoSellUntitled = monster.AutoSellUntitled;
+                data.monsterAutoSellIvThreshold = monster.AutoSellIvThreshold;
+                data.monsterAutoSellRequiredStats = monster.AutoSellRequiredStats;
             }
 
             if (materials != null)
@@ -214,6 +218,8 @@ namespace MixMaster.Core
                     equipment.Inventory);
                 data.playerEquippedIds = new List<string>(
                     equipment.PlayerEquipmentUniqueIds);
+                data.equipmentAutoSellEnabled = equipment.AutoSellEnabled;
+                data.equipmentAutoSellKeepLevel = equipment.AutoSellKeepLevel;
             }
 
             if (offline != null)
@@ -308,6 +314,19 @@ namespace MixMaster.Core
             // that one item is never assigned to two characters.
             if (equipment != null)
                 equipment.NormalizeMonsterEquipment();
+
+            // Restore rules after the inventory and guaranteed starter gear.
+            // This prevents loading a save from auto-selling older records.
+            if (equipment != null)
+                equipment.SetAutoSellSettings(
+                    data.version >= 7 && data.equipmentAutoSellEnabled,
+                    data.version >= 7 ? data.equipmentAutoSellKeepLevel : 50);
+            if (monster != null)
+                monster.SetAutoSellSettings(
+                    data.version >= 7 && data.monsterAutoSellEnabled,
+                    data.version >= 7 && data.monsterAutoSellUntitled,
+                    data.version >= 7 ? data.monsterAutoSellIvThreshold : 90,
+                    data.version >= 7 ? data.monsterAutoSellRequiredStats : 1);
 
             hasLastLocation = data.hasPlayerPosition &&
                 !string.IsNullOrWhiteSpace(data.sceneName);
