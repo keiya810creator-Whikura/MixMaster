@@ -197,7 +197,8 @@ namespace MixMaster.World
             return
                 "[MonsterDropPickup] " +
                 monsterName +
-                " を獲得 / 称号: " +
+                (obtained != null ? " を獲得 / 称号: "
+                    : " を自動売却 / 称号: ") +
                 titleName +
                 " / IV " +
                 "HP=" + iv.hp +
