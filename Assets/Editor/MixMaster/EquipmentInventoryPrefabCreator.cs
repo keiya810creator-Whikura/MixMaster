@@ -87,6 +87,9 @@ namespace MixMaster.EditorTools
             if (prefab == null)
                 return null;
 
+            InventoryFilterPrefabBaker.BakeAll(false);
+            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+
             EquipmentInventoryUI inventory =
                 canvas.GetComponentInChildren<EquipmentInventoryUI>(true);
             if (inventory == null)
