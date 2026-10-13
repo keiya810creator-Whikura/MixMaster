@@ -654,63 +654,57 @@ namespace MixMaster.UI
 
         private void EnsureSortingControls()
         {
-            if (sortDropdown != null)
-                return;
-
-            Transform existing = transform.Find("InventoryFilters");
-            RectTransform controls;
-            if (existing != null)
-                controls = existing as RectTransform;
-            else
+            // Dropdowns are authored into the panel prefab by the Editor
+            // baker. Never instantiate a TMP_Dropdown during gameplay.
+            Transform controls = transform.Find("InventoryFilters");
+            if (controls == null)
             {
-                GameObject go = new GameObject(
-                    "InventoryFilters", typeof(RectTransform));
-                go.transform.SetParent(transform, false);
-                controls = go.GetComponent<RectTransform>();
-                controls.anchorMin = new Vector2(0f, 1f);
-                controls.anchorMax = new Vector2(1f, 1f);
-                controls.pivot = new Vector2(0.5f, 1f);
-                controls.anchoredPosition = new Vector2(0f, -95f);
-                controls.sizeDelta = new Vector2(0f, 85f);
+                Debug.LogError(
+                    "[OwnedMonsterListUI] InventoryFiltersがPrefabにありません。" +
+                    " MixMaster/UI/インベントリフィルターをPrefabに反映 を実行してください。",
+                    this);
+                return;
             }
 
-            sortDropdown = InventoryUiFactory.Dropdown(
-                controls, "SortDropdown", new Vector2(32f, -8f),
-                new Vector2(225f, 56f), SortOptions);
-            statFilterDropdown = InventoryUiFactory.Dropdown(
-                controls, "StatFilter", new Vector2(267f, -8f),
-                new Vector2(260f, 56f),
-                InventoryProtectionIcons.CombinedStatFilterLabels);
-            thresholdDropdown = InventoryUiFactory.Dropdown(
-                controls, "ThresholdFilter", new Vector2(537f, -8f),
-                new Vector2(205f, 56f), ThresholdOptions);
-            sortDirectionButton = InventoryUiFactory.Button(
-                controls, "SortDirection", "降順",
-                new Vector2(753f, -8f), new Vector2(130f, 56f));
-            directionText =
-                sortDirectionButton.GetComponentInChildren<TMP_Text>();
+            sortDropdown = controls.Find("SortDropdown")?.GetComponent<TMP_Dropdown>();
+            statFilterDropdown =
+                controls.Find("StatFilter")?.GetComponent<TMP_Dropdown>();
+            thresholdDropdown =
+                controls.Find("ThresholdFilter")?.GetComponent<TMP_Dropdown>();
+            sortDirectionButton =
+                controls.Find("SortDirection")?.GetComponent<Button>();
+            bulkSellButton =
+                controls.Find("SellFilteredMonsters")?.GetComponent<Button>();
+            if (sortDropdown == null || statFilterDropdown == null ||
+                thresholdDropdown == null || sortDirectionButton == null ||
+                bulkSellButton == null)
+            {
+                Debug.LogError(
+                    "[OwnedMonsterListUI] Prefabのフィルター項目が不足しています。" +
+                    " UnityのPrefab更新メニューを実行してください。", this);
+                return;
+            }
 
-            InventoryUiFactory.Text(controls, "SortHint", "並び替え",
-                new Vector2(36f, -68f), new Vector2(210f, 25f), 17f);
-            InventoryUiFactory.Text(controls, "FilterHint", "ステータス絞り込み",
-                new Vector2(271f, -68f), new Vector2(250f, 25f), 17f);
-            InventoryUiFactory.Text(controls, "ThresholdHint", "基準",
-                new Vector2(542f, -68f), new Vector2(195f, 25f), 17f);
-
-            bulkSellButton = InventoryUiFactory.Button(
-                controls, "SellFilteredMonsters",
-                "絞り込みを一括売却",
-                new Vector2(549f, -99f), new Vector2(330f, 56f));
-            bulkSellButton.GetComponent<Image>().color =
-                new Color(0.46f, 0.24f, 0.20f, 1f);
-
+            directionText = sortDirectionButton.GetComponentInChildren<TMP_Text>();
+            if (statFilterDropdown.options.Count !=
+                InventoryProtectionIcons.CombinedStatFilterLabels.Length)
+            {
+                // Existing scene overrides from old versions retain their
+                // serialized dropdown; only correct its option labels.
+                int selected = statFilterDropdown.value;
+                statFilterDropdown.ClearOptions();
+                statFilterDropdown.AddOptions(new List<string>(
+                    InventoryProtectionIcons.CombinedStatFilterLabels));
+                statFilterDropdown.SetValueWithoutNotify(
+                    Mathf.Clamp(selected, 0,
+                        statFilterDropdown.options.Count - 1));
+            }
 
             sortDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
             statFilterDropdown.onValueChanged.AddListener(_ =>
             {
-                if (thresholdDropdown != null)
-                    thresholdDropdown.interactable = statFilterDropdown.value > 0 &&
-                        statFilterDropdown.value < InventoryStatFilter.Labels.Length;
+                thresholdDropdown.interactable = statFilterDropdown.value > 0 &&
+                    statFilterDropdown.value < InventoryStatFilter.Labels.Length;
                 RequestFirstPage();
             });
             thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
@@ -722,15 +716,8 @@ namespace MixMaster.UI
                     directionText.text = ascending ? "昇順" : "降順";
                 RequestFirstPage();
             });
-
-            Transform scroll = transform.Find("ScrollView");
-            RectTransform scrollRect = scroll as RectTransform;
-            if (scrollRect != null)
-            {
-                Vector2 offset = scrollRect.offsetMax;
-                offset.y = Mathf.Min(offset.y, -186f);
-                scrollRect.offsetMax = offset;
-            }
+            thresholdDropdown.interactable = statFilterDropdown.value > 0 &&
+                statFilterDropdown.value < InventoryStatFilter.Labels.Length;
         }
 
         private void EnsureBulkSaleDialog()
