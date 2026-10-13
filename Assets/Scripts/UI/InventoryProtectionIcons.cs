@@ -15,6 +15,48 @@ namespace MixMaster.UI
             "すべて", "設定ありのみ", "設定なしのみ"
         };
 
+        // Appended to the EXISTING stat-filter dropdown. Numeric indices
+        // 0..Labels.Length-1 keep their historical meaning.
+        private static readonly string[] extraFilters =
+        {
+            "お気に入りのみ", "お気に入り以外",
+            "ロックのみ", "ロック以外"
+        };
+        private static string[] combinedStatFilterLabels;
+
+        public static string[] CombinedStatFilterLabels
+        {
+            get
+            {
+                if (combinedStatFilterLabels == null)
+                {
+                    string[] regular = InventoryStatFilter.Labels;
+                    combinedStatFilterLabels =
+                        new string[regular.Length + extraFilters.Length];
+                    System.Array.Copy(regular, combinedStatFilterLabels,
+                        regular.Length);
+                    System.Array.Copy(extraFilters, 0,
+                        combinedStatFilterLabels, regular.Length,
+                        extraFilters.Length);
+                }
+                return combinedStatFilterLabels;
+            }
+        }
+
+        public static bool MatchesCombinedStatFilter(int index,
+            bool favorite, bool locked)
+        {
+            int special = index - InventoryStatFilter.Labels.Length;
+            switch (special)
+            {
+                case 0: return favorite;
+                case 1: return !favorite;
+                case 2: return locked;
+                case 3: return !locked;
+                default: return true; // all historical stat filters
+            }
+        }
+
         private static Sprite defaultFavorite;
         private static Sprite defaultLock;
 
