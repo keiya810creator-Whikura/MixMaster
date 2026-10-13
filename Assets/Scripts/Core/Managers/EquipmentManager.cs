@@ -96,6 +96,98 @@ namespace MixMaster.Core
                 Mathf.Clamp(equipment.level, MinEquipmentLevel, MaxEquipmentLevel));
         }
 
+        public bool SetFavorite(string uniqueId, bool favorite)
+        {
+            EquipmentRecord record = FindEquipment(uniqueId);
+            if (record == null) return false;
+            if (record.isFavorite != favorite)
+            {
+                record.isFavorite = favorite;
+                InventoryChanged?.Invoke();
+            }
+            return true;
+        }
+
+        public bool SetLocked(string uniqueId, bool locked)
+        {
+            EquipmentRecord record = FindEquipment(uniqueId);
+            if (record == null) return false;
+            if (record.isLocked != locked)
+            {
+                record.isLocked = locked;
+                InventoryChanged?.Invoke();
+            }
+            return true;
+        }
+
+        public bool CanSell(EquipmentRecord record)
+        {
+            return record != null && !record.isLocked && !record.isFavorite &&
+                string.IsNullOrEmpty(GetEquippedOwner(record.uniqueId));
+        }
+
+        /// <summary>
+        /// Existing equipment baseValue x level is reused as its sale price.
+        /// Does not remove or alter any equipped items.
+        /// </summary>
+        public long GetEquipmentSaleGold(EquipmentRecord record)
+        {
+            return record == null ? 0L : Math.Max(0L, GetScaledValue(record));
+        }
+
+        public bool TrySellEquipment(string uniqueId, out long earnedGold)
+        {
+            earnedGold = 0L;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            if (!CanSell(record)) return false;
+
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            if (game == null) return false;
+
+            earnedGold = GetEquipmentSaleGold(record);
+            inventory.Remove(record);
+            game.AddGold(earnedGold);
+            InventoryChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// A snapshot of filtered unique IDs is passed in by the UI.
+        /// Revalidate protection/equipment on the manager side so nothing
+        /// protected can be sold between preview and confirmation.
+        /// </summary>
+        public int SellEquipmentBatch(IReadOnlyList<string> uniqueIds,
+            out long earnedGold)
+        {
+            earnedGold = 0L;
+            if (uniqueIds == null || uniqueIds.Count == 0) return 0;
+
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            if (game == null) return 0;
+
+            var distinct = new HashSet<string>(StringComparer.Ordinal);
+            var sold = new List<EquipmentRecord>();
+            foreach (string id in uniqueIds)
+            {
+                if (string.IsNullOrWhiteSpace(id) || !distinct.Add(id))
+                    continue;
+                EquipmentRecord record = FindEquipment(id);
+                if (!CanSell(record)) continue;
+                earnedGold = LongMath.SaturatingAdd(
+                    earnedGold, GetEquipmentSaleGold(record));
+                sold.Add(record);
+            }
+
+            if (sold.Count == 0) return 0;
+            foreach (EquipmentRecord record in sold)
+                inventory.Remove(record);
+            game.AddGold(earnedGold);
+            InventoryChanged?.Invoke(); // once rather than once per row
+            return sold.Count;
+        }
+
         public EquipmentRecord FindEquipment(string uniqueId)
         {
             return inventory.Find(x => x.uniqueId == uniqueId);
