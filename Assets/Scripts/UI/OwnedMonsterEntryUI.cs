@@ -68,7 +68,8 @@ namespace MixMaster.UI
             OwnedMonsterRecord record,
             MonsterCatalogSO newCatalog,
             bool showIvs = false,
-            IReadOnlyList<string> partyIds = null)
+            IReadOnlyList<string> partyIds = null,
+            CharacterStats preparedStats = null)
         {
             Record = record;
             catalog = newCatalog;
@@ -127,6 +128,8 @@ namespace MixMaster.UI
                         : string.Empty;
 
                 monsterNameText.text =
+                    (record.isLocked ? "🔒 " : "") +
+                    (record.isFavorite ? "★ " : "") +
                     titlePrefix + monsterName;
             }
 
@@ -148,7 +151,8 @@ namespace MixMaster.UI
             RefreshValueText(
                 record,
                 monster,
-                title);
+                title,
+                preparedStats);
         }
 
         private void UpdatePartyButtonColor(
@@ -213,7 +217,8 @@ namespace MixMaster.UI
         private void RefreshValueText(
             OwnedMonsterRecord record,
             MonsterSO monster,
-            TitleSO title)
+            TitleSO title,
+            CharacterStats preparedStats = null)
         {
             if (ivText == null)
                 return;
@@ -226,18 +231,19 @@ namespace MixMaster.UI
                 return;
             }
 
-            if (equipmentManager == null)
-                equipmentManager = FindFirstObjectByType<EquipmentManager>();
-            CharacterStats stats =
-                StatCalculator.CalculateMonsterStats(
-                    monster,
-                    Mathf.Max(1, record.level),
-                    record.individualValues,
-                    title,
+            CharacterStats stats = preparedStats;
+            if (stats == null)
+            {
+                if (equipmentManager == null)
+                    equipmentManager = FindFirstObjectByType<EquipmentManager>();
+                stats = StatCalculator.CalculateMonsterStats(
+                    monster, Mathf.Max(1, record.level),
+                    record.individualValues, title,
                     equipmentManager != null
                         ? equipmentManager.GetEquippedModifiers(
                             record.equippedItemUniqueIds)
                         : null);
+            }
 
             ivText.text =
                 BuildStatsText(
