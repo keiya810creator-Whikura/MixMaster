@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
