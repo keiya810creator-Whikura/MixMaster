@@ -955,49 +955,45 @@ namespace MixMaster.UI
 
         private void EnsureControls()
         {
-            Transform parent = transform.Find("FilterControls");
-            if (parent == null)
+            // Serialized TMP_Dropdowns come from the prefab, never rebuilt
+            // as GameObjects when the inventory is opened.
+            Transform controls = transform.Find("FilterControls");
+            if (controls == null)
             {
-                GameObject area = new GameObject(
-                    "FilterControls", typeof(RectTransform));
-                area.transform.SetParent(transform, false);
-                RectTransform rect = area.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(0f, 1f);
-                rect.anchorMax = new Vector2(1f, 1f);
-                rect.pivot = new Vector2(0.5f, 1f);
-                rect.anchoredPosition = new Vector2(0f, -110f);
-                rect.sizeDelta = new Vector2(0f, 122f);
-                parent = rect;
+                Debug.LogError(
+                    "[EquipmentInventoryUI] FilterControlsがPrefabにありません。" +
+                    " MixMaster/UI/インベントリフィルターをPrefabに反映 を実行してください。",
+                    this);
+                return;
             }
 
-            var control = (RectTransform)parent;
-            sortDropdown = InventoryUiFactory.Dropdown(control,
-                "SortDropdown", new Vector2(20f, -6f),
-                new Vector2(240f, 54f), SortChoices);
-            statFilter = InventoryUiFactory.Dropdown(control,
-                "StatFilter", new Vector2(270f, -6f),
-                new Vector2(245f, 54f),
-                InventoryProtectionIcons.CombinedStatFilterLabels);
-            rarityFilter = InventoryUiFactory.Dropdown(control,
-                "RarityFilter", new Vector2(525f, -6f),
-                new Vector2(240f, 54f), RarityChoices);
-            directionButton = InventoryUiFactory.Button(control,
-                "Direction", "降順", new Vector2(775f, -6f),
-                new Vector2(135f, 54f));
+            sortDropdown = controls.Find("SortDropdown")?.GetComponent<TMP_Dropdown>();
+            statFilter = controls.Find("StatFilter")?.GetComponent<TMP_Dropdown>();
+            rarityFilter = controls.Find("RarityFilter")?.GetComponent<TMP_Dropdown>();
+            directionButton = controls.Find("Direction")?.GetComponent<Button>();
+            bulkSellButton =
+                controls.Find("BulkSellEquipment")?.GetComponent<Button>();
+            if (sortDropdown == null || statFilter == null ||
+                rarityFilter == null || directionButton == null ||
+                bulkSellButton == null)
+            {
+                Debug.LogError(
+                    "[EquipmentInventoryUI] Prefab内の絞り込みUIが不足しています。" +
+                    " UnityのPrefab更新メニューを実行してください。", this);
+                return;
+            }
+
             directionLabel = directionButton.GetComponentInChildren<TMP_Text>();
-
-            bulkSellButton = InventoryUiFactory.Button(control,
-                "BulkSellEquipment", "絞り込みを一括売却",
-                new Vector2(560f, -85f), new Vector2(310f, 50f));
-            bulkSellButton.GetComponent<Image>().color =
-                new Color(0.48f, 0.24f, 0.20f, 1f);
-
-            InventoryUiFactory.Text(control, "SortHint", "並び替え",
-                new Vector2(24f, -70f), new Vector2(230f, 28f), 18f);
-            InventoryUiFactory.Text(control, "StatHint", "ステータス絞り込み",
-                new Vector2(273f, -70f), new Vector2(270f, 28f), 18f);
-            InventoryUiFactory.Text(control, "RarityHint", "レア度絞り込み",
-                new Vector2(528f, -70f), new Vector2(240f, 28f), 18f);
+            if (statFilter.options.Count !=
+                InventoryProtectionIcons.CombinedStatFilterLabels.Length)
+            {
+                int selected = statFilter.value;
+                statFilter.ClearOptions();
+                statFilter.AddOptions(new List<string>(
+                    InventoryProtectionIcons.CombinedStatFilterLabels));
+                statFilter.SetValueWithoutNotify(Mathf.Clamp(selected, 0,
+                    statFilter.options.Count - 1));
+            }
 
             sortDropdown.onValueChanged.AddListener(SortBy);
             statFilter.onValueChanged.AddListener(FilterByStat);
