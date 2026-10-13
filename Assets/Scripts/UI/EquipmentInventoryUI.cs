@@ -24,6 +24,8 @@ namespace MixMaster.UI
         private TMP_Dropdown statFilter;
         private TMP_Dropdown rarityFilter;
         private Button bulkSellButton;
+        private Button autoSellSettingsButton;
+        private InventoryAutoSellDialog autoSellDialog;
         private Button favoriteButton;
         private Button lockButton;
         private Button sellButton;
@@ -89,6 +91,7 @@ namespace MixMaster.UI
             EnsurePagingControls();
             EnsureComparisonPanel();
             saleDialog = InventoryBulkSaleDialog.Ensure(transform);
+            autoSellDialog = InventoryAutoSellDialog.Ensure(transform);
             if (closeButton != null)
                 closeButton.onClick.AddListener(Close);
         }
@@ -105,6 +108,8 @@ namespace MixMaster.UI
                 comparisonPanel.Close();
             if (saleDialog != null)
                 saleDialog.Close();
+            if (autoSellDialog != null)
+                autoSellDialog.Close();
             if (subscribed && manager != null)
                 manager.InventoryChanged -= Rebuild;
             subscribed = false;
@@ -150,6 +155,8 @@ namespace MixMaster.UI
                 comparisonPanel.Close();
             if (saleDialog != null)
                 saleDialog.Close();
+            if (autoSellDialog != null)
+                autoSellDialog.Close();
             gameObject.SetActive(false);
         }
 
@@ -973,9 +980,11 @@ namespace MixMaster.UI
             directionButton = controls.Find("Direction")?.GetComponent<Button>();
             bulkSellButton =
                 controls.Find("BulkSellEquipment")?.GetComponent<Button>();
+            autoSellSettingsButton =
+                controls.Find("AutoSellEquipment")?.GetComponent<Button>();
             if (sortDropdown == null || statFilter == null ||
                 rarityFilter == null || directionButton == null ||
-                bulkSellButton == null)
+                bulkSellButton == null || autoSellSettingsButton == null)
             {
                 Debug.LogError(
                     "[EquipmentInventoryUI] Prefab内の絞り込みUIが不足しています。" +
@@ -999,6 +1008,8 @@ namespace MixMaster.UI
             statFilter.onValueChanged.AddListener(FilterByStat);
             rarityFilter.onValueChanged.AddListener(FilterByRarity);
             bulkSellButton.onClick.AddListener(ConfirmBulkSale);
+            autoSellSettingsButton.onClick.AddListener(() =>
+                autoSellDialog?.OpenEquipment());
             directionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
