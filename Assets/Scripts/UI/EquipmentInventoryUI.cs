@@ -23,8 +23,6 @@ namespace MixMaster.UI
         private TMP_Dropdown sortDropdown;
         private TMP_Dropdown statFilter;
         private TMP_Dropdown rarityFilter;
-        private TMP_Dropdown favoriteFilter;
-        private TMP_Dropdown lockFilter;
         private Button bulkSellButton;
         private Button favoriteButton;
         private Button lockButton;
@@ -168,7 +166,8 @@ namespace MixMaster.UI
         {
             if (statFilter != null)
                 statFilter.SetValueWithoutNotify(
-                    Mathf.Clamp(selected, 0, StatChoices.Length - 1));
+                    Mathf.Clamp(selected, 0,
+                        InventoryProtectionIcons.CombinedStatFilterLabels.Length - 1));
             pageIndex = 0;
             Rebuild();
         }
@@ -209,15 +208,14 @@ namespace MixMaster.UI
             int statIndex = statFilter != null ? statFilter.value : 0;
             int rarityIndex = rarityFilter != null ? rarityFilter.value : 0;
             int sortIndex = sortDropdown != null ? sortDropdown.value : 0;
-            int favoriteIndex = favoriteFilter != null ? favoriteFilter.value : 0;
-            int lockIndex = lockFilter != null ? lockFilter.value : 0;
+
 
             for (int i = 0; i < source.Count; i++)
             {
                 EquipmentRecord record = source[i];
                 if (record == null ||
-                    !InventoryProtectionIcons.Pass(record.isFavorite, favoriteIndex) ||
-                    !InventoryProtectionIcons.Pass(record.isLocked, lockIndex))
+                    !InventoryProtectionIcons.MatchesCombinedStatFilter(
+                        statIndex, record.isFavorite, record.isLocked))
                     continue;
 
                 if (rarityIndex != 0 &&
@@ -225,7 +223,8 @@ namespace MixMaster.UI
                     rarityIndex - 1)
                     continue;
 
-                if (statIndex != 0)
+                if (statIndex != 0 &&
+                    statIndex < InventoryStatFilter.Labels.Length)
                 {
                     EquipmentSO definition =
                         manager.GetEquipmentDefinition(record.equipmentId);
@@ -977,7 +976,8 @@ namespace MixMaster.UI
                 new Vector2(240f, 54f), SortChoices);
             statFilter = InventoryUiFactory.Dropdown(control,
                 "StatFilter", new Vector2(270f, -6f),
-                new Vector2(245f, 54f), StatChoices);
+                new Vector2(245f, 54f),
+                InventoryProtectionIcons.CombinedStatFilterLabels);
             rarityFilter = InventoryUiFactory.Dropdown(control,
                 "RarityFilter", new Vector2(525f, -6f),
                 new Vector2(240f, 54f), RarityChoices);
@@ -986,21 +986,11 @@ namespace MixMaster.UI
                 new Vector2(135f, 54f));
             directionLabel = directionButton.GetComponentInChildren<TMP_Text>();
 
-            favoriteFilter = InventoryUiFactory.Dropdown(control,
-                "FavoriteFilter", new Vector2(20f, -104f),
-                new Vector2(243f, 54f), InventoryProtectionIcons.FilterOptions);
-            lockFilter = InventoryUiFactory.Dropdown(control,
-                "LockFilter", new Vector2(270f, -104f),
-                new Vector2(243f, 54f), InventoryProtectionIcons.FilterOptions);
             bulkSellButton = InventoryUiFactory.Button(control,
                 "BulkSellEquipment", "絞り込みを一括売却",
-                new Vector2(525f, -104f), new Vector2(356f, 54f));
+                new Vector2(560f, -85f), new Vector2(310f, 50f));
             bulkSellButton.GetComponent<Image>().color =
                 new Color(0.48f, 0.24f, 0.20f, 1f);
-            InventoryUiFactory.Text(control, "FavoriteLabel", "お気に入り",
-                new Vector2(24f, -165f), new Vector2(240f, 25f), 18f);
-            InventoryUiFactory.Text(control, "LockLabel", "ロック",
-                new Vector2(274f, -165f), new Vector2(240f, 25f), 18f);
 
             InventoryUiFactory.Text(control, "SortHint", "並び替え",
                 new Vector2(24f, -70f), new Vector2(230f, 28f), 18f);
@@ -1012,16 +1002,6 @@ namespace MixMaster.UI
             sortDropdown.onValueChanged.AddListener(SortBy);
             statFilter.onValueChanged.AddListener(FilterByStat);
             rarityFilter.onValueChanged.AddListener(FilterByRarity);
-            favoriteFilter.onValueChanged.AddListener(_ =>
-            {
-                pageIndex = 0;
-                Rebuild();
-            });
-            lockFilter.onValueChanged.AddListener(_ =>
-            {
-                pageIndex = 0;
-                Rebuild();
-            });
             bulkSellButton.onClick.AddListener(ConfirmBulkSale);
             directionButton.onClick.AddListener(() =>
             {
