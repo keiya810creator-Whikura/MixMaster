@@ -15,11 +15,25 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text countText;
         [SerializeField] private TMP_Text detailText;
         [SerializeField] private Button closeButton;
+        [Header("Protection Icons")]
+        [SerializeField] private Sprite favoriteSprite;
+        [SerializeField] private Sprite lockSprite;
 
         private EquipmentManager manager;
         private TMP_Dropdown sortDropdown;
         private TMP_Dropdown statFilter;
         private TMP_Dropdown rarityFilter;
+        private TMP_Dropdown favoriteFilter;
+        private TMP_Dropdown lockFilter;
+        private Button bulkSellButton;
+        private Button favoriteButton;
+        private Button lockButton;
+        private Button sellButton;
+        private TMP_Text favoriteLabel;
+        private TMP_Text lockLabel;
+        private TMP_Text sellLabel;
+        private InventoryBulkSaleDialog saleDialog;
+        private readonly List<string> filteredIds = new List<string>();
         private Button directionButton;
         private TMP_Text directionLabel;
         private bool ascending;
@@ -68,7 +82,9 @@ namespace MixMaster.UI
 
             EnsureControls();
             EnsureEquipmentActions();
+            EnsureSaleActions();
             EnsureComparisonPanel();
+            saleDialog = InventoryBulkSaleDialog.Ensure(transform);
             if (closeButton != null)
                 closeButton.onClick.AddListener(Close);
         }
@@ -83,6 +99,8 @@ namespace MixMaster.UI
         {
             if (comparisonPanel != null)
                 comparisonPanel.Close();
+            if (saleDialog != null)
+                saleDialog.Close();
             if (subscribed && manager != null)
                 manager.InventoryChanged -= Rebuild;
             subscribed = false;
@@ -126,6 +144,8 @@ namespace MixMaster.UI
         {
             if (comparisonPanel != null)
                 comparisonPanel.Close();
+            if (saleDialog != null)
+                saleDialog.Close();
             gameObject.SetActive(false);
         }
 
@@ -171,6 +191,7 @@ namespace MixMaster.UI
             foreach (GameObject row in activeRows)
                 if (row != null) Destroy(row);
             activeRows.Clear();
+            filteredIds.Clear();
 
             if (manager == null || contentRoot == null)
                 return;
@@ -181,11 +202,16 @@ namespace MixMaster.UI
             int statIndex = statFilter != null ? statFilter.value : 0;
             int rarityIndex = rarityFilter != null ? rarityFilter.value : 0;
             int sortIndex = sortDropdown != null ? sortDropdown.value : 0;
+            int favoriteIndex = favoriteFilter != null ? favoriteFilter.value : 0;
+            int lockIndex = lockFilter != null ? lockFilter.value : 0;
 
             for (int i = 0; i < source.Count; i++)
             {
                 EquipmentRecord record = source[i];
-                if (record == null) continue;
+                if (record == null ||
+                    !InventoryProtectionIcons.Pass(record.isFavorite, favoriteIndex) ||
+                    !InventoryProtectionIcons.Pass(record.isLocked, lockIndex))
+                    continue;
 
                 if (rarityIndex != 0 &&
                     (int)EquipmentRarityUtility.GetRarity(record.level) !=
@@ -213,6 +239,10 @@ namespace MixMaster.UI
                     compare = b.CompareTo(a); // newest first
                 else if (sortIndex == 1)
                     compare = right.level.CompareTo(left.level);
+                else if (sortIndex == InventoryStatFilter.Labels.Length + 1)
+                    compare = right.isFavorite.CompareTo(left.isFavorite);
+                else if (sortIndex == InventoryStatFilter.Labels.Length + 2)
+                    compare = right.isLocked.CompareTo(left.isLocked);
                 else
                 {
                     InventoryStat stat = (InventoryStat)(sortIndex - 1);
@@ -238,7 +268,14 @@ namespace MixMaster.UI
                     " / " + source.Count.ToString("N0");
 
             foreach (int index in matches)
-                BuildEntry(source[index], index);
+            {
+                EquipmentRecord record = source[index];
+                filteredIds.Add(record.uniqueId);
+                BuildEntry(record, index);
+            }
+
+            RefreshBulkSellButton();
+            RefreshSaleActions();
 
             if (matches.Count == 0 && detailText != null)
                 detailText.text = "条件に一致する装備がありません。";
@@ -292,6 +329,10 @@ namespace MixMaster.UI
                 new Vector2(112f, -10f), new Vector2(790f, 104f), 23f);
             text.enableWordWrapping = true;
 
+            InventoryProtectionIcons.Set(row.transform,
+                record.isFavorite, record.isLocked,
+                favoriteSprite, lockSprite,
+                new Vector2(10f, -10f), new Vector2(53f, -10f));
             activeRows.Add(row);
         }
 
@@ -317,6 +358,7 @@ namespace MixMaster.UI
                         "\n装備者: " + (owner == "プレイヤー" ? owner : "仲間"));
             }
             RefreshActionControls();
+            RefreshSaleActions();
         }
 
         private IReadOnlyList<string> CurrentEquipmentIds =>
@@ -336,7 +378,7 @@ namespace MixMaster.UI
             TMP_Text compareHint = InventoryUiFactory.Text(transform,
                 "ComparisonHint",
                 "装備：比較して確定 ／ 解除：すぐに反映",
-                new Vector2(25f, -225f), new Vector2(850f, 28f), 20f);
+                new Vector2(25f, -308f), new Vector2(850f, 28f), 20f);
             compareHint.color = new Color32(184, 184, 184, 255);
 
             for (int i = 0; i < 3; i++)
@@ -658,6 +700,22 @@ namespace MixMaster.UI
                 new Vector2(135f, 54f));
             directionLabel = directionButton.GetComponentInChildren<TMP_Text>();
 
+            favoriteFilter = InventoryUiFactory.Dropdown(control,
+                "FavoriteFilter", new Vector2(20f, -104f),
+                new Vector2(243f, 54f), InventoryProtectionIcons.FilterOptions);
+            lockFilter = InventoryUiFactory.Dropdown(control,
+                "LockFilter", new Vector2(270f, -104f),
+                new Vector2(243f, 54f), InventoryProtectionIcons.FilterOptions);
+            bulkSellButton = InventoryUiFactory.Button(control,
+                "BulkSellEquipment", "絞り込みを一括売却",
+                new Vector2(525f, -104f), new Vector2(356f, 54f));
+            bulkSellButton.GetComponent<Image>().color =
+                new Color(0.48f, 0.24f, 0.20f, 1f);
+            InventoryUiFactory.Text(control, "FavoriteLabel", "お気に入り",
+                new Vector2(24f, -165f), new Vector2(240f, 25f), 18f);
+            InventoryUiFactory.Text(control, "LockLabel", "ロック",
+                new Vector2(274f, -165f), new Vector2(240f, 25f), 18f);
+
             InventoryUiFactory.Text(control, "SortHint", "並び替え",
                 new Vector2(24f, -70f), new Vector2(230f, 28f), 18f);
             InventoryUiFactory.Text(control, "StatHint", "ステータス絞り込み",
@@ -668,6 +726,9 @@ namespace MixMaster.UI
             sortDropdown.onValueChanged.AddListener(SortBy);
             statFilter.onValueChanged.AddListener(FilterByStat);
             rarityFilter.onValueChanged.AddListener(FilterByRarity);
+            favoriteFilter.onValueChanged.AddListener(_ => Rebuild());
+            lockFilter.onValueChanged.AddListener(_ => Rebuild());
+            bulkSellButton.onClick.AddListener(ConfirmBulkSale);
             directionButton.onClick.AddListener(() =>
             {
                 ascending = !ascending;
@@ -682,6 +743,8 @@ namespace MixMaster.UI
             var options = new List<string> { "入手順", "レベル" };
             for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
                 options.Add(InventoryStatFilter.Labels[i]);
+            options.Add("お気に入り優先");
+            options.Add("ロック優先");
             return options.ToArray();
         }
 
