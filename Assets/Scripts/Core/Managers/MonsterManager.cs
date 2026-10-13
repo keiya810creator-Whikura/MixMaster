@@ -66,6 +66,74 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterLeveledUp;
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action PartyChanged;
+        public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
+        public event Action<string> MonsterSold;
+
+        /// <summary>
+        /// Selling is intentionally restricted for party, favorite and locked
+        /// members. Breeding can reuse IsProtectedFromConsumption.
+        /// </summary>
+        public bool IsProtectedFromConsumption(OwnedMonsterRecord record)
+        {
+            return record == null || record.isLocked || record.isFavorite ||
+                partyMonsterUniqueIds.Contains(record.uniqueId);
+        }
+
+        public bool SetFavorite(string uniqueId, bool favorite)
+        {
+            OwnedMonsterRecord record = FindOwnedMonster(uniqueId);
+            if (record == null) return false;
+            if (record.isFavorite != favorite)
+            {
+                record.isFavorite = favorite;
+                MonsterProtectionChanged?.Invoke(record);
+            }
+            return true;
+        }
+
+        public bool SetLocked(string uniqueId, bool locked)
+        {
+            OwnedMonsterRecord record = FindOwnedMonster(uniqueId);
+            if (record == null) return false;
+            if (record.isLocked != locked)
+            {
+                record.isLocked = locked;
+                MonsterProtectionChanged?.Invoke(record);
+            }
+            return true;
+        }
+
+        // Default economy: each monster sells for 100 gold per level.
+        // Clamp to a safe long value for future high-level monsters.
+        public long GetMonsterSaleGold(OwnedMonsterRecord record)
+        {
+            return record == null ? 0L
+                : LongMath.SaturatingMultiply(
+                    Math.Max(1, record.level), 100L);
+        }
+
+        public bool TrySellMonster(string uniqueId, out long goldGained)
+        {
+            goldGained = 0L;
+            OwnedMonsterRecord record = FindOwnedMonster(uniqueId);
+            if (IsProtectedFromConsumption(record)) return false;
+
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            if (game == null) return false;
+
+            // Equipment never disappears when selling its owner.
+            EquipmentManager equipment = GetComponent<EquipmentManager>() ??
+                FindFirstObjectByType<EquipmentManager>();
+            if (equipment != null)
+                equipment.UnequipAllFromMonster(record);
+
+            goldGained = GetMonsterSaleGold(record);
+            ownedMonsters.Remove(record);
+            game.AddGold(goldGained);
+            MonsterSold?.Invoke(uniqueId);
+            return true;
+        }
 
         public OwnedMonsterRecord ObtainMonster(
             string monsterId,
