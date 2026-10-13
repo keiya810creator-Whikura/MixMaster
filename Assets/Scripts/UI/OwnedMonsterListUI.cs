@@ -325,6 +325,7 @@ namespace MixMaster.UI
             }
             RefreshCount(filteredIndices.Count);
             RefreshGoldText();
+            RefreshBulkSaleButton();
         }
 
         public void NextPage()
