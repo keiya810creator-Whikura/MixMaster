@@ -360,6 +360,12 @@ namespace MixMaster.Monsters
             combat.ConfigureOwnedMonster(monster, calculated);
             combat.SetCombatMode((PartyCombatMode)
                 monsterManager.GetEffectiveCombatBehavior(record));
+
+            // Every field ally can be revived at its death location.
+            // Adding this at runtime keeps existing monster prefabs intact.
+            if (actor.GetComponent<PartyReviveZone>() == null)
+                actor.AddComponent<PartyReviveZone>();
+
             activeActors.Add(actor);
             activeByMonsterId[record.uniqueId] = combat;
         }
