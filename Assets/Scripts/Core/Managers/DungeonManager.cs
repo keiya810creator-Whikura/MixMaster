@@ -80,7 +80,7 @@ namespace MixMaster.Core
             if (altar != null && !string.IsNullOrWhiteSpace(EntranceMapId))
                 foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
                     appliedDungeonUpgrades[(int)type] =
-                        altar.GetDungeonUpgradeLevel(EntranceMapId, type);
+                        altar.GetDungeonAppliedLevel(EntranceMapId, type);
 
             CurrentSettings.roomCount = Mathf.Max(2,
                 CurrentSettings.roomCount - GetRawAppliedLevel(
