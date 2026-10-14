@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 98a9d53d36a732c4b8926a77136385f0, type: 3}
-  m_Name: "EQP_005_草原の魔導環"
+  m_Name: "EQP_005_\u8349\u539F\u306E\u9B54\u5C0E\u74B0"
   m_EditorClassIdentifier: 
   equipmentId: EQP_005
-  displayName: "草原の魔導環"
-  description: "平野の魔力を集める小さな装飾品"
-  icon: {fileID: 0}
+  displayName: "\u8349\u539F\u306E\u9B54\u5C0E\u74B0"
+  description: "\u5E73\u91CE\u306E\u9B54\u529B\u3092\u96C6\u3081\u308B\u5C0F\u3055\u306A\u88C5\u98FE\u54C1"
+  icon: {fileID: 21300000, guid: c707388ffbcd8834ca3ffb6326f2a980, type: 3}
   category: 3
   modifiers:
     maxHp: 0

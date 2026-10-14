@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Globalization;
 using System.IO;
 using MixMaster.Core;
 using UnityEditor;
@@ -7,186 +8,132 @@ using UnityEngine;
 
 namespace MixMaster.EditorTools
 {
+    /// <summary>
+    /// MAT_001 => モンスター素材/1.png
+    /// MATD_001 => ダンジョン素材/1.png
+    /// Missing artwork never clears an existing icon.
+    /// Replaces the older MaterialSpriteAutoAssigner.cs (same class name).
+    /// </summary>
     public static class MaterialSpriteAutoAssigner
     {
-        private const string MaterialSpriteFolder =
-            "Assets/素材/モンスター素材";
+        private const string MonsterFolder = "Assets/素材/モンスター素材";
+        private const string DungeonFolder = "Assets/素材/ダンジョン素材";
 
         [MenuItem("MixMaster/CSV/素材SOスプライトを自動設定")]
         public static void AssignAllMaterialSprites()
         {
-            string[] guids =
-                AssetDatabase.FindAssets(
-                    "t:MaterialSO",
-                    new[] { "Assets" });
+            string result = AssignAll(false);
+            EditorUtility.DisplayDialog("素材画像の自動設定", result, "OK");
+        }
 
-            int updated = 0;
-            int missing = 0;
-            int skipped = 0;
-
-            for (int i = 0; i < guids.Length; i++)
+        public static string AssignAll(bool silent)
+        {
+            string[] guids = AssetDatabase.FindAssets("t:MaterialSO", new[] { "Assets" });
+            int matched = 0, missing = 0, skipped = 0;
+            foreach (string guid in guids)
             {
-                string assetPath =
-                    AssetDatabase.GUIDToAssetPath(
-                        guids[i]);
-
-                MaterialSO material =
-                    AssetDatabase.LoadAssetAtPath<MaterialSO>(
-                        assetPath);
-
-                if (material == null ||
-                    string.IsNullOrWhiteSpace(material.materialId))
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                MaterialSO material = AssetDatabase.LoadAssetAtPath<MaterialSO>(path);
+                if (material == null || string.IsNullOrWhiteSpace(material.materialId) ||
+                    material.category == MaterialCategory.Other)
                 {
                     skipped++;
                     continue;
                 }
 
-                if (TryApply(
-                        material,
-                        out string expectedSpritePath))
-                {
-                    updated++;
-                }
+                if (TryApply(material, out string expected))
+                    matched++;
                 else
                 {
                     missing++;
-
-                    Debug.LogWarning(
-                        "[MaterialSpriteAutoAssigner] " +
-                        material.materialId +
-                        " に対応するSpriteが見つかりません: " +
-                        expectedSpritePath,
-                        material);
+                    Debug.LogWarning("[MaterialSpriteAutoAssigner] 画像なし: " +
+                        material.materialId + " => " + expected, material);
                 }
             }
 
             AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-
-            string message =
-                "完了しました。\n\n" +
-                "設定: " + updated + "\n" +
-                "画像なし: " + missing + "\n" +
-                "スキップ: " + skipped;
-
-            Debug.Log(
-                "[MaterialSpriteAutoAssigner] " +
-                message.Replace("\n", " / "));
-
-            EditorUtility.DisplayDialog(
-                "素材SOスプライト自動設定",
-                message,
-                "OK");
+            string summary = "画像設定済み: " + matched + " / 画像なし: " + missing +
+                " / 対象外: " + skipped;
+            Debug.Log("[MaterialSpriteAutoAssigner] " + summary);
+            return summary;
         }
 
-        public static bool TryApply(
-            MaterialSO material,
-            out string expectedSpritePath)
+        public static bool TryApply(MaterialSO material, out string expectedSpritePath)
         {
             expectedSpritePath = string.Empty;
+            if (material == null || string.IsNullOrWhiteSpace(material.materialId))
+                return false;
 
-            if (material == null ||
-                string.IsNullOrWhiteSpace(material.materialId))
+            string folder;
+            if (material.category == MaterialCategory.Monster)
+                folder = MonsterFolder;
+            else if (material.category == MaterialCategory.Dungeon)
+                folder = DungeonFolder;
+            else
+                return false;
+
+            if (!TryGetMaterialNumber(material.materialId, out int number))
             {
+                expectedSpritePath = folder + "/<ID末尾の数字>.png";
                 return false;
             }
 
-            if (!TryGetMaterialNumber(
-                    material.materialId,
-                    out int number))
-            {
-                return false;
-            }
-
-            expectedSpritePath =
-                MaterialSpriteFolder +
-                "/" +
-                number +
-                ".png";
-
-            Sprite sprite =
-                LoadSpriteAtPath(
-                    expectedSpritePath);
-
+            expectedSpritePath = folder + "/" + number.ToString(CultureInfo.InvariantCulture) + ".png";
+            Sprite sprite = LoadSpriteAtPath(expectedSpritePath);
             if (sprite == null)
                 return false;
 
             if (material.icon != sprite)
             {
-                Undo.RecordObject(
-                    material,
-                    "Assign Material Sprite");
-
+                Undo.RecordObject(material, "Assign Material Sprite");
                 material.icon = sprite;
-
-                EditorUtility.SetDirty(
-                    material);
+                EditorUtility.SetDirty(material);
             }
-
             return true;
         }
 
-        private static bool TryGetMaterialNumber(
-            string materialId,
-            out int number)
+        private static bool TryGetMaterialNumber(string id, out int number)
         {
             number = 0;
-
-            if (string.IsNullOrWhiteSpace(materialId))
+            if (string.IsNullOrWhiteSpace(id))
                 return false;
 
-            string value =
-                materialId.Trim();
-
-            int end = value.Length - 1;
-
-            while (end >= 0 &&
-                   !char.IsDigit(value[end]))
-            {
-                end--;
-            }
-
-            if (end < 0)
+            string value = id.Trim();
+            int underscore = value.LastIndexOf('_');
+            string suffix = underscore >= 0 ? value.Substring(underscore + 1) : value;
+            if (suffix.Length == 0)
                 return false;
+            foreach (char c in suffix)
+                if (c < '0' || c > '9')
+                    return false;
 
-            int start = end;
-
-            while (start >= 0 &&
-                   char.IsDigit(value[start]))
-            {
-                start--;
-            }
-
-            string numberText =
-                value.Substring(
-                    start + 1,
-                    end - start);
-
-            return int.TryParse(
-                numberText,
-                out number);
+            return int.TryParse(suffix, NumberStyles.None,
+                CultureInfo.InvariantCulture, out number) && number >= 0;
         }
 
-        private static Sprite LoadSpriteAtPath(
-            string assetPath)
+        private static Sprite LoadSpriteAtPath(string path)
         {
-            Sprite direct =
-                AssetDatabase.LoadAssetAtPath<Sprite>(
-                    assetPath);
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite != null)
+                return sprite;
 
-            if (direct != null)
-                return direct;
-
-            UnityEngine.Object[] assets =
-                AssetDatabase.LoadAllAssetsAtPath(
-                    assetPath);
-
-            for (int i = 0; i < assets.Length; i++)
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && importer.textureType != TextureImporterType.Sprite)
             {
-                if (assets[i] is Sprite sprite)
-                    return sprite;
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.SaveAndReimport();
             }
 
+            sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite != null)
+                return sprite;
+
+            UnityEngine.Object[] subAssets = AssetDatabase.LoadAllAssetsAtPath(path);
+            if (subAssets != null)
+                foreach (UnityEngine.Object candidate in subAssets)
+                    if (candidate is Sprite subSprite)
+                        return subSprite;
             return null;
         }
     }

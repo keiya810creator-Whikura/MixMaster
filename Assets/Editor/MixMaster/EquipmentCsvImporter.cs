@@ -11,25 +11,23 @@ using UnityEngine;
 namespace MixMaster.EditorTools
 {
     /// <summary>
-    /// TitleCSV-compatible equipment importer, without selection weight.
-    /// Validates every row before touching SOs, updates by Equipment ID,
-    /// optionally resolves named PNGs, and rebuilds the runtime catalog.
+    /// Replaces the existing importer. 画像名 is deliberately ignored:
+    /// 武器/防具/アクセサリー are each assigned one shared sprite.
+    /// Updates EquipmentSO by equipmentId and rebuilds EquipmentCatalogSO.
     /// </summary>
     public static class EquipmentCsvImporter
     {
         private const string DefaultCsvPath = "Assets/DataCSV/装備.csv";
         private const string EquipmentFolder = "Assets/Data/Equipment";
         private const string CatalogFolder = "Assets/Resources/Data";
-        private const string CatalogPath =
-            CatalogFolder + "/EquipmentCatalog.asset";
+        private const string CatalogPath = CatalogFolder + "/EquipmentCatalog.asset";
         private const string SpriteFolder = "Assets/素材/装備";
 
         private static readonly string[] RequiredHeaders =
         {
-            "ID", "名前", "基礎HP", "基礎MP",
-            "基礎攻撃力", "基礎魔力", "基礎防御力", "基礎魔防",
-            "クリ率", "クリ倍", "移動速度", "攻撃速度",
-            "攻撃範囲", "火耐性", "水耐性", "風耐性",
+            "ID", "名前", "基礎HP", "基礎MP", "基礎攻撃力", "基礎魔力",
+            "基礎防御力", "基礎魔防", "クリ率", "クリ倍", "移動速度",
+            "攻撃速度", "攻撃範囲", "火耐性", "水耐性", "風耐性",
             "雷耐性", "光耐性", "闇耐性", "素材ドロ率"
         };
 
@@ -38,7 +36,6 @@ namespace MixMaster.EditorTools
             public string id;
             public string name;
             public string description;
-            public string iconName;
             public EquipmentCategory category;
             public StatPercentageModifiers modifiers;
         }
@@ -46,72 +43,68 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/CSV/装備CSVをインポート・更新")]
         public static void ImportOrUpdate()
         {
-            string selectedPath = AssetDatabase.GetAssetPath(
-                Selection.activeObject);
-            string csvPath = !string.IsNullOrEmpty(selectedPath) &&
-                string.Equals(Path.GetExtension(selectedPath),
-                    ".csv", StringComparison.OrdinalIgnoreCase)
-                    ? selectedPath : DefaultCsvPath;
+            bool ok = Import(false, out string result);
+            EditorUtility.DisplayDialog(ok ? "装備CSVインポート完了" : "装備CSVインポート失敗",
+                result, "OK");
+        }
 
-            string absolutePath = ToAbsolutePath(csvPath);
-            if (!File.Exists(absolutePath))
+        public static bool Import(bool silent, out string summary)
+        {
+            string csvPath = DefaultCsvPath;
+            if (!silent)
             {
-                EditorUtility.DisplayDialog(
-                    "装備CSVインポート",
-                    "CSVが見つかりません。\n" + DefaultCsvPath +
-                    "\nまたはProjectビューで対象CSVを選択して実行してください。",
-                    "OK");
-                return;
+                string selected = AssetDatabase.GetAssetPath(Selection.activeObject);
+                if (!string.IsNullOrEmpty(selected) && selected.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                    csvPath = selected;
+            }
+
+            string absolute = Path.GetFullPath(Path.Combine(
+                Directory.GetParent(Application.dataPath).FullName, csvPath));
+            if (!File.Exists(absolute))
+            {
+                summary = "CSVが見つかりません: " + csvPath;
+                Debug.LogError("[EquipmentCsvImporter] " + summary);
+                return false;
             }
 
             List<CsvEquipment> entries;
             try
             {
-                entries = ParseAndValidate(ReadText(absolutePath));
+                byte[] bytes = File.ReadAllBytes(absolute);
+                string csv;
+                try { csv = new UTF8Encoding(false, true).GetString(bytes); }
+                catch (DecoderFallbackException) { csv = Encoding.GetEncoding(932).GetString(bytes); }
+                entries = ParseAndValidate(csv);
             }
             catch (Exception ex)
             {
-                Debug.LogError("[EquipmentCsvImporter] " + ex.Message);
-                EditorUtility.DisplayDialog(
-                    "装備CSVインポート失敗",
-                    "CSVが不正なため既存SOは変更していません。\n" +
-                    ex.Message, "OK");
-                return;
+                summary = "CSVの検証に失敗しました。既存SOは変更していません。\n" + ex.Message;
+                Debug.LogError("[EquipmentCsvImporter] " + summary);
+                return false;
             }
-
-            EnsureFolder(EquipmentFolder);
-            EnsureFolder(CatalogFolder);
-            EnsureFolder(SpriteFolder);
-            AssetDatabase.Refresh();
-
-            var existing = ReadExistingEquipment();
-            int created = 0;
-            int updated = 0;
-            int missingSprites = 0;
 
             try
             {
+                EnsureFolder(EquipmentFolder);
+                EnsureFolder(CatalogFolder);
+                var existing = ReadExistingEquipment();
+                int created = 0, updated = 0, missingSprites = 0;
+
                 foreach (CsvEquipment entry in entries)
                 {
-                    bool isNew = !existing.TryGetValue(
-                        entry.id, out EquipmentSO equipment) ||
-                        equipment == null;
-
-                    if (isNew)
+                    if (!existing.TryGetValue(entry.id, out EquipmentSO equipment) || equipment == null)
                     {
-                        equipment =
-                            ScriptableObject.CreateInstance<EquipmentSO>();
+                        equipment = ScriptableObject.CreateInstance<EquipmentSO>();
                         string file = Sanitize(entry.id + "_" + entry.name);
                         string path = AssetDatabase.GenerateUniqueAssetPath(
                             EquipmentFolder + "/" + file + ".asset");
                         AssetDatabase.CreateAsset(equipment, path);
-                        existing.Add(entry.id, equipment);
+                        existing[entry.id] = equipment;
                         created++;
                     }
                     else
                     {
-                        Undo.RecordObject(
-                            equipment, "Update Equipment from CSV");
+                        Undo.RecordObject(equipment, "Import Equipment CSV");
                         updated++;
                     }
 
@@ -121,134 +114,132 @@ namespace MixMaster.EditorTools
                     equipment.category = entry.category;
                     equipment.modifiers = entry.modifiers;
 
-                    if (!string.IsNullOrEmpty(entry.iconName))
+                    string spriteName = GetCommonSpriteName(entry.category);
+                    if (spriteName != null)
                     {
-                        Sprite sprite = TryGetSprite(entry.iconName);
+                        string expected = SpriteFolder + "/" + spriteName + ".png";
+                        Sprite sprite = LoadSprite(expected);
                         if (sprite != null)
                             equipment.icon = sprite;
                         else
                         {
                             missingSprites++;
-                            Debug.LogWarning(
-                                "[EquipmentCsvImporter] " + entry.id +
-                                ": 画像がありません: " + SpriteFolder +
-                                "/" + entry.iconName + ".png");
+                            Debug.LogWarning("[EquipmentCsvImporter] " + entry.id +
+                                ": 共通画像が見つかりません: " + expected +
+                                " (既存アイコンは維持します)", equipment);
                         }
                     }
-
                     EditorUtility.SetDirty(equipment);
                 }
 
-                // Keep definitions absent from this CSV so that an import
-                // cannot silently erase existing equipment references.
+                // Preserve SO references not listed in this CSV.
                 var allEquipment = new List<EquipmentSO>(existing.Values);
-                allEquipment.Sort((a, b) =>
-                    string.Compare(a.equipmentId, b.equipmentId,
-                        StringComparison.OrdinalIgnoreCase));
+                allEquipment.Sort((a, b) => string.Compare(a.equipmentId, b.equipmentId,
+                    StringComparison.OrdinalIgnoreCase));
 
-                EquipmentCatalogSO catalog =
-                    AssetDatabase.LoadAssetAtPath<EquipmentCatalogSO>(
-                        CatalogPath);
-
+                EquipmentCatalogSO catalog = AssetDatabase.LoadAssetAtPath<EquipmentCatalogSO>(CatalogPath);
                 if (catalog == null)
                 {
-                    catalog =
-                        ScriptableObject.CreateInstance<EquipmentCatalogSO>();
+                    catalog = ScriptableObject.CreateInstance<EquipmentCatalogSO>();
                     AssetDatabase.CreateAsset(catalog, CatalogPath);
                 }
-                else
-                {
-                    Undo.RecordObject(
-                        catalog, "Update Equipment Catalog from CSV");
-                }
+                else Undo.RecordObject(catalog, "Import Equipment Catalog");
 
                 catalog.SetData(allEquipment);
                 EditorUtility.SetDirty(catalog);
                 AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
+                // Includes older EquipmentSO assets not present in the current CSV.
+                string sharedSpriteSummary = EquipmentCommonSpriteAssigner.AssignAll();
+
+                summary = "新規: " + created + " / 更新: " + updated +
+                    " / 共通画像なし: " + missingSprites + "\n装備SO: " + EquipmentFolder +
+                    "\n装備カタログ: " + CatalogPath +
+                    "\n既存装備の共通画像: " + sharedSpriteSummary;
+                Debug.Log("[EquipmentCsvImporter] " + summary.Replace("\n", " / "));
+                return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError("[EquipmentCsvImporter] インポート中のエラー: " + ex);
-                EditorUtility.DisplayDialog(
-                    "装備CSVインポート",
-                    "アセット更新中にエラーが発生しました。" +
-                    "Consoleを確認してください。\n" + ex.Message, "OK");
-                return;
+                summary = "SO更新中にエラーが発生しました（途中まで更新された可能性があります）。\n" + ex;
+                Debug.LogError("[EquipmentCsvImporter] " + summary);
+                return false;
             }
+        }
 
-            string message = "新規: " + created +
-                " / 更新: " + updated +
-                " / 画像なし: " + missingSprites +
-                "\n装備SO: " + EquipmentFolder +
-                "\n実行時カタログ: " + CatalogPath;
+        private static string GetCommonSpriteName(EquipmentCategory category)
+        {
+            switch (category)
+            {
+                case EquipmentCategory.Weapon: return "武器";
+                case EquipmentCategory.Armor: return "防具";
+                case EquipmentCategory.Accessory: return "アクセサリー";
+                default: return null;
+            }
+        }
 
-            Debug.Log("[EquipmentCsvImporter] " + message);
-            EditorUtility.DisplayDialog("装備CSVインポート完了", message, "OK");
+        private static Sprite LoadSprite(string path)
+        {
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite != null) return sprite;
+
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.SaveAndReimport();
+            }
+            sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite != null) return sprite;
+            UnityEngine.Object[] subAssets = AssetDatabase.LoadAllAssetsAtPath(path);
+            if (subAssets != null)
+                foreach (UnityEngine.Object obj in subAssets)
+                    if (obj is Sprite subSprite) return subSprite;
+            return null;
         }
 
         private static List<CsvEquipment> ParseAndValidate(string csv)
         {
             List<List<string>> rows = ParseCsv(csv);
-            if (rows.Count < 2)
-                throw new FormatException("CSVにデータ行がありません。");
+            if (rows.Count < 2) throw new FormatException("CSVにデータ行がありません。");
 
-            var header = new Dictionary<string, int>(
-                StringComparer.OrdinalIgnoreCase);
-
+            var header = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < rows[0].Count; i++)
             {
-                string cell = (rows[0][i] ?? string.Empty)
-                    .Trim().TrimStart('\uFEFF');
-                if (!string.IsNullOrEmpty(cell))
-                {
-                    if (header.ContainsKey(cell))
-                        throw new FormatException("重複した列名: " + cell);
-                    header.Add(cell, i);
-                }
+                string cell = (rows[0][i] ?? "").Trim().TrimStart('\uFEFF');
+                if (cell.Length == 0) continue;
+                if (header.ContainsKey(cell)) throw new FormatException("列名が重複しています: " + cell);
+                header.Add(cell, i);
             }
-
             foreach (string required in RequiredHeaders)
-            {
                 if (!header.ContainsKey(required))
                     throw new FormatException("必要な列がありません: " + required);
-            }
 
-            var result = new List<CsvEquipment>();
+            var entries = new List<CsvEquipment>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
             for (int i = 1; i < rows.Count; i++)
             {
                 List<string> row = rows[i];
-                if (IsEmpty(row))
-                    continue;
+                bool empty = true;
+                foreach (string col in row)
+                    if (!string.IsNullOrWhiteSpace(col)) { empty = false; break; }
+                if (empty) continue;
 
                 string id = Cell(row, header, "ID").Trim();
                 string name = Cell(row, header, "名前").Trim();
                 if (id.Length == 0 || name.Length == 0)
-                    throw new FormatException((i + 1) +
-                        "行目: IDと名前は必須です。");
+                    throw new FormatException((i + 1) + "行目: IDと名前は必須です。");
+                if (!seen.Add(id)) throw new FormatException((i + 1) + "行目: IDが重複しています: " + id);
 
-                if (!seen.Add(id))
-                    throw new FormatException((i + 1) +
-                        "行目: 重複した装備ID: " + id);
-
-                string type = Cell(row, header, "種類").Trim();
                 EquipmentCategory category;
-                switch (type.ToLowerInvariant())
+                string type = Cell(row, header, "種類").Trim().ToLowerInvariant();
+                switch (type)
                 {
-                    case "": case "汎用": case "any":
-                        category = EquipmentCategory.Any; break;
-                    case "武器": case "weapon":
-                        category = EquipmentCategory.Weapon; break;
-                    case "防具": case "armor":
-                        category = EquipmentCategory.Armor; break;
-                    case "アクセサリー": case "アクセ": case "accessory":
-                        category = EquipmentCategory.Accessory; break;
-                    default:
-                        throw new FormatException((i + 1) +
-                            "行目: 種類は武器・防具・アクセサリー・汎用のみ: " +
-                            type);
+                    case "": case "any": case "汎用": category = EquipmentCategory.Any; break;
+                    case "weapon": case "武器": category = EquipmentCategory.Weapon; break;
+                    case "armor": case "防具": category = EquipmentCategory.Armor; break;
+                    case "accessory": case "アクセ": case "アクセサリー": category = EquipmentCategory.Accessory; break;
+                    default: throw new FormatException((i + 1) + "行目: 不明な装備種類: " + type);
                 }
 
                 var mods = new StatPercentageModifiers
@@ -264,8 +255,7 @@ namespace MixMaster.EditorTools
                     moveSpeed = ReadNumber(row, header, "移動速度", i),
                     attackSpeed = ReadNumber(row, header, "攻撃速度", i),
                     attackRange = ReadNumber(row, header, "攻撃範囲", i),
-                    dropRateBonus = ReadNumber(
-                        row, header, "素材ドロ率", i),
+                    dropRateBonus = ReadNumber(row, header, "素材ドロ率", i),
                     resistanceBonus = new ElementResistanceSet
                     {
                         fire = ReadNumber(row, header, "火耐性", i),
@@ -279,193 +269,79 @@ namespace MixMaster.EditorTools
                 mods.resistanceBonus.ClampAll();
                 mods.dropRateBonus = Mathf.Max(0f, mods.dropRateBonus);
 
-                result.Add(new CsvEquipment
+                entries.Add(new CsvEquipment
                 {
-                    id = id,
-                    name = name,
-                    category = category,
+                    id = id, name = name,
                     description = Cell(row, header, "説明").Trim(),
-                    iconName = Cell(row, header, "画像名").Trim(),
-                    modifiers = mods
+                    category = category, modifiers = mods
                 });
             }
-
-            if (result.Count == 0)
+            if (entries.Count == 0)
                 throw new FormatException("有効な装備データ行がありません。");
-
-            return result;
+            return entries;
         }
 
-        private static float ReadNumber(
-            List<string> row, Dictionary<string, int> header,
-            string name, int index)
+        private static float ReadNumber(List<string> row, Dictionary<string, int> header, string column, int rowIndex)
         {
-            string input = Cell(row, header, name).Trim();
-            if (input.Length == 0)
-                return 0f;
-
-            if (!float.TryParse(input, NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out float value) ||
+            string input = Cell(row, header, column).Trim();
+            if (input.Length == 0) return 0f;
+            if (!float.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) ||
                 float.IsNaN(value) || float.IsInfinity(value))
-            {
-                throw new FormatException((index + 1) +
-                    "行目の " + name +
-                    " は数値で指定してください: " + input);
-            }
-
+                throw new FormatException((rowIndex + 1) + "行目: " + column + " に不正な数値: " + input);
             return value;
         }
 
-        private static string Cell(
-            List<string> row, Dictionary<string, int> header, string name)
+        private static string Cell(List<string> row, Dictionary<string, int> header, string column)
         {
-            return header.TryGetValue(name, out int index) &&
-                   index >= 0 && index < row.Count
-                ? row[index] ?? string.Empty : string.Empty;
+            return header.TryGetValue(column, out int index) && index >= 0 && index < row.Count
+                ? row[index] ?? "" : "";
         }
 
-        private static bool IsEmpty(List<string> row)
-        {
-            foreach (string item in row)
-                if (!string.IsNullOrWhiteSpace(item))
-                    return false;
-            return true;
-        }
-
-        private static List<List<string>> ParseCsv(string content)
+        private static List<List<string>> ParseCsv(string csv)
         {
             var rows = new List<List<string>>();
-            var currentRow = new List<string>();
-            var currentCell = new StringBuilder();
+            var row = new List<string>();
+            var cell = new StringBuilder();
             bool quoted = false;
-
-            for (int i = 0; i < content.Length; i++)
+            for (int i = 0; i < csv.Length; i++)
             {
-                char c = content[i];
-
+                char c = csv[i];
                 if (c == '"')
                 {
-                    if (quoted && i + 1 < content.Length &&
-                        content[i + 1] == '"')
-                    {
-                        currentCell.Append('"');
-                        i++;
-                    }
-                    else
-                        quoted = !quoted;
+                    if (quoted && i + 1 < csv.Length && csv[i + 1] == '"') { cell.Append('"'); i++; }
+                    else quoted = !quoted;
                 }
-                else if (!quoted && c == ',')
-                {
-                    currentRow.Add(currentCell.ToString());
-                    currentCell.Length = 0;
-                }
+                else if (!quoted && c == ',') { row.Add(cell.ToString()); cell.Length = 0; }
                 else if (!quoted && (c == '\r' || c == '\n'))
                 {
-                    if (c == '\r' && i + 1 < content.Length &&
-                        content[i + 1] == '\n')
-                        i++;
-
-                    currentRow.Add(currentCell.ToString());
-                    currentCell.Length = 0;
-                    rows.Add(currentRow);
-                    currentRow = new List<string>();
+                    if (c == '\r' && i + 1 < csv.Length && csv[i + 1] == '\n') i++;
+                    row.Add(cell.ToString()); cell.Length = 0;
+                    rows.Add(row); row = new List<string>();
                 }
-                else
-                    currentCell.Append(c);
+                else cell.Append(c);
             }
-
-            if (quoted)
-                throw new FormatException("CSVの引用符が閉じられていません。");
-
-            if (currentCell.Length > 0 || currentRow.Count > 0)
-            {
-                currentRow.Add(currentCell.ToString());
-                rows.Add(currentRow);
-            }
-
+            if (quoted) throw new FormatException("CSVの引用符が閉じられていません。");
+            if (cell.Length > 0 || row.Count > 0) { row.Add(cell.ToString()); rows.Add(row); }
             return rows;
         }
 
         private static Dictionary<string, EquipmentSO> ReadExistingEquipment()
         {
-            var result = new Dictionary<string, EquipmentSO>(
-                StringComparer.OrdinalIgnoreCase);
-
-            string[] guids = AssetDatabase.FindAssets("t:EquipmentSO",
-                new[] { "Assets" });
-            foreach (string guid in guids)
+            var map = new Dictionary<string, EquipmentSO>(StringComparer.OrdinalIgnoreCase);
+            foreach (string guid in AssetDatabase.FindAssets("t:EquipmentSO", new[] { "Assets" }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
-                EquipmentSO equipment =
-                    AssetDatabase.LoadAssetAtPath<EquipmentSO>(path);
-
-                if (equipment == null ||
-                    string.IsNullOrWhiteSpace(equipment.equipmentId))
-                    continue;
-
-                if (!result.ContainsKey(equipment.equipmentId))
-                    result.Add(equipment.equipmentId, equipment);
-                else
-                    Debug.LogWarning(
-                        "[EquipmentCsvImporter] 装備IDが重複しています: " +
-                        equipment.equipmentId + " / " + path);
+                EquipmentSO so = AssetDatabase.LoadAssetAtPath<EquipmentSO>(path);
+                if (so == null || string.IsNullOrWhiteSpace(so.equipmentId)) continue;
+                if (!map.ContainsKey(so.equipmentId)) map.Add(so.equipmentId, so);
+                else Debug.LogWarning("[EquipmentCsvImporter] 既存の装備ID重複: " + so.equipmentId + " / " + path);
             }
-
-            return result;
-        }
-
-        private static Sprite TryGetSprite(string iconName)
-        {
-            if (iconName.Contains("/") || iconName.Contains("\\") ||
-                iconName.Contains(".."))
-                return null;
-
-            string file = Path.GetExtension(iconName).Length > 0
-                ? iconName : iconName + ".png";
-            string path = SpriteFolder + "/" + file;
-            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite != null)
-                return sprite;
-
-            TextureImporter importer =
-                AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer != null &&
-                importer.textureType != TextureImporterType.Sprite)
-            {
-                importer.textureType = TextureImporterType.Sprite;
-                importer.spriteImportMode = SpriteImportMode.Single;
-                importer.SaveAndReimport();
-            }
-
-            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
-        }
-
-        private static string ReadText(string path)
-        {
-            byte[] bytes = File.ReadAllBytes(path);
-            try
-            {
-                return new UTF8Encoding(false, true).GetString(bytes);
-            }
-            catch (DecoderFallbackException)
-            {
-                return Encoding.GetEncoding(932).GetString(bytes);
-            }
-        }
-
-        private static string ToAbsolutePath(string path)
-        {
-            return Path.Combine(
-                Directory.GetParent(Application.dataPath).FullName, path);
+            return map;
         }
 
         private static string Sanitize(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                return "Equipment";
-
-            foreach (char ch in Path.GetInvalidFileNameChars())
-                name = name.Replace(ch, '_');
+            foreach (char ch in Path.GetInvalidFileNameChars()) name = name.Replace(ch, '_');
             return name;
         }
 
@@ -475,10 +351,9 @@ namespace MixMaster.EditorTools
             string[] parts = folder.Split('/');
             for (int i = 1; i < parts.Length; i++)
             {
-                string current = parent + "/" + parts[i];
-                if (!AssetDatabase.IsValidFolder(current))
-                    AssetDatabase.CreateFolder(parent, parts[i]);
-                parent = current;
+                string next = parent + "/" + parts[i];
+                if (!AssetDatabase.IsValidFolder(next)) AssetDatabase.CreateFolder(parent, parts[i]);
+                parent = next;
             }
         }
     }

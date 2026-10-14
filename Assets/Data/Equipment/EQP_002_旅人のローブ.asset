@@ -15,7 +15,7 @@ MonoBehaviour:
   equipmentId: EQP_002
   displayName: "\u65C5\u4EBA\u306E\u30ED\u30FC\u30D6"
   description: "\u8EFD\u304F\u6271\u3044\u3084\u3059\u3044\u65C5\u88C5"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 1231a88d03036d440b1bb8bbedc9afe5, type: 3}
   category: 2
   modifiers:
     maxHp: 0.05
