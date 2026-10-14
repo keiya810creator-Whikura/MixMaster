@@ -58,6 +58,7 @@ namespace MixMaster.Core
             Ensure<DungeonManager>(root);
             Ensure<MixMaster.World.DungeonMapGenerator>(root);
             Ensure<MixMaster.World.DungeonEnemySpawner>(root);
+            Ensure<MixMaster.World.DungeonRewardManager>(root);
             Ensure<EquipmentManager>(root);
             Ensure<OfflineRewardManager>(root);
         }
