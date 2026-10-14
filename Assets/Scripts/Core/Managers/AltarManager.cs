@@ -62,8 +62,13 @@ namespace MixMaster.Core
                         Mathf.Clamp(record.titledMonsterRateLevel,
                             0, AltarBalance.TitleRateMaxLevel);
                     foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+                    {
                         DungeonUpgradeBalance.SetLevel(record, type,
                             DungeonUpgradeBalance.Level(record, type));
+                        if (record.dungeonAppliedLevelsConfigured)
+                            DungeonUpgradeBalance.SetAppliedLevel(record, type,
+                                DungeonUpgradeBalance.AppliedLevel(record, type));
+                    }
                     mapRecords.Add(record);
                 }
             }
@@ -269,7 +274,16 @@ namespace MixMaster.Core
 
             record.donatedDungeonMaterial = LongMath.SaturatingAdd(
                 record.donatedDungeonMaterial, cost);
+            int previouslyApplied =
+                DungeonUpgradeBalance.AppliedLevel(record, type);
             DungeonUpgradeBalance.SetLevel(record, type, level + 1);
+            // When the player has configured an effective level and it was
+            // previously MAX, automatically follow the newly unlocked Lv.
+            // When intentionally lowered, preserve that choice.
+            if (record.dungeonAppliedLevelsConfigured &&
+                previouslyApplied == level)
+                DungeonUpgradeBalance.SetAppliedLevel(record, type, level + 1);
+
             MapAltarProgressChanged?.Invoke(record);
             return true;
         }
@@ -278,6 +292,38 @@ namespace MixMaster.Core
             DungeonUpgradeType type)
         {
             return DungeonUpgradeBalance.Level(GetOrCreateMap(mapId), type);
+        }
+
+        public int GetDungeonAppliedLevel(string mapId,
+            DungeonUpgradeType type)
+        {
+            return DungeonUpgradeBalance.AppliedLevel(
+                GetOrCreateMap(mapId), type);
+        }
+
+        /// <summary>
+        /// Changes only the applied Lv, not the purchased Lv or owned
+        /// materials. All changes are saved via mapAltars in SaveManager.
+        /// </summary>
+        public bool SetDungeonAppliedLevel(string mapId,
+            DungeonUpgradeType type, int targetLevel)
+        {
+            if (string.IsNullOrWhiteSpace(mapId) ||
+                DungeonUpgradeBalance.MaxLevel(type) <= 0)
+                return false;
+
+            MapAltarProgressRecord record = GetOrCreateMap(mapId);
+            int purchased = DungeonUpgradeBalance.Level(record, type);
+            if (targetLevel < 0 || targetLevel > purchased)
+                return false;
+            if (DungeonUpgradeBalance.AppliedLevel(record, type) ==
+                targetLevel)
+                return false;
+
+            DungeonUpgradeBalance.SetAppliedLevel(record, type,
+                targetLevel);
+            MapAltarProgressChanged?.Invoke(record);
+            return true;
         }
 
         /// <summary>

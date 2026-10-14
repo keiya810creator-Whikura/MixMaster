@@ -107,6 +107,74 @@ namespace MixMaster.Core
             }
         }
 
+        public static int AppliedLevel(MapAltarProgressRecord record,
+            DungeonUpgradeType type)
+        {
+            if (record == null) return 0;
+            int purchased = Level(record, type);
+            if (!record.dungeonAppliedLevelsConfigured) return purchased;
+
+            int value;
+            switch (type)
+            {
+                case DungeonUpgradeType.MidBossEquipment:
+                    value = record.appliedMidBossEquipmentLevel; break;
+                case DungeonUpgradeType.NormalEnemyCount:
+                    value = record.appliedNormalEnemyCountLevel; break;
+                case DungeonUpgradeType.ClearMaterial:
+                    value = record.appliedDungeonMaterialRewardLevel; break;
+                case DungeonUpgradeType.MidBossMaterial:
+                    value = record.appliedMidBossMaterialRewardLevel; break;
+                case DungeonUpgradeType.FewerRooms:
+                    value = record.appliedRoomReductionLevel; break;
+                case DungeonUpgradeType.NoBranches:
+                    value = record.appliedNoBranchesLevel; break;
+                case DungeonUpgradeType.MinimumEquipmentLevel:
+                    value = record.appliedMinimumEquipmentLevelBonusLevel; break;
+                default: return 0;
+            }
+            return Mathf.Clamp(value, 0, purchased);
+        }
+
+        public static void SetAppliedLevel(MapAltarProgressRecord record,
+            DungeonUpgradeType type, int value)
+        {
+            if (record == null) return;
+
+            // Before the first explicit adjustment, all equipped values
+            // match the already purchased levels. Migrate in memory once.
+            if (!record.dungeonAppliedLevelsConfigured)
+            {
+                foreach (DungeonUpgradeType item in All)
+                    WriteAppliedLevel(record, item, Level(record, item));
+                record.dungeonAppliedLevelsConfigured = true;
+            }
+            WriteAppliedLevel(record, type,
+                Mathf.Clamp(value, 0, Level(record, type)));
+        }
+
+        private static void WriteAppliedLevel(MapAltarProgressRecord record,
+            DungeonUpgradeType type, int value)
+        {
+            switch (type)
+            {
+                case DungeonUpgradeType.MidBossEquipment:
+                    record.appliedMidBossEquipmentLevel = value; break;
+                case DungeonUpgradeType.NormalEnemyCount:
+                    record.appliedNormalEnemyCountLevel = value; break;
+                case DungeonUpgradeType.ClearMaterial:
+                    record.appliedDungeonMaterialRewardLevel = value; break;
+                case DungeonUpgradeType.MidBossMaterial:
+                    record.appliedMidBossMaterialRewardLevel = value; break;
+                case DungeonUpgradeType.FewerRooms:
+                    record.appliedRoomReductionLevel = value; break;
+                case DungeonUpgradeType.NoBranches:
+                    record.appliedNoBranchesLevel = value; break;
+                case DungeonUpgradeType.MinimumEquipmentLevel:
+                    record.appliedMinimumEquipmentLevelBonusLevel = value; break;
+            }
+        }
+
         /// <summary>
         /// Cost of one upgrade, charged in the current MapSO's dungeon
         /// material only. High-level rewards are balanced by rising costs.

@@ -18,6 +18,7 @@ namespace MixMaster.UI
         private Action returnCallback;
         private Button returnButton;
         private bool usedReturn;
+        private DungeonEquipmentDetailPanelUI detailPanel;
 
         public static DungeonResultPanelUI Show(
             DungeonRewardReport report, Action onReturn)
@@ -42,6 +43,11 @@ namespace MixMaster.UI
 
         public void Close()
         {
+            if (detailPanel != null)
+            {
+                detailPanel.Close();
+                detailPanel = null;
+            }
             if (returnButton != null)
                 returnButton.onClick.RemoveListener(Return);
             returnCallback = null;
@@ -180,9 +186,14 @@ namespace MixMaster.UI
                         definition != null ? definition.equipmentId : "装備";
                     string value = "Lv." + award.level +
                         (award.wasAutoSold ? "  （自動売却済）" : "");
-                    AddRewardRow(content,
+                    GameObject equipmentRow = AddRewardRow(content,
                         definition != null ? definition.icon : null,
                         name, value);
+                    Button inspect = equipmentRow.AddComponent<Button>();
+                    inspect.targetGraphic =
+                        equipmentRow.GetComponent<Image>();
+                    inspect.onClick.AddListener(
+                        () => OpenEquipmentDetail(award));
                 }
 
             if (report != null)
@@ -211,7 +222,19 @@ namespace MixMaster.UI
             return text;
         }
 
-        private static void AddRewardRow(Transform parent,
+        private void OpenEquipmentDetail(DungeonEquipmentAward award)
+        {
+            if (award == null || usedReturn) return;
+            if (detailPanel != null)
+            {
+                detailPanel.Close();
+                detailPanel = null;
+            }
+            detailPanel = DungeonEquipmentDetailPanelUI.Show(
+                transform, award);
+        }
+
+        private static GameObject AddRewardRow(Transform parent,
             Sprite icon, string label, string value)
         {
             GameObject row = new GameObject("Reward_" + label,
@@ -257,6 +280,7 @@ namespace MixMaster.UI
             amountRect.offsetMin = Vector2.zero;
             amountRect.offsetMax = new Vector2(-10f, 0f);
             amountText.alignment = TextAlignmentOptions.MidlineRight;
+            return row;
         }
 
         private static void AddHeight(GameObject go, float height)

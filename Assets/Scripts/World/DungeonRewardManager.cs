@@ -12,6 +12,8 @@ namespace MixMaster.World
         public EquipmentSO definition;
         public int level;
         public bool wasAutoSold;
+        // Cached when awarded so auto-sold items remain inspectable.
+        public StatPercentageModifiers scaledModifiers;
     }
 
     public sealed class DungeonRewardReport
@@ -152,6 +154,9 @@ namespace MixMaster.World
                         pendingEquipment.Add(reward);
                     groundDrops.Remove(tracked);
                 });
+            // Only normal-enemy rare equipment drops are scaled down.
+            // The final boss chest retains its full default size.
+            pickup.transform.localScale = Vector3.one * 0.1f;
             pickup.SetTint(new Color(0.5f, 0.96f, 1f));
             Debug.Log("[DungeonReward] 雑魚から超レア装備がドロップ: " +
                 reward.displayName, this);
@@ -307,7 +312,8 @@ namespace MixMaster.World
                         definition = definition,
                         level = created.level,
                         wasAutoSold = equipment.FindEquipment(
-                            created.uniqueId) == null
+                            created.uniqueId) == null,
+                        scaledModifiers = equipment.GetScaledModifiers(created)
                     });
                 }
             }
