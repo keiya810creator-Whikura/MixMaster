@@ -269,7 +269,14 @@ namespace MixMaster.World
             if (dungeon == null || !dungeon.IsDungeonActive)
                 return;
 
-            if (role == EnemyRole.MidBoss)
+            if (role == EnemyRole.Normal)
+            {
+                MonsterRuntimeSetup setup =
+                    enemy.GetComponent<MonsterRuntimeSetup>();
+                if (setup != null && setup.Definition != null)
+                    NormalEnemyDefeated?.Invoke(setup.Definition);
+            }
+            else if (role == EnemyRole.MidBoss)
                 dungeon.RegisterSideBossDefeated();
             else if (role == EnemyRole.FinalBoss && !finalBossReported)
             {
