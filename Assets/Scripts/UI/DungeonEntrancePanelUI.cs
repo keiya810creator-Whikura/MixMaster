@@ -76,7 +76,8 @@ namespace MixMaster.UI
             if (buttonsWired || upgradeButton == null ||
                 challengeButton == null || closeButton == null)
                 return;
-            upgradeButton.onClick.AddListener(UpgradeTitleRate);
+            HoldToUpgradeButton.Attach(
+                upgradeButton, TryUpgradeTitleRate, SaveUpgradeProgress);
             challengeButton.onClick.AddListener(Challenge);
             closeButton.onClick.AddListener(Close);
             buttonsWired = true;
@@ -255,36 +256,33 @@ namespace MixMaster.UI
             SetDungeonAppliedLevel(type, current + delta);
         }
 
-        private void UpgradeDungeon(DungeonUpgradeType type)
+        private bool TryUpgradeDungeon(DungeonUpgradeType type)
         {
             if (altar == null || materials == null || resolvedMap == null ||
-                resolvedMap.dungeonMaterial == null) return;
+                resolvedMap.dungeonMaterial == null) return false;
 
-            if (altar.TryUpgradeDungeon(
-                currentMapId, type, resolvedMap.dungeonMaterial, materials))
-            {
-                SaveManager save = FindFirstObjectByType<SaveManager>();
-                save?.SaveGame();
-            }
+            bool success = altar.TryUpgradeDungeon(
+                currentMapId, type, resolvedMap.dungeonMaterial, materials);
             Refresh();
+            return success;
         }
 
-        private void UpgradeTitleRate()
+        private bool TryUpgradeTitleRate()
         {
-            if (altar == null || materials == null ||
-                resolvedMap == null || resolvedMap.dungeonMaterial == null)
-                return;
+            if (altar == null || materials == null || resolvedMap == null ||
+                resolvedMap.dungeonMaterial == null)
+                return false;
 
-            if (!altar.TryUpgradeMapTitleRate(
-                currentMapId, resolvedMap.dungeonMaterial, materials))
-            {
-                Refresh();
-                return;
-            }
-
+            bool success = altar.TryUpgradeMapTitleRate(
+                currentMapId, resolvedMap.dungeonMaterial, materials);
             Refresh();
+            return success;
+        }
+
+        private void SaveUpgradeProgress()
+        {
             SaveManager save = FindFirstObjectByType<SaveManager>();
-            if (save != null) save.SaveGame();
+            save?.SaveGame();
         }
 
         private void Challenge()
@@ -513,8 +511,9 @@ namespace MixMaster.UI
                 buttonRect.anchorMax = Vector2.one;
                 buttonRect.pivot = Vector2.one;
                 buttonRect.anchoredPosition = new Vector2(-10f, -79f);
-                row.upgradeButton.onClick.AddListener(
-                    () => UpgradeDungeon(type));
+                HoldToUpgradeButton.Attach(
+                    row.upgradeButton, () => TryUpgradeDungeon(type),
+                    SaveUpgradeProgress);
 
                 row.minButton = InventoryUiFactory.Button(
                     panel.transform, "MinimumApplied", "Lv0",
