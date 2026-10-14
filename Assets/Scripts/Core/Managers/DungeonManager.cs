@@ -18,8 +18,13 @@ namespace MixMaster.Core
         public DungeonGenerationSettings CurrentSettings { get; private set; }
         public int DefeatedSideBosses { get; private set; }
         public bool IsDungeonActive { get; private set; }
+        public string EntranceMapId { get; private set; } = string.Empty;
 
-        public void BeginDungeon(DungeonGenerationSettings settings)
+        // Dungeon map generation will subscribe to this event next.
+        public event Action<string, DungeonGenerationSettings> DungeonStarted;
+
+        public void BeginDungeon(DungeonGenerationSettings settings,
+            string entranceMapId = null)
         {
             CurrentSettings = settings ?? new DungeonGenerationSettings();
 
@@ -31,10 +36,13 @@ namespace MixMaster.Core
             CurrentSettings.sideBossCount = Mathf.Max(0, CurrentSettings.sideBossCount);
 
             DefeatedSideBosses = 0;
+            EntranceMapId = entranceMapId ?? string.Empty;
             IsDungeonActive = true;
 
             if (GameManager.Instance != null)
                 GameManager.Instance.SetMode(GameMode.Dungeon);
+
+            DungeonStarted?.Invoke(EntranceMapId, CurrentSettings);
         }
 
         public void RegisterSideBossDefeated()
@@ -51,6 +59,7 @@ namespace MixMaster.Core
         public void EndDungeon()
         {
             IsDungeonActive = false;
+            EntranceMapId = string.Empty;
         }
     }
 }
