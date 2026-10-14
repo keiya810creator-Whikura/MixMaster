@@ -129,6 +129,7 @@ namespace MixMaster.Core
                 Connect(layout, candidates[i].x, candidates[i].y,
                     corridorWidth);
 
+            FillRooms(layout, roomSize);
             MarkDeepestRoom(layout);
             return layout;
         }
