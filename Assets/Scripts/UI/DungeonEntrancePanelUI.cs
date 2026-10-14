@@ -146,9 +146,13 @@ namespace MixMaster.UI
                     !maxed && owned >= cost &&
                     !string.IsNullOrWhiteSpace(currentMapId);
             if (challengeButton != null)
+            {
+                DungeonManager dungeon =
+                    FindFirstObjectByType<DungeonManager>();
                 challengeButton.interactable =
                     !string.IsNullOrWhiteSpace(currentMapId) &&
-                    FindFirstObjectByType<DungeonManager>() != null;
+                    dungeon != null && !dungeon.IsDungeonActive;
+            }
             if (noticeText != null)
                 noticeText.text = dungeonMaterial == null
                     ? "このマップのMapSOとダンジョン素材を設定してください。"
