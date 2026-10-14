@@ -36,42 +36,6 @@ namespace MixMaster.UI
         private MaterialInventoryManager inventoryManager;
         private SpawnManager spawnManager;
 
-        private void Awake()
-        {
-            if (spawnUpgradeButton != null)
-            {
-                spawnUpgradeButton.onClick.RemoveListener(
-                    UpgradeSpawn);
-
-                spawnUpgradeButton.onClick.AddListener(
-                    UpgradeSpawn);
-            }
-
-            if (dropUpgradeButton != null)
-            {
-                dropUpgradeButton.onClick.RemoveListener(
-                    UpgradeDrop);
-
-                dropUpgradeButton.onClick.AddListener(
-                    UpgradeDrop);
-            }
-        }
-
-        private void OnDestroy()
-        {
-            if (spawnUpgradeButton != null)
-            {
-                spawnUpgradeButton.onClick.RemoveListener(
-                    UpgradeSpawn);
-            }
-
-            if (dropUpgradeButton != null)
-            {
-                dropUpgradeButton.onClick.RemoveListener(
-                    UpgradeDrop);
-            }
-        }
-
         public void Bind(
             string currentMapId,
             MonsterSO definition,
@@ -87,6 +51,12 @@ namespace MixMaster.UI
             inventoryManager = inventory;
             spawnManager = spawn;
 
+            // Buttons may be assigned by the Editor prefab generator before
+            // Bind, so configure them here instead of relying on Awake.
+            HoldToUpgradeButton.Attach(spawnUpgradeButton,
+                TryUpgradeSpawn, SaveUpgradeProgress);
+            HoldToUpgradeButton.Attach(dropUpgradeButton,
+                TryUpgradeDrop, SaveUpgradeProgress);
             Refresh();
         }
 
@@ -326,7 +296,7 @@ namespace MixMaster.UI
             }
         }
 
-        private void UpgradeSpawn()
+        private bool TryUpgradeSpawn()
         {
             if (!CanUpgrade(
                     true,
@@ -334,14 +304,14 @@ namespace MixMaster.UI
                     out MaterialSO material,
                     out long cost))
             {
-                return;
+                return false;
             }
 
             if (!inventoryManager.TryConsume(
                     material,
                     cost))
             {
-                return;
+                return false;
             }
 
             altarManager.DonateMaterial(
@@ -355,9 +325,10 @@ namespace MixMaster.UI
                 record.spawnEfficiencyLevel + 1);
 
             Refresh();
+            return true;
         }
 
-        private void UpgradeDrop()
+        private bool TryUpgradeDrop()
         {
             if (!CanUpgrade(
                     false,
@@ -365,14 +336,14 @@ namespace MixMaster.UI
                     out MaterialSO material,
                     out long cost))
             {
-                return;
+                return false;
             }
 
             if (!inventoryManager.TryConsume(
                     material,
                     cost))
             {
-                return;
+                return false;
             }
 
             altarManager.DonateMaterial(
@@ -386,6 +357,13 @@ namespace MixMaster.UI
                 record.dropRateLevel + 1);
 
             Refresh();
+            return true;
+        }
+
+        private void SaveUpgradeProgress()
+        {
+            SaveManager save = FindFirstObjectByType<SaveManager>();
+            save?.SaveGame();
         }
 
         private bool CanUpgrade(
