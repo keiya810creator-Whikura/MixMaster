@@ -46,7 +46,10 @@ namespace MixMaster.Core
 
         [Header("Drops")]
         public MaterialSO uniqueMaterial;
-        [Range(0f, 1f)] public float materialBaseDropRate = 0.1f;
+        [Tooltip("Base material drop rate (1 = 100%, 2.5 = 250%): " +
+                 "each full 100% guarantees one material, and the remainder " +
+                 "is rolled for one extra. No upper limit.")]
+        [Min(0f)] public float materialBaseDropRate = 0.1f;
 
         [Tooltip("Very low initial chance for the monster itself to be obtained.")]
         [Range(0f, 1f)] public float baseMonsterDropRate = 0.0001f;
@@ -92,7 +95,8 @@ namespace MixMaster.Core
             projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
             projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
             baseRespawnInterval = Mathf.Max(0f, baseRespawnInterval);
-            materialBaseDropRate = Mathf.Clamp01(materialBaseDropRate);
+            // 1.0+ means guaranteed quantity plus one fractional roll.
+            materialBaseDropRate = Mathf.Max(0f, materialBaseDropRate);
             baseMonsterDropRate = Mathf.Clamp01(baseMonsterDropRate);
             experienceReward = System.Math.Max(0L, experienceReward);
         }
