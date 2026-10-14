@@ -83,3 +83,4 @@ namespace MixMaster.EditorTools
         }
     }
 }
+#endif
