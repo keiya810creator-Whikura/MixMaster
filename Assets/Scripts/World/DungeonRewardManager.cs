@@ -54,6 +54,15 @@ namespace MixMaster.World
         private readonly List<EquipmentSO> pendingEquipment =
             new List<EquipmentSO>();
 
+        private sealed class GroundEquipmentDrop
+        {
+            public EquipmentSO definition;
+            public DungeonRewardChestPickup pickup;
+        }
+
+        private readonly List<GroundEquipmentDrop> groundDrops =
+            new List<GroundEquipmentDrop>();
+
         private DungeonManager dungeon;
         private DungeonEnemySpawner spawner;
         private DungeonMapGenerator mapGenerator;
@@ -110,7 +119,8 @@ namespace MixMaster.World
             chestAbsorbed = false;
         }
 
-        private void HandleNormalEnemyDefeated(MonsterSO monster)
+        private void HandleNormalEnemyDefeated(
+            MonsterSO monster, Vector3 worldPosition)
         {
             if (!sessionActive || chestAbsorbed || dungeon == null ||
                 !dungeon.IsDungeonActive)
@@ -120,12 +130,31 @@ namespace MixMaster.World
                 return;
 
             EquipmentSO reward = RollEquipmentDefinition();
-            if (reward != null)
+            if (reward == null) return;
+
+            // Normal equipment also appears on the ground and is absorbed.
+            // The rolled item is stored in the dungeon ledger until clear.
+            var obj = new GameObject(
+                "DungeonRareEquipment_" + reward.equipmentId);
+            obj.transform.position = worldPosition;
+            var pickup = obj.AddComponent<DungeonRewardChestPickup>();
+            var player = FindFirstObjectByType<PlayerController>();
+            var tracked = new GroundEquipmentDrop
             {
-                pendingEquipment.Add(reward);
-                Debug.Log("[DungeonReward] 雑魚から装備ドロップ抽選に成功: " +
-                    reward.displayName, this);
-            }
+                definition = reward,
+                pickup = pickup
+            };
+            groundDrops.Add(tracked);
+            pickup.Initialize(reward.icon,
+                player != null ? player.transform : null, () =>
+                {
+                    if (sessionActive && !chestAbsorbed)
+                        pendingEquipment.Add(reward);
+                    groundDrops.Remove(tracked);
+                });
+            pickup.SetTint(new Color(0.5f, 0.96f, 1f));
+            Debug.Log("[DungeonReward] 雑魚から超レア装備がドロップ: " +
+                reward.displayName, this);
         }
 
         private void HandleFinalBossDefeated(Vector3 position)
@@ -201,6 +230,17 @@ namespace MixMaster.World
 
             chestAbsorbed = true;
             activeChest = null;
+
+            // A rare monster drop that has not reached the player yet
+            // is still credited at successful final-boss chest collection.
+            foreach (GroundEquipmentDrop drop in groundDrops)
+            {
+                if (drop.definition != null)
+                    pendingEquipment.Add(drop.definition);
+                if (drop.pickup != null)
+                    Destroy(drop.pickup.gameObject);
+            }
+            groundDrops.Clear();
             if (sourceMap == null && mapGenerator != null)
                 sourceMap = mapGenerator.SourceMap;
 
@@ -312,6 +352,10 @@ namespace MixMaster.World
             sessionActive = false;
             chestAbsorbed = false;
             pendingEquipment.Clear();
+            foreach (GroundEquipmentDrop drop in groundDrops)
+                if (drop.pickup != null)
+                    Destroy(drop.pickup.gameObject);
+            groundDrops.Clear();
             sourceMap = null;
             if (activeChest != null)
                 Destroy(activeChest.gameObject);
