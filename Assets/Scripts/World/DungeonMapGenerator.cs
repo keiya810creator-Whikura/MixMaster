@@ -296,6 +296,12 @@ namespace MixMaster.World
         /// This will later be called by the dungeon result Return button.
         /// For now a small temporary on-screen return button invokes it.
         /// </summary>
+        public void SetTemporaryReturnVisible(bool visible)
+        {
+            if (temporaryReturnCanvas != null)
+                temporaryReturnCanvas.SetActive(visible);
+        }
+
         public void ReturnToEntrance()
         {
             if (dungeon != null && dungeon.IsDungeonActive)
