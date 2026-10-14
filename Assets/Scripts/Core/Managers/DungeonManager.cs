@@ -10,6 +10,7 @@ namespace MixMaster.Core
         [Min(0)] public int branchCount = 2;
         [Min(0)] public int sideBossCount = 1;
         public int seed;
+        [HideInInspector] public bool forceLinearPath;
     }
 
     [DisallowMultipleComponent]
@@ -28,7 +29,8 @@ namespace MixMaster.Core
                 roomCount = source.roomCount,
                 branchCount = source.branchCount,
                 sideBossCount = source.sideBossCount,
-                seed = source.seed
+                seed = source.seed,
+                forceLinearPath = false
             };
         }
 
@@ -36,6 +38,16 @@ namespace MixMaster.Core
         public int DefeatedSideBosses { get; private set; }
         public bool IsDungeonActive { get; private set; }
         public string EntranceMapId { get; private set; } = string.Empty;
+
+        private readonly int[] appliedDungeonUpgrades = new int[7];
+
+        public int GetAppliedDungeonUpgradeLevel(DungeonUpgradeType type)
+        {
+            int index = (int)type;
+            return IsDungeonActive && index >= 0 &&
+                index < appliedDungeonUpgrades.Length
+                ? appliedDungeonUpgrades[index] : 0;
+        }
         public bool IsFinalBossDefeated { get; private set; }
 
         // Chest/result system will subscribe to this in the next phase.
@@ -48,7 +60,36 @@ namespace MixMaster.Core
         public void BeginDungeon(DungeonGenerationSettings settings,
             string entranceMapId = null)
         {
-            CurrentSettings = settings ?? new DungeonGenerationSettings();
+            DungeonGenerationSettings requested =
+                settings ?? GetDefaultSettings();
+            // Never mutate the authored Inspector template.
+            CurrentSettings = new DungeonGenerationSettings
+            {
+                roomCount = requested.roomCount,
+                branchCount = requested.branchCount,
+                sideBossCount = requested.sideBossCount,
+                seed = requested.seed
+            };
+
+            EntranceMapId = entranceMapId ?? string.Empty;
+            Array.Clear(appliedDungeonUpgrades, 0,
+                appliedDungeonUpgrades.Length);
+
+            AltarManager altar = GetComponent<AltarManager>() ??
+                FindFirstObjectByType<AltarManager>();
+            if (altar != null && !string.IsNullOrWhiteSpace(EntranceMapId))
+                foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+                    appliedDungeonUpgrades[(int)type] =
+                        altar.GetDungeonUpgradeLevel(EntranceMapId, type);
+
+            CurrentSettings.roomCount = Mathf.Max(2,
+                CurrentSettings.roomCount - GetRawAppliedLevel(
+                    DungeonUpgradeType.FewerRooms));
+            if (GetRawAppliedLevel(DungeonUpgradeType.NoBranches) > 0)
+            {
+                CurrentSettings.forceLinearPath = true;
+                CurrentSettings.branchCount = 0;
+            }
 
             if (CurrentSettings.seed == 0)
                 CurrentSettings.seed = UnityEngine.Random.Range(1, int.MaxValue);
@@ -66,6 +107,11 @@ namespace MixMaster.Core
                 GameManager.Instance.SetMode(GameMode.Dungeon);
 
             DungeonStarted?.Invoke(EntranceMapId, CurrentSettings);
+        }
+
+        private int GetRawAppliedLevel(DungeonUpgradeType type)
+        {
+            return appliedDungeonUpgrades[(int)type];
         }
 
         public void RegisterSideBossDefeated()
@@ -92,6 +138,8 @@ namespace MixMaster.Core
 
             IsDungeonActive = false;
             DungeonEnded?.Invoke();
+            Array.Clear(appliedDungeonUpgrades, 0,
+                appliedDungeonUpgrades.Length);
             EntranceMapId = string.Empty;
 
             if (GameManager.Instance != null &&
