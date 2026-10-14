@@ -557,10 +557,33 @@ namespace MixMaster.UI
                             "\n" + definition.description
                         : "装備定義が未登録です。") +
                     (string.IsNullOrEmpty(owner) ? "" :
-                        "\n装備者: " + (owner == "プレイヤー" ? owner : "仲間"));
+                        "\n装備者: " + GetOwnerDisplayName(owner));
             }
             RefreshActionControls();
             RefreshSaleActions();
+        }
+
+        private string GetOwnerDisplayName(string ownerUniqueId)
+        {
+            if (ownerUniqueId == "プレイヤー") return "主人公";
+            if (ownerMonsters == null)
+                ownerMonsters = FindFirstObjectByType<MonsterManager>();
+            if (ownerCatalog == null)
+                ownerCatalog = MonsterCatalogSO.Load();
+
+            OwnedMonsterRecord record = ownerMonsters != null
+                ? ownerMonsters.FindOwnedMonster(ownerUniqueId) : null;
+            MonsterSO monster = record != null && ownerCatalog != null
+                ? ownerCatalog.GetMonster(record.monsterId) : null;
+            string name = monster != null &&
+                !string.IsNullOrWhiteSpace(monster.displayName)
+                ? monster.displayName
+                : record != null ? record.monsterId : "仲間";
+            string suffix = ownerUniqueId.Length > 4
+                ? ownerUniqueId.Substring(ownerUniqueId.Length - 4)
+                : ownerUniqueId;
+            return name + (record != null
+                ? " Lv." + record.level : "") + " #" + suffix;
         }
 
         private IReadOnlyList<string> CurrentEquipmentIds =>
