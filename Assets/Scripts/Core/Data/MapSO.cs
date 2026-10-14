@@ -37,6 +37,11 @@ namespace MixMaster.Core
         [Header("Dungeon")]
         public MaterialSO dungeonMaterial;
 
+        [Tooltip("Equipment rewarded by this map's dungeon. " +
+            "Also used for the very rare normal-monster equipment roll.")]
+        public List<EquipmentSO> dungeonEquipment =
+            new List<EquipmentSO>();
+
         /// <summary>
         /// Creates the map-wide title pool from every monster on this map.
         /// Duplicate TitleSO references are returned only once.
