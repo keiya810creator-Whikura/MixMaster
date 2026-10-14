@@ -232,6 +232,8 @@ namespace MixMaster.World
                 return false;
             }
 
+            health.RefreshOriginalScale();
+
             if (hpMultiplier > 1)
                 health.SetStats(
                     LongMath.SaturatingMultiply(health.MaxHp,
