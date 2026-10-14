@@ -52,7 +52,12 @@ namespace MixMaster.UI
             public TMP_Text heading;
             public TMP_Text effect;
             public TMP_Text cost;
+            public TMP_Text applied;
             public Button upgradeButton;
+            public Button minButton;
+            public Button minusButton;
+            public Button plusButton;
+            public Button maxButton;
         }
 
         private readonly System.Collections.Generic.Dictionary<
@@ -199,8 +204,17 @@ namespace MixMaster.UI
                 bool finished = upgradeLevel >= cap;
                 long needed = finished ? 0L :
                     DungeonUpgradeBalance.Cost(type, upgradeLevel);
+                int appliedLevel = altar != null &&
+                    !string.IsNullOrWhiteSpace(currentMapId)
+                    ? altar.GetDungeonAppliedLevel(currentMapId, type) : 0;
                 row.heading.text = DungeonUpgradeBalance.Name(type) +
-                    "  Lv " + upgradeLevel + " / " + cap;
+                    "  購入Lv " + upgradeLevel + " / " + cap;
+                row.applied.text = "適用 Lv " + appliedLevel +
+                    " / " + upgradeLevel;
+                row.minButton.interactable = appliedLevel > 0;
+                row.minusButton.interactable = appliedLevel > 0;
+                row.plusButton.interactable = appliedLevel < upgradeLevel;
+                row.maxButton.interactable = appliedLevel < upgradeLevel;
                 row.effect.text = finished
                     ? DungeonUpgradeBalance.EffectText(type, upgradeLevel) +
                         "  MAX"
@@ -216,6 +230,29 @@ namespace MixMaster.UI
                     owned >= needed &&
                     !string.IsNullOrWhiteSpace(currentMapId);
             }
+        }
+
+        private void SetDungeonAppliedLevel(
+            DungeonUpgradeType type, int requestedLevel)
+        {
+            if (altar == null || string.IsNullOrWhiteSpace(currentMapId))
+                return;
+
+            if (altar.SetDungeonAppliedLevel(
+                currentMapId, type, requestedLevel))
+            {
+                SaveManager save = FindFirstObjectByType<SaveManager>();
+                save?.SaveGame();
+            }
+            Refresh();
+        }
+
+        private void AdjustDungeonAppliedLevel(
+            DungeonUpgradeType type, int delta)
+        {
+            if (altar == null) return;
+            int current = altar.GetDungeonAppliedLevel(currentMapId, type);
+            SetDungeonAppliedLevel(type, current + delta);
         }
 
         private void UpgradeDungeon(DungeonUpgradeType type)
@@ -451,7 +488,7 @@ namespace MixMaster.UI
                 panel.transform.SetParent(content, false);
                 panel.GetComponent<Image>().color =
                     new Color(0.15f, 0.23f, 0.31f, 1f);
-                panel.GetComponent<LayoutElement>().preferredHeight = 152f;
+                panel.GetComponent<LayoutElement>().preferredHeight = 220f;
 
                 var row = new DungeonUpgradeRow();
                 row.heading = InventoryUiFactory.Text(
@@ -464,7 +501,7 @@ namespace MixMaster.UI
                 row.effect.alignment = TextAlignmentOptions.MidlineLeft;
                 row.cost = InventoryUiFactory.Text(
                     panel.transform, "Cost", "", new Vector2(12f, -97f),
-                    new Vector2(660f, 38f), 23f);
+                    new Vector2(530f, 38f), 23f);
                 row.cost.alignment = TextAlignmentOptions.MidlineLeft;
 
                 row.upgradeButton = InventoryUiFactory.Button(
@@ -478,6 +515,35 @@ namespace MixMaster.UI
                 buttonRect.anchoredPosition = new Vector2(-10f, -79f);
                 row.upgradeButton.onClick.AddListener(
                     () => UpgradeDungeon(type));
+
+                row.minButton = InventoryUiFactory.Button(
+                    panel.transform, "MinimumApplied", "Lv0",
+                    new Vector2(12f, -151f), new Vector2(106f, 60f));
+                row.minusButton = InventoryUiFactory.Button(
+                    panel.transform, "DecreaseApplied", "−",
+                    new Vector2(126f, -151f), new Vector2(80f, 60f));
+                row.applied = InventoryUiFactory.Text(
+                    panel.transform, "AppliedLevel", "",
+                    new Vector2(214f, -153f), new Vector2(215f, 56f), 23f);
+                row.applied.alignment = TextAlignmentOptions.Center;
+                row.plusButton = InventoryUiFactory.Button(
+                    panel.transform, "IncreaseApplied", "＋",
+                    new Vector2(434f, -151f), new Vector2(80f, 60f));
+                row.maxButton = InventoryUiFactory.Button(
+                    panel.transform, "MaximumApplied", "最大",
+                    new Vector2(522f, -151f), new Vector2(130f, 60f));
+
+                row.minButton.onClick.AddListener(
+                    () => SetDungeonAppliedLevel(type, 0));
+                row.minusButton.onClick.AddListener(
+                    () => AdjustDungeonAppliedLevel(type, -1));
+                row.plusButton.onClick.AddListener(
+                    () => AdjustDungeonAppliedLevel(type, 1));
+                row.maxButton.onClick.AddListener(() =>
+                    SetDungeonAppliedLevel(type,
+                        altar != null ? altar.GetDungeonUpgradeLevel(
+                            currentMapId, type) : 0));
+
                 dungeonUpgradeRows.Add(type, row);
             }
         }
