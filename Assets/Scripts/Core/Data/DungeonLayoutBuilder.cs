@@ -63,6 +63,29 @@ namespace MixMaster.Core
             var usedGrid = new Dictionary<Vector2Int, int>();
             AddRoom(layout, usedGrid, Vector2Int.zero, spacing);
 
+            if (settings.forceLinearPath)
+            {
+                // Each step increases X or Y monotonically, so the
+                // route is always a single non-intersecting chain.
+                // It may turn, but can never fork or loop.
+                int horizontalSign = random.Next(2) == 0 ? -1 : 1;
+                int verticalSign = random.Next(2) == 0 ? -1 : 1;
+                for (int i = 1; i < roomCount; i++)
+                {
+                    Vector2Int direction = random.Next(2) == 0
+                        ? new Vector2Int(horizontalSign, 0)
+                        : new Vector2Int(0, verticalSign);
+                    Vector2Int nextGrid =
+                        layout.Rooms[i - 1].GridPosition + direction;
+                    int next = AddRoom(layout, usedGrid, nextGrid, spacing);
+                    Connect(layout, i - 1, next, corridorWidth);
+                }
+
+                FillRooms(layout, roomSize);
+                MarkDeepestRoom(layout);
+                return layout;
+            }
+
             // Randomized tree growth (with deterministic fallback) guarantees
             // every room is reachable and no rooms overlap.
             while (layout.Rooms.Count < roomCount)

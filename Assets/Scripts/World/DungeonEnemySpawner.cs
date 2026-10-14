@@ -160,7 +160,17 @@ namespace MixMaster.World
                 {
                     int minimum = Mathf.Max(0, minMonstersPerRoom);
                     int maximum = Mathf.Max(minimum, maxMonstersPerRoom);
-                    int count = random.Next(minimum, maximum + 1);
+                    int baseCount = random.Next(minimum, maximum + 1);
+                    int boostLevel = dungeon != null
+                        ? dungeon.GetAppliedDungeonUpgradeLevel(
+                            DungeonUpgradeType.NormalEnemyCount) : 0;
+                    // Each level adds +10%. Stochastic rounding avoids
+                    // turning 2 -> 3 at Lv1 on every single room.
+                    double scaled = baseCount * (1d + 0.1d * boostLevel);
+                    int count = (int)Math.Floor(scaled);
+                    if (random.NextDouble() < scaled - count)
+                        count++;
+
                     int half = Mathf.Max(1, generator.RoomSize / 2 - 2);
                     var occupied = new HashSet<Vector2Int>();
 

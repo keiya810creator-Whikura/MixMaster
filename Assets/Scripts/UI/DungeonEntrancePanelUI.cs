@@ -45,19 +45,42 @@ namespace MixMaster.UI
         private MapSO resolvedMap;
         private string currentMapId = string.Empty;
         private bool listening;
+        private bool buttonsWired;
+
+        private sealed class DungeonUpgradeRow
+        {
+            public TMP_Text heading;
+            public TMP_Text effect;
+            public TMP_Text cost;
+            public Button upgradeButton;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<
+            DungeonUpgradeType, DungeonUpgradeRow> dungeonUpgradeRows =
+            new System.Collections.Generic.Dictionary<
+                DungeonUpgradeType, DungeonUpgradeRow>();
+
 
         private void Awake()
         {
-            if (upgradeButton != null)
-                upgradeButton.onClick.AddListener(UpgradeTitleRate);
-            if (challengeButton != null)
-                challengeButton.onClick.AddListener(Challenge);
-            if (closeButton != null)
-                closeButton.onClick.AddListener(Close);
+            WireButtons();
+        }
+
+        private void WireButtons()
+        {
+            if (buttonsWired || upgradeButton == null ||
+                challengeButton == null || closeButton == null)
+                return;
+            upgradeButton.onClick.AddListener(UpgradeTitleRate);
+            challengeButton.onClick.AddListener(Challenge);
+            closeButton.onClick.AddListener(Close);
+            buttonsWired = true;
         }
 
         private void OnEnable()
         {
+            WireButtons();
+            EnsureDungeonUpgradeControls();
             CacheManagers();
             ResolveMap();
             Subscribe();
@@ -163,7 +186,50 @@ namespace MixMaster.UI
             if (noticeText != null)
                 noticeText.text = dungeonMaterial == null
                     ? "このマップのMapSOとダンジョン素材を設定してください。"
-                    : "強化効果はこのマップの全モンスターに適用されます。";
+                    : "強化はこのマップ専用です。他のマップには影響しません。";
+
+            foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+            {
+                if (!dungeonUpgradeRows.TryGetValue(type, out DungeonUpgradeRow row))
+                    continue;
+                int upgradeLevel = altar != null &&
+                    !string.IsNullOrWhiteSpace(currentMapId)
+                    ? altar.GetDungeonUpgradeLevel(currentMapId, type) : 0;
+                int cap = DungeonUpgradeBalance.MaxLevel(type);
+                bool finished = upgradeLevel >= cap;
+                long needed = finished ? 0L :
+                    DungeonUpgradeBalance.Cost(type, upgradeLevel);
+                row.heading.text = DungeonUpgradeBalance.Name(type) +
+                    "  Lv " + upgradeLevel + " / " + cap;
+                row.effect.text = finished
+                    ? DungeonUpgradeBalance.EffectText(type, upgradeLevel) +
+                        "  MAX"
+                    : DungeonUpgradeBalance.EffectText(type, upgradeLevel) +
+                        " → " +
+                        DungeonUpgradeBalance.EffectText(type, upgradeLevel + 1);
+                row.cost.text = finished ? "最大強化済み" :
+                    "素材 ×" + needed.ToString("N0") +
+                    "   （所持 " + owned.ToString("N0") + "）";
+                row.upgradeButton.interactable =
+                    altar != null && materials != null &&
+                    dungeonMaterial != null && !finished &&
+                    owned >= needed &&
+                    !string.IsNullOrWhiteSpace(currentMapId);
+            }
+        }
+
+        private void UpgradeDungeon(DungeonUpgradeType type)
+        {
+            if (altar == null || materials == null || resolvedMap == null ||
+                resolvedMap.dungeonMaterial == null) return;
+
+            if (altar.TryUpgradeDungeon(
+                currentMapId, type, resolvedMap.dungeonMaterial, materials))
+            {
+                SaveManager save = FindFirstObjectByType<SaveManager>();
+                save?.SaveGame();
+            }
+            Refresh();
         }
 
         private void UpgradeTitleRate()
@@ -311,6 +377,112 @@ namespace MixMaster.UI
         }
 
         /// <summary>
+        /// Adds an upgrade list to both runtime-generated and hand-authored
+        /// panels. Preserves existing title upgrade and challenge buttons.
+        /// </summary>
+        private void EnsureDungeonUpgradeControls()
+        {
+            if (dungeonUpgradeRows.Count > 0 || challengeButton == null)
+                return;
+
+            Transform card = challengeButton.transform.parent;
+            if (card == null) return;
+
+            GameObject scrollObject = new GameObject(
+                "DungeonUpgradeScroll", typeof(RectTransform),
+                typeof(Image), typeof(ScrollRect), typeof(LayoutElement));
+            scrollObject.transform.SetParent(card, false);
+            scrollObject.transform.SetSiblingIndex(
+                challengeButton.transform.GetSiblingIndex());
+            scrollObject.GetComponent<Image>().color =
+                new Color(0.06f, 0.12f, 0.18f, 1f);
+            LayoutElement scrollSize =
+                scrollObject.GetComponent<LayoutElement>();
+            scrollSize.preferredHeight = 565f;
+            scrollSize.minHeight = 280f;
+
+            GameObject viewportGo = new GameObject(
+                "Viewport", typeof(RectTransform),
+                typeof(Image), typeof(Mask));
+            viewportGo.transform.SetParent(scrollObject.transform, false);
+            RectTransform viewport =
+                viewportGo.GetComponent<RectTransform>();
+            InventoryUiFactory.Stretch(viewport);
+            viewportGo.GetComponent<Image>().color = Color.white;
+            viewportGo.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject contentGo = new GameObject(
+                "UpgradeRows", typeof(RectTransform),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewport, false);
+            RectTransform content = contentGo.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+
+            VerticalLayoutGroup layout =
+                contentGo.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 10, 10);
+            layout.spacing = 9f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            ContentSizeFitter fitter =
+                contentGo.GetComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 38f;
+
+            foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+            {
+                GameObject panel = new GameObject(
+                    "Upgrade_" + type, typeof(RectTransform),
+                    typeof(Image), typeof(LayoutElement));
+                panel.transform.SetParent(content, false);
+                panel.GetComponent<Image>().color =
+                    new Color(0.15f, 0.23f, 0.31f, 1f);
+                panel.GetComponent<LayoutElement>().preferredHeight = 152f;
+
+                var row = new DungeonUpgradeRow();
+                row.heading = InventoryUiFactory.Text(
+                    panel.transform, "Name", "", new Vector2(12f, -9f),
+                    new Vector2(700f, 36f), 26f);
+                row.heading.alignment = TextAlignmentOptions.MidlineLeft;
+                row.effect = InventoryUiFactory.Text(
+                    panel.transform, "Effect", "", new Vector2(12f, -49f),
+                    new Vector2(700f, 33f), 21f);
+                row.effect.alignment = TextAlignmentOptions.MidlineLeft;
+                row.cost = InventoryUiFactory.Text(
+                    panel.transform, "Cost", "", new Vector2(12f, -97f),
+                    new Vector2(660f, 38f), 23f);
+                row.cost.alignment = TextAlignmentOptions.MidlineLeft;
+
+                row.upgradeButton = InventoryUiFactory.Button(
+                    panel.transform, "UpgradeButton", "強化",
+                    Vector2.zero, new Vector2(148f, 65f));
+                RectTransform buttonRect =
+                    row.upgradeButton.GetComponent<RectTransform>();
+                buttonRect.anchorMin = Vector2.one;
+                buttonRect.anchorMax = Vector2.one;
+                buttonRect.pivot = Vector2.one;
+                buttonRect.anchoredPosition = new Vector2(-10f, -79f);
+                row.upgradeButton.onClick.AddListener(
+                    () => UpgradeDungeon(type));
+                dungeonUpgradeRows.Add(type, row);
+            }
+        }
+
+        /// <summary>
         /// Runtime fallback if no hand-authored entrance panel is wired into
         /// MapBuildingUIRouter. A UI Canvas is reused whenever available.
         /// </summary>
@@ -370,8 +542,8 @@ namespace MixMaster.UI
                 typeof(VerticalLayoutGroup));
             card.transform.SetParent(overlay.transform, false);
             RectTransform rect = card.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.10f, 0.15f);
-            rect.anchorMax = new Vector2(0.90f, 0.85f);
+            rect.anchorMin = new Vector2(0.07f, 0.055f);
+            rect.anchorMax = new Vector2(0.93f, 0.945f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
             card.GetComponent<Image>().color =
@@ -444,6 +616,8 @@ namespace MixMaster.UI
             view.noticeText.enableWordWrapping = true;
             view.noticeText.alignment = TextAlignmentOptions.Center;
 
+            view.WireButtons();
+            view.EnsureDungeonUpgradeControls();
             return view;
         }
 

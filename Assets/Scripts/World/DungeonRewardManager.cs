@@ -37,8 +37,8 @@ namespace MixMaster.World
             0.0005f;
 
         [Header("Equipment reward level")]
-        [SerializeField, Range(1, 100)] private int minimumEquipmentLevel = 40;
-        [SerializeField, Range(1, 100)] private int maximumEquipmentLevel = 75;
+        [SerializeField, Range(1, 100)] private int baseMinimumEquipmentLevel = 1;
+        [SerializeField, Range(1, 100)] private int baseMaximumEquipmentLevel = 100;
         [SerializeField, Min(0)] private long equipmentBaseValue = 1L;
 
         [Header("Boss chest guaranteed rewards")]
@@ -256,11 +256,17 @@ namespace MixMaster.World
 
             if (materials != null && report.dungeonMaterial != null)
             {
-                long materialTotal = LongMath.SaturatingAdd(
+                long baseMaterial = LongMath.SaturatingAdd(
                     Math.Max(0L, dungeonMaterialPerClear),
-                    LongMath.SaturatingMultiply(
-                        Math.Max(0L, extraMaterialPerMidBoss),
-                        Math.Max(0, dungeon.DefeatedSideBosses)));
+                    10L * dungeon.GetAppliedDungeonUpgradeLevel(
+                        DungeonUpgradeType.ClearMaterial));
+                long perMidBoss = LongMath.SaturatingAdd(
+                    Math.Max(0L, extraMaterialPerMidBoss),
+                    2L * dungeon.GetAppliedDungeonUpgradeLevel(
+                        DungeonUpgradeType.MidBossMaterial));
+                long materialTotal = LongMath.SaturatingAdd(
+                    baseMaterial, LongMath.SaturatingMultiply(
+                        perMidBoss, Math.Max(0, dungeon.DefeatedSideBosses)));
 
                 report.actualMaterialAmount = materials.AddMaterial(
                     report.dungeonMaterial, materialTotal);
@@ -268,6 +274,10 @@ namespace MixMaster.World
 
             int guaranteed = dungeon.GetFinalBossEquipmentCount(
                 baseBossEquipmentCount);
+            // Existing +1 per defeated mid-boss stays in place.
+            guaranteed += dungeon.DefeatedSideBosses *
+                dungeon.GetAppliedDungeonUpgradeLevel(
+                    DungeonUpgradeType.MidBossEquipment);
             for (int i = 0; i < guaranteed; i++)
             {
                 EquipmentSO definition = RollEquipmentDefinition();
@@ -279,8 +289,11 @@ namespace MixMaster.World
             {
                 foreach (EquipmentSO definition in pendingEquipment)
                 {
-                    int min = Mathf.Clamp(minimumEquipmentLevel, 1, 100);
-                    int max = Mathf.Clamp(maximumEquipmentLevel, min, 100);
+                    int min = Mathf.Clamp(
+                        baseMinimumEquipmentLevel +
+                        dungeon.GetAppliedDungeonUpgradeLevel(
+                            DungeonUpgradeType.MinimumEquipmentLevel), 1, 100);
+                    int max = Mathf.Clamp(baseMaximumEquipmentLevel, min, 100);
                     int level = UnityEngine.Random.Range(min, max + 1);
 
                     EquipmentRecord created =
@@ -374,9 +387,9 @@ namespace MixMaster.World
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            minimumEquipmentLevel = Mathf.Clamp(minimumEquipmentLevel, 1, 100);
-            maximumEquipmentLevel = Mathf.Clamp(maximumEquipmentLevel,
-                minimumEquipmentLevel, 100);
+            baseMinimumEquipmentLevel = Mathf.Clamp(baseMinimumEquipmentLevel, 1, 100);
+            baseMaximumEquipmentLevel = Mathf.Clamp(baseMaximumEquipmentLevel,
+                baseMinimumEquipmentLevel, 100);
             equipmentBaseValue = Math.Max(0L, equipmentBaseValue);
             dungeonMaterialPerClear = Mathf.Max(0, dungeonMaterialPerClear);
             extraMaterialPerMidBoss = Mathf.Max(0, extraMaterialPerMidBoss);

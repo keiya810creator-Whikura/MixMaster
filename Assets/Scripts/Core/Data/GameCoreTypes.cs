@@ -87,6 +87,16 @@ namespace MixMaster.Core
         public string mapId;
         public long donatedDungeonMaterial;
         public int titledMonsterRateLevel;
+
+        // Dungeon-only progression. Saved independently per MapSO.mapId.
+        // Missing fields in pre-upgrade JSON deserialize to Lv0.
+        public int midBossEquipmentBonusLevel;
+        public int normalEnemyCountLevel;
+        public int dungeonMaterialRewardLevel;
+        public int midBossMaterialRewardLevel;
+        public int roomReductionLevel;
+        public int noBranchesLevel;
+        public int minimumEquipmentLevelBonusLevel;
     }
 
     [Serializable]
