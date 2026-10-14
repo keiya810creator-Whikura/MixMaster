@@ -61,6 +61,9 @@ namespace MixMaster.Core
                     record.titledMonsterRateLevel =
                         Mathf.Clamp(record.titledMonsterRateLevel,
                             0, AltarBalance.TitleRateMaxLevel);
+                    foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+                        DungeonUpgradeBalance.SetLevel(record, type,
+                            DungeonUpgradeBalance.Level(record, type));
                     mapRecords.Add(record);
                 }
             }
@@ -239,6 +242,42 @@ namespace MixMaster.Core
             record.titledMonsterRateLevel = level + 1;
             MapAltarProgressChanged?.Invoke(record);
             return true;
+        }
+
+        /// <summary>
+        /// Spends the dungeon material belonging to exactly this map.
+        /// Successful upgrades are persisted through existing mapAltars.
+        /// </summary>
+        public bool TryUpgradeDungeon(string mapId,
+            DungeonUpgradeType type, MaterialSO dungeonMaterial,
+            MaterialInventoryManager inventory)
+        {
+            if (string.IsNullOrWhiteSpace(mapId) ||
+                dungeonMaterial == null || inventory == null ||
+                string.IsNullOrWhiteSpace(dungeonMaterial.materialId) ||
+                DungeonUpgradeBalance.MaxLevel(type) <= 0)
+                return false;
+
+            MapAltarProgressRecord record = GetOrCreateMap(mapId);
+            int level = DungeonUpgradeBalance.Level(record, type);
+            if (level >= DungeonUpgradeBalance.MaxLevel(type))
+                return false;
+
+            long cost = DungeonUpgradeBalance.Cost(type, level);
+            if (!inventory.TryConsume(dungeonMaterial, cost))
+                return false;
+
+            record.donatedDungeonMaterial = LongMath.SaturatingAdd(
+                record.donatedDungeonMaterial, cost);
+            DungeonUpgradeBalance.SetLevel(record, type, level + 1);
+            MapAltarProgressChanged?.Invoke(record);
+            return true;
+        }
+
+        public int GetDungeonUpgradeLevel(string mapId,
+            DungeonUpgradeType type)
+        {
+            return DungeonUpgradeBalance.Level(GetOrCreateMap(mapId), type);
         }
 
         /// <summary>
