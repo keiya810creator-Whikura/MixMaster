@@ -12,6 +12,8 @@ namespace MixMaster.World
         public EquipmentSO definition;
         public int level;
         public bool wasAutoSold;
+        // Cached when awarded so auto-sold items remain inspectable.
+        public StatPercentageModifiers scaledModifiers;
     }
 
     public sealed class DungeonRewardReport
@@ -310,7 +312,8 @@ namespace MixMaster.World
                         definition = definition,
                         level = created.level,
                         wasAutoSold = equipment.FindEquipment(
-                            created.uniqueId) == null
+                            created.uniqueId) == null,
+                        scaledModifiers = equipment.GetScaledModifiers(created)
                     });
                 }
             }
