@@ -60,6 +60,9 @@ namespace MixMaster.Core
             Ensure<MixMaster.World.DungeonEnemySpawner>(root);
             Ensure<EquipmentManager>(root);
             Ensure<OfflineRewardManager>(root);
+            // The reward manager must see EquipmentManager in OnEnable
+            // even when no manager-settings prefab exists.
+            Ensure<MixMaster.World.DungeonRewardManager>(root);
         }
 
         private static void Ensure<T>(GameObject root) where T : Component
