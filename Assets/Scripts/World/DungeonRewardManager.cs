@@ -152,6 +152,9 @@ namespace MixMaster.World
                         pendingEquipment.Add(reward);
                     groundDrops.Remove(tracked);
                 });
+            // Only normal-enemy rare equipment drops are scaled down.
+            // The final boss chest retains its full default size.
+            pickup.transform.localScale = Vector3.one * 0.1f;
             pickup.SetTint(new Color(0.5f, 0.96f, 1f));
             Debug.Log("[DungeonReward] 雑魚から超レア装備がドロップ: " +
                 reward.displayName, this);
