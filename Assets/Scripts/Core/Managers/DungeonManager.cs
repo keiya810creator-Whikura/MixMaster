@@ -15,6 +15,23 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class DungeonManager : MonoBehaviour
     {
+        [Header("Default dungeon generation (Manager Prefab Inspector)")]
+        [SerializeField] private DungeonGenerationSettings defaultSettings =
+            new DungeonGenerationSettings();
+
+        public DungeonGenerationSettings GetDefaultSettings()
+        {
+            DungeonGenerationSettings source =
+                defaultSettings ?? new DungeonGenerationSettings();
+            return new DungeonGenerationSettings
+            {
+                roomCount = source.roomCount,
+                branchCount = source.branchCount,
+                sideBossCount = source.sideBossCount,
+                seed = source.seed
+            };
+        }
+
         public DungeonGenerationSettings CurrentSettings { get; private set; }
         public int DefeatedSideBosses { get; private set; }
         public bool IsDungeonActive { get; private set; }
