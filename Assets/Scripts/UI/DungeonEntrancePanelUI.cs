@@ -19,6 +19,10 @@ namespace MixMaster.UI
         [SerializeField] private MapSO mapOverride;
         [SerializeField] private string mapIdOverride;
 
+        [Header("Dungeon generation settings")]
+        [SerializeField] private DungeonGenerationSettings generationSettings =
+            new DungeonGenerationSettings();
+
         [Header("UI references")]
         [SerializeField] private TMP_Text mapNameText;
         [SerializeField] private Image materialIcon;
@@ -196,7 +200,19 @@ namespace MixMaster.UI
                 save.SaveGame();
 
             Close();
-            dungeon.BeginDungeon(new DungeonGenerationSettings(), entranceMap);
+
+            // Copy the Inspector settings. DungeonManager fills in a random
+            // seed when it is zero; never mutate the serialized template.
+            DungeonGenerationSettings source =
+                generationSettings ?? new DungeonGenerationSettings();
+            var requested = new DungeonGenerationSettings
+            {
+                roomCount = source.roomCount,
+                branchCount = source.branchCount,
+                sideBossCount = source.sideBossCount,
+                seed = source.seed
+            };
+            dungeon.BeginDungeon(requested, entranceMap);
         }
 
         public void Close()
