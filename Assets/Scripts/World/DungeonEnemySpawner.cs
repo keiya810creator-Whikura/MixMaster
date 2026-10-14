@@ -38,6 +38,9 @@ namespace MixMaster.World
         private DungeonManager dungeon;
         private bool finalBossReported;
 
+        // Receives only generated normal-enemy defeats, never field enemies.
+        public event Action<MonsterSO> NormalEnemyDefeated;
+
         public int RemainingEnemies => liveEnemies.Count;
         public bool FinalBossDefeated => finalBossReported;
 
