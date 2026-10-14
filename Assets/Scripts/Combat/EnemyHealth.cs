@@ -189,6 +189,15 @@ namespace MixMaster.Combat
             return actualDamage;
         }
 
+        /// <summary>
+        /// Called after a dungeon boss is resized to preserve the enlarged
+        /// scale through its death animation instead of popping smaller.
+        /// </summary>
+        public void RefreshOriginalScale()
+        {
+            originalScale = transform.localScale;
+        }
+
         public void SetStats(
             long newMaxHp,
             long newMaxMp,

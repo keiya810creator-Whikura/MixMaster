@@ -3,22 +3,44 @@ using UnityEngine;
 namespace MixMaster.Core
 {
     /// <summary>
-    /// Creates the persistent manager root before the first scene starts.
-    /// Managers do not need to be manually attached to a scene object.
+    /// Loads a user-configurable prefab from Resources before the first scene.
+    /// Without a prefab, retains the old automatically generated managers.
     /// </summary>
     public static class GameManagersBootstrap
     {
-        private const string RootName = "_GameManagers";
+        public const string RootName = "_GameManagers";
+        public const string SettingsPrefabResourcePath = "Managers/GameManagers";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Initialize()
         {
-            var root = GameObject.Find(RootName);
+            GameObject root = GameObject.Find(RootName);
             if (root == null)
             {
-                root = new GameObject(RootName);
-                Object.DontDestroyOnLoad(root);
+                GameObject prefab = Resources.Load<GameObject>(
+                    SettingsPrefabResourcePath);
+                if (prefab != null)
+                {
+                    root = Object.Instantiate(prefab);
+                    root.name = RootName;
+                }
+                else
+                {
+                    root = new GameObject(RootName);
+                }
             }
+
+            Object.DontDestroyOnLoad(root);
+            EnsureComponents(root);
+        }
+
+        /// <summary>
+        /// Shared by runtime fallback and the Editor prefab builder.
+        /// Never replaces existing components/serialized Inspector settings.
+        /// </summary>
+        public static void EnsureComponents(GameObject root)
+        {
+            if (root == null) return;
 
             Ensure<GameManager>(root);
             Ensure<SaveManager>(root);
@@ -34,8 +56,8 @@ namespace MixMaster.Core
             Ensure<MixMaster.UI.MonsterObtainLogUI>(root);
             Ensure<BreedingManager>(root);
             Ensure<DungeonManager>(root);
-            // Subscribes to DungeonManager.DungeonStarted after manager creation.
             Ensure<MixMaster.World.DungeonMapGenerator>(root);
+            Ensure<MixMaster.World.DungeonEnemySpawner>(root);
             Ensure<EquipmentManager>(root);
             Ensure<OfflineRewardManager>(root);
         }
@@ -43,9 +65,7 @@ namespace MixMaster.Core
         private static void Ensure<T>(GameObject root) where T : Component
         {
             if (root.GetComponent<T>() == null)
-            {
                 root.AddComponent<T>();
-            }
         }
     }
 }

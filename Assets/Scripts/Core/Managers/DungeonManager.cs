@@ -15,10 +15,31 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class DungeonManager : MonoBehaviour
     {
+        [Header("Default dungeon generation (Manager Prefab Inspector)")]
+        [SerializeField] private DungeonGenerationSettings defaultSettings =
+            new DungeonGenerationSettings();
+
+        public DungeonGenerationSettings GetDefaultSettings()
+        {
+            DungeonGenerationSettings source =
+                defaultSettings ?? new DungeonGenerationSettings();
+            return new DungeonGenerationSettings
+            {
+                roomCount = source.roomCount,
+                branchCount = source.branchCount,
+                sideBossCount = source.sideBossCount,
+                seed = source.seed
+            };
+        }
+
         public DungeonGenerationSettings CurrentSettings { get; private set; }
         public int DefeatedSideBosses { get; private set; }
         public bool IsDungeonActive { get; private set; }
         public string EntranceMapId { get; private set; } = string.Empty;
+        public bool IsFinalBossDefeated { get; private set; }
+
+        // Chest/result system will subscribe to this in the next phase.
+        public event Action<Vector3> FinalBossDefeated;
 
         // Dungeon map generation will subscribe to this event next.
         public event Action<string, DungeonGenerationSettings> DungeonStarted;
@@ -37,6 +58,7 @@ namespace MixMaster.Core
             CurrentSettings.sideBossCount = Mathf.Max(0, CurrentSettings.sideBossCount);
 
             DefeatedSideBosses = 0;
+            IsFinalBossDefeated = false;
             EntranceMapId = entranceMapId ?? string.Empty;
             IsDungeonActive = true;
 
@@ -50,6 +72,13 @@ namespace MixMaster.Core
         {
             if (!IsDungeonActive) return;
             DefeatedSideBosses++;
+        }
+
+        public void NotifyFinalBossDefeated(Vector3 position)
+        {
+            if (!IsDungeonActive || IsFinalBossDefeated) return;
+            IsFinalBossDefeated = true;
+            FinalBossDefeated?.Invoke(position);
         }
 
         public int GetFinalBossEquipmentCount(int baseCount = 1)

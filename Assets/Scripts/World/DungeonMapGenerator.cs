@@ -27,6 +27,12 @@ namespace MixMaster.World
         [SerializeField, Range(2, 32)] private int gapBetweenRooms = 6;
         [SerializeField, Range(1, 7)] private int corridorWidth = 3;
 
+        [Header("Boss Room Floor Colors")]
+        [SerializeField] private Color midBossFloorColor =
+            new Color(0.90f, 0.73f, 0.46f, 1f);
+        [SerializeField] private Color finalBossFloorColor =
+            new Color(0.64f, 0.50f, 0.88f, 1f);
+
         [Header("Temporary development navigation")]
         [Tooltip("Allows returning while bosses/results are not yet implemented.")]
         [SerializeField] private bool showTemporaryReturnButton = true;
@@ -65,6 +71,11 @@ namespace MixMaster.World
         public DungeonLayout CurrentLayout { get; private set; }
         public Tilemap Ground => generatedGround;
         public Tilemap Walls => generatedWalls;
+        public Transform RuntimeRoot =>
+            generatedRoot != null ? generatedRoot.transform : null;
+        public MapSO SourceMap =>
+            fieldRoot != null ? fieldRoot.MapDefinition : null;
+        public int RoomSize => roomSize;
 
         public event Action<DungeonLayout> DungeonMapReady;
 
@@ -206,6 +217,10 @@ namespace MixMaster.World
             generatedGround.CompressBounds();
             generatedWalls.CompressBounds();
 
+            // Always distinguish the last room, even when the map has no
+            // configured boss prefab yet.
+            TintBossRoom(CurrentLayout.BossRoom, true);
+
             fieldRootWasActive = fieldRoot.gameObject.activeSelf;
             // An unusual scene may parent the player beneath the map root.
             // In that case keep the source root active rather than hiding
@@ -236,13 +251,45 @@ namespace MixMaster.World
 
         public Vector3 GetRoomWorldPosition(DungeonRoom room)
         {
+            return GetRoomCellWorldPosition(room, Vector2Int.zero);
+        }
+
+        public Vector3 GetRoomCellWorldPosition(
+            DungeonRoom room, Vector2Int offset)
+        {
             if (room == null || generatedRoot == null)
                 return Vector3.zero;
 
             Grid grid = generatedRoot.GetComponent<Grid>();
-            Vector2Int center = room.CenterCell;
+            Vector2Int cell = room.CenterCell + offset;
             return grid.GetCellCenterWorld(
-                new Vector3Int(center.x, center.y, 0));
+                new Vector3Int(cell.x, cell.y, 0));
+        }
+
+        /// <summary>
+        /// Tint only the square floor of a boss room. The source TileBase
+        /// asset and all other rooms keep their original colors.
+        /// Unlock tile-specific colors (generated tiles commonly lock them).
+        /// </summary>
+        public void TintBossRoom(DungeonRoom room, bool isFinalBoss)
+        {
+            if (room == null || generatedGround == null)
+                return;
+
+            Color tint = isFinalBoss ?
+                finalBossFloorColor : midBossFloorColor;
+            int side = Mathf.Clamp(roomSize, 6, 24);
+            int half = side / 2;
+            for (int y = 0; y < side; y++)
+                for (int x = 0; x < side; x++)
+                {
+                    var cell = new Vector3Int(
+                        room.CenterCell.x + x - half,
+                        room.CenterCell.y + y - half, 0);
+                    if (!generatedGround.HasTile(cell)) continue;
+                    generatedGround.SetTileFlags(cell, TileFlags.None);
+                    generatedGround.SetColor(cell, tint);
+                }
         }
 
         /// <summary>
