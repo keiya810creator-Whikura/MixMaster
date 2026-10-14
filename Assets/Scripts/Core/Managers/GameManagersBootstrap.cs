@@ -34,6 +34,8 @@ namespace MixMaster.Core
             Ensure<MixMaster.UI.MonsterObtainLogUI>(root);
             Ensure<BreedingManager>(root);
             Ensure<DungeonManager>(root);
+            // Subscribes to DungeonManager.DungeonStarted after manager creation.
+            Ensure<MixMaster.World.DungeonMapGenerator>(root);
             Ensure<EquipmentManager>(root);
             Ensure<OfflineRewardManager>(root);
         }

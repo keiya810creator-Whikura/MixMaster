@@ -17,7 +17,17 @@ namespace MixMaster.World
     {
         [SerializeField] private MapBuildingType buildingType;
 
+        private static float suppressOpenUntil;
+
         public MapBuildingType BuildingType => buildingType;
+
+        // Prevent the returned player from immediately reopening the
+        // entrance panel while still overlapping its trigger.
+        public static void SuppressOpenFor(float seconds)
+        {
+            suppressOpenUntil = Mathf.Max(
+                suppressOpenUntil, Time.unscaledTime + Mathf.Max(0f, seconds));
+        }
 
         public void Configure(MapBuildingType type)
         {
@@ -30,7 +40,8 @@ namespace MixMaster.World
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (other == null)
+            if (other == null ||
+                Time.unscaledTime < suppressOpenUntil)
                 return;
 
             PlayerController player =

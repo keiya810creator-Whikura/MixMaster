@@ -22,6 +22,7 @@ namespace MixMaster.Core
 
         // Dungeon map generation will subscribe to this event next.
         public event Action<string, DungeonGenerationSettings> DungeonStarted;
+        public event Action DungeonEnded;
 
         public void BeginDungeon(DungeonGenerationSettings settings,
             string entranceMapId = null)
@@ -58,8 +59,15 @@ namespace MixMaster.Core
 
         public void EndDungeon()
         {
+            if (!IsDungeonActive) return;
+
             IsDungeonActive = false;
+            DungeonEnded?.Invoke();
             EntranceMapId = string.Empty;
+
+            if (GameManager.Instance != null &&
+                GameManager.Instance.CurrentMode == GameMode.Dungeon)
+                GameManager.Instance.SetMode(GameMode.Exploration);
         }
     }
 }
