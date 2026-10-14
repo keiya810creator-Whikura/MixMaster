@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MixMaster.Core;
+using MixMaster.Player;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,6 +21,9 @@ namespace MixMaster.UI
         [SerializeField] private Sprite lockSprite;
 
         private EquipmentManager manager;
+        private MonsterManager ownerMonsters;
+        private MonsterCatalogSO ownerCatalog;
+        private SpriteRenderer playerSpriteRenderer;
         private TMP_Dropdown sortDropdown;
         private TMP_Dropdown statFilter;
         private TMP_Dropdown rarityFilter;
@@ -192,6 +196,17 @@ namespace MixMaster.UI
         {
             if (manager == null)
                 manager = FindFirstObjectByType<EquipmentManager>();
+            if (ownerMonsters == null)
+                ownerMonsters = FindFirstObjectByType<MonsterManager>();
+            if (ownerCatalog == null)
+                ownerCatalog = MonsterCatalogSO.Load();
+            if (playerSpriteRenderer == null)
+            {
+                PlayerController player =
+                    FindFirstObjectByType<PlayerController>();
+                if (player != null)
+                    playerSpriteRenderer = player.GetComponent<SpriteRenderer>();
+            }
             if (manager == null || subscribed)
                 return;
 
@@ -311,8 +326,48 @@ namespace MixMaster.UI
 
             TMP_Text summary = InventoryUiFactory.Text(
                 row.transform, "Summary", "",
-                new Vector2(112f, -10f), new Vector2(790f, 104f), 23f);
+                new Vector2(112f, -10f), new Vector2(625f, 104f), 23f);
+            // Leave a fixed-width portrait area at the right. Use anchors
+            // so existing prefab viewport widths also lay out correctly.
+            RectTransform summaryRect = summary.rectTransform;
+            summaryRect.anchorMin = new Vector2(0f, 0f);
+            summaryRect.anchorMax = new Vector2(1f, 1f);
+            summaryRect.pivot = new Vector2(0f, 0.5f);
+            summaryRect.offsetMin = new Vector2(112f, 8f);
+            summaryRect.offsetMax = new Vector2(-147f, -8f);
             summary.enableWordWrapping = true;
+
+            GameObject owner = new GameObject("EquippedOwner",
+                typeof(RectTransform), typeof(Image));
+            owner.transform.SetParent(row.transform, false);
+            RectTransform ownerRect = owner.GetComponent<RectTransform>();
+            ownerRect.anchorMin = new Vector2(1f, 0.5f);
+            ownerRect.anchorMax = ownerRect.anchorMin;
+            ownerRect.pivot = new Vector2(1f, 0.5f);
+            ownerRect.anchoredPosition = new Vector2(-8f, 0f);
+            ownerRect.sizeDelta = new Vector2(132f, 112f);
+            Image ownerBackground = owner.GetComponent<Image>();
+            ownerBackground.color = new Color(0.05f, 0.08f, 0.12f, 0.48f);
+            ownerBackground.raycastTarget = false;
+
+            GameObject portrait = new GameObject("Portrait",
+                typeof(RectTransform), typeof(Image));
+            portrait.transform.SetParent(owner.transform, false);
+            RectTransform portraitRect =
+                portrait.GetComponent<RectTransform>();
+            InventoryUiFactory.TopLeft(portraitRect,
+                new Vector2(33f, -3f), new Vector2(66f, 69f));
+            Image portraitImage = portrait.GetComponent<Image>();
+            portraitImage.preserveAspect = true;
+            portraitImage.raycastTarget = false;
+
+            TMP_Text ownerLabel = InventoryUiFactory.Text(
+                owner.transform, "OwnerLabel", "",
+                new Vector2(4f, -76f), new Vector2(124f, 33f), 19f);
+            ownerLabel.alignment = TextAlignmentOptions.Center;
+            ownerLabel.enableWordWrapping = true;
+            ownerLabel.raycastTarget = false;
+            owner.SetActive(false);
             return row;
         }
 
@@ -341,18 +396,91 @@ namespace MixMaster.UI
                 EquipmentRarityUtility.GetRarity(record.level);
             TMP_Text summary =
                 row.transform.Find("Summary").GetComponent<TMP_Text>();
+            string equippedOwner =
+                manager.GetEquippedOwner(record.uniqueId);
             summary.text = name + "  Lv." + record.level +
                 " 《" + EquipmentRarityUtility.Labels[(int)rarity] + "》\n" +
                 (definition != null
                     ? InventoryStatFilter.FormatModifiers(
                         manager.GetScaledModifiers(record))
                     : "装備定義が見つかりません") +
-                (!string.IsNullOrEmpty(manager.GetEquippedOwner(record.uniqueId))
+                (!string.IsNullOrEmpty(equippedOwner)
                     ? "  [装備中]" : "");
+
+            BindOwnerPortrait(row, equippedOwner);
             InventoryProtectionIcons.Set(row.transform,
                 record.isFavorite, record.isLocked,
                 favoriteSprite, lockSprite,
                 new Vector2(10f, -10f), new Vector2(53f, -10f));
+        }
+
+        /// <summary>
+        /// A row is pooled and rebound as the player flips pages. Always
+        /// clear the old owner icon/label before showing a new equipment
+        /// record, otherwise a previous item's owner can linger.
+        /// </summary>
+        private void BindOwnerPortrait(GameObject row, string ownerUniqueId)
+        {
+            Transform owner = row.transform.Find("EquippedOwner");
+            if (owner == null) return;
+
+            bool equipped = !string.IsNullOrWhiteSpace(ownerUniqueId);
+            owner.gameObject.SetActive(equipped);
+            if (!equipped) return;
+
+            Image portrait = owner.Find("Portrait").GetComponent<Image>();
+            TMP_Text label = owner.Find("OwnerLabel").GetComponent<TMP_Text>();
+            Sprite image = null;
+            string caption;
+
+            if (ownerUniqueId == "プレイヤー")
+            {
+                if (playerSpriteRenderer == null)
+                {
+                    PlayerController player =
+                        FindFirstObjectByType<PlayerController>();
+                    if (player != null)
+                        playerSpriteRenderer =
+                            player.GetComponent<SpriteRenderer>();
+                }
+                image = playerSpriteRenderer != null
+                    ? playerSpriteRenderer.sprite : null;
+                caption = "主人公";
+            }
+            else
+            {
+                if (ownerMonsters == null)
+                    ownerMonsters = FindFirstObjectByType<MonsterManager>();
+                if (ownerCatalog == null)
+                    ownerCatalog = MonsterCatalogSO.Load();
+
+                OwnedMonsterRecord monster = ownerMonsters != null
+                    ? ownerMonsters.FindOwnedMonster(ownerUniqueId) : null;
+                MonsterSO definition = monster != null &&
+                    ownerCatalog != null
+                    ? ownerCatalog.GetMonster(monster.monsterId) : null;
+
+                image = definition != null
+                    ? (definition.icon != null
+                        ? definition.icon : definition.sprite) : null;
+
+                string species = definition != null &&
+                    !string.IsNullOrWhiteSpace(definition.displayName)
+                    ? definition.displayName
+                    : monster != null ? monster.monsterId : "仲間";
+                // A species portrait alone cannot distinguish two owned
+                // individuals of that species. Include an ID suffix.
+                string tail = ownerUniqueId.Length > 4
+                    ? ownerUniqueId.Substring(ownerUniqueId.Length - 4)
+                    : ownerUniqueId;
+                caption = species + "\nLv." +
+                    (monster != null ? monster.level.ToString() : "?") +
+                    " #" + tail;
+            }
+
+            portrait.sprite = image;
+            portrait.enabled = image != null;
+            label.text = caption;
         }
 
         private void RenderPage()
