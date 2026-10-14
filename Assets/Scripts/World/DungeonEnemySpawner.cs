@@ -39,7 +39,7 @@ namespace MixMaster.World
         private bool finalBossReported;
 
         // Receives only generated normal-enemy defeats, never field enemies.
-        public event Action<MonsterSO> NormalEnemyDefeated;
+        public event Action<MonsterSO, Vector3> NormalEnemyDefeated;
 
         public int RemainingEnemies => liveEnemies.Count;
         public bool FinalBossDefeated => finalBossReported;
@@ -274,7 +274,8 @@ namespace MixMaster.World
                 MonsterRuntimeSetup setup =
                     enemy.GetComponent<MonsterRuntimeSetup>();
                 if (setup != null && setup.Definition != null)
-                    NormalEnemyDefeated?.Invoke(setup.Definition);
+                    NormalEnemyDefeated?.Invoke(
+                        setup.Definition, enemy.transform.position);
             }
             else if (role == EnemyRole.MidBoss)
                 dungeon.RegisterSideBossDefeated();
