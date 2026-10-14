@@ -187,6 +187,14 @@ namespace MixMaster.UI
             // Next implementation step will listen for DungeonStarted
             // to build the 10x10-room map and relocate the player.
             string entranceMap = currentMapId;
+
+            // Persist the safe field position before switching to the
+            // transient dungeon map. In-dungeon autosaves also record this
+            // position, so restarting never strands the player in empty space.
+            SaveManager save = FindFirstObjectByType<SaveManager>();
+            if (save != null)
+                save.SaveGame();
+
             Close();
             dungeon.BeginDungeon(new DungeonGenerationSettings(), entranceMap);
         }
