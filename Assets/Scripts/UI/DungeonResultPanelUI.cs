@@ -16,12 +16,15 @@ namespace MixMaster.UI
     public sealed class DungeonResultPanelUI : MonoBehaviour
     {
         private Action returnCallback;
+        private Func<bool> retryCallback;
         private Button returnButton;
+        private Button retryButton;
         private bool usedReturn;
         private DungeonEquipmentDetailPanelUI detailPanel;
 
         public static DungeonResultPanelUI Show(
-            DungeonRewardReport report, Action onReturn)
+            DungeonRewardReport report, Action onReturn,
+            Func<bool> onRetry = null)
         {
             GameObject root = new GameObject("DungeonResultCanvas",
                 typeof(RectTransform), typeof(Canvas),
@@ -37,6 +40,7 @@ namespace MixMaster.UI
             DungeonResultPanelUI panel =
                 root.AddComponent<DungeonResultPanelUI>();
             panel.returnCallback = onReturn;
+            panel.retryCallback = onRetry;
             panel.Build(report);
             return panel;
         }
@@ -50,7 +54,10 @@ namespace MixMaster.UI
             }
             if (returnButton != null)
                 returnButton.onClick.RemoveListener(Return);
+            if (retryButton != null)
+                retryButton.onClick.RemoveListener(Retry);
             returnCallback = null;
+            retryCallback = null;
             Destroy(gameObject);
         }
 
@@ -58,8 +65,31 @@ namespace MixMaster.UI
         {
             if (usedReturn) return;
             usedReturn = true;
-            returnButton.interactable = false;
+            SetButtonsInteractable(false);
             returnCallback?.Invoke();
+        }
+
+        private void Retry()
+        {
+            if (usedReturn || retryCallback == null) return;
+            usedReturn = true;
+            SetButtonsInteractable(false);
+
+            if (!retryCallback())
+            {
+                // A failed save or unavailable dungeon must never trap
+                // the user in a result with both buttons disabled.
+                usedReturn = false;
+                SetButtonsInteractable(true);
+            }
+        }
+
+        private void SetButtonsInteractable(bool enabled)
+        {
+            if (returnButton != null)
+                returnButton.interactable = enabled;
+            if (retryButton != null)
+                retryButton.interactable = enabled;
         }
 
         private void Build(DungeonRewardReport report)
@@ -200,6 +230,16 @@ namespace MixMaster.UI
                 AddText(card.transform, "BossBonus",
                     "討伐した中ボス: " + report.defeatedMidBosses +
                     "体   /  装備報酬に反映", 23f, 58f);
+
+            retryButton = InventoryUiFactory.Button(
+                card.transform, "RetryButton",
+                "同じダンジョンに再挑戦", Vector2.zero,
+                new Vector2(680f, 100f));
+            retryButton.GetComponent<Image>().color =
+                new Color(0.22f, 0.39f, 0.59f);
+            AddHeight(retryButton.gameObject, 100f);
+            retryButton.interactable = retryCallback != null;
+            retryButton.onClick.AddListener(Retry);
 
             returnButton = InventoryUiFactory.Button(
                 card.transform, "ReturnButton",

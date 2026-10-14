@@ -35,6 +35,23 @@ namespace MixMaster.Core
         }
 
         public DungeonGenerationSettings CurrentSettings { get; private set; }
+
+        // Unmodified Inspector/request settings. A retry must not apply
+        // room-reduction upgrades twice or lock in a random seed.
+        private DungeonGenerationSettings retrySettings;
+
+        public DungeonGenerationSettings GetRetrySettings()
+        {
+            DungeonGenerationSettings source =
+                retrySettings ?? GetDefaultSettings();
+            return new DungeonGenerationSettings
+            {
+                roomCount = source.roomCount,
+                branchCount = source.branchCount,
+                sideBossCount = source.sideBossCount,
+                seed = source.seed
+            };
+        }
         public int DefeatedSideBosses { get; private set; }
         public bool IsDungeonActive { get; private set; }
         public string EntranceMapId { get; private set; } = string.Empty;
@@ -62,6 +79,13 @@ namespace MixMaster.Core
         {
             DungeonGenerationSettings requested =
                 settings ?? GetDefaultSettings();
+            retrySettings = new DungeonGenerationSettings
+            {
+                roomCount = requested.roomCount,
+                branchCount = requested.branchCount,
+                sideBossCount = requested.sideBossCount,
+                seed = requested.seed
+            };
             // Never mutate the authored Inspector template.
             CurrentSettings = new DungeonGenerationSettings
             {

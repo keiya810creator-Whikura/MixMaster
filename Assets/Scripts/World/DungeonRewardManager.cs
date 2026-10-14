@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using MixMaster.Core;
 using MixMaster.Player;
@@ -332,33 +333,94 @@ namespace MixMaster.World
             var joystick = FindFirstObjectByType<FloatingJoystick>();
             joystick?.SetInteractionEnabled(false);
 
-            results = DungeonResultPanelUI.Show(report, ReturnFromResult);
+            results = DungeonResultPanelUI.Show(
+                report, ReturnFromResult, RetryFromResult);
+        }
+
+        private SaveManager GetSaveManager()
+        {
+            return GetComponent<SaveManager>() ??
+                FindFirstObjectByType<SaveManager>();
         }
 
         private void ReturnFromResult()
         {
             if (!chestAbsorbed) return;
+            RestoreFieldAfterResult();
+            GetSaveManager()?.SaveGame();
+        }
 
-            // Dismiss UI first, then release movement controls and restore
-            // the field through the existing dungeon manager.
+        private bool RetryFromResult()
+        {
+            if (!chestAbsorbed || dungeon == null ||
+                !dungeon.IsDungeonActive ||
+                mapGenerator == null || !mapGenerator.IsGenerated)
+                return false;
+
+            string mapId = dungeon.EntranceMapId;
+            if (string.IsNullOrWhiteSpace(mapId))
+                return false;
+
+            // These are the original requested settings, NOT the effective
+            // ones with room reduction already applied.
+            DungeonGenerationSettings settings =
+                dungeon.GetRetrySettings();
+
+            // Ensure the previous clear rewards are durable before letting
+            // the player enter another transient dungeon.
+            SaveManager save = GetSaveManager();
+            if (save == null || !save.SaveGame())
+            {
+                Debug.LogWarning(
+                    "[DungeonReward] 再挑戦前の報酬セーブに失敗しました。", this);
+                return false;
+            }
+
+            RestoreFieldAfterResult();
+            // Save again after field restoration: persistentData must
+            // contain the safe entrance position and exploration mode.
+            if (!save.SaveGame())
+                Debug.LogWarning(
+                    "[DungeonReward] 帰還後のセーブを確認できませんでした。", this);
+
+            // Unity's Destroy(root) is deferred until the end of this
+            // frame. Waiting a frame prevents stale dungeon objects from
+            // overlapping the new dungeon or blocking map generation.
+            StartCoroutine(RetryAfterFieldRestored(mapId, settings));
+            return true;
+        }
+
+        private void RestoreFieldAfterResult()
+        {
             if (results != null)
             {
                 results.Close();
                 results = null;
             }
-            var player = FindFirstObjectByType<PlayerController>();
+
+            PlayerController player =
+                FindFirstObjectByType<PlayerController>();
             player?.SetCombatMovementLocked(false);
-            var joystick = FindFirstObjectByType<FloatingJoystick>();
+            FloatingJoystick joystick =
+                FindFirstObjectByType<FloatingJoystick>();
             joystick?.SetInteractionEnabled(true);
 
             if (mapGenerator != null)
                 mapGenerator.ReturnToEntrance();
             else
                 dungeon?.EndDungeon();
+        }
 
-            SaveManager save = GetComponent<SaveManager>() ??
-                FindFirstObjectByType<SaveManager>();
-            save?.SaveGame();
+        private IEnumerator RetryAfterFieldRestored(
+            string mapId, DungeonGenerationSettings settings)
+        {
+            yield return null;
+
+            if (dungeon == null || dungeon.IsDungeonActive ||
+                mapGenerator == null || mapGenerator.IsGenerated)
+                yield break;
+
+            dungeon.BeginDungeon(settings, mapId);
         }
 
         private void HandleDungeonEnded()
