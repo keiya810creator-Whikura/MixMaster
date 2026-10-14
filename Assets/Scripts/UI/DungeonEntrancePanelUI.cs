@@ -20,6 +20,9 @@ namespace MixMaster.UI
         [SerializeField] private string mapIdOverride;
 
         [Header("Dungeon generation settings")]
+        [Tooltip("Enabled: use the DungeonManager default generation settings " +
+            "configured in the Manager Settings Prefab Inspector.")]
+        [SerializeField] private bool useManagerDungeonSettings = true;
         [SerializeField] private DungeonGenerationSettings generationSettings =
             new DungeonGenerationSettings();
 
@@ -204,7 +207,9 @@ namespace MixMaster.UI
             // Copy the Inspector settings. DungeonManager fills in a random
             // seed when it is zero; never mutate the serialized template.
             DungeonGenerationSettings source =
-                generationSettings ?? new DungeonGenerationSettings();
+                useManagerDungeonSettings
+                    ? dungeon.GetDefaultSettings()
+                    : (generationSettings ?? new DungeonGenerationSettings());
             var requested = new DungeonGenerationSettings
             {
                 roomCount = source.roomCount,
