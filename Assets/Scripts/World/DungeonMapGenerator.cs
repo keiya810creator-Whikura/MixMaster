@@ -31,8 +31,19 @@ namespace MixMaster.World
         [Tooltip("Allows returning while bosses/results are not yet implemented.")]
         [SerializeField] private bool showTemporaryReturnButton = true;
 
-        private readonly List<GameObject> suspendedEnemies =
-            new List<GameObject>();
+        private sealed class SuspendedEnemy
+        {
+            public EnemyCombatAI combat;
+            public bool combatWasEnabled;
+            public EnemyWanderAI wander;
+            public bool wanderWasEnabled;
+            public Rigidbody2D body;
+            public bool bodyWasSimulated;
+            public Vector2 oldVelocity;
+        }
+
+        private readonly List<SuspendedEnemy> suspendedEnemies =
+            new List<SuspendedEnemy>();
 
         private DungeonManager dungeon;
         private MapManager mapManager;
@@ -260,8 +271,18 @@ namespace MixMaster.World
                 fieldRoot.gameObject.SetActive(true);
 
             for (int i = 0; i < suspendedEnemies.Count; i++)
-                if (suspendedEnemies[i] != null)
-                    suspendedEnemies[i].SetActive(true);
+            {
+                SuspendedEnemy state = suspendedEnemies[i];
+                if (state.body != null)
+                {
+                    state.body.simulated = state.bodyWasSimulated;
+                    state.body.linearVelocity = state.oldVelocity;
+                }
+                if (state.combat != null)
+                    state.combat.enabled = state.combatWasEnabled;
+                if (state.wander != null)
+                    state.wander.enabled = state.wanderWasEnabled;
+            }
             suspendedEnemies.Clear();
 
             if (isGenerated && player != null)
@@ -375,14 +396,34 @@ namespace MixMaster.World
             suspendedEnemies.Clear();
             EnemyHealth[] enemies =
                 FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
+
             for (int i = 0; i < enemies.Length; i++)
             {
                 EnemyHealth enemy = enemies[i];
-                if (enemy == null || !enemy.gameObject.activeSelf) continue;
-                // Generated dungeon has not spawned enemies yet.
-                GameObject obj = enemy.gameObject;
-                obj.SetActive(false);
-                suspendedEnemies.Add(obj);
+                if (enemy == null || !enemy.IsAlive) continue;
+
+                var state = new SuspendedEnemy();
+                state.combat = enemy.GetComponent<EnemyCombatAI>();
+                state.wander = enemy.GetComponent<EnemyWanderAI>();
+                state.body = enemy.GetComponent<Rigidbody2D>();
+                if (state.combat != null)
+                {
+                    state.combatWasEnabled = state.combat.enabled;
+                    state.combat.enabled = false;
+                }
+                if (state.wander != null)
+                {
+                    state.wanderWasEnabled = state.wander.enabled;
+                    state.wander.enabled = false;
+                }
+                if (state.body != null)
+                {
+                    state.bodyWasSimulated = state.body.simulated;
+                    state.oldVelocity = state.body.linearVelocity;
+                    state.body.linearVelocity = Vector2.zero;
+                    state.body.simulated = false;
+                }
+                suspendedEnemies.Add(state);
             }
         }
 
