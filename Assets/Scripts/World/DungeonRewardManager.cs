@@ -37,8 +37,8 @@ namespace MixMaster.World
             0.0005f;
 
         [Header("Equipment reward level")]
-        [SerializeField, Range(1, 100)] private int minimumEquipmentLevel = 1;
-        [SerializeField, Range(1, 100)] private int maximumEquipmentLevel = 100;
+        [SerializeField, Range(1, 100)] private int baseMinimumEquipmentLevel = 1;
+        [SerializeField, Range(1, 100)] private int baseMaximumEquipmentLevel = 100;
         [SerializeField, Min(0)] private long equipmentBaseValue = 1L;
 
         [Header("Boss chest guaranteed rewards")]
@@ -290,10 +290,10 @@ namespace MixMaster.World
                 foreach (EquipmentSO definition in pendingEquipment)
                 {
                     int min = Mathf.Clamp(
-                        minimumEquipmentLevel +
+                        baseMinimumEquipmentLevel +
                         dungeon.GetAppliedDungeonUpgradeLevel(
                             DungeonUpgradeType.MinimumEquipmentLevel), 1, 100);
-                    int max = Mathf.Clamp(maximumEquipmentLevel, min, 100);
+                    int max = Mathf.Clamp(baseMaximumEquipmentLevel, min, 100);
                     int level = UnityEngine.Random.Range(min, max + 1);
 
                     EquipmentRecord created =
@@ -387,9 +387,9 @@ namespace MixMaster.World
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            minimumEquipmentLevel = Mathf.Clamp(minimumEquipmentLevel, 1, 100);
-            maximumEquipmentLevel = Mathf.Clamp(maximumEquipmentLevel,
-                minimumEquipmentLevel, 100);
+            baseMinimumEquipmentLevel = Mathf.Clamp(baseMinimumEquipmentLevel, 1, 100);
+            baseMaximumEquipmentLevel = Mathf.Clamp(baseMaximumEquipmentLevel,
+                baseMinimumEquipmentLevel, 100);
             equipmentBaseValue = Math.Max(0L, equipmentBaseValue);
             dungeonMaterialPerClear = Mathf.Max(0, dungeonMaterialPerClear);
             extraMaterialPerMidBoss = Mathf.Max(0, extraMaterialPerMidBoss);
