@@ -88,6 +88,12 @@ namespace MixMaster.World
             Destroy(gameObject);
         }
 
+        public void SetTint(Color tint)
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.color = tint;
+        }
+
         private static Sprite fallback;
         private static Sprite CreateFallbackSprite()
         {
