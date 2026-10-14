@@ -60,6 +60,14 @@ namespace MixMaster.World
                     FindFirstObjectByType<MapBuildingUIRouter>();
             }
 
+            if (router == null && buildingType == MapBuildingType.DungeonEntrance)
+            {
+                // The entrance must work in older exploration scenes that
+                // contain the map prefab but have no UI router yet.
+                GameObject routerObject = new GameObject("MapBuildingUIRouter");
+                router = routerObject.AddComponent<MapBuildingUIRouter>();
+            }
+
             if (router == null)
             {
                 Debug.LogWarning(

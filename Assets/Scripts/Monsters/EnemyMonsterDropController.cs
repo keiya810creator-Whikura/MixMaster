@@ -88,10 +88,13 @@ namespace MixMaster.Monsters
                 BuildCurrentMapTitlePool(
                     monsterDefinition);
 
+            // The altar's map-wide dungeon material upgrade affects
+            // the title chance of every monster caught on this map.
+            float titleChance = altarManager != null
+                ? altarManager.GetMapTitleRate(ResolveCurrentMapId())
+                : AltarBalance.BaseTitleRate;
             TitleSO title =
-                MonsterDropRoller.RollTitle(
-                    titlePool,
-                    MonsterDropRoller.BaseTitleChance);
+                MonsterDropRoller.RollTitle(titlePool, titleChance);
 
             MonsterDropRollData rollData =
                 new MonsterDropRollData

@@ -59,7 +59,8 @@ namespace MixMaster.Core
                         continue;
 
                     record.titledMonsterRateLevel =
-                        Mathf.Max(0, record.titledMonsterRateLevel);
+                        Mathf.Clamp(record.titledMonsterRateLevel,
+                            0, AltarBalance.TitleRateMaxLevel);
                     mapRecords.Add(record);
                 }
             }
@@ -199,9 +200,45 @@ namespace MixMaster.Core
                 GetOrCreateMap(mapId);
 
             record.titledMonsterRateLevel =
-                Mathf.Max(0, level);
+                Mathf.Clamp(level, 0, AltarBalance.TitleRateMaxLevel);
 
             MapAltarProgressChanged?.Invoke(record);
+        }
+
+        public float GetMapTitleRate(string mapId)
+        {
+            MapAltarProgressRecord record = GetOrCreateMap(mapId);
+            return AltarBalance.GetMapTitleRate(record.titledMonsterRateLevel);
+        }
+
+        /// <summary>
+        /// Atomically checks availability and consumes the map's dungeon
+        /// material before advancing its level. Does not upgrade at MAX.
+        /// </summary>
+        public bool TryUpgradeMapTitleRate(
+            string mapId, MaterialSO dungeonMaterial,
+            MaterialInventoryManager inventory)
+        {
+            if (string.IsNullOrWhiteSpace(mapId) ||
+                dungeonMaterial == null || inventory == null ||
+                string.IsNullOrWhiteSpace(dungeonMaterial.materialId))
+                return false;
+
+            MapAltarProgressRecord record = GetOrCreateMap(mapId);
+            int level = Mathf.Clamp(record.titledMonsterRateLevel,
+                0, AltarBalance.TitleRateMaxLevel);
+            if (level >= AltarBalance.TitleRateMaxLevel)
+                return false;
+
+            long cost = AltarBalance.GetUpgradeCost(level);
+            if (!inventory.TryConsume(dungeonMaterial, cost))
+                return false;
+
+            record.donatedDungeonMaterial = LongMath.SaturatingAdd(
+                record.donatedDungeonMaterial, cost);
+            record.titledMonsterRateLevel = level + 1;
+            MapAltarProgressChanged?.Invoke(record);
+            return true;
         }
 
         /// <summary>

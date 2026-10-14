@@ -14,6 +14,19 @@ namespace MixMaster.Core
 
         public const long UpgradeCostPerLevel = 10L;
 
+        // Map-wide chance that a captured monster receives a title.
+        // Lv0 = 1%, Lv100 = 10%, interpolated linearly.
+        public const int TitleRateMaxLevel = 100;
+        public const float BaseTitleRate = 0.01f;
+        public const float MaxTitleRate = 0.10f;
+
+        public static float GetMapTitleRate(int level)
+        {
+            float progress = Mathf.Clamp(level, 0, TitleRateMaxLevel) /
+                (float)TitleRateMaxLevel;
+            return Mathf.Lerp(BaseTitleRate, MaxTitleRate, progress);
+        }
+
         /// <summary>
         /// Cost to raise from currentLevel to currentLevel + 1.
         /// Lv0 -> Lv1 = 10, Lv1 -> Lv2 = 20, ... Lv99 -> Lv100 = 1000.

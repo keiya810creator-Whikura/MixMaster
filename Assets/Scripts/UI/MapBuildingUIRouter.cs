@@ -36,6 +36,20 @@ namespace MixMaster.UI
             }
 
             Instance = this;
+
+            // Automatically provide a dungeon entrance panel when the scene
+            // has not yet assigned one in the router Inspector.
+            if (dungeonEntrancePanel == null ||
+                dungeonEntrancePanel.GetComponent<DungeonEntrancePanelUI>() == null)
+            {
+                DungeonEntrancePanelUI existing =
+                    FindFirstObjectByType<DungeonEntrancePanelUI>(
+                        FindObjectsInactive.Include);
+                if (existing == null)
+                    existing = DungeonEntrancePanelUI.CreateRuntime(transform);
+                dungeonEntrancePanel = existing.gameObject;
+            }
+
             CloseAllInternal(false);
         }
 
