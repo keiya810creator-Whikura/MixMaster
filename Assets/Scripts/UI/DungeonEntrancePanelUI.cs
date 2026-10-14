@@ -102,8 +102,7 @@ namespace MixMaster.UI
         private void OnDestroy()
         {
             Unsubscribe();
-            if (upgradeButton != null)
-                upgradeButton.onClick.RemoveListener(UpgradeTitleRate);
+            // HoldToUpgradeButton unregisters its click handler in OnDestroy.
             if (challengeButton != null)
                 challengeButton.onClick.RemoveListener(Challenge);
             if (closeButton != null)
