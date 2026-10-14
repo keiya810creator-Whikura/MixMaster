@@ -217,6 +217,10 @@ namespace MixMaster.World
             generatedGround.CompressBounds();
             generatedWalls.CompressBounds();
 
+            // Always distinguish the last room, even when the map has no
+            // configured boss prefab yet.
+            TintBossRoom(CurrentLayout.BossRoom, true);
+
             fieldRootWasActive = fieldRoot.gameObject.activeSelf;
             // An unusual scene may parent the player beneath the map root.
             // In that case keep the source root active rather than hiding
