@@ -64,7 +64,7 @@ namespace MixMaster.Core
 
         /// <summary>
         /// Material drop helper for the current specification.
-        /// Base material rate comes from EnemySO.
+        /// Base material rate comes from MonsterSO and may exceed 1.0.
         /// Killer drop bonus is added directly and may exceed 100%.
         /// </summary>
         public long RollMaterialQuantity(double baseMaterialRate, double killerDropRateBonus)
