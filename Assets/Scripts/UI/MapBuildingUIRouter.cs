@@ -39,7 +39,8 @@ namespace MixMaster.UI
 
             // Automatically provide a dungeon entrance panel when the scene
             // has not yet assigned one in the router Inspector.
-            if (dungeonEntrancePanel == null)
+            if (dungeonEntrancePanel == null ||
+                dungeonEntrancePanel.GetComponent<DungeonEntrancePanelUI>() == null)
             {
                 DungeonEntrancePanelUI existing =
                     FindFirstObjectByType<DungeonEntrancePanelUI>(
