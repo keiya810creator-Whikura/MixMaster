@@ -528,8 +528,10 @@ namespace MixMaster.EditorTools
                     materialName,
                     materialsById);
 
+            // Preserve percentages above 100%: 2.50 yields
+            // two guaranteed materials + a 50% chance for one more.
             monster.materialBaseDropRate =
-                Mathf.Clamp01(
+                Mathf.Max(0f,
                     ReadFloat(
                         row,
                         header,
