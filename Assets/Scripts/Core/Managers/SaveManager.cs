@@ -233,6 +233,18 @@ namespace MixMaster.Core
                 lastLocationScene = playerController.gameObject.scene.name;
                 lastLocationMapId = data.mapId;
                 lastLocationPosition = playerController.transform.position;
+
+                // Dungeon rooms are transient and not serialized. When
+                // saving inside one, keep the safe entrance-field position
+                // instead of a position in a map that won't exist on reload.
+                MixMaster.World.DungeonMapGenerator dungeonMap =
+                    GetComponent<MixMaster.World.DungeonMapGenerator>();
+                if (dungeonMap != null && dungeonMap.IsGenerated)
+                {
+                    lastLocationPosition = dungeonMap.EntranceWorldPosition;
+                    if (!string.IsNullOrWhiteSpace(dungeonMap.EntranceMapId))
+                        lastLocationMapId = dungeonMap.EntranceMapId;
+                }
                 hasLastLocation = true;
             }
 
