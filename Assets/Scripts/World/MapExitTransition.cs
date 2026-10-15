@@ -143,9 +143,25 @@ namespace MixMaster.World
             {
                 TilemapMapRoot root = roots[i];
                 if (root != null &&
+                    root != destinationMap &&
                     root.gameObject.scene == currentMap.gameObject.scene)
-                    root.gameObject.SetActive(root == destinationMap);
+                    root.gameObject.SetActive(false);
             }
+
+            // Update the map ID before enabling the new map: enemy spawn
+            // points can look up the current MapManager in OnEnable.
+            MapManager manager = FindFirstObjectByType<MapManager>();
+            if (manager != null)
+            {
+                MapSO mapDefinition = destinationMap.MapDefinition;
+                if (mapDefinition == null)
+                    manager.EnterTown(destinationMap.name);
+                else
+                    manager.EnterMap(!string.IsNullOrWhiteSpace(mapDefinition.mapId)
+                        ? mapDefinition.mapId : destinationMap.name);
+            }
+
+            destinationMap.gameObject.SetActive(true);
 
             Vector3 targetWorld = destinationGrid.GetCellCenterWorld(arrivalCell);
             Vector3 target = new Vector3(targetWorld.x, targetWorld.y,
@@ -159,17 +175,6 @@ namespace MixMaster.World
             }
             player.transform.position = target;
             Physics2D.SyncTransforms();
-
-            MapManager manager = FindFirstObjectByType<MapManager>();
-            if (manager != null)
-            {
-                MapSO mapDefinition = destinationMap.MapDefinition;
-                if (mapDefinition == null)
-                    manager.EnterTown(destinationMap.name);
-                else
-                    manager.EnterMap(!string.IsNullOrWhiteSpace(mapDefinition.mapId)
-                        ? mapDefinition.mapId : destinationMap.name);
-            }
 
             CameraFollow2D cameraFollow = FindFirstObjectByType<CameraFollow2D>();
             if (cameraFollow != null)
