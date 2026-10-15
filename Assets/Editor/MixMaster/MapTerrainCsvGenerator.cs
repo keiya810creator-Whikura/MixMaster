@@ -360,6 +360,15 @@ namespace MixMaster.EditorTools
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             List<RoadFamily> roads = BuildRoadFamilies(map);
 
+            if (map.hasExitSettings &&
+                (map.exitUp || map.exitDown || map.exitLeft || map.exitRight) &&
+                roads.Count == 0)
+            {
+                Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
+                    ": 出入口が指定されていますが道素材がありません。_縦/_横/_十字を登録してください。");
+                return false;
+            }
+
             foreach (RoadFamily family in roads)
             {
                 totalRoadPercent += family.percent;
@@ -766,6 +775,94 @@ namespace MixMaster.EditorTools
                 }
             }
             return true;
+        }
+
+        // CSV-directed roads: guaranteed corridors to the selected borders.
+        // Road percentage is a target only; connectivity takes priority.
+        private static void DrawExitConnectedRoads(
+            char[,] grid, List<RoadFamily> roadFamilies,
+            System.Random random, MapSpec map)
+        {
+            int height = grid.GetLength(0);
+            int width = grid.GetLength(1);
+            int midX = width / 2;
+            int midY = height / 2;
+            var shape = new int[height, width];
+
+            if (!map.exitUp && !map.exitDown &&
+                !map.exitLeft && !map.exitRight)
+                return;
+
+            if (map.exitUp)
+                DrawExitVertical(shape, midX, 0, midY);
+            if (map.exitDown)
+                DrawExitVertical(shape, midX, midY, height - 1);
+            if (map.exitLeft)
+                DrawExitHorizontal(shape, midY, 0, midX);
+            if (map.exitRight)
+                DrawExitHorizontal(shape, midY, midX, width - 1);
+
+            // Connect the player marker to the road hub without creating
+            // a bottom exit unless the CSV explicitly enables it.
+            DrawExitVertical(shape, midX, midY, height - 3);
+
+            RoadFamily family = PickRoadFamily(roadFamilies, random);
+            int roadCells = 0;
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                int orientation = shape[y, x];
+                if (orientation == 0)
+                    continue;
+
+                roadCells++;
+                if (grid[y, x] == 'P' || grid[y, x] == 'A' || grid[y, x] == 'D')
+                    continue;
+
+                grid[y, x] = orientation == 1
+                    ? family.vertical.symbol
+                    : orientation == 2
+                        ? family.horizontal.symbol
+                        : family.cross.symbol;
+            }
+
+            float actualPercent = 100f * roadCells / (width * height);
+            float requestedPercent = 0f;
+            foreach (RoadFamily roadFamily in roadFamilies)
+                requestedPercent += roadFamily.percent;
+
+            if (actualPercent > requestedPercent + 0.1f)
+                Debug.Log("[MapTerrainCsvGenerator] " + map.name +
+                    ": 出入口を必ず接続するため、道の実配置率 " +
+                    actualPercent.ToString("F1", CultureInfo.InvariantCulture) +
+                    "%（CSV指定合計 " +
+                    requestedPercent.ToString("F1", CultureInfo.InvariantCulture) +
+                    "%）になりました。");
+        }
+
+        private static void DrawExitVertical(
+            int[,] mask, int x, int y0, int y1)
+        {
+            for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++)
+            for (int dx = -1; dx <= 1; dx++)
+                PaintExitCell(mask, x + dx, y, 1);
+        }
+
+        private static void DrawExitHorizontal(
+            int[,] mask, int y, int x0, int x1)
+        {
+            for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++)
+            for (int dy = -1; dy <= 1; dy++)
+                PaintExitCell(mask, x, y + dy, 2);
+        }
+
+        private static void PaintExitCell(int[,] mask, int x, int y, int orientation)
+        {
+            if (x < 0 || y < 0 || x >= mask.GetLength(1) ||
+                y >= mask.GetLength(0))
+                return;
+
+            mask[y, x] |= orientation;
         }
 
         // Directions are ordered clockwise: up, right, down, left.
