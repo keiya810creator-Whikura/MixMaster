@@ -304,7 +304,10 @@ namespace MixMaster.EditorTools
             int originX = -(layout.width / 2);
             int originY = -(layout.height / 2);
 
-            if (connections != ConnectionDirection.None)
+            // Current terrain JSON already contains its authoritative
+            // one-cell center roads. Never overlay a wider second network.
+            if (!layout.hasExitSettings &&
+                connections != ConnectionDirection.None)
             {
                 roadOverlay = BuildRoadOverlay(
                     layout, originX, originY, connections, hasDungeonContent);
@@ -537,7 +540,8 @@ namespace MixMaster.EditorTools
                     originY,
                     layout.width,
                     layout.height,
-                    connections);
+                    connections,
+                    layout.hasExitSettings ? 0 : RoadHalfWidth);
             }
 
             CreateAutoEnemySpawnAreas(
@@ -1785,7 +1789,8 @@ namespace MixMaster.EditorTools
             int originY,
             int width,
             int height,
-            ConnectionDirection connections)
+            ConnectionDirection connections,
+            int exitHalfWidth)
         {
             if (collisionMap == null ||
                 collisionTile == null)
@@ -1804,7 +1809,7 @@ namespace MixMaster.EditorTools
 
             for (int x = left; x <= right; x++)
             {
-                bool insideExitWidth = Mathf.Abs(x - midX) <= RoadHalfWidth;
+                bool insideExitWidth = Mathf.Abs(x - midX) <= exitHalfWidth;
                 if (!insideExitWidth ||
                     (connections & ConnectionDirection.Down) == 0)
                     collisionMap.SetTile(new Vector3Int(x, bottom, 0), collisionTile);
@@ -1817,7 +1822,7 @@ namespace MixMaster.EditorTools
             // Left / right: one full cell outside the visible map.
             for (int y = originY; y < originY + height; y++)
             {
-                bool insideExitWidth = Mathf.Abs(y - midY) <= RoadHalfWidth;
+                bool insideExitWidth = Mathf.Abs(y - midY) <= exitHalfWidth;
                 if (!insideExitWidth ||
                     (connections & ConnectionDirection.Left) == 0)
                     collisionMap.SetTile(new Vector3Int(left, y, 0), collisionTile);
