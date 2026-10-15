@@ -42,6 +42,12 @@ namespace MixMaster.World
             exitDirection = newDirection;
         }
 
+        public void SetDestinationMap(TilemapMapRoot map)
+        {
+            destinationMap = map;
+            reportedMissingDestination = false;
+        }
+
         private void OnTriggerEnter2D(Collider2D collider)
         {
             if (Time.time < nextTransitionAllowedAt)
