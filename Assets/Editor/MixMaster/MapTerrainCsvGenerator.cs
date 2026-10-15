@@ -237,18 +237,24 @@ namespace MixMaster.EditorTools
                         CultureInfo.InvariantCulture, out height) ||
                     !int.TryParse(Cell(row, 3), NumberStyles.Integer,
                         CultureInfo.InvariantCulture, out seed) ||
-                    !float.TryParse(Cell(row, 7), NumberStyles.Float,
-                        CultureInfo.InvariantCulture, out percent) ||
-                    width < 12 || height < 12 || width > 250 || height > 250 ||
-                    percent < 0f || percent > 100f)
+                    width < 13 || height < 13 || width > 249 || height > 249 ||
+                    width % 2 == 0 || height % 2 == 0 ||
+                    (category != Category.Road &&
+                     (!float.TryParse(Cell(row, 7), NumberStyles.Float,
+                         CultureInfo.InvariantCulture, out percent) ||
+                      percent < 0f || percent > 100f)))
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] " + number +
-                        "行目: 幅/高さは12～250、Seedは整数、配置率は0～100を指定してください。");
+                        "行目: 幅/高さは13～249の奇数、Seedは整数、" +
+                        "地面・オブジェクトの配置率は0～100を指定してください.");
                     warnings++;
                     if (maps.TryGetValue(name, out MapSpec invalidMap))
                         invalidMap.invalid = true;
                     continue;
                 }
+
+                if (category == Category.Road)
+                    percent = 0f; // Road coverage is derived from TRUE exits only.
 
                 if (!maps.TryGetValue(name, out MapSpec spec))
                 {
@@ -356,13 +362,11 @@ namespace MixMaster.EditorTools
         private static bool ValidateMap(MapSpec map)
         {
             int groundCount = 0, symbolsRequired = 0;
-            float totalRoadPercent = 0f, propPercent = 0f;
+            float propPercent = 0f;
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             List<RoadFamily> roads = BuildRoadFamilies(map);
 
-            if (map.hasExitSettings &&
-                (map.exitUp || map.exitDown || map.exitLeft || map.exitRight) &&
-                roads.Count == 0)
+            if (map.hasExitSettings && roads.Count == 0)
             {
                 Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
                     ": 出入口が指定されていますが道素材がありません。_縦/_横/_十字を登録してください。");
@@ -371,7 +375,6 @@ namespace MixMaster.EditorTools
 
             foreach (RoadFamily family in roads)
             {
-                totalRoadPercent += family.percent;
                 if (family.vertical == null || family.horizontal == null ||
                     family.cross == null)
                 {
@@ -432,11 +435,11 @@ namespace MixMaster.EditorTools
             }
 
             if (groundCount != 1 || symbolsRequired > Symbols.Length ||
-                totalRoadPercent > 40f || propPercent > 100f)
+                propPercent > 100f)
             {
                 Debug.LogError("[MapTerrainCsvGenerator] " + map.name +
                     ": 地面は1種類、必要な記号数は " + Symbols.Length +
-                    " 以下、道の配置率合計40%以下、装飾・障害物の配置率合計100%以下にしてください。" +
+                    " 以下、装飾・障害物の配置率合計100%以下にしてください。" +
                     " 実際の記号数=" + symbolsRequired);
                 return false;
             }
@@ -549,8 +552,12 @@ namespace MixMaster.EditorTools
             int middleX = map.width / 2;
             int middleY = map.height / 2;
 
-            // Keep the player spawn available before road routing.
-            grid[map.height - 3, middleX] = 'P';
+            // Field maps keep the player marker next to, not on, the
+            // central crossing. Legacy maps retain the south spawn.
+            if (map.hasExitSettings)
+                grid[middleY + 1, middleX - 1] = 'P';
+            else
+                grid[map.height - 3, middleX] = 'P';
 
             if (roads.Count > 0)
             {
@@ -777,8 +784,9 @@ namespace MixMaster.EditorTools
             return true;
         }
 
-        // CSV-directed roads: guaranteed corridors to the selected borders.
-        // Road percentage is a target only; connectivity takes priority.
+        // New field maps: exactly one-cell-wide roads, with a permanent
+        // central cross and a single straight branch for each TRUE exit.
+        // The road percentage and Seed do not alter its route.
         private static void DrawExitConnectedRoads(
             char[,] grid, List<RoadFamily> roadFamilies,
             System.Random random, MapSpec map)
@@ -787,82 +795,21 @@ namespace MixMaster.EditorTools
             int width = grid.GetLength(1);
             int midX = width / 2;
             int midY = height / 2;
-            var shape = new int[height, width];
+            RoadFamily road = roadFamilies[0];
 
-            if (!map.exitUp && !map.exitDown &&
-                !map.exitLeft && !map.exitRight)
-                return;
-
+            grid[midY, midX] = road.cross.symbol;
             if (map.exitUp)
-                DrawExitVertical(shape, midX, 0, midY);
+                for (int y = 0; y < midY; y++)
+                    grid[y, midX] = road.vertical.symbol;
             if (map.exitDown)
-                DrawExitVertical(shape, midX, midY, height - 1);
+                for (int y = midY + 1; y < height; y++)
+                    grid[y, midX] = road.vertical.symbol;
             if (map.exitLeft)
-                DrawExitHorizontal(shape, midY, 0, midX);
+                for (int x = 0; x < midX; x++)
+                    grid[midY, x] = road.horizontal.symbol;
             if (map.exitRight)
-                DrawExitHorizontal(shape, midY, midX, width - 1);
-
-            // Connect the player marker to the road hub without creating
-            // a bottom exit unless the CSV explicitly enables it.
-            DrawExitVertical(shape, midX, midY, height - 3);
-
-            RoadFamily family = PickRoadFamily(roadFamilies, random);
-            int roadCells = 0;
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                int orientation = shape[y, x];
-                if (orientation == 0)
-                    continue;
-
-                roadCells++;
-                if (grid[y, x] == 'P' || grid[y, x] == 'A' || grid[y, x] == 'D')
-                    continue;
-
-                grid[y, x] = orientation == 1
-                    ? family.vertical.symbol
-                    : orientation == 2
-                        ? family.horizontal.symbol
-                        : family.cross.symbol;
-            }
-
-            float actualPercent = 100f * roadCells / (width * height);
-            float requestedPercent = 0f;
-            foreach (RoadFamily roadFamily in roadFamilies)
-                requestedPercent += roadFamily.percent;
-
-            if (actualPercent > requestedPercent + 0.1f)
-                Debug.Log("[MapTerrainCsvGenerator] " + map.name +
-                    ": 出入口を必ず接続するため、道の実配置率 " +
-                    actualPercent.ToString("F1", CultureInfo.InvariantCulture) +
-                    "%（CSV指定合計 " +
-                    requestedPercent.ToString("F1", CultureInfo.InvariantCulture) +
-                    "%）になりました。");
-        }
-
-        private static void DrawExitVertical(
-            int[,] mask, int x, int y0, int y1)
-        {
-            for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++)
-            for (int dx = -1; dx <= 1; dx++)
-                PaintExitCell(mask, x + dx, y, 1);
-        }
-
-        private static void DrawExitHorizontal(
-            int[,] mask, int y, int x0, int x1)
-        {
-            for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++)
-            for (int dy = -1; dy <= 1; dy++)
-                PaintExitCell(mask, x, y + dy, 2);
-        }
-
-        private static void PaintExitCell(int[,] mask, int x, int y, int orientation)
-        {
-            if (x < 0 || y < 0 || x >= mask.GetLength(1) ||
-                y >= mask.GetLength(0))
-                return;
-
-            mask[y, x] |= orientation;
+                for (int x = midX + 1; x < width; x++)
+                    grid[midY, x] = road.horizontal.symbol;
         }
 
         // Directions are ordered clockwise: up, right, down, left.
