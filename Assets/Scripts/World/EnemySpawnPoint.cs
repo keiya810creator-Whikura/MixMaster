@@ -47,6 +47,13 @@ namespace MixMaster.World
 
             if (altarManager != null)
                 altarManager.AltarProgressChanged += HandleAltarProgressChanged;
+
+            // Re-entering a map should start a fresh spawn cycle rather than
+            // keeping a timer from the last visit to this inactive map.
+            if (Application.isPlaying)
+                nextSpawnTime = spawnImmediately
+                    ? Time.time
+                    : Time.time + GetEffectiveSpawnInterval();
         }
 
         private void Start()
@@ -60,6 +67,26 @@ namespace MixMaster.World
         {
             if (altarManager != null)
                 altarManager.AltarProgressChanged -= HandleAltarProgressChanged;
+
+            // Spawned enemies live outside the TilemapMapRoot hierarchy.
+            // Clean them up on leaving that map, otherwise they would remain
+            // visible and hostile while the player is in a different map.
+            // Only applies to spawners owned by a TilemapMapRoot.
+            if (!Application.isPlaying ||
+                GetComponentInParent<TilemapMapRoot>(true) == null)
+                return;
+
+            for (int i = 0; i < aliveEnemies.Count; i++)
+            {
+                EnemyHealth enemy = aliveEnemies[i];
+                if (enemy == null)
+                    continue;
+
+                enemy.Died -= HandleEnemyDied;
+                enemy.gameObject.SetActive(false);
+                Destroy(enemy.gameObject);
+            }
+            aliveEnemies.Clear();
         }
 
         private void Update()
