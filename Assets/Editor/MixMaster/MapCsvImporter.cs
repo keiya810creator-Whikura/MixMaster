@@ -11,8 +11,9 @@ using UnityEngine;
 namespace MixMaster.EditorTools
 {
     /// <summary>
-    /// Imports the user's shared-scene, 15-column Map CSV. The two initial
-    /// "マップの説明" headers are handled by column position:
+    /// Imports 18-column Map CSVs (including up to three dungeon equipment
+    /// IDs), while continuing to support the legacy 15-column format.
+    /// The two initial "マップの説明" headers are positional:
     /// column 2 = display name, column 3 = description.
     /// </summary>
     public static class MapCsvImporter
@@ -27,8 +28,19 @@ namespace MixMaster.EditorTools
             "MapID", "マップの説明", "マップの説明", "サムネイル画像",
             "地形生成用JSON名", "ノーマルモンスター1", "ノーマルモンスター2",
             "ノーマルモンスター3", "ノーマルモンスター4", "ノーマルモンスター5",
-            "ボスモンスター", "ダンジョン固有素材ID", "推奨レベル",
-            "通常モンスターの出現レベル", "強敵の出現レベル"
+            "ボスモンスター", "ダンジョン固有素材ID",
+            "ダンジョン固有装備1", "ダンジョン固有装備2", "ダンジョン固有装備3",
+            "推奨レベル", "通常モンスターの出現レベル", "強敵の出現レベル"
+        };
+
+        // Older CSV files did not have the three equipment-ID columns.
+        private static readonly string[] LegacyHeaders =
+        {
+            "MapID", "マップの説明", "マップの説明", "サムネイル画像",
+            "地形生成用JSON名", "ノーマルモンスター1", "ノーマルモンスター2",
+            "ノーマルモンスター3", "ノーマルモンスター4", "ノーマルモンスター5",
+            "ボスモンスター", "ダンジョン固有素材ID",
+            "推奨レベル", "通常モンスターの出現レベル", "強敵の出現レベル"
         };
 
         [MenuItem("MixMaster/CSV/マップCSVをインポート・更新")]
@@ -68,7 +80,8 @@ namespace MixMaster.EditorTools
             if (rows.Count < 2 || !ValidateHeader(rows[0]))
             {
                 EditorUtility.DisplayDialog("マップCSVインポート",
-                    "15列のヘッダーを確認してください。\n2列目はマップ名、3列目は説明文です。",
+                    "18列（旧形式は15列）のヘッダーを確認してください。\n" +
+                    "2列目はマップ名、3列目は説明文です。",
                     "OK");
                 return;
             }
@@ -79,6 +92,13 @@ namespace MixMaster.EditorTools
             Dictionary<string, MapSO> maps = IndexAssets<MapSO>(x => x.mapId);
             Dictionary<string, MonsterSO> monsters = IndexAssets<MonsterSO>(x => x.monsterId);
             Dictionary<string, MaterialSO> materials = IndexAssets<MaterialSO>(x => x.materialId);
+            Dictionary<string, EquipmentSO> equipment =
+                IndexAssets<EquipmentSO>(x => x.equipmentId);
+
+            bool hasEquipmentColumns = rows[0].Count == Headers.Length;
+            int expectedColumns = hasEquipmentColumns
+                ? Headers.Length : LegacyHeaders.Length;
+            int levelOffset = hasEquipmentColumns ? 3 : 0;
 
             HashSet<string> imported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int created = 0;
@@ -93,10 +113,11 @@ namespace MixMaster.EditorTools
                     continue;
 
                 int displayRow = rowNumber + 1;
-                if (row.Count != Headers.Length)
+                if (row.Count != expectedColumns)
                 {
                     Debug.LogWarning("[MapCsvImporter] " + displayRow +
-                        "行目: 列数が15ではありません (実際 " + row.Count + ")。スキップします。");
+                        "行目: 列数が" + expectedColumns +
+                        "ではありません (実際 " + row.Count + ")。スキップします。");
                     skipped++;
                     continue;
                 }
@@ -112,7 +133,8 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                // Resolve all six monster IDs before mutating any assets.
+                // Resolve only the monster IDs supplied by this map.
+                // Town / safe maps are valid without any monsters.
                 List<MonsterSO> normal = new List<MonsterSO>(5);
                 MonsterSO boss = null;
                 bool valid = true;
@@ -121,8 +143,10 @@ namespace MixMaster.EditorTools
                 {
                     string monsterId = Cell(row, 5 + slot);
                     MonsterSO monster;
-                    if (string.IsNullOrWhiteSpace(monsterId) ||
-                        !monsters.TryGetValue(monsterId, out monster) || monster == null)
+                    if (string.IsNullOrWhiteSpace(monsterId))
+                        continue;
+
+                    if (!monsters.TryGetValue(monsterId, out monster) || monster == null)
                     {
                         Debug.LogError("[MapCsvImporter] " + displayRow +
                             "行目: MonsterSOが見つかりません: " + monsterId +
@@ -143,9 +167,51 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                int recommended = ParseLevel(Cell(row, 12), 1, displayRow, "推奨レベル");
-                int normalLevel = ParseLevel(Cell(row, 13), 1, displayRow, "通常モンスターの出現レベル");
-                int bossLevel = ParseLevel(Cell(row, 14), 5, displayRow, "強敵の出現レベル");
+                // Read the three optional dungeon gear IDs from the 18-column
+                // format. Resolve BEFORE updating MapSO so an unknown ID
+                // does not overwrite a previously valid equipment pool.
+                var dungeonEquipment = new List<EquipmentSO>(3);
+                bool equipmentResolved = true;
+                if (hasEquipmentColumns)
+                {
+                    var seenEquipment = new HashSet<string>(
+                        StringComparer.OrdinalIgnoreCase);
+                    for (int slot = 0; slot < 3; slot++)
+                    {
+                        string equipmentId = Cell(row, 12 + slot);
+                        if (string.IsNullOrWhiteSpace(equipmentId))
+                            continue;
+
+                        if (!seenEquipment.Add(equipmentId))
+                        {
+                            Debug.LogWarning("[MapCsvImporter] " + displayRow +
+                                "行目: ダンジョン装備IDが重複しています: " + equipmentId);
+                            warnings++;
+                            continue;
+                        }
+
+                        if (!equipment.TryGetValue(equipmentId,
+                                out EquipmentSO definition) || definition == null)
+                        {
+                            Debug.LogError("[MapCsvImporter] " + displayRow +
+                                "行目: EquipmentSOが見つかりません: " + equipmentId +
+                                " / 先に装備CSVをインポートしてください。" +
+                                " このマップの既存装備リストは維持します。");
+                            warnings++;
+                            equipmentResolved = false;
+                            continue;
+                        }
+
+                        dungeonEquipment.Add(definition);
+                    }
+                }
+
+                int recommended = ParseLevel(Cell(row, 12 + levelOffset),
+                    1, displayRow, "推奨レベル");
+                int normalLevel = ParseLevel(Cell(row, 13 + levelOffset),
+                    1, displayRow, "通常モンスターの出現レベル");
+                int bossLevel = ParseLevel(Cell(row, 14 + levelOffset),
+                    5, displayRow, "強敵の出現レベル");
 
                 bool exists = maps.TryGetValue(id, out MapSO map) && map != null;
                 if (!exists)
@@ -171,9 +237,15 @@ namespace MixMaster.EditorTools
                 map.normalMonsters = normal;
                 map.bossMonster = boss;
 
+                // 18-column CSV explicitly defines this map's dungeon pool.
+                // An all-empty set clears it (e.g. the starting town).
+                // Legacy 15-column CSV keeps manually assigned equipment.
+                if (hasEquipmentColumns && equipmentResolved)
+                    map.dungeonEquipment = dungeonEquipment;
+
                 // Preserve the existing all-monsters list used for title pools.
                 map.monsters = new List<MonsterSO>(normal);
-                if (!map.monsters.Contains(boss))
+                if (boss != null && !map.monsters.Contains(boss))
                     map.monsters.Add(boss);
 
                 map.layoutJson = FindLayoutJson(map.layoutJsonName);
@@ -238,20 +310,25 @@ namespace MixMaster.EditorTools
 
         private static bool ValidateHeader(List<string> header)
         {
-            if (header.Count != Headers.Length)
+            string[] expected;
+            if (header.Count == Headers.Length)
+                expected = Headers;
+            else if (header.Count == LegacyHeaders.Length)
+                expected = LegacyHeaders;
+            else
                 return false;
 
-            for (int i = 0; i < Headers.Length; i++)
+            for (int i = 0; i < expected.Length; i++)
             {
                 string actual = Cell(header, i);
                 if (i == 1 && (actual == "マップ名" || actual == "DisplayName"))
                     continue;
                 if (i == 2 && actual == "Description")
                     continue;
-                if (!string.Equals(actual, Headers[i], StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(actual, expected[i], StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.LogError("[MapCsvImporter] " + (i + 1) + "列目は '" +
-                        Headers[i] + "' を想定しています。実際: '" + actual + "'");
+                        expected[i] + "' を想定しています。実際: '" + actual + "'");
                     return false;
                 }
             }
@@ -261,6 +338,10 @@ namespace MixMaster.EditorTools
 
         private static int ParseLevel(string value, int fallback, int row, string column)
         {
+            // Town maps may deliberately leave every level field empty.
+            if (string.IsNullOrWhiteSpace(value))
+                return fallback;
+
             if (int.TryParse(value, NumberStyles.Integer,
                     CultureInfo.InvariantCulture, out int number) && number >= 1)
                 return number;
