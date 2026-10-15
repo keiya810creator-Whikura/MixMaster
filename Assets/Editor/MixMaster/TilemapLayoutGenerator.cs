@@ -287,7 +287,7 @@ namespace MixMaster.EditorTools
             if (connections != ConnectionDirection.None)
             {
                 roadOverlay = BuildRoadOverlay(
-                    layout, originX, originY, connections);
+                    layout, originX, originY, connections, hasDungeonContent);
                 if (!TryFindRoadTiles(layout, out roadTiles))
                 {
                     EditorUtility.DisplayDialog("マップ生成",
@@ -416,6 +416,15 @@ namespace MixMaster.EditorTools
                             symbol,
                             out LegendEntry entry))
                     {
+                        // Old JSON roads may wander in unrelated directions.
+                        // Once CSV connections are set, generate only the
+                        // intentional connected road network instead.
+                        if (roadOverlay != null && !entry.collision &&
+                            string.Equals(entry.layer, "Ground",
+                                StringComparison.OrdinalIgnoreCase) &&
+                            IsRoadTileName(entry.tile))
+                            continue;
+
                         Tilemap target =
                             GetLayer(mapRoot, entry.layer);
 
@@ -491,10 +500,12 @@ namespace MixMaster.EditorTools
 
                 preferredSpawnCells.RemoveAll(cell => roadOverlay.ContainsKey(cell));
                 fallbackSpawnCells.RemoveAll(cell => roadOverlay.ContainsKey(cell));
-                CreateConnectionMarkers(
-                    mapRoot.transform, grid, connections,
-                    originX, originY, layout.width, layout.height);
             }
+
+            // Deactivate obsolete markers as well when directions are cleared.
+            CreateConnectionMarkers(
+                mapRoot.transform, grid, connections,
+                originX, originY, layout.width, layout.height);
 
             if (layout.blockOuterBorder &&
                 invisibleCollision != null)
@@ -1513,7 +1524,7 @@ namespace MixMaster.EditorTools
 
         private static Dictionary<Vector3Int, int> BuildRoadOverlay(
             LayoutData layout, int originX, int originY,
-            ConnectionDirection connections)
+            ConnectionDirection connections, bool hasDungeonContent)
         {
             var result = new Dictionary<Vector3Int, int>();
             int midX = originX + layout.width / 2;
@@ -1534,24 +1545,34 @@ namespace MixMaster.EditorTools
                 AddHorizontalRoad(result, midY, midX, maxX,
                     originX, originY, layout.width, layout.height);
 
-            // Join the player's original JSON spawn point to the road hub.
-            // An L-turn is made of existing straight/crossing tiles.
+            // Connect spawn and usable buildings to the hub, then to the
+            // designated map edge(s). No dead-end random branches.
+            bool connectedSpawn = false;
             for (int rowIndex = 0; rowIndex < layout.height; rowIndex++)
             {
                 string row = rowIndex < layout.rows.Length
                     ? layout.rows[rowIndex] ?? string.Empty
                     : string.Empty;
-                int index = row.IndexOf('P');
-                if (index < 0 || index >= layout.width)
-                    continue;
 
-                int px = originX + index;
-                int py = originY + layout.height - 1 - rowIndex;
-                AddVerticalRoad(result, px, py, midY,
-                    originX, originY, layout.width, layout.height);
-                AddHorizontalRoad(result, midY, px, midX,
-                    originX, originY, layout.width, layout.height);
-                break;
+                for (int x = 0; x < Mathf.Min(row.Length, layout.width); x++)
+                {
+                    char symbol = row[x];
+                    bool connectSpawn = symbol == 'P' && !connectedSpawn;
+                    bool connectBuilding = hasDungeonContent &&
+                        (symbol == 'A' || symbol == 'D');
+                    if (!connectSpawn && !connectBuilding)
+                        continue;
+
+                    if (connectSpawn)
+                        connectedSpawn = true;
+
+                    int px = originX + x;
+                    int py = originY + layout.height - 1 - rowIndex;
+                    AddVerticalRoad(result, px, py, midY,
+                        originX, originY, layout.width, layout.height);
+                    AddHorizontalRoad(result, midY, px, midX,
+                        originX, originY, layout.width, layout.height);
+                }
             }
             return result;
         }
@@ -1586,6 +1607,18 @@ namespace MixMaster.EditorTools
             var cell = new Vector3Int(x, y, 0);
             cells.TryGetValue(cell, out int old);
             cells[cell] = old | orientation;
+        }
+
+        private static bool IsRoadTileName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            bool roadShape = name.EndsWith("_縦", StringComparison.Ordinal) ||
+                             name.EndsWith("_横", StringComparison.Ordinal) ||
+                             name.EndsWith("_十字", StringComparison.Ordinal);
+            return roadShape && (name.Contains("土") || name.Contains("道") ||
+                                  name.Contains("通路") || name.Contains("舗装"));
         }
 
         private static bool TryFindRoadTiles(LayoutData layout, out RoadTiles roadTiles)
@@ -1668,6 +1701,9 @@ namespace MixMaster.EditorTools
         {
             const string rootName = "_MapConnectionPoints";
             Transform markerRoot = mapRoot.Find(rootName);
+            if (markerRoot == null && directions == ConnectionDirection.None)
+                return;
+
             if (markerRoot == null)
             {
                 GameObject obj = new GameObject(rootName);
