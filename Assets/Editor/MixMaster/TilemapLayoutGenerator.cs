@@ -278,6 +278,7 @@ namespace MixMaster.EditorTools
 
             layout.legend ??= Array.Empty<LegendEntry>();
             layout.rows ??= Array.Empty<string>();
+            spritePathIndex = null; // Refresh atlas index for each generation.
 
             bool hasDungeonContent = HasDungeonContent(mapDefinition);
             ConnectionDirection connections;
@@ -1458,66 +1459,128 @@ namespace MixMaster.EditorTools
             return tile;
         }
 
-        private static Sprite FindSpriteExact(
-            string spriteName)
+        // Sprite sub-assets (e.g. 村_井戸_1) can reside inside an atlas whose
+        // filename is unrelated to the sprite name. Cache asset PATHS only,
+        // because SaveAndReimport invalidates loaded sprite instances.
+        private static Dictionary<string, string> spritePathIndex;
+
+        private static Sprite FindSpriteExact(string spriteName)
         {
-            // CSV-generated layouts use exact PNG names in the dedicated folder.
-            // Resolve there first to avoid accidentally using same-named assets
-            // from unrelated map themes or other parts of the project.
+            if (string.IsNullOrWhiteSpace(spriteName))
+                return null;
+
             string[] extensions = { ".png", ".jpg", ".jpeg" };
             for (int i = 0; i < extensions.Length; i++)
             {
-                string exactPath =
-                    MapTerrainCsvGenerator.CsvSpriteFolder + "/" +
-                    spriteName + extensions[i];
-
-                Sprite csvSprite =
-                    AssetDatabase.LoadAssetAtPath<Sprite>(exactPath);
-
-                if (csvSprite != null)
-                    return csvSprite;
+                string path = MapTerrainCsvGenerator.CsvSpriteFolder +
+                    "/" + spriteName + extensions[i];
+                Sprite sprite = FindNamedSpriteAtPath(path, spriteName);
+                if (sprite != null)
+                    return EnsureMapTilePixelsPerUnit(sprite);
             }
 
-            string[] guids =
-                AssetDatabase.FindAssets(
-                    spriteName,
-                    new[] { "Assets" });
-
+            // Existing fast path: standalone asset with matching filename.
+            string[] guids = AssetDatabase.FindAssets(spriteName, new[] { "Assets" });
             for (int i = 0; i < guids.Length; i++)
             {
-                string path =
-                    AssetDatabase.GUIDToAssetPath(
-                        guids[i]);
-
-                string fileName =
-                    Path.GetFileNameWithoutExtension(path);
-
-                if (!string.Equals(
-                        fileName,
-                        spriteName,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (!string.Equals(Path.GetFileNameWithoutExtension(path),
+                        spriteName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                }
+                Sprite sprite = FindNamedSpriteAtPath(path, spriteName);
+                if (sprite != null)
+                    return EnsureMapTilePixelsPerUnit(sprite);
+            }
 
-                Sprite direct =
-                    AssetDatabase.LoadAssetAtPath<Sprite>(
-                        path);
+            // Filename search does not find sub-sprites within a differently
+            // named Sprite sheet, so index their actual Sprite.name values.
+            if (spritePathIndex == null)
+                BuildSpritePathIndex();
 
-                if (direct != null)
-                    return direct;
-
-                UnityEngine.Object[] assets =
-                    AssetDatabase.LoadAllAssetsAtPath(path);
-
-                for (int j = 0; j < assets.Length; j++)
-                {
-                    if (assets[j] is Sprite sprite)
-                        return sprite;
-                }
+            if (spritePathIndex.TryGetValue(spriteName, out string atlasPath))
+            {
+                Sprite sprite = FindNamedSpriteAtPath(atlasPath, spriteName);
+                if (sprite != null)
+                    return EnsureMapTilePixelsPerUnit(sprite);
             }
 
             return null;
+        }
+
+        private static Sprite FindNamedSpriteAtPath(string path, string name)
+        {
+            if (string.IsNullOrEmpty(path))
+                return null;
+
+            Sprite direct = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (direct != null &&
+                string.Equals(direct.name, name, StringComparison.OrdinalIgnoreCase))
+                return direct;
+
+            UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+            for (int i = 0; i < assets.Length; i++)
+                if (assets[i] is Sprite sprite &&
+                    string.Equals(sprite.name, name, StringComparison.OrdinalIgnoreCase))
+                    return sprite;
+
+            return null;
+        }
+
+        private static void BuildSpritePathIndex()
+        {
+            spritePathIndex = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets" });
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+                for (int j = 0; j < assets.Length; j++)
+                    if (assets[j] is Sprite sprite &&
+                        !spritePathIndex.ContainsKey(sprite.name))
+                        spritePathIndex.Add(sprite.name, path);
+            }
+        }
+
+        private static Sprite EnsureMapTilePixelsPerUnit(Sprite sprite)
+        {
+            if (sprite == null)
+                return null;
+
+            // The game's tile atlas uses 32x32 px pieces. Do not silently
+            // resize non-32px sprites; those may be a full unsliced object.
+            if (Mathf.Abs(sprite.rect.width - 32f) > 0.01f ||
+                Mathf.Abs(sprite.rect.height - 32f) > 0.01f)
+            {
+                Debug.LogWarning(
+                    "[TilemapLayoutGenerator] Spriteのサイズが32x32ではありません: " +
+                    sprite.name + " (" + sprite.rect.width + "x" +
+                    sprite.rect.height + "px)。マルチタイル画像は32px単位に分割し" +
+                    "名前を _1, _2... としてください。");
+                return sprite;
+            }
+
+            string path = AssetDatabase.GetAssetPath(sprite);
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+                return sprite;
+
+            bool needsUpdate =
+                Mathf.Abs(importer.spritePixelsPerUnit - 32f) > 0.001f ||
+                importer.filterMode != FilterMode.Point;
+
+            if (!needsUpdate)
+                return sprite;
+
+            // Preserve SpriteMode.Multiple and its existing sub-sprite names.
+            // Changing SpriteMode to Single would destroy _1.._N slices.
+            importer.spritePixelsPerUnit = 32f;
+            importer.filterMode = FilterMode.Point;
+            importer.SaveAndReimport();
+
+            Sprite updated = FindNamedSpriteAtPath(path, sprite.name);
+            Debug.Log("[TilemapLayoutGenerator] タイルSpriteを32 PPUに統一: " +
+                sprite.name + " / " + path);
+            return updated != null ? updated : sprite;
         }
 
 
