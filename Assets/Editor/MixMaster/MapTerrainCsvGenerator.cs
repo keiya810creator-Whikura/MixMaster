@@ -201,7 +201,7 @@ namespace MixMaster.EditorTools
                 }
 
                 int width, height, seed, cellsX, cellsY;
-                float percent;
+                float percent = 0f;
                 bool up = false, down = false, left = false, right = false;
                 if (hasExitColumns &&
                     (!TryParseExit(Cell(row, 8), out up) ||
