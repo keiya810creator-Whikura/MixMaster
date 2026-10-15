@@ -437,10 +437,14 @@ namespace MixMaster.EditorTools
                 string baseName = RoadFamilyName(tile.name);
                 if (!familyMap.TryGetValue(baseName, out RoadFamily family))
                 {
-                    family = new RoadFamily { name = baseName, percent = tile.percent };
+                    family = new RoadFamily { name = baseName };
                     familyMap.Add(baseName, family);
                     ordered.Add(family);
                 }
+
+                // Each CSV row contributes to the desired total coverage.
+                // E.g. cross=3%, vertical=2%, horizontal=2% -> 7% roads.
+                family.percent += tile.percent;
 
                 if (tile.name.EndsWith("_十字", StringComparison.Ordinal))
                     family.cross = tile;
@@ -721,90 +725,219 @@ namespace MixMaster.EditorTools
             return true;
         }
 
+        // Directions are ordered clockwise: up, right, down, left.
+        private static readonly Vector2Int[] RoadDirections =
+        {
+            new Vector2Int(0, -1),
+            new Vector2Int(1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(-1, 0)
+        };
+
         private static void DrawConnectedRoads(
             char[,] grid, List<RoadFamily> roadFamilies, System.Random random)
         {
             int height = grid.GetLength(0);
             int width = grid.GetLength(1);
             var membership = new RoadFamily[height, width];
-            int centerX = Mathf.Clamp(width / 2 + random.Next(-2, 3), 2, width - 3);
-            int centerY = Mathf.Clamp(height / 2 + random.Next(-2, 3), 2, height - 3);
+            var cells = new List<Vector2Int>();
+
             float roadPercent = 0f;
             foreach (RoadFamily family in roadFamilies)
                 roadPercent += family.percent;
             if (roadPercent <= 0f)
                 return;
 
-            RoadFamily backbone = PickRoadFamily(roadFamilies, random);
+            int goal = Mathf.Max(1, Mathf.RoundToInt(
+                width * height * roadPercent * 0.01f));
+            RoadFamily mainFamily = PickRoadFamily(roadFamilies, random);
 
-            // Continuous central horizontal + vertical backbone.
-            for (int x = 1; x < width - 1; x++)
-                MarkRoad(grid, membership, x, centerY, backbone);
-            for (int y = 1; y < height - 1; y++)
-                MarkRoad(grid, membership, centerX, y, backbone);
+            // The main path starts beside the player spawn near the south
+            // edge. Unlike the previous full-map +, it gently meanders
+            // north with intermittent horizontal stretches.
+            int x = width / 2;
+            int y = height - 4;
+            AddRoad(grid, membership, cells, x, y, mainFamily);
+            int spineGoal = Mathf.Min(goal,
+                Mathf.Max(6, Mathf.RoundToInt(goal * 0.48f)));
 
-            int goal = Mathf.RoundToInt(width * height * roadPercent * 0.01f);
-            int attempts = 0;
-            int count = CountRoadCells(membership);
-            int maxAttempts = Mathf.Max(150, goal * 4);
-
-            while (count < goal && attempts++ < maxAttempts)
+            while (cells.Count < spineGoal && y > 2)
             {
-                bool fromHorizontal = random.Next(2) == 0;
-                int startX = fromHorizontal
-                    ? random.Next(2, width - 2) : centerX;
-                int startY = fromHorizontal
-                    ? centerY : random.Next(2, height - 2);
-                int endX = random.Next(2, width - 2);
-                int endY = random.Next(2, height - 2);
+                int straight = Math.Min(random.Next(4, 9), y - 2);
+                for (int i = 0; i < straight && cells.Count < spineGoal; i++)
+                {
+                    y--;
+                    AddRoad(grid, membership, cells, x, y, mainFamily);
+                }
 
-                RoadFamily family = PickRoadFamily(roadFamilies, random);
-                count += DrawRoadSegment(grid, membership,
-                    startX, startY, endX, startY, family);
-                count += DrawRoadSegment(grid, membership,
-                    endX, startY, endX, endY, family);
+                if (cells.Count >= spineGoal || y <= 2)
+                    break;
+
+                int shift = random.Next(3,
+                    Mathf.Max(4, Mathf.Min(9, width / 5) + 1));
+                int direction = random.Next(2) == 0 ? -1 : 1;
+                if ((direction < 0 && x - 2 < shift) ||
+                    (direction > 0 && width - 3 - x < shift))
+                    direction = -direction;
+
+                for (int i = 0; i < shift && cells.Count < spineGoal; i++)
+                {
+                    int nextX = x + direction;
+                    if (!IsRoadInside(width, height, nextX, y))
+                        break;
+
+                    x = nextX;
+                    AddRoad(grid, membership, cells, x, y, mainFamily);
+                }
             }
 
-            // Resolve road shape only AFTER the full network is complete.
-            // This allows crossroads and straight sections to join naturally.
-            for (int y = 1; y < height - 1; y++)
+            // Grow winding side roads from randomly selected existing
+            // segments. All new cells touch exactly one existing road
+            // neighbor, preventing detached paths, dense 2x2 blocks, and
+            // excessive unintended crossings.
+            int attempts = 0;
+            int maxAttempts = Math.Max(200, goal * 25);
+            while (cells.Count < goal && attempts++ < maxAttempts)
             {
-                for (int x = 1; x < width - 1; x++)
+                Vector2Int start = cells[random.Next(cells.Count)];
+                if (CountRoadNeighbors(membership, start.x, start.y) > 2)
+                    continue;
+
+                int first = -1;
+                int offset = random.Next(4);
+                for (int i = 0; i < 4; i++)
                 {
-                    RoadFamily family = membership[y, x];
+                    int direction = (offset + i) % 4;
+                    Vector2Int next = start + RoadDirections[direction];
+                    if (!CanExtendRoad(grid, membership, next.x, next.y))
+                        continue;
+                    first = direction;
+                    break;
+                }
+
+                if (first < 0)
+                    continue;
+
+                RoadFamily family = PickRoadFamily(roadFamilies, random);
+                int directionIndex = first;
+                Vector2Int tip = start;
+                int sameDirection = 0;
+                int turnAfter = random.Next(3, 8);
+                int length = random.Next(7, 20);
+
+                for (int i = 0; i < length && cells.Count < goal; i++)
+                {
+                    bool shouldTurn = sameDirection >= turnAfter ||
+                        (sameDirection >= 3 && random.NextDouble() < 0.14d);
+                    int turn = random.Next(2) == 0 ? 1 : -1;
+                    int leftOrRight = (directionIndex + turn + 4) % 4;
+                    int otherTurn = (directionIndex - turn + 4) % 4;
+                    int[] choices = shouldTurn
+                        ? new[] { leftOrRight, otherTurn, directionIndex }
+                        : new[] { directionIndex, leftOrRight, otherTurn };
+
+                    int selected = -1;
+                    for (int j = 0; j < choices.Length; j++)
+                    {
+                        Vector2Int next = tip + RoadDirections[choices[j]];
+                        if (!CanExtendRoad(grid, membership, next.x, next.y))
+                            continue;
+                        selected = choices[j];
+                        break;
+                    }
+
+                    if (selected < 0)
+                        break;
+
+                    if (selected != directionIndex)
+                    {
+                        sameDirection = 0;
+                        turnAfter = random.Next(3, 8);
+                    }
+
+                    directionIndex = selected;
+                    tip += RoadDirections[selected];
+                    if (!AddRoad(grid, membership, cells,
+                        tip.x, tip.y, family))
+                        break;
+                    sameDirection++;
+                }
+            }
+
+            if (cells.Count < goal)
+            {
+                Debug.LogWarning("[MapTerrainCsvGenerator] 道路の配置率を" +
+                    "満たす空きマスが不足しています: " +
+                    cells.Count + " / " + goal + " マス。" +
+                    " 高密度の場合は道の配置率を下げてください。");
+            }
+
+            // Road graphics are selected only after every path has been
+            // connected. Existing vertical/horizontal/cross sprites are
+            // preserved; corners and T-junctions use the cross fallback.
+            for (int row = 1; row < height - 1; row++)
+            {
+                for (int column = 1; column < width - 1; column++)
+                {
+                    RoadFamily family = membership[row, column];
                     if (family == null) continue;
 
-                    bool up = membership[y - 1, x] != null;
-                    bool down = membership[y + 1, x] != null;
-                    bool left = membership[y, x - 1] != null;
-                    bool right = membership[y, x + 1] != null;
+                    bool up = membership[row - 1, column] != null;
+                    bool down = membership[row + 1, column] != null;
+                    bool left = membership[row, column - 1] != null;
+                    bool right = membership[row, column + 1] != null;
                     int neighbors = (up ? 1 : 0) + (down ? 1 : 0) +
                         (left ? 1 : 0) + (right ? 1 : 0);
 
-                    grid[y, x] = family.SymbolFor(
+                    grid[row, column] = family.SymbolFor(
                         neighbors, up, down, left, right);
                 }
             }
         }
 
-        private static int DrawRoadSegment(
-            char[,] grid, RoadFamily[,] membership,
-            int startX, int startY, int endX, int endY, RoadFamily family)
+        private static bool IsRoadInside(
+            int width, int height, int x, int y)
         {
-            int added = 0;
-            int x = startX, y = startY;
-            int dx = Math.Sign(endX - startX);
-            int dy = Math.Sign(endY - startY);
-            while (true)
+            // Keep two ground cells between roads and the outer border.
+            return x >= 2 && y >= 2 && x < width - 2 && y < height - 2;
+        }
+
+        private static bool AddRoad(
+            char[,] grid, RoadFamily[,] membership,
+            List<Vector2Int> cells, int x, int y, RoadFamily family)
+        {
+            if (!IsRoadInside(grid.GetLength(1), grid.GetLength(0), x, y) ||
+                !MarkRoad(grid, membership, x, y, family))
+                return false;
+
+            cells.Add(new Vector2Int(x, y));
+            return true;
+        }
+
+        private static bool CanExtendRoad(
+            char[,] grid, RoadFamily[,] membership, int x, int y)
+        {
+            return IsRoadInside(grid.GetLength(1), grid.GetLength(0), x, y) &&
+                grid[y, x] == '.' && membership[y, x] == null &&
+                CountRoadNeighbors(membership, x, y) == 1;
+        }
+
+        private static int CountRoadNeighbors(
+            RoadFamily[,] membership, int x, int y)
+        {
+            int neighbors = 0;
+            for (int i = 0; i < RoadDirections.Length; i++)
             {
-                if (MarkRoad(grid, membership, x, y, family))
-                    added++;
-                if (x == endX && y == endY)
-                    break;
-                if (x != endX) x += dx;
-                else if (y != endY) y += dy;
+                Vector2Int next = new Vector2Int(x, y) + RoadDirections[i];
+                if (next.x < 0 || next.y < 0 ||
+                    next.x >= membership.GetLength(1) ||
+                    next.y >= membership.GetLength(0))
+                    continue;
+
+                if (membership[next.y, next.x] != null)
+                    neighbors++;
             }
-            return added;
+            return neighbors;
         }
 
         private static bool MarkRoad(
@@ -819,14 +952,6 @@ namespace MixMaster.EditorTools
 
             membership[y, x] = family;
             return true;
-        }
-
-        private static int CountRoadCells(RoadFamily[,] membership)
-        {
-            int total = 0;
-            foreach (RoadFamily family in membership)
-                if (family != null) total++;
-            return total;
         }
 
         private static RoadFamily PickRoadFamily(
