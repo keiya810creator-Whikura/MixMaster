@@ -239,7 +239,7 @@ namespace MixMaster.EditorTools
                         CultureInfo.InvariantCulture, out seed) ||
                     width < 13 || height < 13 || width > 249 || height > 249 ||
                     width % 2 == 0 || height % 2 == 0 ||
-                    (category != Category.Road &&
+                    ((!hasExitColumns || category != Category.Road) &&
                      (!float.TryParse(Cell(row, 7), NumberStyles.Float,
                          CultureInfo.InvariantCulture, out percent) ||
                       percent < 0f || percent > 100f)))
@@ -253,7 +253,7 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                if (category == Category.Road)
+                if (hasExitColumns && category == Category.Road)
                     percent = 0f; // Road coverage is derived from TRUE exits only.
 
                 if (!maps.TryGetValue(name, out MapSpec spec))
@@ -577,13 +577,13 @@ namespace MixMaster.EditorTools
             if (!TryPlaceBuilding(grid, 'D', middleX, 2, roadSymbols))
                 throw new InvalidOperationException(
                     "ダンジョン入口を道路から3マス離して配置できません。" +
-                    " マップを広くするか道の配置率を減らしてください。");
+                    " マップを広くするか配置条件を調整してください。");
 
             if (!TryPlaceBuilding(grid, 'A',
                 Mathf.Max(2, middleX - 3), middleY, roadSymbols))
                 throw new InvalidOperationException(
                     "祭壇を道路から3マス離して配置できません。" +
-                    " マップを広くするか道の配置率を減らしてください。");
+                    " マップを広くするか配置条件を調整してください。");
 
             // Place large objects first: all footprint cells must be empty.
             // Rates are the fraction of the total map AREA (not object count).
