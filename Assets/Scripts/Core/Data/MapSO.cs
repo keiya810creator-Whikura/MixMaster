@@ -22,6 +22,13 @@ namespace MixMaster.Core
         public string layoutJsonName;
         public TextAsset layoutJson;
         public string thumbnailKey;
+
+        [Header("Map Connections")]
+        [Tooltip("CSV direction(s) for entering this map, e.g. 上, 左 or N,W.")]
+        public string entranceDirections;
+        [Tooltip("CSV direction(s) for leaving this map, e.g. 下, 右 or S,E.")]
+        public string exitDirections;
+
         [Min(1)] public int recommendedLevel = 1;
 
         [Header("Monsters")]
