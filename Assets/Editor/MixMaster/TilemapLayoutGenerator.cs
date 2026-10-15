@@ -7,7 +7,9 @@ using MixMaster.Core;
 using MixMaster.Player;
 using MixMaster.UI;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 
 namespace MixMaster.EditorTools
@@ -101,6 +103,32 @@ namespace MixMaster.EditorTools
             Generate(json, map);
         }
 
+        [MenuItem("MixMaster/Map/選択マップを有効化 (同一シーン)")]
+        public static void ActivateSelectedMap()
+        {
+            TilemapMapRoot target = null;
+
+            if (Selection.activeObject is MapSO selectedMap)
+                target = FindExistingMapRoot(selectedMap, null);
+            else if (Selection.activeGameObject != null)
+                target = Selection.activeGameObject.GetComponentInParent<TilemapMapRoot>();
+
+            if (target == null || target.gameObject.scene != SceneManager.GetActiveScene())
+            {
+                EditorUtility.DisplayDialog(
+                    "マップ切替",
+                    "現在のシーンで生成済みのMapSO、またはHierarchy上のマップRootを選択してください。",
+                    "OK");
+                return;
+            }
+
+            SetOnlyActiveMap(target);
+            MovePlayerToMapSpawn(target);
+            EditorSceneManager.MarkSceneDirty(target.gameObject.scene);
+            Selection.activeGameObject = target.gameObject;
+            SceneView.lastActiveSceneView?.FrameSelected();
+        }
+
         [MenuItem("MixMaster/Map/選択MapSOからTilemap生成", true)]
         private static bool ValidateGenerateFromSelectedMap()
         {
@@ -168,6 +196,27 @@ namespace MixMaster.EditorTools
             return match;
         }
 
+        private static bool HasDungeonContent(MapSO mapDefinition)
+        {
+            if (mapDefinition == null)
+                return false;
+
+            if (mapDefinition.dungeonMaterial != null)
+                return true;
+
+            var equipment = mapDefinition.dungeonEquipment;
+            if (equipment == null)
+                return false;
+
+            for (int i = 0; i < equipment.Count; i++)
+            {
+                if (equipment[i] != null)
+                    return true;
+            }
+
+            return false;
+        }
+
         private static void Generate(TextAsset jsonAsset, MapSO mapDefinition = null)
         {
             // The original JSON menu also benefits from map CSV imports.
@@ -204,18 +253,11 @@ namespace MixMaster.EditorTools
             layout.legend ??= Array.Empty<LegendEntry>();
             layout.rows ??= Array.Empty<string>();
 
-            MapBuildingPrefabCreator.EnsurePrefabs();
+            bool hasDungeonContent = HasDungeonContent(mapDefinition);
+            if (hasDungeonContent)
+                MapBuildingPrefabCreator.EnsurePrefabs();
 
-            TilemapMapRoot mapRoot =
-                GetOrCreateMapRoot();
-
-            if (mapRoot == null)
-                return;
-
-            mapRoot.SetMapDefinition(mapDefinition);
-            mapRoot.ClearAllTiles();
             EnsureFolder(GeneratedTileFolder);
-
             TileBase defaultGroundTile =
                 GetOrCreateVisualTile(
                     layout.defaultGroundTile,
@@ -230,6 +272,17 @@ namespace MixMaster.EditorTools
                     "OK");
                 return;
             }
+
+            TilemapMapRoot mapRoot =
+                GetOrCreateMapRoot(mapDefinition, layout.mapName);
+
+            if (mapRoot == null)
+                return;
+
+            SetOnlyActiveMap(mapRoot);
+            Undo.RecordObject(mapRoot, "Assign Map Data");
+            mapRoot.SetMapDefinition(mapDefinition);
+            mapRoot.ClearAllTiles();
 
             Dictionary<char, LegendEntry> legend =
                 BuildLegend(layout.legend);
@@ -258,7 +311,8 @@ namespace MixMaster.EditorTools
             Grid grid =
                 mapRoot.GetComponent<Grid>();
 
-            EnsureBuildingUiRouter();
+            if (hasDungeonContent)
+                EnsureBuildingUiRouter();
 
             Undo.RecordObject(mapRoot.Ground, "Generate Map Ground");
             Undo.RecordObject(mapRoot.Decoration, "Generate Map Decoration");
@@ -291,9 +345,9 @@ namespace MixMaster.EditorTools
                             : '.';
 
                     bool isSpecial =
-                        symbol == 'A' ||
-                        symbol == 'D' ||
-                        symbol == 'P';
+                        symbol == 'P' ||
+                        (hasDungeonContent &&
+                         (symbol == 'A' || symbol == 'D'));
 
                     if (isSpecial)
                     {
@@ -402,11 +456,9 @@ namespace MixMaster.EditorTools
             mapRoot.Collision.CompressBounds();
             mapRoot.Above.CompressBounds();
 
-            mapRoot.name =
-                string.IsNullOrWhiteSpace(layout.mapName)
-                    ? "TilemapMap"
-                    : "TilemapMap_" + layout.mapName;
+            mapRoot.name = GetMapRootName(mapDefinition, layout.mapName);
 
+            EditorUtility.SetDirty(mapRoot);
             EditorUtility.SetDirty(mapRoot.gameObject);
             EditorUtility.SetDirty(mapRoot.Ground);
             EditorUtility.SetDirty(mapRoot.Decoration);
@@ -414,6 +466,7 @@ namespace MixMaster.EditorTools
             EditorUtility.SetDirty(mapRoot.Above);
 
             AssetDatabase.SaveAssets();
+            EditorSceneManager.MarkSceneDirty(mapRoot.gameObject.scene);
 
             Selection.activeGameObject =
                 mapRoot.gameObject;
@@ -432,26 +485,112 @@ namespace MixMaster.EditorTools
                 mapRoot);
         }
 
-        private static TilemapMapRoot GetOrCreateMapRoot()
+        private static string GetMapRootName(MapSO mapDefinition, string layoutName)
         {
-            if (Selection.activeGameObject != null)
-            {
-                TilemapMapRoot selected =
-                    Selection.activeGameObject
-                        .GetComponentInParent<TilemapMapRoot>();
+            string identity = mapDefinition != null
+                ? (!string.IsNullOrWhiteSpace(mapDefinition.mapId)
+                    ? mapDefinition.mapId
+                    : mapDefinition.name)
+                : layoutName;
 
-                if (selected != null)
-                    return selected;
+            if (string.IsNullOrWhiteSpace(identity))
+                identity = "GeneratedMap";
+
+            return "TilemapMap_" +
+                   identity.Trim().Replace('/', '_').Replace('\\', '_');
+        }
+
+        private static TilemapMapRoot FindExistingMapRoot(
+            MapSO mapDefinition,
+            string layoutName)
+        {
+            string expectedName = GetMapRootName(mapDefinition, layoutName);
+            Scene activeScene = SceneManager.GetActiveScene();
+
+            TilemapMapRoot[] roots =
+                UnityEngine.Object.FindObjectsByType<TilemapMapRoot>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+
+            foreach (TilemapMapRoot root in roots)
+            {
+                if (root == null || root.gameObject.scene != activeScene)
+                    continue;
+
+                if (mapDefinition != null)
+                {
+                    if (root.MapDefinition == mapDefinition)
+                        return root;
+
+                    if (root.MapDefinition != null &&
+                        !string.IsNullOrWhiteSpace(mapDefinition.mapId) &&
+                        string.Equals(root.MapDefinition.mapId, mapDefinition.mapId,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return root;
+                    }
+                }
+                else if (root.MapDefinition == null &&
+                         string.Equals(root.name, expectedName,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    return root;
+                }
             }
 
+            return null;
+        }
+
+        private static TilemapMapRoot GetOrCreateMapRoot(
+            MapSO mapDefinition,
+            string layoutName)
+        {
             TilemapMapRoot existing =
-                UnityEngine.Object
-                    .FindFirstObjectByType<TilemapMapRoot>();
+                FindExistingMapRoot(mapDefinition, layoutName);
 
             if (existing != null)
                 return existing;
 
-            return TilemapMapCreator.CreateMapRoot();
+            TilemapMapRoot created = TilemapMapCreator.CreateMapRoot();
+            created.name = GetMapRootName(mapDefinition, layoutName);
+            return created;
+        }
+
+        private static void SetOnlyActiveMap(TilemapMapRoot target)
+        {
+            TilemapMapRoot[] roots =
+                UnityEngine.Object.FindObjectsByType<TilemapMapRoot>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+
+            foreach (TilemapMapRoot root in roots)
+            {
+                if (root == null || root.gameObject.scene != target.gameObject.scene)
+                    continue;
+
+                bool shouldBeActive = root == target;
+                if (root.gameObject.activeSelf == shouldBeActive)
+                    continue;
+
+                Undo.RecordObject(root.gameObject, "Switch Active Map");
+                root.gameObject.SetActive(shouldBeActive);
+                EditorUtility.SetDirty(root.gameObject);
+            }
+        }
+
+        private static void MovePlayerToMapSpawn(TilemapMapRoot mapRoot)
+        {
+            Transform marker = mapRoot.transform.Find("_MapObjects/PlayerSpawnPoint");
+            if (marker == null)
+                return;
+
+            PlayerController player =
+                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            if (player == null)
+                return;
+
+            Undo.RecordObject(player.transform, "Move Player To Selected Map");
+            player.transform.position = marker.position;
         }
 
         private static Transform PrepareMapObjectsRoot(
