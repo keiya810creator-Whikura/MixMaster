@@ -1572,15 +1572,16 @@ namespace MixMaster.EditorTools
                 return sprite;
 
             // Preserve SpriteMode.Multiple and its existing sub-sprite names.
-            // Changing SpriteMode to Single would destroy _1.._N slices.
+            // Save the name before reimport invalidates the Sprite instance.
+            string requestedSpriteName = sprite.name;
             importer.spritePixelsPerUnit = 32f;
             importer.filterMode = FilterMode.Point;
             importer.SaveAndReimport();
 
-            Sprite updated = FindNamedSpriteAtPath(path, sprite.name);
+            Sprite updated = FindNamedSpriteAtPath(path, requestedSpriteName);
             Debug.Log("[TilemapLayoutGenerator] タイルSpriteを32 PPUに統一: " +
-                sprite.name + " / " + path);
-            return updated != null ? updated : sprite;
+                requestedSpriteName + " / " + path);
+            return updated;
         }
 
 
