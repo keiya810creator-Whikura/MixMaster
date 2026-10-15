@@ -41,6 +41,12 @@ namespace MixMaster.EditorTools
             public int height = 20;
             public string defaultGroundTile;
             public bool blockOuterBorder = true;
+            // Present in JSONs generated from the 12-column terrain CSV.
+            public bool hasExitSettings;
+            public bool exitUp;
+            public bool exitDown;
+            public bool exitLeft;
+            public bool exitRight;
             public LegendEntry[] legend = Array.Empty<LegendEntry>();
             public string[] rows = Array.Empty<string>();
         }
@@ -274,10 +280,24 @@ namespace MixMaster.EditorTools
             layout.rows ??= Array.Empty<string>();
 
             bool hasDungeonContent = HasDungeonContent(mapDefinition);
-            ConnectionDirection connections = mapDefinition == null
-                ? ConnectionDirection.None
-                : ParseConnections(mapDefinition.entranceDirections) |
-                  ParseConnections(mapDefinition.exitDirections);
+            ConnectionDirection connections;
+            if (layout.hasExitSettings)
+            {
+                // Terrain CSV is authoritative, including explicit FALSE.
+                connections = ConnectionDirection.None;
+                if (layout.exitUp) connections |= ConnectionDirection.Up;
+                if (layout.exitDown) connections |= ConnectionDirection.Down;
+                if (layout.exitLeft) connections |= ConnectionDirection.Left;
+                if (layout.exitRight) connections |= ConnectionDirection.Right;
+            }
+            else
+            {
+                // Backward compatibility with old hand-authored JSON layouts.
+                connections = mapDefinition == null
+                    ? ConnectionDirection.None
+                    : ParseConnections(mapDefinition.entranceDirections) |
+                      ParseConnections(mapDefinition.exitDirections);
+            }
 
             Dictionary<Vector3Int, int> roadOverlay = null;
             RoadTiles roadTiles = null;
