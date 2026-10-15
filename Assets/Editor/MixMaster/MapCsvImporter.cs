@@ -77,11 +77,13 @@ namespace MixMaster.EditorTools
                 return;
             }
 
-            if (rows.Count < 2 || !ValidateHeader(rows[0]))
+            if (rows.Count < 2 ||
+                !TryResolveHeader(rows[0], out int[] baseIndexes,
+                    out bool hasEquipmentColumns))
             {
                 EditorUtility.DisplayDialog("マップCSVインポート",
-                    "18列（旧形式は15列）のヘッダーを確認してください。\n" +
-                    "2列目はマップ名、3列目は説明文です。",
+                    "基本15列または18列のヘッダーを確認してください。\n" +
+                    "入口方向・出口方向などの列は任意の位置に追加できます。",
                     "OK");
                 return;
             }
@@ -95,10 +97,9 @@ namespace MixMaster.EditorTools
             Dictionary<string, EquipmentSO> equipment =
                 IndexAssets<EquipmentSO>(x => x.equipmentId);
 
-            bool hasEquipmentColumns = rows[0].Count == Headers.Length;
-            int expectedColumns = hasEquipmentColumns
-                ? Headers.Length : LegacyHeaders.Length;
+            int expectedColumns = rows[0].Count;
             int levelOffset = hasEquipmentColumns ? 3 : 0;
+            List<string> csvHeader = rows[0];
 
             HashSet<string> imported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int created = 0;
@@ -109,6 +110,7 @@ namespace MixMaster.EditorTools
             for (int rowNumber = 1; rowNumber < rows.Count; rowNumber++)
             {
                 List<string> row = rows[rowNumber];
+                string C(int index) => Cell(row, baseIndexes[index]);
                 if (IsEmptyRow(row))
                     continue;
 
@@ -122,8 +124,8 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                string id = Cell(row, 0);
-                string displayName = Cell(row, 1);
+                string id = C(0);
+                string displayName = C(1);
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(displayName)
                     || !imported.Add(id))
                 {
@@ -141,7 +143,7 @@ namespace MixMaster.EditorTools
 
                 for (int slot = 0; slot < 6; slot++)
                 {
-                    string monsterId = Cell(row, 5 + slot);
+                    string monsterId = C(5 + slot);
                     MonsterSO monster;
                     if (string.IsNullOrWhiteSpace(monsterId))
                         continue;
@@ -178,7 +180,7 @@ namespace MixMaster.EditorTools
                         StringComparer.OrdinalIgnoreCase);
                     for (int slot = 0; slot < 3; slot++)
                     {
-                        string equipmentId = Cell(row, 12 + slot);
+                        string equipmentId = C(12 + slot);
                         if (string.IsNullOrWhiteSpace(equipmentId))
                             continue;
 
@@ -206,11 +208,11 @@ namespace MixMaster.EditorTools
                     }
                 }
 
-                int recommended = ParseLevel(Cell(row, 12 + levelOffset),
+                int recommended = ParseLevel(C(12 + levelOffset),
                     1, displayRow, "推奨レベル");
-                int normalLevel = ParseLevel(Cell(row, 13 + levelOffset),
+                int normalLevel = ParseLevel(C(13 + levelOffset),
                     1, displayRow, "通常モンスターの出現レベル");
-                int bossLevel = ParseLevel(Cell(row, 14 + levelOffset),
+                int bossLevel = ParseLevel(C(14 + levelOffset),
                     5, displayRow, "強敵の出現レベル");
 
                 bool exists = maps.TryGetValue(id, out MapSO map) && map != null;
@@ -228,9 +230,39 @@ namespace MixMaster.EditorTools
 
                 map.mapId = id;
                 map.displayName = displayName;
-                map.description = Cell(row, 2);
-                map.thumbnailKey = Cell(row, 3);
-                map.layoutJsonName = Path.GetFileNameWithoutExtension(Cell(row, 4));
+                map.description = C(2);
+                map.thumbnailKey = C(3);
+                map.layoutJsonName = Path.GetFileNameWithoutExtension(C(4));
+
+                // Optional CSV connection columns. If absent, preserve manual settings.
+                if (TryReadDirectionColumn(csvHeader, row,
+                    new[] { "入口方向", "マップ入口方向", "入口", "マップ入口", "進入方向" },
+                    out string entrance))
+                {
+                    map.entranceDirections = entrance;
+                }
+
+                if (TryReadDirectionColumn(csvHeader, row,
+                    new[] { "出口方向", "マップ出口方向", "出口", "マップ出口", "退出方向" },
+                    out string exit))
+                {
+                    map.exitDirections = exit;
+                }
+
+                if (TryReadDirectionColumn(csvHeader, row,
+                    new[] { "出入口方向", "出入り口方向", "出入口", "出入り口",
+                        "マップ出入口", "マップ出入口方向", "マップ出入り口",
+                        "マップ出入り口方向", "接続方向", "道の方向" },
+                    out string both))
+                {
+                    // More specific 入口/出口 fields take precedence.
+                    if (!HasDirectionColumn(csvHeader,
+                        new[] { "入口方向", "マップ入口方向", "入口", "マップ入口", "進入方向" }))
+                        map.entranceDirections = both;
+                    if (!HasDirectionColumn(csvHeader,
+                        new[] { "出口方向", "マップ出口方向", "出口", "マップ出口", "退出方向" }))
+                        map.exitDirections = both;
+                }
                 map.recommendedLevel = recommended;
                 map.normalMonsterLevel = normalLevel;
                 map.strongMonsterLevel = bossLevel;
@@ -269,7 +301,7 @@ namespace MixMaster.EditorTools
                     warnings++;
                 }
 
-                string materialId = Cell(row, 11);
+                string materialId = C(11);
                 if (string.IsNullOrWhiteSpace(materialId))
                 {
                     map.dungeonMaterial = null;
@@ -308,32 +340,85 @@ namespace MixMaster.EditorTools
             EditorUtility.DisplayDialog("マップCSVインポート完了", result, "OK");
         }
 
-        private static bool ValidateHeader(List<string> header)
+        private static bool TryResolveHeader(
+            List<string> header, out int[] baseIndexes, out bool hasEquipmentColumns)
         {
-            string[] expected;
-            if (header.Count == Headers.Length)
-                expected = Headers;
-            else if (header.Count == LegacyHeaders.Length)
-                expected = LegacyHeaders;
-            else
-                return false;
+            hasEquipmentColumns = false;
+            if (TryMatchBaseColumns(header, Headers, out baseIndexes))
+            {
+                hasEquipmentColumns = true;
+                return true;
+            }
 
+            if (TryMatchBaseColumns(header, LegacyHeaders, out baseIndexes))
+                return true;
+
+            Debug.LogError("[MapCsvImporter] 必須の15/18列が見つかりません。追加列は任意ですが、基本列の順番は維持してください。");
+            return false;
+        }
+
+        // Additional connection columns may appear before, between, or after base columns.
+        private static bool TryMatchBaseColumns(
+            List<string> header, string[] expected, out int[] indexes)
+        {
+            indexes = new int[expected.Length];
+            int cursor = 0;
             for (int i = 0; i < expected.Length; i++)
             {
-                string actual = Cell(header, i);
-                if (i == 1 && (actual == "マップ名" || actual == "DisplayName"))
-                    continue;
-                if (i == 2 && actual == "Description")
-                    continue;
-                if (!string.Equals(actual, expected[i], StringComparison.OrdinalIgnoreCase))
+                bool found = false;
+                for (int j = cursor; j < header.Count; j++)
                 {
-                    Debug.LogError("[MapCsvImporter] " + (i + 1) + "列目は '" +
-                        expected[i] + "' を想定しています。実際: '" + actual + "'");
+                    string current = Cell(header, j).Trim();
+                    bool alias = (i == 1 && (current == "マップ名" || current == "DisplayName")) ||
+                                 (i == 2 && current == "Description");
+                    if (!alias &&
+                        !string.Equals(current, expected[i],
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    indexes[i] = j;
+                    cursor = j + 1;
+                    found = true;
+                    break;
+                }
+                if (!found)
                     return false;
+            }
+            return true;
+        }
+
+        private static bool HasDirectionColumn(List<string> headers, string[] names)
+        {
+            for (int i = 0; i < headers.Count; i++)
+            {
+                foreach (string name in names)
+                {
+                    if (string.Equals(Cell(headers, i).Trim(), name,
+                        StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryReadDirectionColumn(
+            List<string> headers, List<string> row, string[] names, out string value)
+        {
+            for (int i = 0; i < headers.Count; i++)
+            {
+                foreach (string name in names)
+                {
+                    if (!string.Equals(Cell(headers, i).Trim(), name,
+                        StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    value = Cell(row, i);
+                    return true;
                 }
             }
 
-            return true;
+            value = null;
+            return false;
         }
 
         private static int ParseLevel(string value, int fallback, int row, string column)
