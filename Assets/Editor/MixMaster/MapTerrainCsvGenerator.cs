@@ -41,6 +41,12 @@ namespace MixMaster.EditorTools
             public int height;
             public string defaultGroundTile;
             public bool blockOuterBorder = true;
+            // Optional 12-column terrain CSV exits; false values are explicit.
+            public bool hasExitSettings;
+            public bool exitUp;
+            public bool exitDown;
+            public bool exitLeft;
+            public bool exitRight;
             public JsonLegend[] legend;
             public string[] rows;
         }
@@ -91,6 +97,11 @@ namespace MixMaster.EditorTools
             public int height;
             public int seed;
             public bool invalid;
+            public bool hasExitSettings;
+            public bool exitUp;
+            public bool exitDown;
+            public bool exitLeft;
+            public bool exitRight;
             public readonly List<TileSpec> tiles = new List<TileSpec>();
         }
 
@@ -141,11 +152,14 @@ namespace MixMaster.EditorTools
             if (rows.Count == 0 || !IsHeaderValid(rows[0]))
             {
                 EditorUtility.DisplayDialog("マップ地形CSV",
-                    "ヘッダーは次の8列を使用してください:\n" +
-                    "地形生成用JSON名,幅,高さ,Seed,マス,種類,素材名,配置率", "OK");
+                    "ヘッダーは既存8列か、上下左右の出入口を加えた12列です。\n" +
+                    "地形生成用JSON名,幅,高さ,Seed,マス,種類,素材名,配置率," +
+                    "上出入口,下出入口,左出入口,右出入口", "OK");
                 return;
             }
 
+            bool hasExitColumns = rows[0].Count == 12;
+            int expectedColumns = rows[0].Count;
             var maps = new Dictionary<string, MapSpec>(StringComparer.OrdinalIgnoreCase);
             var order = new List<MapSpec>();
             int warnings = 0;
@@ -157,10 +171,10 @@ namespace MixMaster.EditorTools
                     continue;
 
                 int number = rowIndex + 1;
-                if (row.Count != 8)
+                if (row.Count != expectedColumns)
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] " + number +
-                        "行目: 8列で記述してください。");
+                        "行目: " + expectedColumns + "列で記述してください。");
                     warnings++;
                     continue;
                 }
@@ -188,6 +202,20 @@ namespace MixMaster.EditorTools
 
                 int width, height, seed, cellsX, cellsY;
                 float percent;
+                bool up = false, down = false, left = false, right = false;
+                if (hasExitColumns &&
+                    (!TryParseExit(Cell(row, 8), out up) ||
+                     !TryParseExit(Cell(row, 9), out down) ||
+                     !TryParseExit(Cell(row, 10), out left) ||
+                     !TryParseExit(Cell(row, 11), out right)))
+                {
+                    Debug.LogError("[MapTerrainCsvGenerator] " + number +
+                        "行目: 上下左右の出入口は TRUE または FALSE で指定してください。");
+                    warnings++;
+                    if (maps.TryGetValue(name, out MapSpec invalidExits))
+                        invalidExits.invalid = true;
+                    continue;
+                }
 
                 if (!TryParseFootprint(Cell(row, 4), out cellsX, out cellsY) ||
                     cellsX > 8 || cellsY > 8 ||
@@ -226,15 +254,20 @@ namespace MixMaster.EditorTools
                 {
                     spec = new MapSpec
                     {
-                        name = name, width = width, height = height, seed = seed
+                        name = name, width = width, height = height, seed = seed,
+                        hasExitSettings = hasExitColumns,
+                        exitUp = up, exitDown = down, exitLeft = left, exitRight = right
                     };
                     maps.Add(name, spec);
                     order.Add(spec);
                 }
-                else if (spec.width != width || spec.height != height || spec.seed != seed)
+                else if (spec.width != width || spec.height != height || spec.seed != seed ||
+                    spec.hasExitSettings != hasExitColumns ||
+                    (hasExitColumns && (spec.exitUp != up || spec.exitDown != down ||
+                        spec.exitLeft != left || spec.exitRight != right)))
                 {
                     Debug.LogError("[MapTerrainCsvGenerator] " + name +
-                        ": 同じJSON名の幅・高さ・Seedが一致していません (CSV " +
+                        ": 同じJSON名の幅・高さ・Seed・上下左右出入口が一致していません (CSV " +
                         number + "行目)。");
                     spec.invalid = true;
                     warnings++;
@@ -511,7 +544,12 @@ namespace MixMaster.EditorTools
             grid[map.height - 3, middleX] = 'P';
 
             if (roads.Count > 0)
-                DrawConnectedRoads(grid, roads, random);
+            {
+                if (map.hasExitSettings)
+                    DrawExitConnectedRoads(grid, roads, random, map);
+                else
+                    DrawConnectedRoads(grid, roads, random);
+            }
 
             // Place structures only after the final road network is decided.
             // A full 3-cell buffer is required between each building and road.
@@ -554,6 +592,11 @@ namespace MixMaster.EditorTools
                 height = map.height,
                 defaultGroundTile = ground.name,
                 blockOuterBorder = true,
+                hasExitSettings = map.hasExitSettings,
+                exitUp = map.exitUp,
+                exitDown = map.exitDown,
+                exitLeft = map.exitLeft,
+                exitRight = map.exitRight,
                 legend = legend.ToArray(),
                 rows = lines
             };
@@ -1064,14 +1107,34 @@ namespace MixMaster.EditorTools
         {
             string[] expected =
             {
-                "地形生成用JSON名", "幅", "高さ", "Seed", "マス", "種類", "素材名", "配置率"
+                "地形生成用JSON名", "幅", "高さ", "Seed", "マス", "種類", "素材名", "配置率",
+                "上出入口", "下出入口", "左出入口", "右出入口"
             };
-            if (row.Count != expected.Length) return false;
+            if (row.Count != 8 && row.Count != 12) return false;
             for (int i = 0; i < row.Count; i++)
                 if (!string.Equals(Cell(row, i), expected[i],
                     StringComparison.OrdinalIgnoreCase))
                     return false;
             return true;
+        }
+
+        private static bool TryParseExit(string raw, out bool enabled)
+        {
+            if (string.Equals(raw, "TRUE", StringComparison.OrdinalIgnoreCase) ||
+                raw == "1" || raw == "有" || raw == "あり")
+            {
+                enabled = true;
+                return true;
+            }
+            if (string.Equals(raw, "FALSE", StringComparison.OrdinalIgnoreCase) ||
+                raw == "0" || raw == "無" || raw == "なし")
+            {
+                enabled = false;
+                return true;
+            }
+
+            enabled = false;
+            return false;
         }
 
         private static string ReadText(string path)
