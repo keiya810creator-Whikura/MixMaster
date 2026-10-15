@@ -54,6 +54,26 @@ namespace MixMaster.EditorTools
             public bool collision;
         }
 
+        [Flags]
+        private enum ConnectionDirection
+        {
+            None = 0,
+            Up = 1,
+            Down = 2,
+            Left = 4,
+            Right = 8
+        }
+
+        private sealed class RoadTiles
+        {
+            public TileBase Vertical;
+            public TileBase Horizontal;
+            public TileBase Cross;
+        }
+
+        private const int RoadHalfWidth = 1; // 3-tile-wide walkable roads.
+
+
         [MenuItem("MixMaster/Map/選択マップJSONからTilemap生成")]
         public static void GenerateFromSelectedJson()
         {
@@ -254,6 +274,31 @@ namespace MixMaster.EditorTools
             layout.rows ??= Array.Empty<string>();
 
             bool hasDungeonContent = HasDungeonContent(mapDefinition);
+            ConnectionDirection connections = mapDefinition == null
+                ? ConnectionDirection.None
+                : ParseConnections(mapDefinition.entranceDirections) |
+                  ParseConnections(mapDefinition.exitDirections);
+
+            Dictionary<Vector3Int, int> roadOverlay = null;
+            RoadTiles roadTiles = null;
+            int originX = -(layout.width / 2);
+            int originY = -(layout.height / 2);
+
+            if (connections != ConnectionDirection.None)
+            {
+                roadOverlay = BuildRoadOverlay(
+                    layout, originX, originY, connections);
+                if (!TryFindRoadTiles(layout, out roadTiles))
+                {
+                    EditorUtility.DisplayDialog("マップ生成",
+                        "出入口方向が設定されていますが、JSONのlegendに" +
+                        "地面用の「_縦」「_横」「_十字」道路タイルが揃っていません。\n" +
+                        "例: 平野_土_縦 / 平野_土_横 / 平野_土_十字",
+                        "OK");
+                    return;
+                }
+            }
+
             if (hasDungeonContent)
                 MapBuildingPrefabCreator.EnsurePrefabs();
 
@@ -290,8 +335,6 @@ namespace MixMaster.EditorTools
             TileBase invisibleCollision =
                 GetOrCreateCollisionTile();
 
-            int originX = -(layout.width / 2);
-            int originY = -(layout.height / 2);
             int missing = 0;
 
             List<Vector3Int> preferredSpawnCells =
@@ -426,6 +469,33 @@ namespace MixMaster.EditorTools
                 }
             }
 
+            if (roadOverlay != null)
+            {
+                // Roads take priority over random decorations, impassable
+                // props and collision tiles. Do not spawn enemies on the road.
+                foreach (var item in roadOverlay)
+                {
+                    Vector3Int cell = item.Key;
+                    TileBase road = item.Value == 1
+                        ? roadTiles.Vertical
+                        : item.Value == 2
+                            ? roadTiles.Horizontal
+                            : roadTiles.Cross;
+
+                    mapRoot.Ground.SetTile(cell, road);
+                    mapRoot.Decoration.SetTile(cell, null);
+                    mapRoot.Above.SetTile(cell, null);
+                    mapRoot.Collision.SetTile(cell, null);
+                    reservedCells.Add(cell);
+                }
+
+                preferredSpawnCells.RemoveAll(cell => roadOverlay.ContainsKey(cell));
+                fallbackSpawnCells.RemoveAll(cell => roadOverlay.ContainsKey(cell));
+                CreateConnectionMarkers(
+                    mapRoot.transform, grid, connections,
+                    originX, originY, layout.width, layout.height);
+            }
+
             if (layout.blockOuterBorder &&
                 invisibleCollision != null)
             {
@@ -435,7 +505,8 @@ namespace MixMaster.EditorTools
                     originX,
                     originY,
                     layout.width,
-                    layout.height);
+                    layout.height,
+                    connections);
             }
 
             CreateAutoEnemySpawnAreas(
@@ -1414,13 +1485,251 @@ namespace MixMaster.EditorTools
             return null;
         }
 
+
+        private static ConnectionDirection ParseConnections(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return ConnectionDirection.None;
+
+            ConnectionDirection directions = ConnectionDirection.None;
+            string[] tokens = raw.Replace("　", " ").Split(
+                new[] { ',', '，', '、', '・', '|', '/', ';', '+', ' ', '\t' },
+                StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string token in tokens)
+            {
+                string value = token.Trim().ToUpperInvariant();
+                if (value.Contains("上") || value == "N" || value == "NORTH" || value == "UP")
+                    directions |= ConnectionDirection.Up;
+                if (value.Contains("下") || value == "S" || value == "SOUTH" || value == "DOWN")
+                    directions |= ConnectionDirection.Down;
+                if (value.Contains("左") || value == "W" || value == "WEST" || value == "LEFT")
+                    directions |= ConnectionDirection.Left;
+                if (value.Contains("右") || value == "E" || value == "EAST" || value == "RIGHT")
+                    directions |= ConnectionDirection.Right;
+            }
+            return directions;
+        }
+
+        private static Dictionary<Vector3Int, int> BuildRoadOverlay(
+            LayoutData layout, int originX, int originY,
+            ConnectionDirection connections)
+        {
+            var result = new Dictionary<Vector3Int, int>();
+            int midX = originX + layout.width / 2;
+            int midY = originY + layout.height / 2;
+            int maxX = originX + layout.width - 1;
+            int maxY = originY + layout.height - 1;
+
+            if ((connections & ConnectionDirection.Up) != 0)
+                AddVerticalRoad(result, midX, midY, maxY,
+                    originX, originY, layout.width, layout.height);
+            if ((connections & ConnectionDirection.Down) != 0)
+                AddVerticalRoad(result, midX, originY, midY,
+                    originX, originY, layout.width, layout.height);
+            if ((connections & ConnectionDirection.Left) != 0)
+                AddHorizontalRoad(result, midY, originX, midX,
+                    originX, originY, layout.width, layout.height);
+            if ((connections & ConnectionDirection.Right) != 0)
+                AddHorizontalRoad(result, midY, midX, maxX,
+                    originX, originY, layout.width, layout.height);
+
+            // Join the player's original JSON spawn point to the road hub.
+            // An L-turn is made of existing straight/crossing tiles.
+            for (int rowIndex = 0; rowIndex < layout.height; rowIndex++)
+            {
+                string row = rowIndex < layout.rows.Length
+                    ? layout.rows[rowIndex] ?? string.Empty
+                    : string.Empty;
+                int index = row.IndexOf('P');
+                if (index < 0 || index >= layout.width)
+                    continue;
+
+                int px = originX + index;
+                int py = originY + layout.height - 1 - rowIndex;
+                AddVerticalRoad(result, px, py, midY,
+                    originX, originY, layout.width, layout.height);
+                AddHorizontalRoad(result, midY, px, midX,
+                    originX, originY, layout.width, layout.height);
+                break;
+            }
+            return result;
+        }
+
+        private static void AddVerticalRoad(
+            Dictionary<Vector3Int, int> cells, int x, int y0, int y1,
+            int originX, int originY, int width, int height)
+        {
+            for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++)
+            for (int dx = -RoadHalfWidth; dx <= RoadHalfWidth; dx++)
+                AddRoadCell(cells, x + dx, y, 1,
+                    originX, originY, width, height);
+        }
+
+        private static void AddHorizontalRoad(
+            Dictionary<Vector3Int, int> cells, int y, int x0, int x1,
+            int originX, int originY, int width, int height)
+        {
+            for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++)
+            for (int dy = -RoadHalfWidth; dy <= RoadHalfWidth; dy++)
+                AddRoadCell(cells, x, y + dy, 2,
+                    originX, originY, width, height);
+        }
+
+        private static void AddRoadCell(
+            Dictionary<Vector3Int, int> cells, int x, int y, int orientation,
+            int originX, int originY, int width, int height)
+        {
+            if (x < originX || x >= originX + width ||
+                y < originY || y >= originY + height)
+                return;
+            var cell = new Vector3Int(x, y, 0);
+            cells.TryGetValue(cell, out int old);
+            cells[cell] = old | orientation;
+        }
+
+        private static bool TryFindRoadTiles(LayoutData layout, out RoadTiles roadTiles)
+        {
+            roadTiles = null;
+            var candidates = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (LegendEntry entry in layout.legend)
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.tile) ||
+                    entry.collision || !string.Equals(entry.layer, "Ground",
+                        StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int shape = -1;
+                string suffix = null;
+                if (entry.tile.EndsWith("_縦", StringComparison.Ordinal))
+                {
+                    shape = 0;
+                    suffix = "_縦";
+                }
+                else if (entry.tile.EndsWith("_横", StringComparison.Ordinal))
+                {
+                    shape = 1;
+                    suffix = "_横";
+                }
+                else if (entry.tile.EndsWith("_十字", StringComparison.Ordinal))
+                {
+                    shape = 2;
+                    suffix = "_十字";
+                }
+
+                if (shape < 0)
+                    continue;
+
+                string prefix = entry.tile.Substring(0, entry.tile.Length - suffix.Length);
+                if (!prefix.Contains("土") && !prefix.Contains("道") &&
+                    !prefix.Contains("通路") && !prefix.Contains("舗装"))
+                    continue;
+
+                if (!candidates.TryGetValue(prefix, out string[] values))
+                    candidates[prefix] = values = new string[3];
+                values[shape] = entry.tile;
+            }
+
+            // Prefer the current biome's road style, not another biome's assets.
+            string biome = layout.defaultGroundTile.Split('_')[0];
+            foreach (bool preferBiome in new[] { true, false })
+            {
+                foreach (var candidate in candidates)
+                {
+                    if (preferBiome && !candidate.Key.StartsWith(biome + "_",
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string[] values = candidate.Value;
+                    if (values[0] == null || values[1] == null || values[2] == null)
+                        continue;
+
+                    TileBase vertical = GetOrCreateVisualTile(values[0], Tile.ColliderType.None);
+                    TileBase horizontal = GetOrCreateVisualTile(values[1], Tile.ColliderType.None);
+                    TileBase cross = GetOrCreateVisualTile(values[2], Tile.ColliderType.None);
+                    if (vertical == null || horizontal == null || cross == null)
+                        continue;
+
+                    roadTiles = new RoadTiles
+                    {
+                        Vertical = vertical,
+                        Horizontal = horizontal,
+                        Cross = cross
+                    };
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static void CreateConnectionMarkers(
+            Transform mapRoot, Grid grid, ConnectionDirection directions,
+            int originX, int originY, int width, int height)
+        {
+            const string rootName = "_MapConnectionPoints";
+            Transform markerRoot = mapRoot.Find(rootName);
+            if (markerRoot == null)
+            {
+                GameObject obj = new GameObject(rootName);
+                Undo.RegisterCreatedObjectUndo(obj, "Create Map Connection Points");
+                markerRoot = obj.transform;
+                markerRoot.SetParent(mapRoot, false);
+            }
+
+            int midX = originX + width / 2;
+            int midY = originY + height / 2;
+            EnsureConnectionMarker(markerRoot, grid, "上",
+                (directions & ConnectionDirection.Up) != 0,
+                new Vector3Int(midX, originY + height - 1, 0));
+            EnsureConnectionMarker(markerRoot, grid, "下",
+                (directions & ConnectionDirection.Down) != 0,
+                new Vector3Int(midX, originY, 0));
+            EnsureConnectionMarker(markerRoot, grid, "左",
+                (directions & ConnectionDirection.Left) != 0,
+                new Vector3Int(originX, midY, 0));
+            EnsureConnectionMarker(markerRoot, grid, "右",
+                (directions & ConnectionDirection.Right) != 0,
+                new Vector3Int(originX + width - 1, midY, 0));
+        }
+
+        private static void EnsureConnectionMarker(
+            Transform parent, Grid grid, string direction,
+            bool enabled, Vector3Int cell)
+        {
+            string markerName = "MapConnection_" + direction;
+            Transform marker = parent.Find(markerName);
+            if (marker == null && !enabled)
+                return;
+
+            if (marker == null)
+            {
+                GameObject obj = new GameObject(markerName);
+                Undo.RegisterCreatedObjectUndo(obj, "Create " + markerName);
+                marker = obj.transform;
+                marker.SetParent(parent, false);
+            }
+
+            Undo.RecordObject(marker.gameObject, "Update Map Connection");
+            marker.gameObject.SetActive(enabled);
+            if (enabled)
+            {
+                Undo.RecordObject(marker, "Move Map Connection");
+                marker.position = grid != null
+                    ? grid.GetCellCenterWorld(cell)
+                    : (Vector3)cell;
+            }
+            // Marker is intentionally collider-free: map transition triggers
+            // can be added to this object without generator overwrites.
+        }
+
         private static void PlaceOuterCollisionRing(
             Tilemap collisionMap,
             TileBase collisionTile,
             int originX,
             int originY,
             int width,
-            int height)
+            int height,
+            ConnectionDirection connections)
         {
             if (collisionMap == null ||
                 collisionTile == null)
@@ -1434,27 +1743,32 @@ namespace MixMaster.EditorTools
             int top = originY + height;
 
             // Top / bottom: one full cell outside the visible map.
+            int midX = originX + width / 2;
+            int midY = originY + height / 2;
+
             for (int x = left; x <= right; x++)
             {
-                collisionMap.SetTile(
-                    new Vector3Int(x, bottom, 0),
-                    collisionTile);
+                bool insideExitWidth = Mathf.Abs(x - midX) <= RoadHalfWidth;
+                if (!insideExitWidth ||
+                    (connections & ConnectionDirection.Down) == 0)
+                    collisionMap.SetTile(new Vector3Int(x, bottom, 0), collisionTile);
 
-                collisionMap.SetTile(
-                    new Vector3Int(x, top, 0),
-                    collisionTile);
+                if (!insideExitWidth ||
+                    (connections & ConnectionDirection.Up) == 0)
+                    collisionMap.SetTile(new Vector3Int(x, top, 0), collisionTile);
             }
 
             // Left / right: one full cell outside the visible map.
             for (int y = originY; y < originY + height; y++)
             {
-                collisionMap.SetTile(
-                    new Vector3Int(left, y, 0),
-                    collisionTile);
+                bool insideExitWidth = Mathf.Abs(y - midY) <= RoadHalfWidth;
+                if (!insideExitWidth ||
+                    (connections & ConnectionDirection.Left) == 0)
+                    collisionMap.SetTile(new Vector3Int(left, y, 0), collisionTile);
 
-                collisionMap.SetTile(
-                    new Vector3Int(right, y, 0),
-                    collisionTile);
+                if (!insideExitWidth ||
+                    (connections & ConnectionDirection.Right) == 0)
+                    collisionMap.SetTile(new Vector3Int(right, y, 0), collisionTile);
             }
         }
 
