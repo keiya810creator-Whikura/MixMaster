@@ -1841,9 +1841,18 @@ namespace MixMaster.EditorTools
                 marker.position = grid != null
                     ? grid.GetCellCenterWorld(cell)
                     : (Vector3)cell;
+
+                // Keep existing Inspector destination links when regenerating.
+                MapExitDirection side;
+                switch (direction)
+                {
+                    case "上": side = MapExitDirection.Up; break;
+                    case "下": side = MapExitDirection.Down; break;
+                    case "左": side = MapExitDirection.Left; break;
+                    default: side = MapExitDirection.Right; break;
+                }
+                MapExitMarkerEditorSetup.EnsureMarker(marker, side);
             }
-            // Marker is intentionally collider-free: map transition triggers
-            // can be added to this object without generator overwrites.
         }
 
         private static void PlaceOuterCollisionRing(
