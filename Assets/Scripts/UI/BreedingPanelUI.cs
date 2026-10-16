@@ -662,13 +662,15 @@ namespace MixMaster.UI
                     ? monsterCatalog.GetTitle(record.titleId) : null;
                 string titlePrefix = title != null
                     ? "《" + title.displayName + "》" : "";
-                row.label.text = titlePrefix + name + " Lv." + record.level +
-                    status + "\nStage " +
+                string stageAndIvSummary = "Stage " +
                     (species != null ? species.appearanceStage : 0) +
+                    " / 個体値合計 " + GetTotalIv(record);
+                row.label.text = titlePrefix + name + " Lv." + record.level +
+                    status +
                     (showIndividualValues
                         ? "\n" + OwnedMonsterDetailUI.FormatIndividualValues(
-                            record.individualValues)
-                        : " / 個体値合計 " + GetTotalIv(record));
+                            record.individualValues) + "\n" + stageAndIvSummary
+                        : "\n" + stageAndIvSummary);
                 float rowHeight = showIndividualValues ? 272f : 104f;
                 row.button.GetComponent<LayoutElement>().preferredHeight = rowHeight;
                 row.label.GetComponent<LayoutElement>().preferredHeight =
