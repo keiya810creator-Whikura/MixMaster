@@ -18,14 +18,16 @@ namespace MixMaster.EditorTools
         [MenuItem("MixMaster/CSV/特殊配合CSVをインポート・更新")]
         public static void Import()
         {
-            if (!File.Exists(Source))
+            string sourcePath = Path.GetFullPath(Path.Combine(
+                Directory.GetParent(Application.dataPath).FullName, Source));
+            if (!File.Exists(sourcePath))
             {
                 EditorUtility.DisplayDialog("特殊配合",
                     "Assets/DataCSV/特殊配合.csv が見つかりません。", "OK");
                 return;
             }
 
-            string[] lines = File.ReadAllLines(Source, Encoding.UTF8);
+            string[] lines = File.ReadAllLines(sourcePath, Encoding.UTF8);
             if (lines.Length == 0 ||
                 lines[0].TrimStart('\uFEFF').Trim() != "親A,親B,配合結果")
             {
