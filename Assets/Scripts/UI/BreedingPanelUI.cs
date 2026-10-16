@@ -390,8 +390,14 @@ namespace MixMaster.UI
             page = 0;
             if (succeeded)
             {
+                TitleSO inheritedTitle = monsterCatalog != null && newborn != null
+                    ? monsterCatalog.GetTitle(newborn.titleId) : null;
+                string titleLabel = inheritedTitle != null
+                    ? "継承称号: " + inheritedTitle.displayName
+                    : "継承称号: なし";
                 previewText.text = "配合成功！\n" + bornSpecies.displayName +
-                    " が仲間になりました！\n称号・個体値を受け継ぎました。";
+                    " が仲間になりました！\n" + titleLabel +
+                    " / 個体値は親から継承";
                 SetIcon(previewIcon, bornSpecies.icon != null
                     ? bornSpecies.icon : bornSpecies.sprite);
                 ShowNotice("成功！仲間一覧に追加しました。");
