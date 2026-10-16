@@ -18,9 +18,11 @@ MonoBehaviour:
   thumbnail: {fileID: 0}
   explorationSceneName: 
   dungeonSceneName: 
-  layoutJsonName: "\u5E73\u91CE"
-  layoutJson: {fileID: 4900000, guid: 4d2839a0e4c1b2140a77660f0c804bb0, type: 3}
+  layoutJsonName: "\u5E73\u91CE1"
+  layoutJson: {fileID: 4900000, guid: 2c17ef2c09ffc4745b9f7f91a2b8f99c, type: 3}
   thumbnailKey: 1
+  entranceDirections: 
+  exitDirections: 
   recommendedLevel: 1
   monsters:
   - {fileID: 11400000, guid: 5ed5adfba29ad844f9830d539dc715f6, type: 2}

@@ -130,11 +130,11 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
-        width: 256
-        height: 384
+        y: 224
+        width: 128
+        height: 96
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -147,11 +147,77 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: "e_t14\u5E02\u5834_1"
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 288
+        width: 128
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0b09fd30b129e914fa123685ae48c83b
+      internalID: -980232049
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "e_t14\u5E02\u5834_2"
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 320
+        width: 128
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3d3faa4f3fdfac547a650e843a082fb7
+      internalID: 2083508510
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "e_t14\u5E02\u5834_3"
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 192
+        width: 128
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8fcf4dacab38cc9488589fbe2e3828b0
+      internalID: 1728147996
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 6a5df63d77220d249b8f6002ef02ac0d
     internalID: 0
     vertices: []
     indices: 
@@ -159,9 +225,106 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries: []
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":32.0,"y":32.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"slicingType":1,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
       "e_t14\u5E02\u5834_0": 943185568970169463
+      "e_t14\u5E02\u5834_1": -980232049
+      "e_t14\u5E02\u5834_10": -1702519534
+      "e_t14\u5E02\u5834_11": 981083308
+      "e_t14\u5E02\u5834_12": -2136919303
+      "e_t14\u5E02\u5834_13": -1259569673
+      "e_t14\u5E02\u5834_14": -1122744390
+      "e_t14\u5E02\u5834_15": -1365966708
+      "e_t14\u5E02\u5834_16": 2084872425
+      "e_t14\u5E02\u5834_17": -1034537370
+      "e_t14\u5E02\u5834_18": 680099344
+      "e_t14\u5E02\u5834_19": 88433839
+      "e_t14\u5E02\u5834_2": 2083508510
+      "e_t14\u5E02\u5834_20": 938187677
+      "e_t14\u5E02\u5834_21": 897442972
+      "e_t14\u5E02\u5834_22": -477135032
+      "e_t14\u5E02\u5834_23": -1827059608
+      "e_t14\u5E02\u5834_24": 1245217875
+      "e_t14\u5E02\u5834_25": -473996991
+      "e_t14\u5E02\u5834_26": -1592694777
+      "e_t14\u5E02\u5834_27": -1974307337
+      "e_t14\u5E02\u5834_28": 1609362025
+      "e_t14\u5E02\u5834_29": -1308202284
+      "e_t14\u5E02\u5834_3": 1728147996
+      "e_t14\u5E02\u5834_30": -1685329267
+      "e_t14\u5E02\u5834_31": 1312609969
+      "e_t14\u5E02\u5834_32": -1336065163
+      "e_t14\u5E02\u5834_33": -879387506
+      "e_t14\u5E02\u5834_34": -264358138
+      "e_t14\u5E02\u5834_35": 598419250
+      "e_t14\u5E02\u5834_36": 696025413
+      "e_t14\u5E02\u5834_37": 224718580
+      "e_t14\u5E02\u5834_38": 958905489
+      "e_t14\u5E02\u5834_39": 1588858338
+      "e_t14\u5E02\u5834_4": 1362533731
+      "e_t14\u5E02\u5834_40": -237023664
+      "e_t14\u5E02\u5834_41": -293195092
+      "e_t14\u5E02\u5834_42": -358221848
+      "e_t14\u5E02\u5834_43": -247245973
+      "e_t14\u5E02\u5834_44": 309959932
+      "e_t14\u5E02\u5834_45": -799250948
+      "e_t14\u5E02\u5834_46": -1116251502
+      "e_t14\u5E02\u5834_47": -1348467865
+      "e_t14\u5E02\u5834_48": -920806624
+      "e_t14\u5E02\u5834_49": 1288416347
+      "e_t14\u5E02\u5834_5": -835511059
+      "e_t14\u5E02\u5834_50": 1197330620
+      "e_t14\u5E02\u5834_51": -1496838873
+      "e_t14\u5E02\u5834_52": 530776561
+      "e_t14\u5E02\u5834_53": 659566023
+      "e_t14\u5E02\u5834_54": -763442033
+      "e_t14\u5E02\u5834_55": 288092578
+      "e_t14\u5E02\u5834_56": -2065437484
+      "e_t14\u5E02\u5834_57": -2060756424
+      "e_t14\u5E02\u5834_58": 1525071109
+      "e_t14\u5E02\u5834_59": -1020168069
+      "e_t14\u5E02\u5834_6": -1269438545
+      "e_t14\u5E02\u5834_60": -1094790875
+      "e_t14\u5E02\u5834_61": -1298847297
+      "e_t14\u5E02\u5834_62": 1454990832
+      "e_t14\u5E02\u5834_63": 1790051316
+      "e_t14\u5E02\u5834_64": -475780085
+      "e_t14\u5E02\u5834_65": 1043032803
+      "e_t14\u5E02\u5834_66": -2029278661
+      "e_t14\u5E02\u5834_67": 163678355
+      "e_t14\u5E02\u5834_68": 1105751364
+      "e_t14\u5E02\u5834_69": 238396382
+      "e_t14\u5E02\u5834_7": 222306224
+      "e_t14\u5E02\u5834_70": -50861861
+      "e_t14\u5E02\u5834_71": 67222782
+      "e_t14\u5E02\u5834_72": 823379086
+      "e_t14\u5E02\u5834_73": -1525078033
+      "e_t14\u5E02\u5834_74": 288634152
+      "e_t14\u5E02\u5834_75": 276465314
+      "e_t14\u5E02\u5834_76": -45990398
+      "e_t14\u5E02\u5834_77": 165383755
+      "e_t14\u5E02\u5834_78": -1895927531
+      "e_t14\u5E02\u5834_79": -851228768
+      "e_t14\u5E02\u5834_8": 726986777
+      "e_t14\u5E02\u5834_80": 328795857
+      "e_t14\u5E02\u5834_81": 1827004319
+      "e_t14\u5E02\u5834_82": 813535703
+      "e_t14\u5E02\u5834_83": -1731962251
+      "e_t14\u5E02\u5834_84": 746031324
+      "e_t14\u5E02\u5834_85": -888534469
+      "e_t14\u5E02\u5834_86": 1072729340
+      "e_t14\u5E02\u5834_87": 1245370758
+      "e_t14\u5E02\u5834_88": 196856157
+      "e_t14\u5E02\u5834_89": -1116405677
+      "e_t14\u5E02\u5834_9": -614701543
+      "e_t14\u5E02\u5834_90": -1148716516
+      "e_t14\u5E02\u5834_91": 978989284
+      "e_t14\u5E02\u5834_92": -1417665620
+      "e_t14\u5E02\u5834_93": 832656285
+      "e_t14\u5E02\u5834_94": 1824884954
+      "e_t14\u5E02\u5834_95": 1263593702
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

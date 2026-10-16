@@ -1,0 +1,161 @@
+{
+  "mapName": "村",
+  "width": 31,
+  "height": 31,
+  "defaultGroundTile": "村_芝",
+  "blockOuterBorder": true,
+  "hasExitSettings": true,
+  "exitUp": true,
+  "exitDown": true,
+  "exitLeft": true,
+  "exitRight": true,
+  "legend": [
+    {
+      "symbol": "V",
+      "tile": "村_道_縦",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "H",
+      "tile": "村_道_横",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "X",
+      "tile": "村_道_十字",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "S",
+      "tile": "村_石畳",
+      "layer": "Ground",
+      "collision": false
+    },
+    {
+      "symbol": "a",
+      "tile": "村_井戸_1",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "b",
+      "tile": "村_井戸_2",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "c",
+      "tile": "村_井戸_3",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "d",
+      "tile": "村_井戸_4",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "e",
+      "tile": "村_薪_1",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "f",
+      "tile": "村_薪_2",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "g",
+      "tile": "村_墓",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "h",
+      "tile": "村_薪割株_1",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "i",
+      "tile": "村_薪割株_2",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "j",
+      "tile": "村_水汲み桶",
+      "layer": "Decoration",
+      "collision": true
+    },
+    {
+      "symbol": "k",
+      "tile": "村_ピンク花",
+      "layer": "Decoration",
+      "collision": false
+    },
+    {
+      "symbol": "l",
+      "tile": "村_黄色花",
+      "layer": "Decoration",
+      "collision": false
+    },
+    {
+      "symbol": "m",
+      "tile": "村_紫花",
+      "layer": "Decoration",
+      "collision": false
+    },
+    {
+      "symbol": "n",
+      "tile": "村_青草",
+      "layer": "Decoration",
+      "collision": false
+    },
+    {
+      "symbol": "o",
+      "tile": "村_枝",
+      "layer": "Decoration",
+      "collision": false
+    }
+  ],
+  "rows": [
+    "...............V...............",
+    ".k.n...........V...............",
+    "...............V...............",
+    ".....nmo.......V......og.gl....",
+    ".nn.nkklm.V....V....V.m....gl..",
+    ".k.lkm.nl.XHHHHXHHHHX.l.g......",
+    "....n..kn.V....V....V.SSSSS....",
+    "...o......V....V....V.......j..",
+    "....n.....V....V....V.....gln..",
+    ".n..n.....V....V....V....on.n..",
+    "...XHHHHHHXHHHHXHHHHXHHHHHHX...",
+    "...V...l..V....V....V....l.V...",
+    "...Vk....nV....VSSSSV..l...V...",
+    "...Vlkl...V.SSSVSSSjV..l.knV...",
+    "...V...ok.V.SSSVSSSSVS....mV...",
+    "HHHXHHHHHHXHHHHXHHHHXHHHHHHXHHH",
+    "...V..knm.V.SSSVSabSVS..k..V...",
+    "...Vm.n.l.V.SSSVScdSV....l.V...",
+    "...Von.mnoV....VSSSSV...m..V...",
+    "...V......V....VP...V..o...V...",
+    "...XHHHHHHXHHHHXHHHHXHHHHHHX...",
+    "..........V....V....V..........",
+    ".m......noV....V....V.......k..",
+    "..........V....V....V........o.",
+    "...k.....nV....V....V.n..n..o..",
+    "..n..ef.joV....V....V......nn..",
+    ".......h..XHHHHXHHHHX.n.....l..",
+    "..n....i..V....V....V..ko.ko...",
+    "..o.efn..n.....V.....nnl.km.ml.",
+    "........k......V...............",
+    "...............V..............."
+  ]
+}

@@ -48,7 +48,7 @@ MonoBehaviour:
   projectileHoming: 1
   baseRespawnInterval: 8
   uniqueMaterial: {fileID: 11400000, guid: a7f4143fd8ead494ca53dfd45a4ac097, type: 2}
-  materialBaseDropRate: 0.2
+  materialBaseDropRate: 1.2
   baseMonsterDropRate: 0.0001
   experienceReward: 7
   titlePool:
