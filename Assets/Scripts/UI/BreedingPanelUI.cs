@@ -502,7 +502,7 @@ namespace MixMaster.UI
             if (successRateText != null)
                 successRateText.text = "配合成功率: " +
                     BreedingManager.GetSuccessPercent(materialStepsA, materialStepsB) +
-                    "％ （初期50％ / 1万個につき＋5％）";
+                    "％ （初期80％ / 1万個につき＋2％）";
 
             RefreshMaterialLine(true);
             RefreshMaterialLine(false);
@@ -819,7 +819,7 @@ namespace MixMaster.UI
             panel.previewText.alignment = TextAlignmentOptions.MidlineLeft;
 
             panel.successRateText = Label(card.transform, "SuccessRate",
-                "配合成功率: 50％", 27f, 52f);
+                "配合成功率: 80％", 27f, 52f);
             panel.successRateText.alignment = TextAlignmentOptions.Center;
 
             BuildMaterialInput(card.transform, "ParentAMaterials", "親A素材",
