@@ -51,6 +51,39 @@ namespace MixMaster.UI
             }
         }
 
+        /// <summary>
+        /// Only the first 11 stat selectors have individual-value fields.
+        /// Resistances and material drop rate do not have IV data and must
+        /// continue to use the fully calculated CharacterStats values.
+        /// </summary>
+        public static bool SupportsIndividualValues(InventoryStat stat)
+        {
+            return stat >= InventoryStat.MaxHp && stat <= InventoryStat.AttackRange;
+        }
+
+        public static double GetIndividualValue(
+            MonsterIndividualValues iv, InventoryStat stat)
+        {
+            if (iv == null)
+                return 0d;
+
+            switch (stat)
+            {
+                case InventoryStat.MaxHp: return iv.hp;
+                case InventoryStat.MaxMp: return iv.mp;
+                case InventoryStat.Attack: return iv.attack;
+                case InventoryStat.Magic: return iv.magic;
+                case InventoryStat.Defense: return iv.defense;
+                case InventoryStat.MagicDefense: return iv.magicDefense;
+                case InventoryStat.CriticalRate: return iv.criticalRate;
+                case InventoryStat.CriticalMultiplier: return iv.criticalMultiplier;
+                case InventoryStat.MoveSpeed: return iv.moveSpeed;
+                case InventoryStat.AttackSpeed: return iv.attackSpeed;
+                case InventoryStat.AttackRange: return iv.attackRange;
+                default: return 0d;
+            }
+        }
+
         public static double GetValue(StatPercentageModifiers s, InventoryStat stat)
         {
             if (s == null) return 0d;
