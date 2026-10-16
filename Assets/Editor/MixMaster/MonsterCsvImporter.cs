@@ -105,6 +105,7 @@ namespace MixMaster.EditorTools
                 "素材ドロ率",
                 "経験値",
                 "配合用値",
+                "出現ステージ",
                 "魔弾Prefab名",
                 "魔弾速度",
                 "魔弾寿命秒数",
@@ -206,6 +207,18 @@ namespace MixMaster.EditorTools
                             monsterId +
                             "' がCSV内で重複しているためスキップしました。");
 
+                        continue;
+                    }
+
+                    string stageText = GetCell(row, header, "出現ステージ").Trim();
+                    if (!int.TryParse(stageText, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out int stage) || stage < 1)
+                    {
+                        warningCount++;
+                        skippedCount++;
+                        Debug.LogError("[MonsterCsvImporter] " +
+                            (rowIndex + 1) + "行目 / " + monsterId +
+                            ": 出現ステージは1以上の整数にしてください: '" + stageText + "'");
                         continue;
                     }
 
@@ -553,6 +566,14 @@ namespace MixMaster.EditorTools
                     header,
                     "配合用値",
                     0);
+
+            monster.appearanceStage =
+                Math.Max(1, ReadInt(row, header, "出現ステージ", 1));
+
+            // Optional column; if omitted, preserve existing Inspector setting.
+            if (header.ContainsKey("特殊配合限定"))
+                monster.specialBreedingOnly = ReadBool(
+                    row, header, "特殊配合限定", false);
 
             string projectileName =
                 GetCell(
