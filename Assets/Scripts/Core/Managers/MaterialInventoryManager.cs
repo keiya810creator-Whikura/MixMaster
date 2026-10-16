@@ -142,6 +142,53 @@ namespace MixMaster.Core
             return actualAdded;
         }
 
+        /// <summary>
+        /// Validates and subtracts both material costs as one operation.
+        /// If both parents drop the same material, the amounts are combined.
+        /// Zero costs are allowed; no partial deduction on insufficient stock.
+        /// </summary>
+        public bool TryConsumeBreedingMaterials(
+            string materialAId, long amountA,
+            string materialBId, long amountB)
+        {
+            if (amountA < 0L || amountB < 0L)
+                return false;
+            if (amountA > 0L && string.IsNullOrWhiteSpace(materialAId))
+                return false;
+            if (amountB > 0L && string.IsNullOrWhiteSpace(materialBId))
+                return false;
+
+            bool same = amountA > 0L && amountB > 0L &&
+                string.Equals(materialAId, materialBId,
+                    StringComparison.OrdinalIgnoreCase);
+            if (same)
+            {
+                if (amountA > long.MaxValue - amountB)
+                    return false;
+                amountA += amountB;
+                amountB = 0L;
+            }
+
+            MaterialInventoryRecord a = amountA > 0L
+                ? records.Find(x => string.Equals(x.materialId, materialAId,
+                    StringComparison.OrdinalIgnoreCase)) : null;
+            MaterialInventoryRecord b = amountB > 0L
+                ? records.Find(x => string.Equals(x.materialId, materialBId,
+                    StringComparison.OrdinalIgnoreCase)) : null;
+            if ((amountA > 0L && (a == null || a.amount < amountA)) ||
+                (amountB > 0L && (b == null || b.amount < amountB)))
+                return false;
+
+            if (amountA > 0L) a.amount -= amountA;
+            if (amountB > 0L) b.amount -= amountB;
+
+            if (amountA > 0L)
+                MaterialChanged?.Invoke(materialAId, -amountA, a.amount);
+            if (amountB > 0L)
+                MaterialChanged?.Invoke(materialBId, -amountB, b.amount);
+            return true;
+        }
+
         public bool TryConsume(
             MaterialSO material,
             long amount)
