@@ -829,16 +829,41 @@ namespace MixMaster.UI
                 string stageAndIvSummary = "Stage " +
                     (species != null ? species.appearanceStage : 0) +
                     " / 個体値合計 " + GetTotalIv(record);
-                row.label.text = titlePrefix + name + " Lv." + record.level +
-                    status +
-                    (showIndividualValues
-                        ? "\n" + OwnedMonsterDetailUI.FormatIndividualValues(
-                            record.individualValues) + "\n" + stageAndIvSummary
-                        : "\n" + stageAndIvSummary);
-                float rowHeight = showIndividualValues ? 272f : 104f;
+                int sortValue = sortDropdown != null ? sortDropdown.value : 0;
+                InventoryStat sortedStat = InventorySortVisuals.SelectedStat(sortValue);
+                string levelLabel = sortValue == 1
+                    ? InventorySortVisuals.Highlight(record.level.ToString())
+                    : record.level.ToString();
+                string header = titlePrefix + name + " Lv." + levelLabel + status;
+                string sortMetric = sortedStat == InventoryStat.All
+                    ? string.Empty
+                    : InventorySortVisuals.SortMetricLine(sortedStat,
+                        GetValueForSorting(record, sortedStat), showIndividualValues);
+                if (showIndividualValues)
+                {
+                    string ivText = OwnedMonsterDetailUI.FormatIndividualValues(
+                        record.individualValues);
+                    if (InventoryStatFilter.SupportsIndividualValues(sortedStat))
+                        ivText = InventorySortVisuals.HighlightDisplayedStat(
+                            ivText, sortedStat, true);
+                    row.label.text = header + "\n" + ivText +
+                        "\n" + stageAndIvSummary +
+                        (InventoryStatFilter.SupportsIndividualValues(sortedStat) ||
+                            sortMetric.Length == 0 ? "" : "\n" + sortMetric);
+                }
+                else
+                {
+                    row.label.text = header + "\n" + stageAndIvSummary +
+                        (sortMetric.Length == 0 ? "" : "\n" + sortMetric);
+                }
+                float rowHeight = showIndividualValues
+                    ? (sortMetric.Length > 0 &&
+                        !InventoryStatFilter.SupportsIndividualValues(sortedStat)
+                        ? 310f : 272f)
+                    : (sortMetric.Length > 0 ? 137f : 104f);
                 row.button.GetComponent<LayoutElement>().preferredHeight = rowHeight;
                 row.label.GetComponent<LayoutElement>().preferredHeight =
-                    showIndividualValues ? 248f : 86f;
+                    rowHeight - 18f;
                 SetIcon(row.icon, species != null
                     ? (species.icon != null ? species.icon : species.sprite) : null);
                 row.button.interactable =
