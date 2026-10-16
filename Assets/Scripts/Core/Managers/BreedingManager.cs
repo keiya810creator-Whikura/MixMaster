@@ -218,6 +218,11 @@ namespace MixMaster.Core
                 error = "親モンスターが所持一覧にありません。";
                 return false;
             }
+            if (ownedA.level < 10 || ownedB.level < 10)
+            {
+                error = "配合の親にはLv.10以上のモンスターが必要です。";
+                return false;
+            }
             if (monsterManager.IsProtectedFromConsumption(ownedA) ||
                 monsterManager.IsProtectedFromConsumption(ownedB))
             {
