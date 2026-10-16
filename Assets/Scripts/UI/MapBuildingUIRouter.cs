@@ -1,5 +1,7 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using MixMaster.Player;
 using MixMaster.World;
 
@@ -80,6 +82,15 @@ namespace MixMaster.UI
 
         public void Open(MapBuildingType type)
         {
+            // UI itself comes from the scene. Keep standalone town scenes
+            // usable when no global EventSystem has been provided.
+            if (type == MapBuildingType.BreedingShop &&
+                EventSystem.current == null)
+            {
+                new GameObject("BreedingShopEventSystem",
+                    typeof(EventSystem), typeof(InputSystemUIInputModule));
+            }
+
             GameObject targetPanel =
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
