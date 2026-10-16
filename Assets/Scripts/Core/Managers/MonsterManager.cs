@@ -279,7 +279,8 @@ namespace MixMaster.Core
         public OwnedMonsterRecord ObtainMonster(
             string monsterId,
             MonsterIndividualValues individualValues,
-            string titleId = "")
+            string titleId = "",
+            bool bypassAutoSell = false)
         {
             var monster = new OwnedMonsterRecord
             {
@@ -300,12 +301,52 @@ namespace MixMaster.Core
             // Newly obtained monsters are not in a party, but use the
             // existing validated sale operation to preserve the same rules
             // for lock/favorite/party safety and gold accounting.
-            if (ShouldAutoSell(monster) &&
+            if (!bypassAutoSell && ShouldAutoSell(monster) &&
                 TrySellMonster(monster.uniqueId, out _))
                 return null;
 
             MonsterObtained?.Invoke(monster);
             return monster;
+        }
+
+        /// <summary>
+        /// Atomically consumes two eligible owned monsters and adds the child.
+        /// Breeding is not selling: no gold is awarded and auto-sell is bypassed.
+        /// Skill, title and IV inheritance can be added here later.
+        /// </summary>
+        public bool TryCompleteBreeding(
+            string parentUniqueIdA, string parentUniqueIdB, MonsterSO childSpecies,
+            out OwnedMonsterRecord child)
+        {
+            child = null;
+            if (childSpecies == null ||
+                string.IsNullOrWhiteSpace(childSpecies.monsterId) ||
+                string.IsNullOrWhiteSpace(parentUniqueIdA) ||
+                string.IsNullOrWhiteSpace(parentUniqueIdB) ||
+                string.Equals(parentUniqueIdA, parentUniqueIdB, StringComparison.Ordinal))
+                return false;
+
+            OwnedMonsterRecord parentA = FindOwnedMonster(parentUniqueIdA);
+            OwnedMonsterRecord parentB = FindOwnedMonster(parentUniqueIdB);
+            if (IsProtectedFromConsumption(parentA) ||
+                IsProtectedFromConsumption(parentB))
+                return false;
+
+            EquipmentManager equipment = GetComponent<EquipmentManager>() ??
+                FindFirstObjectByType<EquipmentManager>();
+            // Equipment is not consumed. Both owners are validated first.
+            if (equipment != null)
+            {
+                equipment.UnequipAllFromMonster(parentA);
+                equipment.UnequipAllFromMonster(parentB);
+            }
+
+            ownedMonsters.Remove(parentA);
+            ownedMonsters.Remove(parentB);
+            child = ObtainMonster(childSpecies.monsterId,
+                MonsterDropRoller.RollIndividualValues(), "", true);
+            MonstersBulkSold?.Invoke(); // Existing UI list refresh notification.
+            return child != null;
         }
 
         public void RestoreMonsters(
