@@ -4,6 +4,8 @@ using MixMaster.Core;
 using MixMaster.World;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace MixMaster.UI
@@ -475,6 +477,14 @@ namespace MixMaster.UI
 
         public static BreedingPanelUI CreateRuntime(Transform host)
         {
+            // A town-only scene may not have any UI EventSystem yet.
+            // The project uses the new Unity Input System.
+            if (Application.isPlaying && EventSystem.current == null)
+            {
+                new GameObject("BreedingShopEventSystem",
+                    typeof(EventSystem), typeof(InputSystemUIInputModule));
+            }
+
             Canvas canvas = host != null ? host.GetComponentInParent<Canvas>() : null;
             if (canvas == null)
             {
