@@ -108,15 +108,15 @@ namespace MixMaster.UI
                 confirmButton == null || cancelButton == null)
                 return;
 
-            parentAButton.onClick.AddListener(() => SetActiveParent(0));
-            parentBButton.onClick.AddListener(() => SetActiveParent(1));
+            parentAButton.onClick.AddListener(ChooseParentA);
+            parentBButton.onClick.AddListener(ChooseParentB);
             previewButton.onClick.AddListener(Preview);
             breedButton.onClick.AddListener(OpenConfirmation);
             closeButton.onClick.AddListener(Close);
-            previousPageButton.onClick.AddListener(() => SetPage(page - 1));
-            nextPageButton.onClick.AddListener(() => SetPage(page + 1));
+            previousPageButton.onClick.AddListener(PreviousPage);
+            nextPageButton.onClick.AddListener(NextPage);
             confirmButton.onClick.AddListener(Confirm);
-            cancelButton.onClick.AddListener(() => confirmationOverlay.SetActive(false));
+            cancelButton.onClick.AddListener(CancelConfirmation);
             wired = true;
         }
 
@@ -124,15 +124,25 @@ namespace MixMaster.UI
         {
             if (!wired)
                 return;
-            parentAButton.onClick.RemoveAllListeners();
-            parentBButton.onClick.RemoveAllListeners();
+            parentAButton.onClick.RemoveListener(ChooseParentA);
+            parentBButton.onClick.RemoveListener(ChooseParentB);
             previewButton.onClick.RemoveListener(Preview);
             breedButton.onClick.RemoveListener(OpenConfirmation);
             closeButton.onClick.RemoveListener(Close);
-            previousPageButton.onClick.RemoveAllListeners();
-            nextPageButton.onClick.RemoveAllListeners();
+            previousPageButton.onClick.RemoveListener(PreviousPage);
+            nextPageButton.onClick.RemoveListener(NextPage);
             confirmButton.onClick.RemoveListener(Confirm);
-            cancelButton.onClick.RemoveAllListeners();
+            cancelButton.onClick.RemoveListener(CancelConfirmation);
+        }
+
+        private void ChooseParentA() { SetActiveParent(0); }
+        private void ChooseParentB() { SetActiveParent(1); }
+        private void PreviousPage() { SetPage(page - 1); }
+        private void NextPage() { SetPage(page + 1); }
+        private void CancelConfirmation()
+        {
+            if (confirmationOverlay != null)
+                confirmationOverlay.SetActive(false);
         }
 
         private void SetActiveParent(int index)
@@ -493,6 +503,8 @@ namespace MixMaster.UI
                 for (int i = 0; i < all.Length; i++)
                 {
                     if (all[i] != null && all[i].isRootCanvas &&
+                        all[i].gameObject.activeInHierarchy &&
+                        all[i].isActiveAndEnabled &&
                         all[i].renderMode != RenderMode.WorldSpace)
                     {
                         canvas = all[i];
