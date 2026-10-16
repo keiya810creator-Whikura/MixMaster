@@ -25,6 +25,7 @@ namespace MixMaster.UI
         private MonsterCatalogSO catalog;
         private EquipmentManager equipmentManager;
         private bool showIndividualValues;
+        private int sortIndex;
         private Color defaultButtonColor = Color.white;
 
         public OwnedMonsterRecord Record { get; private set; }
@@ -71,11 +72,13 @@ namespace MixMaster.UI
             IReadOnlyList<string> partyIds = null,
             CharacterStats preparedStats = null,
             Sprite favoriteSprite = null,
-            Sprite lockSprite = null)
+            Sprite lockSprite = null,
+            int selectedSortIndex = 0)
         {
             Record = record;
             catalog = newCatalog;
             showIndividualValues = showIvs;
+            sortIndex = selectedSortIndex;
 
             UpdatePartyButtonColor(record, partyIds);
 
@@ -142,11 +145,9 @@ namespace MixMaster.UI
 
             if (levelText != null)
             {
-                levelText.text =
-                    "Lv." +
-                    Mathf.Max(
-                        1,
-                        record.level);
+                string level = Mathf.Max(1, record.level).ToString();
+                levelText.text = "Lv." +
+                    (sortIndex == 1 ? InventorySortVisuals.Highlight(level) : level);
             }
 
             // Title is shown before the monster name.
@@ -230,11 +231,17 @@ namespace MixMaster.UI
             if (ivText == null)
                 return;
 
-            if (showIndividualValues)
+            InventoryStat selectedStat = InventorySortVisuals.SelectedStat(sortIndex);
+            if (showIndividualValues &&
+                InventoryStatFilter.SupportsIndividualValues(selectedStat))
             {
-                ivText.text =
-                    BuildIvText(
-                        record.individualValues);
+                ivText.text = InventorySortVisuals.HighlightDisplayedStat(
+                    BuildIvText(record.individualValues), selectedStat, false);
+                return;
+            }
+            if (showIndividualValues && selectedStat == InventoryStat.All)
+            {
+                ivText.text = BuildIvText(record.individualValues);
                 return;
             }
 
@@ -252,9 +259,27 @@ namespace MixMaster.UI
                         : null);
             }
 
-            ivText.text =
-                BuildStatsText(
-                    stats);
+            if (showIndividualValues)
+            {
+                // Resistances and drop rates do not have IVs. Continue to
+                // display IVs, with the actually sorted stat highlighted.
+                ivText.text = BuildIvText(record.individualValues) +
+                    "  " + InventorySortVisuals.SortMetricLine(
+                        selectedStat,
+                        InventoryStatFilter.GetValue(stats, selectedStat), false);
+            }
+            else
+            {
+                string formatted = BuildStatsText(stats);
+                ivText.text = InventoryStatFilter.SupportsIndividualValues(selectedStat)
+                    ? InventorySortVisuals.HighlightDisplayedStat(formatted,
+                        selectedStat, false)
+                    : formatted + (selectedStat == InventoryStat.All
+                        ? string.Empty
+                        : "  " + InventorySortVisuals.SortMetricLine(
+                            selectedStat,
+                            InventoryStatFilter.GetValue(stats, selectedStat), false));
+            }
         }
 
         private static string BuildIvText(
