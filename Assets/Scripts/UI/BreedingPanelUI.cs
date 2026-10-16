@@ -18,6 +18,7 @@ namespace MixMaster.UI
     public sealed class BreedingPanelUI : MonoBehaviour
     {
         private const int PageSize = 10;
+        private const int MinimumParentLevel = 10;
 
         [Header("Runtime References")]
         [SerializeField] private MonsterManager monsterManager;
@@ -28,6 +29,8 @@ namespace MixMaster.UI
         [Header("UI")]
         [SerializeField] private Button parentAButton;
         [SerializeField] private Button parentBButton;
+        [SerializeField] private Button parentADetailButton;
+        [SerializeField] private Button parentBDetailButton;
         [SerializeField] private TMP_Text parentAText;
         [SerializeField] private TMP_Text parentBText;
         [SerializeField] private Image parentAIcon;
@@ -42,6 +45,8 @@ namespace MixMaster.UI
         [SerializeField] private Button materialBPlusButton;
         [SerializeField] private Button materialBMinusButton;
         [SerializeField] private TMP_Text selectionHeader;
+        [SerializeField] private Toggle individualValuesToggle;
+        [SerializeField] private OwnedMonsterDetailUI detailPanel;
         [SerializeField] private TMP_Text pageText;
         [SerializeField] private TMP_Text noticeText;
         [SerializeField] private Button previewButton;
@@ -67,10 +72,12 @@ namespace MixMaster.UI
         private int selectingParent; // 0: A, 1: B
         private int page;
         private bool wired;
+        private bool showIndividualValues;
 
         private sealed class CandidateRow
         {
             public Button button;
+            public Button detailButton;
             public TMP_Text label;
             public Image icon;
         }
@@ -91,12 +98,17 @@ namespace MixMaster.UI
             materialStepsB = 0;
             selectingParent = 0;
             page = 0;
+            showIndividualValues = false;
+            if (individualValuesToggle != null)
+                individualValuesToggle.SetIsOnWithoutNotify(false);
+            if (detailPanel != null)
+                detailPanel.Hide();
             if (confirmationOverlay != null)
                 confirmationOverlay.SetActive(false);
             if (previewText != null)
                 previewText.text = "親を2体選んで「結果をプレビュー」を押してください。";
             if (noticeText != null)
-                noticeText.text = "パーティ編成中・お気に入り・ロック中の個体は配合できません。";
+                noticeText.text = "親はLv.10以上が必要です。編成中・お気に入り・ロック中も選択不可。";
             RefreshAll();
         }
 
@@ -117,6 +129,8 @@ namespace MixMaster.UI
             if (wired)
                 return;
             if (parentAButton == null || parentBButton == null ||
+                parentADetailButton == null || parentBDetailButton == null ||
+                individualValuesToggle == null ||
                 previewButton == null || breedButton == null || closeButton == null ||
                 previousPageButton == null || nextPageButton == null ||
                 confirmButton == null || cancelButton == null ||
@@ -126,6 +140,9 @@ namespace MixMaster.UI
 
             parentAButton.onClick.AddListener(ChooseParentA);
             parentBButton.onClick.AddListener(ChooseParentB);
+            parentADetailButton.onClick.AddListener(OpenParentADetail);
+            parentBDetailButton.onClick.AddListener(OpenParentBDetail);
+            individualValuesToggle.onValueChanged.AddListener(ChangeIvDisplay);
             previewButton.onClick.AddListener(Preview);
             breedButton.onClick.AddListener(OpenConfirmation);
             closeButton.onClick.AddListener(Close);
@@ -146,6 +163,9 @@ namespace MixMaster.UI
                 return;
             parentAButton.onClick.RemoveListener(ChooseParentA);
             parentBButton.onClick.RemoveListener(ChooseParentB);
+            parentADetailButton.onClick.RemoveListener(OpenParentADetail);
+            parentBDetailButton.onClick.RemoveListener(OpenParentBDetail);
+            individualValuesToggle.onValueChanged.RemoveListener(ChangeIvDisplay);
             previewButton.onClick.RemoveListener(Preview);
             breedButton.onClick.RemoveListener(OpenConfirmation);
             closeButton.onClick.RemoveListener(Close);
@@ -157,6 +177,34 @@ namespace MixMaster.UI
             materialAMinusButton.onClick.RemoveListener(RemoveMaterialA);
             materialBPlusButton.onClick.RemoveListener(AddMaterialB);
             materialBMinusButton.onClick.RemoveListener(RemoveMaterialB);
+        }
+
+        private void ChangeIvDisplay(bool enabled)
+        {
+            showIndividualValues = enabled;
+            RefreshCandidateRows();
+        }
+
+        private void OpenParentADetail() { OpenMonsterDetail(parentAUniqueId); }
+        private void OpenParentBDetail() { OpenMonsterDetail(parentBUniqueId); }
+
+        private void OpenMonsterDetail(string uniqueId)
+        {
+            EnsureReferences();
+            OwnedMonsterRecord record = monsterManager != null
+                ? monsterManager.FindOwnedMonster(uniqueId) : null;
+            if (record == null)
+                return;
+            if (detailPanel == null)
+            {
+                ShowNotice("モンスター詳細Prefabが見つかりません。");
+                return;
+            }
+
+            detailPanel.SetReadOnlyMode(true);
+            detailPanel.Show(record, monsterCatalog, showIndividualValues);
+            detailPanel.SetReadOnlyMode(true);
+            detailPanel.transform.SetAsLastSibling();
         }
 
         private void AddMaterialA() { ChangeMaterialSteps(true, 1); }
@@ -224,9 +272,12 @@ namespace MixMaster.UI
                 return;
 
             OwnedMonsterRecord selected = monsterManager.FindOwnedMonster(uniqueId);
-            if (selected == null || monsterManager.IsProtectedFromConsumption(selected))
+            if (selected == null || selected.level < MinimumParentLevel ||
+                monsterManager.IsProtectedFromConsumption(selected))
             {
-                ShowNotice("このモンスターは選択できません。");
+                ShowNotice(selected != null && selected.level < MinimumParentLevel
+                    ? "親として選択するにはLv.10以上が必要です。"
+                    : "このモンスターは選択できません。");
                 RefreshAll();
                 return;
             }
@@ -507,6 +558,14 @@ namespace MixMaster.UI
             RefreshMaterialControls();
             UpdateSelectedCard(parentAUniqueId, parentAText, parentAIcon, "親Aを選択");
             UpdateSelectedCard(parentBUniqueId, parentBText, parentBIcon, "親Bを選択");
+            if (parentADetailButton != null)
+                parentADetailButton.interactable =
+                    monsterManager != null &&
+                    monsterManager.FindOwnedMonster(parentAUniqueId) != null;
+            if (parentBDetailButton != null)
+                parentBDetailButton.interactable =
+                    monsterManager != null &&
+                    monsterManager.FindOwnedMonster(parentBUniqueId) != null;
             if (selectionHeader != null)
                 selectionHeader.text = (selectingParent == 0 ? "親A" : "親B") +
                     "を選択（各個体をタップ）";
@@ -549,6 +608,22 @@ namespace MixMaster.UI
             for (int i = owned.Count - 1; i >= 0; i--)
                 if (owned[i] != null)
                     candidates.Add(owned[i]);
+
+            // Available Lv10+ monsters first, protected Lv10+ next,
+            // and every underleveled monster at the bottom.
+            candidates.Sort((left, right) =>
+            {
+                int lRank = left.level < MinimumParentLevel ? 2 :
+                    monsterManager.IsProtectedFromConsumption(left) ? 1 : 0;
+                int rRank = right.level < MinimumParentLevel ? 2 :
+                    monsterManager.IsProtectedFromConsumption(right) ? 1 : 0;
+                int priority = lRank.CompareTo(rRank);
+                if (priority != 0) return priority;
+                priority = right.level.CompareTo(left.level);
+                return priority != 0 ? priority :
+                    string.Compare(left.uniqueId, right.uniqueId,
+                        StringComparison.Ordinal);
+            });
             int maxPage = Mathf.Max(0, (candidates.Count - 1) / PageSize);
             page = Mathf.Clamp(page, 0, maxPage);
         }
@@ -569,6 +644,7 @@ namespace MixMaster.UI
                 row.button.gameObject.SetActive(true);
                 OwnedMonsterRecord record = candidates[index];
                 bool protectedMonster = monsterManager.IsProtectedFromConsumption(record);
+                bool tooLow = record.level < MinimumParentLevel;
                 bool sameAsOtherParent = record.uniqueId ==
                     (selectingParent == 0 ? parentBUniqueId : parentAUniqueId);
                 bool selected = record.uniqueId ==
@@ -576,7 +652,8 @@ namespace MixMaster.UI
                 MonsterSO species = monsterCatalog != null
                     ? monsterCatalog.GetMonster(record.monsterId) : null;
                 string name = species != null ? species.displayName : record.monsterId;
-                string status = protectedMonster
+                string status = tooLow ? " [Lv.10未満]" :
+                    protectedMonster
                     ? (record.isLocked ? " [ロック]" :
                        record.isFavorite ? " [お気に入り]" : " [パーティ編成中]")
                     : sameAsOtherParent ? " [もう一方の親]" :
@@ -588,16 +665,27 @@ namespace MixMaster.UI
                 row.label.text = titlePrefix + name + " Lv." + record.level +
                     status + "\nStage " +
                     (species != null ? species.appearanceStage : 0) +
-                    " / 個体値合計 " + GetTotalIv(record);
+                    (showIndividualValues
+                        ? "\n" + OwnedMonsterDetailUI.FormatIndividualValues(
+                            record.individualValues)
+                        : " / 個体値合計 " + GetTotalIv(record));
+                float rowHeight = showIndividualValues ? 272f : 104f;
+                row.button.GetComponent<LayoutElement>().preferredHeight = rowHeight;
+                row.label.GetComponent<LayoutElement>().preferredHeight =
+                    showIndividualValues ? 248f : 86f;
                 SetIcon(row.icon, species != null
                     ? (species.icon != null ? species.icon : species.sprite) : null);
-                row.button.interactable = !protectedMonster && !sameAsOtherParent;
+                row.button.interactable =
+                    !tooLow && !protectedMonster && !sameAsOtherParent;
                 row.button.GetComponent<Image>().color = selected
                     ? new Color(0.24f, 0.47f, 0.37f, 1f)
                     : new Color(0.19f, 0.27f, 0.35f, 1f);
                 string capturedId = record.uniqueId;
                 row.button.onClick.RemoveAllListeners();
                 row.button.onClick.AddListener(() => SelectCandidate(capturedId));
+                row.detailButton.onClick.RemoveAllListeners();
+                row.detailButton.onClick.AddListener(() => OpenMonsterDetail(capturedId));
+                row.detailButton.interactable = true;
             }
 
             int totalPages = Mathf.Max(1, (candidates.Count + PageSize - 1) / PageSize);
@@ -715,9 +803,11 @@ namespace MixMaster.UI
 
             GameObject parentRow = LayoutRow(card.transform, "Parents", 155f);
             panel.parentAButton = ParentButton(parentRow.transform, "ParentA",
-                "親Aを選択", out panel.parentAText, out panel.parentAIcon);
+                "親Aを選択", out panel.parentAText, out panel.parentAIcon,
+                out panel.parentADetailButton);
             panel.parentBButton = ParentButton(parentRow.transform, "ParentB",
-                "親Bを選択", out panel.parentBText, out panel.parentBIcon);
+                "親Bを選択", out panel.parentBText, out panel.parentBIcon,
+                out panel.parentBDetailButton);
 
             GameObject preview = LayoutRow(card.transform, "Preview", 175f);
             preview.GetComponent<Image>().color = new Color(0.13f, 0.24f, 0.31f, 1f);
@@ -739,9 +829,14 @@ namespace MixMaster.UI
                 out panel.materialBText, out panel.materialBMinusButton,
                 out panel.materialBPlusButton);
 
-            panel.selectionHeader = Label(card.transform, "SelectionHeader",
-                "親Aを選択", 26f, 48f);
-            panel.selectionHeader.alignment = TextAlignmentOptions.Center;
+            GameObject selectionBar = LayoutRow(card.transform,
+                "SelectionAndIvToggle", 63f, false);
+            panel.selectionHeader = Label(selectionBar.transform, "SelectionHeader",
+                "親Aを選択", 25f, 55f);
+            panel.selectionHeader.GetComponent<LayoutElement>().flexibleWidth = 1f;
+            panel.selectionHeader.alignment = TextAlignmentOptions.MidlineLeft;
+            panel.individualValuesToggle = CreateIndividualValuesToggle(
+                selectionBar.transform);
 
             GameObject scrollBox = MakeRectObject("CandidateScroll", card.transform,
                 typeof(Image), typeof(ScrollRect), typeof(LayoutElement));
@@ -842,6 +937,24 @@ namespace MixMaster.UI
                 "Cancel", "キャンセル", 85f);
             confirmation.SetActive(false);
             panel.confirmationOverlay = confirmation;
+
+            // The standard monster detail prefab is reused as a top-most modal.
+            GameObject detailPrefab = Resources.Load<GameObject>(
+                "UI/BreedingMonsterDetailPanel");
+            if (detailPrefab != null)
+            {
+                GameObject detailObject =
+                    Instantiate(detailPrefab, overlay.transform, false);
+                detailObject.name = "BreedingMonsterDetail";
+                detailObject.transform.SetAsLastSibling();
+                panel.detailPanel = detailObject.GetComponent<OwnedMonsterDetailUI>();
+                detailObject.SetActive(false);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[BreedingPanelUI] Resources/UI/BreedingMonsterDetailPanel.prefab がありません。");
+            }
             panel.WireButtons();
             return panel;
         }
@@ -940,7 +1053,7 @@ namespace MixMaster.UI
 
         private static Button ParentButton(
             Transform parent, string name, string caption,
-            out TMP_Text label, out Image icon)
+            out TMP_Text label, out Image icon, out Button details)
         {
             GameObject objectGo = MakeRectObject(name, parent,
                 typeof(Image), typeof(Button),
@@ -957,10 +1070,14 @@ namespace MixMaster.UI
             group.childControlHeight = true;
             group.childForceExpandWidth = true;
             group.childForceExpandHeight = true;
-            icon = Icon(objectGo.transform, "SpeciesIcon", 90f);
-            label = Label(objectGo.transform, "SpeciesLabel", caption, 23f, 115f);
+            icon = Icon(objectGo.transform, "SpeciesIcon", 78f);
+            label = Label(objectGo.transform, "SpeciesLabel", caption, 22f, 115f);
             label.GetComponent<LayoutElement>().flexibleWidth = 1f;
             label.alignment = TextAlignmentOptions.Center;
+            details = ActionButton(objectGo.transform, "ShowParentDetail", "詳細", 80f);
+            LayoutElement buttonLayout = details.GetComponent<LayoutElement>();
+            buttonLayout.preferredWidth = 106f;
+            buttonLayout.flexibleWidth = 0f;
             return button;
         }
 
@@ -982,10 +1099,17 @@ namespace MixMaster.UI
             group.childForceExpandWidth = false;
             group.childForceExpandHeight = false;
             Image icon = Icon(row.transform, "Icon", 85f);
-            TMP_Text label = Label(row.transform, "MonsterInfo", "", 25f, 86f);
+            TMP_Text label = Label(row.transform, "MonsterInfo", "", 24f, 86f);
             label.GetComponent<LayoutElement>().flexibleWidth = 1f;
             label.alignment = TextAlignmentOptions.MidlineLeft;
-            return new CandidateRow { button = button, icon = icon, label = label };
+            Button details = ActionButton(row.transform, "DetailsButton", "詳細", 76f);
+            LayoutElement detailsLayout = details.GetComponent<LayoutElement>();
+            detailsLayout.preferredWidth = 116f;
+            detailsLayout.flexibleWidth = 0f;
+            return new CandidateRow
+            {
+                button = button, detailButton = details, icon = icon, label = label
+            };
         }
     }
 }
