@@ -181,8 +181,13 @@ namespace MixMaster.UI
 
             materialStepsA = nextA;
             materialStepsB = nextB;
-            ShowNotice("投入素材を設定しました。確定時に消費します。");
-            RefreshAll();
+            if (previewChild != null)
+                Preview(); // Keep the preview's displayed rate in sync with steps.
+            else
+            {
+                ShowNotice("投入素材を設定しました。確定時に消費します。");
+                RefreshAll();
+            }
         }
 
         private void ChooseParentA() { SetActiveParent(0); }
@@ -289,7 +294,9 @@ namespace MixMaster.UI
                 "   (Stage " + child.appearanceStage + ")" +
                 "\n配合値 " + child.breedingValue +
                 "  /  成功率 " + offer.successPercent + "％" +
-                "\n※失敗しても親2体は消費されます。";
+                (breedingManager.ProtectParentsOnFailure
+                    ? "\n※失敗時も親2体は保護されます。"
+                    : "\n※失敗しても親2体は消費されます。");
             SetIcon(previewIcon, child.icon != null ? child.icon : child.sprite);
             ShowNotice("プレビュー完了。「この結果で配合」を押して最終確認してください。");
             RefreshAll();
@@ -330,7 +337,9 @@ namespace MixMaster.UI
                 "\n\n" + FormatMaterialCost(offer.materialA, offer.requiredA) +
                 "\n" + FormatMaterialCost(offer.materialB, offer.requiredB) +
                 "\n\n成功: 【" + offer.child.displayName + "】獲得" +
-                "\n失敗: 親2体は消失（装備は残る）";
+                (breedingManager.ProtectParentsOnFailure
+                    ? "\n失敗: 親2体は残る（投入素材は消費）"
+                    : "\n失敗: 親2体は消失（装備は残る）");
             confirmationOverlay.SetActive(true);
         }
 
@@ -342,8 +351,6 @@ namespace MixMaster.UI
             EnsureReferences();
 
             // Recheck the preview immediately before the irreversible action.
-            MonsterSO nextChild = null;
-            bool nextSpecial = false;
             string previewError = string.Empty;
             BreedingMaterialOffer currentOffer = null;
             if (breedingManager == null ||
@@ -391,9 +398,14 @@ namespace MixMaster.UI
             }
             else
             {
-                previewText.text = "配合失敗…\n素材と親2体を失いました。";
+                bool protectedParents = breedingManager.ProtectParentsOnFailure;
+                previewText.text = protectedParents
+                    ? "配合失敗…\n素材を失いましたが、親2体は保護されました。"
+                    : "配合失敗…\n素材と親2体を失いました。";
                 SetIcon(previewIcon, null);
-                ShowNotice("失敗しました。親2体は消費されました。");
+                ShowNotice(protectedParents
+                    ? "配合失敗。親2体は保護されました。"
+                    : "失敗しました。親2体は消費されました。");
             }
             RefreshAll();
         }
