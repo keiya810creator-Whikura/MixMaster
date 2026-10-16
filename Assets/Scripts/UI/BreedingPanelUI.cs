@@ -245,7 +245,11 @@ namespace MixMaster.UI
         private void ChangeIvDisplay(bool enabled)
         {
             showIndividualValues = enabled;
-            RefreshCandidateRows();
+            // Changing the mode also changes stat rankings and thresholds.
+            page = 0;
+            RefreshAll();
+            if (listScroll != null)
+                listScroll.verticalNormalizedPosition = 1f;
         }
 
         private void OpenParentADetail() { OpenMonsterDetail(parentAUniqueId); }
@@ -662,6 +666,17 @@ namespace MixMaster.UI
                 species.icon != null ? species.icon : species.sprite);
         }
 
+        private double GetValueForSorting(
+            OwnedMonsterRecord record, InventoryStat stat)
+        {
+            if (showIndividualValues &&
+                InventoryStatFilter.SupportsIndividualValues(stat))
+                return InventoryStatFilter.GetIndividualValue(
+                    record != null ? record.individualValues : null, stat);
+
+            return InventoryStatFilter.GetValue(GetCachedStats(record), stat);
+        }
+
         private CharacterStats GetCachedStats(OwnedMonsterRecord record)
         {
             if (record == null)
@@ -720,8 +735,7 @@ namespace MixMaster.UI
                 {
                     var scores = new List<double>(filteredIndices.Count);
                     foreach (int index in filteredIndices)
-                        scores.Add(InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected));
+                        scores.Add(GetValueForSorting(owned[index], selected));
 
                     scores.Sort((x, y) => y.CompareTo(x));
                     float fraction = thresholdValue == 0 ? 0.25f :
@@ -731,14 +745,12 @@ namespace MixMaster.UI
                         0, scores.Count - 1);
                     double minimum = scores[cutoff];
                     filteredIndices.RemoveAll(index =>
-                        InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected) < minimum);
+                        GetValueForSorting(owned[index], selected) < minimum);
                 }
                 else
                 {
                     filteredIndices.RemoveAll(index =>
-                        Math.Abs(InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected)) < 0.000001d);
+                        Math.Abs(GetValueForSorting(owned[index], selected)) < 0.000001d);
                 }
             }
 
@@ -765,10 +777,8 @@ namespace MixMaster.UI
                 else
                 {
                     InventoryStat stat = (InventoryStat)(sortValue - 1);
-                    cmp = InventoryStatFilter.GetValue(
-                        GetCachedStats(right), stat).CompareTo(
-                        InventoryStatFilter.GetValue(
-                        GetCachedStats(left), stat));
+                    cmp = GetValueForSorting(right, stat).CompareTo(
+                        GetValueForSorting(left, stat));
                 }
 
                 if (cmp == 0) cmp = b.CompareTo(a);
