@@ -93,7 +93,41 @@ namespace MixMaster.UI
 
         private void Awake()
         {
+            CollectSavedCandidateRows();
             WireButtons();
+        }
+
+        /// <summary>
+        /// Editor-authored Prefabs do not serialize the private CandidateRow
+        /// helper list, so rebuild row references from its saved hierarchy.
+        /// Buttons/text/icons themselves remain fully editable in the Prefab.
+        /// </summary>
+        private void CollectSavedCandidateRows()
+        {
+            if (listContent == null || rows.Count > 0)
+                return;
+
+            for (int i = 0; i < PageSize; i++)
+            {
+                Transform item = listContent.Find("Monster_" + i);
+                if (item == null)
+                    continue;
+                Transform detail = item.Find("DetailsButton");
+                Transform label = item.Find("MonsterInfo");
+                Transform icon = item.Find("Icon");
+                Button itemButton = item.GetComponent<Button>();
+                Button detailButton = detail != null ? detail.GetComponent<Button>() : null;
+                TMP_Text text = label != null ? label.GetComponent<TMP_Text>() : null;
+                Image image = icon != null ? icon.GetComponent<Image>() : null;
+                if (itemButton == null || detailButton == null ||
+                    text == null || image == null)
+                    continue;
+                rows.Add(new CandidateRow
+                {
+                    button = itemButton, detailButton = detailButton,
+                    label = text, icon = image
+                });
+            }
         }
 
         private void OnEnable()
@@ -918,6 +952,72 @@ namespace MixMaster.UI
         }
 
         public static BreedingPanelUI CreateRuntime(Transform host)
+        {
+            GameObject savedPrefab = Resources.Load<GameObject>(
+                "UI/BreedingShopPanel");
+            if (savedPrefab == null)
+            {
+                Debug.LogWarning("[BreedingPanelUI] 配合パネルPrefab未生成です。" +
+                    " MixMaster/UI/配合パネルPrefabを作成 を実行してください。" +
+                    " 既存のランタイム生成に切り替えます。");
+                return BuildPrototype(host);
+            }
+
+            if (Application.isPlaying && EventSystem.current == null)
+            {
+                new GameObject("BreedingShopEventSystem",
+                    typeof(EventSystem), typeof(InputSystemUIInputModule));
+            }
+
+            Canvas targetCanvas = host != null
+                ? host.GetComponentInParent<Canvas>() : null;
+            if (targetCanvas == null)
+            {
+                Canvas[] canvases = FindObjectsByType<Canvas>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None);
+                for (int i = 0; i < canvases.Length; i++)
+                {
+                    if (canvases[i] != null && canvases[i].isRootCanvas &&
+                        canvases[i].gameObject.activeInHierarchy &&
+                        canvases[i].isActiveAndEnabled &&
+                        canvases[i].renderMode != RenderMode.WorldSpace)
+                    {
+                        targetCanvas = canvases[i];
+                        break;
+                    }
+                }
+            }
+
+            if (targetCanvas == null)
+            {
+                GameObject canvasObject = new GameObject(
+                    "BreedingShopCanvas", typeof(RectTransform),
+                    typeof(Canvas), typeof(CanvasScaler),
+                    typeof(GraphicRaycaster));
+                targetCanvas = canvasObject.GetComponent<Canvas>();
+                targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                targetCanvas.sortingOrder = 630;
+                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1080f, 1920f);
+                scaler.matchWidthOrHeight = 1f;
+            }
+
+            GameObject instance = Instantiate(
+                savedPrefab, targetCanvas.transform, false);
+            instance.name = "BreedingShopPanel";
+            BreedingPanelUI panel = instance.GetComponent<BreedingPanelUI>();
+            if (panel == null)
+            {
+                Destroy(instance);
+                Debug.LogError("[BreedingPanelUI] 保存済みPrefabにBreedingPanelUIがありません。");
+            }
+            return panel;
+        }
+
+        // Editor-only asset creator also uses this initial construction code.
+        // In normal gameplay CreateRuntime instantiates the saved Prefab.
+        public static BreedingPanelUI BuildPrototype(Transform host)
         {
             // A town-only scene may not have any UI EventSystem yet.
             // The project uses the new Unity Input System.
