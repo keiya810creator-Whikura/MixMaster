@@ -68,7 +68,9 @@ namespace MixMaster.UI
         [SerializeField] private Button cancelButton;
 
         private readonly List<OwnedMonsterRecord> candidates = new List<OwnedMonsterRecord>();
-        private readonly List<CandidateRow> rows = new List<CandidateRow>();
+        // Serialized into the editable prefab; remains stable even when rows
+        // are renamed or repositioned in Prefab Mode.
+        [SerializeField] private List<CandidateRow> rows = new List<CandidateRow>();
         private readonly Dictionary<string, CharacterStats> statCache =
             new Dictionary<string, CharacterStats>(StringComparer.Ordinal);
         private bool ascending;
@@ -83,6 +85,7 @@ namespace MixMaster.UI
         private bool wired;
         private bool showIndividualValues;
 
+        [Serializable]
         private sealed class CandidateRow
         {
             public Button button;
