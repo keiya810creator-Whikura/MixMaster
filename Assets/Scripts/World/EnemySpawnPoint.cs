@@ -93,19 +93,22 @@ namespace MixMaster.World
         {
             aliveEnemies.RemoveAll(x => x == null || !x.IsAlive);
 
-            if (ResolveEnemyPrefab() == null ||
-                aliveEnemies.Count >= maxAlive)
-            {
-                return;
-            }
-
-            if (Time.time < nextSpawnTime)
+            // One cooldown applies to the whole spawn batch. Fill every
+            // vacant Alive slot at once instead of only spawning one enemy
+            // each time the cooldown expires.
+            if (aliveEnemies.Count >= maxAlive || Time.time < nextSpawnTime)
                 return;
 
-            SpawnEnemy();
+            GameObject prefab = ResolveEnemyPrefab();
+            if (prefab == null)
+                return;
 
-            if (aliveEnemies.Count < maxAlive)
-                nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
+            int missingCount = maxAlive - aliveEnemies.Count;
+            for (int i = 0; i < missingCount; i++)
+                SpawnEnemyInternal(prefab);
+
+            // Do the altar/respawn-delay lookup once per batch, not per enemy.
+            nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
         }
 
         public void SetEnemyPrefab(GameObject prefab)
@@ -139,6 +142,12 @@ namespace MixMaster.World
                 return;
             }
 
+            SpawnEnemyInternal(prefab);
+            nextSpawnTime = Time.time + GetEffectiveSpawnInterval();
+        }
+
+        private void SpawnEnemyInternal(GameObject prefab)
+        {
             Vector2 offset = randomSpawnRadius > 0f
                 ? Random.insideUnitCircle * randomSpawnRadius
                 : Vector2.zero;
@@ -182,9 +191,6 @@ namespace MixMaster.World
 
             aliveEnemies.Add(health);
             health.Died += HandleEnemyDied;
-
-            nextSpawnTime =
-                Time.time + GetEffectiveSpawnInterval();
         }
 
         private GameObject ResolveEnemyPrefab()
