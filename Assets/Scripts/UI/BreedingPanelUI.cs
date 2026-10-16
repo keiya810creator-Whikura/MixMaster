@@ -959,6 +959,58 @@ namespace MixMaster.UI
             return panel;
         }
 
+        private static Toggle CreateIndividualValuesToggle(Transform parent)
+        {
+            GameObject root = MakeRectObject("IndividualValuesToggle", parent,
+                typeof(Image), typeof(Toggle), typeof(HorizontalLayoutGroup),
+                typeof(LayoutElement));
+            Image background = root.GetComponent<Image>();
+            background.color = new Color(0.19f, 0.28f, 0.36f, 1f);
+            LayoutElement element = root.GetComponent<LayoutElement>();
+            element.preferredWidth = 352f;
+            element.minWidth = 278f;
+            element.flexibleWidth = 0f;
+            element.preferredHeight = 53f;
+
+            HorizontalLayoutGroup group = root.GetComponent<HorizontalLayoutGroup>();
+            group.padding = new RectOffset(8, 8, 6, 6);
+            group.spacing = 8f;
+            group.childAlignment = TextAnchor.MiddleCenter;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = false;
+
+            GameObject checkbox = MakeRectObject("Checkbox", root.transform,
+                typeof(Image), typeof(LayoutElement));
+            Image checkboxImage = checkbox.GetComponent<Image>();
+            checkboxImage.color = new Color(0.08f, 0.12f, 0.17f, 1f);
+            LayoutElement checkboxLayout = checkbox.GetComponent<LayoutElement>();
+            checkboxLayout.preferredWidth = 43f;
+            checkboxLayout.preferredHeight = 43f;
+            checkboxLayout.flexibleWidth = 0f;
+
+            GameObject check = MakeRectObject("Checkmark", checkbox.transform,
+                typeof(Image));
+            RectTransform checkRect = check.GetComponent<RectTransform>();
+            InventoryUiFactory.Stretch(checkRect);
+            checkRect.offsetMin = new Vector2(8f, 8f);
+            checkRect.offsetMax = new Vector2(-8f, -8f);
+            Image checkImage = check.GetComponent<Image>();
+            checkImage.color = new Color(0.40f, 0.91f, 0.56f, 1f);
+
+            TMP_Text caption = Label(root.transform, "Label", "個体値表示", 25f, 46f);
+            caption.alignment = TextAlignmentOptions.Center;
+            caption.GetComponent<LayoutElement>().flexibleWidth = 1f;
+
+            Toggle toggle = root.GetComponent<Toggle>();
+            toggle.targetGraphic = checkboxImage;
+            toggle.graphic = checkImage;
+            toggle.SetIsOnWithoutNotify(false);
+            check.SetActive(false);
+            return toggle;
+        }
+
         private static void BuildMaterialInput(
             Transform parent, string name, string caption,
             out TMP_Text label, out Button minus, out Button plus)
