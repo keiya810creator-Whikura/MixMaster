@@ -332,7 +332,8 @@ namespace MixMaster.Core
             OwnedMonsterRecord parentA = FindOwnedMonster(parentUniqueIdA);
             OwnedMonsterRecord parentB = FindOwnedMonster(parentUniqueIdB);
             if (IsProtectedFromConsumption(parentA) ||
-                IsProtectedFromConsumption(parentB))
+                IsProtectedFromConsumption(parentB) ||
+                parentA.level < 10 || parentB.level < 10)
                 return false;
 
             MonsterIndividualValues inheritedIvs = null;
