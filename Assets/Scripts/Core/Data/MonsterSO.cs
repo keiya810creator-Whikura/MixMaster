@@ -65,7 +65,10 @@ namespace MixMaster.Core
         public List<SkillSO> availableSkills = new List<SkillSO>();
 
         [Header("Breeding")]
+        [Min(1)] public int appearanceStage = 1;
         public int breedingValue;
+        [Tooltip("When enabled, only same-species and special recipes can produce this species.")]
+        public bool specialBreedingOnly;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -99,6 +102,7 @@ namespace MixMaster.Core
             materialBaseDropRate = Mathf.Max(0f, materialBaseDropRate);
             baseMonsterDropRate = Mathf.Clamp01(baseMonsterDropRate);
             experienceReward = System.Math.Max(0L, experienceReward);
+            appearanceStage = Mathf.Max(1, appearanceStage);
         }
 #endif
     }
