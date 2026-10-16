@@ -305,7 +305,8 @@ namespace MixMaster.UI
                 entry.Bind(record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
                     showIndividualValues ? null : GetCachedStats(record),
-                    favoriteSprite, lockSprite);
+                    favoriteSprite, lockSprite,
+                     sortDropdown != null ? sortDropdown.value : 0);
             }
 
             RefreshCount(filteredIndices.Count);
@@ -333,7 +334,8 @@ namespace MixMaster.UI
                 entry.Bind(entry.Record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
                     showIndividualValues ? null : GetCachedStats(entry.Record),
-                    favoriteSprite, lockSprite);
+                    favoriteSprite, lockSprite,
+                     sortDropdown != null ? sortDropdown.value : 0);
             }
             RefreshCount(filteredIndices.Count);
             RefreshGoldText();
@@ -614,7 +616,8 @@ namespace MixMaster.UI
                 entry.Bind(record, catalog, showIndividualValues,
                     monsterManager.PartyMonsterUniqueIds,
                     showIndividualValues ? null : GetCachedStats(record),
-                    favoriteSprite, lockSprite);
+                    favoriteSprite, lockSprite,
+                     sortDropdown != null ? sortDropdown.value : 0);
                 break;
             }
         }
