@@ -8,7 +8,8 @@ namespace MixMaster.World
     public enum MapBuildingType
     {
         Altar,
-        DungeonEntrance
+        DungeonEntrance,
+        BreedingShop
     }
 
     [DisallowMultipleComponent]
@@ -71,7 +72,9 @@ namespace MixMaster.World
                     FindFirstObjectByType<MapBuildingUIRouter>();
             }
 
-            if (router == null && buildingType == MapBuildingType.DungeonEntrance)
+            if (router == null &&
+                (buildingType == MapBuildingType.DungeonEntrance ||
+                 buildingType == MapBuildingType.BreedingShop))
             {
                 // The entrance must work in older exploration scenes that
                 // contain the map prefab but have no UI router yet.
