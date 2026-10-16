@@ -23,6 +23,7 @@ namespace MixMaster.UI
         [SerializeField] private MonsterManager monsterManager;
         [SerializeField] private BreedingManager breedingManager;
         [SerializeField] private MonsterCatalogSO monsterCatalog;
+        [SerializeField] private MaterialInventoryManager materialInventory;
 
         [Header("UI")]
         [SerializeField] private Button parentAButton;
@@ -33,6 +34,13 @@ namespace MixMaster.UI
         [SerializeField] private Image parentBIcon;
         [SerializeField] private TMP_Text previewText;
         [SerializeField] private Image previewIcon;
+        [SerializeField] private TMP_Text successRateText;
+        [SerializeField] private TMP_Text materialAText;
+        [SerializeField] private TMP_Text materialBText;
+        [SerializeField] private Button materialAPlusButton;
+        [SerializeField] private Button materialAMinusButton;
+        [SerializeField] private Button materialBPlusButton;
+        [SerializeField] private Button materialBMinusButton;
         [SerializeField] private TMP_Text selectionHeader;
         [SerializeField] private TMP_Text pageText;
         [SerializeField] private TMP_Text noticeText;
@@ -54,6 +62,8 @@ namespace MixMaster.UI
         private string parentBUniqueId;
         private MonsterSO previewChild;
         private bool previewIsSpecial;
+        private int materialStepsA;
+        private int materialStepsB;
         private int selectingParent; // 0: A, 1: B
         private int page;
         private bool wired;
@@ -77,6 +87,8 @@ namespace MixMaster.UI
             parentAUniqueId = null;
             parentBUniqueId = null;
             previewChild = null;
+            materialStepsA = 0;
+            materialStepsB = 0;
             selectingParent = 0;
             page = 0;
             if (confirmationOverlay != null)
@@ -96,6 +108,8 @@ namespace MixMaster.UI
                 breedingManager = FindFirstObjectByType<BreedingManager>();
             if (monsterCatalog == null)
                 monsterCatalog = MonsterCatalogSO.Load();
+            if (materialInventory == null)
+                materialInventory = FindFirstObjectByType<MaterialInventoryManager>();
         }
 
         private void WireButtons()
@@ -105,7 +119,9 @@ namespace MixMaster.UI
             if (parentAButton == null || parentBButton == null ||
                 previewButton == null || breedButton == null || closeButton == null ||
                 previousPageButton == null || nextPageButton == null ||
-                confirmButton == null || cancelButton == null)
+                confirmButton == null || cancelButton == null ||
+                materialAPlusButton == null || materialAMinusButton == null ||
+                materialBPlusButton == null || materialBMinusButton == null)
                 return;
 
             parentAButton.onClick.AddListener(ChooseParentA);
@@ -117,6 +133,10 @@ namespace MixMaster.UI
             nextPageButton.onClick.AddListener(NextPage);
             confirmButton.onClick.AddListener(Confirm);
             cancelButton.onClick.AddListener(CancelConfirmation);
+            materialAPlusButton.onClick.AddListener(AddMaterialA);
+            materialAMinusButton.onClick.AddListener(RemoveMaterialA);
+            materialBPlusButton.onClick.AddListener(AddMaterialB);
+            materialBMinusButton.onClick.AddListener(RemoveMaterialB);
             wired = true;
         }
 
@@ -133,6 +153,36 @@ namespace MixMaster.UI
             nextPageButton.onClick.RemoveListener(NextPage);
             confirmButton.onClick.RemoveListener(Confirm);
             cancelButton.onClick.RemoveListener(CancelConfirmation);
+            materialAPlusButton.onClick.RemoveListener(AddMaterialA);
+            materialAMinusButton.onClick.RemoveListener(RemoveMaterialA);
+            materialBPlusButton.onClick.RemoveListener(AddMaterialB);
+            materialBMinusButton.onClick.RemoveListener(RemoveMaterialB);
+        }
+
+        private void AddMaterialA() { ChangeMaterialSteps(true, 1); }
+        private void RemoveMaterialA() { ChangeMaterialSteps(true, -1); }
+        private void AddMaterialB() { ChangeMaterialSteps(false, 1); }
+        private void RemoveMaterialB() { ChangeMaterialSteps(false, -1); }
+
+        private void ChangeMaterialSteps(bool forA, int delta)
+        {
+            EnsureReferences();
+            if (breedingManager == null)
+                return;
+            int nextA = materialStepsA + (forA ? delta : 0);
+            int nextB = materialStepsB + (forA ? 0 : delta);
+            if (!breedingManager.TryGetOffer(
+                    parentAUniqueId, parentBUniqueId, nextA, nextB,
+                    out _, out string error))
+            {
+                ShowNotice(error);
+                return;
+            }
+
+            materialStepsA = nextA;
+            materialStepsB = nextB;
+            ShowNotice("投入素材を設定しました。確定時に消費します。");
+            RefreshAll();
         }
 
         private void ChooseParentA() { SetActiveParent(0); }
@@ -194,6 +244,8 @@ namespace MixMaster.UI
                 parentBUniqueId = uniqueId;
             }
 
+            materialStepsA = 0;
+            materialStepsB = 0;
             InvalidatePreview();
             RefreshAll();
             if (listScroll != null)
@@ -218,9 +270,10 @@ namespace MixMaster.UI
                 return;
             }
 
-            if (!breedingManager.TryPreviewOwned(
+            if (!breedingManager.TryGetOffer(
                     parentAUniqueId, parentBUniqueId,
-                    out MonsterSO child, out bool special, out string error))
+                    materialStepsA, materialStepsB,
+                    out BreedingMaterialOffer offer, out string error))
             {
                 InvalidatePreview();
                 ShowNotice(error);
@@ -228,14 +281,15 @@ namespace MixMaster.UI
                 return;
             }
 
+            MonsterSO child = offer.child;
             previewChild = child;
-            previewIsSpecial = special;
-            string mode = special ? "★ 特殊配合" : "通常配合";
+            previewIsSpecial = offer.isSpecial;
+            string mode = offer.isSpecial ? "★ 特殊配合" : "通常配合";
             previewText.text = mode + "\n" + child.displayName +
                 "   (Stage " + child.appearanceStage + ")" +
                 "\n配合値 " + child.breedingValue +
-                "   /   ID: " + child.monsterId +
-                "\n※親の2体は配合時に消費されます。";
+                "  /  成功率 " + offer.successPercent + "％" +
+                "\n※失敗しても親2体は消費されます。";
             SetIcon(previewIcon, child.icon != null ? child.icon : child.sprite);
             ShowNotice("プレビュー完了。「この結果で配合」を押して最終確認してください。");
             RefreshAll();
@@ -247,10 +301,11 @@ namespace MixMaster.UI
             if (previewChild == null || breedingManager == null)
                 return;
 
-            if (!breedingManager.TryPreviewOwned(
+            if (!breedingManager.TryGetOffer(
                     parentAUniqueId, parentBUniqueId,
-                    out MonsterSO child, out bool special, out string error) ||
-                child != previewChild || special != previewIsSpecial)
+                    materialStepsA, materialStepsB,
+                    out BreedingMaterialOffer offer, out string error) ||
+                offer.child != previewChild || offer.isSpecial != previewIsSpecial)
             {
                 InvalidatePreview();
                 RefreshAll();
@@ -270,10 +325,12 @@ namespace MixMaster.UI
             }
 
             confirmationText.text =
-                "本当に配合しますか？\n\n" +
+                "成功率 " + offer.successPercent + "％ で配合しますか？\n\n" +
                 FormatMonster(a) + "\n＋\n" + FormatMonster(b) +
-                "\n\n上記2体を消費して\n【" + child.displayName + "】を獲得します。" +
-                "\n※装備は所持品に戻ります。";
+                "\n\n" + FormatMaterialCost(offer.materialA, offer.requiredA) +
+                "\n" + FormatMaterialCost(offer.materialB, offer.requiredB) +
+                "\n\n成功: 【" + offer.child.displayName + "】獲得" +
+                "\n失敗: 親2体は消失（装備は残る）";
             confirmationOverlay.SetActive(true);
         }
 
@@ -288,12 +345,14 @@ namespace MixMaster.UI
             MonsterSO nextChild = null;
             bool nextSpecial = false;
             string previewError = string.Empty;
+            BreedingMaterialOffer currentOffer = null;
             if (breedingManager == null ||
-                !breedingManager.TryPreviewOwned(
+                !breedingManager.TryGetOffer(
                     parentAUniqueId, parentBUniqueId,
-                    out nextChild, out nextSpecial, out previewError) ||
-                previewChild == null || previewChild != nextChild ||
-                previewIsSpecial != nextSpecial)
+                    materialStepsA, materialStepsB,
+                    out currentOffer, out previewError) ||
+                previewChild == null || previewChild != currentOffer.child ||
+                previewIsSpecial != currentOffer.isSpecial)
             {
                 InvalidatePreview();
                 ShowNotice("選択状態が変更されました。" +
@@ -304,7 +363,8 @@ namespace MixMaster.UI
 
             if (!breedingManager.TryBreed(
                     parentAUniqueId, parentBUniqueId,
-                    out OwnedMonsterRecord newborn, out string error))
+                    materialStepsA, materialStepsB,
+                    out OwnedMonsterRecord newborn, out bool succeeded, out string error))
             {
                 InvalidatePreview();
                 ShowNotice(error);
@@ -317,13 +377,24 @@ namespace MixMaster.UI
             parentBUniqueId = null;
             previewChild = null;
             previewIsSpecial = false;
+            materialStepsA = 0;
+            materialStepsB = 0;
             selectingParent = 0;
             page = 0;
-            previewText.text = "配合成功！\n" + bornSpecies.displayName +
-                " が仲間になりました！\n所持一覧に追加済みです。";
-            SetIcon(previewIcon, bornSpecies.icon != null
-                ? bornSpecies.icon : bornSpecies.sprite);
-            ShowNotice("配合に成功しました。続けて別の2体を選択できます。");
+            if (succeeded)
+            {
+                previewText.text = "配合成功！\n" + bornSpecies.displayName +
+                    " が仲間になりました！\n称号・個体値を受け継ぎました。";
+                SetIcon(previewIcon, bornSpecies.icon != null
+                    ? bornSpecies.icon : bornSpecies.sprite);
+                ShowNotice("成功！仲間一覧に追加しました。");
+            }
+            else
+            {
+                previewText.text = "配合失敗…\n素材と親2体を失いました。";
+                SetIcon(previewIcon, null);
+                ShowNotice("失敗しました。親2体は消費されました。");
+            }
             RefreshAll();
         }
 
@@ -351,9 +422,71 @@ namespace MixMaster.UI
                 iv.attackSpeed + iv.attackRange;
         }
 
+        private static string FormatMaterialCost(MaterialSO material, long amount)
+        {
+            return (material != null ? material.displayName : "素材なし") +
+                " × " + amount.ToString("N0");
+        }
+
+        private void RefreshMaterialControls()
+        {
+            if (successRateText != null)
+                successRateText.text = "配合成功率: " +
+                    BreedingManager.GetSuccessPercent(materialStepsA, materialStepsB) +
+                    "％ （初期50％ / 1万個につき＋5％）";
+
+            RefreshMaterialLine(true);
+            RefreshMaterialLine(false);
+        }
+
+        private void RefreshMaterialLine(bool forA)
+        {
+            string id = forA ? parentAUniqueId : parentBUniqueId;
+            MonsterSO species = null;
+            if (monsterManager != null && monsterCatalog != null)
+            {
+                OwnedMonsterRecord record = monsterManager.FindOwnedMonster(id);
+                if (record != null)
+                    species = monsterCatalog.GetMonster(record.monsterId);
+            }
+
+            MaterialSO material = species != null ? species.uniqueMaterial : null;
+            int steps = forA ? materialStepsA : materialStepsB;
+            long amount = material != null && materialInventory != null
+                ? materialInventory.GetAmount(material.materialId) : 0L;
+            TMP_Text label = forA ? materialAText : materialBText;
+            if (label != null)
+            {
+                label.text = (forA ? "親A素材: " : "親B素材: ") +
+                    (material != null ? material.displayName : "未設定") +
+                    "\n所持: " + amount.ToString("N0") +
+                    " / 投入: " + (steps * BreedingManager.MaterialCostPerStep).ToString("N0") +
+                    "（" + steps + "/5）";
+            }
+
+            Button minus = forA ? materialAMinusButton : materialBMinusButton;
+            Button plus = forA ? materialAPlusButton : materialBPlusButton;
+            if (minus != null)
+                minus.interactable = steps > 0;
+
+            bool canAdd = false;
+            if (species != null && material != null && breedingManager != null &&
+                steps < BreedingManager.MaxMaterialStepsPerParent)
+            {
+                canAdd = breedingManager.TryGetOffer(
+                    parentAUniqueId, parentBUniqueId,
+                    materialStepsA + (forA ? 1 : 0),
+                    materialStepsB + (forA ? 0 : 1),
+                    out _, out _);
+            }
+            if (plus != null)
+                plus.interactable = canAdd;
+        }
+
         private void RefreshAll()
         {
             EnsureReferences();
+            RefreshMaterialControls();
             UpdateSelectedCard(parentAUniqueId, parentAText, parentAIcon, "親Aを選択");
             UpdateSelectedCard(parentBUniqueId, parentBText, parentBIcon, "親Bを選択");
             if (selectionHeader != null)
@@ -577,6 +710,17 @@ namespace MixMaster.UI
             previewTextLayout.flexibleWidth = 1f;
             panel.previewText.alignment = TextAlignmentOptions.MidlineLeft;
 
+            panel.successRateText = Label(card.transform, "SuccessRate",
+                "配合成功率: 50％", 27f, 52f);
+            panel.successRateText.alignment = TextAlignmentOptions.Center;
+
+            BuildMaterialInput(card.transform, "ParentAMaterials", "親A素材",
+                out panel.materialAText, out panel.materialAMinusButton,
+                out panel.materialAPlusButton);
+            BuildMaterialInput(card.transform, "ParentBMaterials", "親B素材",
+                out panel.materialBText, out panel.materialBMinusButton,
+                out panel.materialBPlusButton);
+
             panel.selectionHeader = Label(card.transform, "SelectionHeader",
                 "親Aを選択", 26f, 48f);
             panel.selectionHeader.alignment = TextAlignmentOptions.Center;
@@ -682,6 +826,24 @@ namespace MixMaster.UI
             panel.confirmationOverlay = confirmation;
             panel.WireButtons();
             return panel;
+        }
+
+        private static void BuildMaterialInput(
+            Transform parent, string name, string caption,
+            out TMP_Text label, out Button minus, out Button plus)
+        {
+            GameObject row = LayoutRow(parent, name, 93f);
+            label = Label(row.transform, "MaterialInfo", caption, 21f, 82f);
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.GetComponent<LayoutElement>().flexibleWidth = 1f;
+            minus = ActionButton(row.transform, "Decrease", "－", 75f);
+            plus = ActionButton(row.transform, "Increase", "＋", 75f);
+            foreach (Button button in new[] { minus, plus })
+            {
+                LayoutElement element = button.GetComponent<LayoutElement>();
+                element.preferredWidth = 85f;
+                element.flexibleWidth = 0f;
+            }
         }
 
         private static GameObject MakeRectObject(
