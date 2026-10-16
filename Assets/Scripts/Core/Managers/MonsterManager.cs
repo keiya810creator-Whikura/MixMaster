@@ -310,12 +310,15 @@ namespace MixMaster.Core
         }
 
         /// <summary>
-        /// Atomically consumes two eligible owned monsters and adds the child.
-        /// Breeding is not selling: no gold is awarded and auto-sell is bypassed.
-        /// Skill, title and IV inheritance can be added here later.
+        /// Consumes both parents even on failed breeding (default). Equipment
+        /// is returned to inventory. Future purchases may pass true for
+        /// preserveParentsOnFailure without changing the failure roll.
+        /// Success inherits each of the 11 IVs independently from either
+        /// parent, and randomly inherits either parent's title (including none).
         /// </summary>
-        public bool TryCompleteBreeding(
+        public bool TryCompleteBreedingAttempt(
             string parentUniqueIdA, string parentUniqueIdB, MonsterSO childSpecies,
+            bool succeeded, bool preserveParentsOnFailure,
             out OwnedMonsterRecord child)
         {
             child = null;
@@ -332,21 +335,81 @@ namespace MixMaster.Core
                 IsProtectedFromConsumption(parentB))
                 return false;
 
-            EquipmentManager equipment = GetComponent<EquipmentManager>() ??
-                FindFirstObjectByType<EquipmentManager>();
-            // Equipment is not consumed. Both owners are validated first.
-            if (equipment != null)
+            MonsterIndividualValues inheritedIvs = null;
+            string inheritedTitleId = string.Empty;
+            if (succeeded)
             {
-                equipment.UnequipAllFromMonster(parentA);
-                equipment.UnequipAllFromMonster(parentB);
+                MonsterIndividualValues ivA = parentA.individualValues ??
+                    new MonsterIndividualValues();
+                MonsterIndividualValues ivB = parentB.individualValues ??
+                    new MonsterIndividualValues();
+                inheritedIvs = InheritIndividualValues(ivA, ivB);
+                inheritedTitleId = UnityEngine.Random.Range(0, 2) == 0
+                    ? (parentA.titleId ?? string.Empty)
+                    : (parentB.titleId ?? string.Empty);
             }
 
-            ownedMonsters.Remove(parentA);
-            ownedMonsters.Remove(parentB);
-            child = ObtainMonster(childSpecies.monsterId,
-                MonsterDropRoller.RollIndividualValues(), "", true);
-            MonstersBulkSold?.Invoke(); // Existing UI list refresh notification.
-            return child != null;
+            if (succeeded || !preserveParentsOnFailure)
+            {
+                EquipmentManager equipment = GetComponent<EquipmentManager>() ??
+                    FindFirstObjectByType<EquipmentManager>();
+                if (equipment != null)
+                {
+                    equipment.UnequipAllFromMonster(parentA);
+                    equipment.UnequipAllFromMonster(parentB);
+                }
+
+                ownedMonsters.Remove(parentA);
+                ownedMonsters.Remove(parentB);
+            }
+
+            if (succeeded)
+            {
+                child = ObtainMonster(childSpecies.monsterId,
+                    inheritedIvs, inheritedTitleId, true);
+            }
+
+            // Reuse the existing single-rebuild inventory notification.
+            if (succeeded || !preserveParentsOnFailure)
+                MonstersBulkSold?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Legacy guaranteed-success breeding entry point.
+        /// </summary>
+        public bool TryCompleteBreeding(
+            string parentUniqueIdA, string parentUniqueIdB, MonsterSO childSpecies,
+            out OwnedMonsterRecord child)
+        {
+            return TryCompleteBreedingAttempt(
+                parentUniqueIdA, parentUniqueIdB, childSpecies,
+                true, false, out child);
+        }
+
+        private static MonsterIndividualValues InheritIndividualValues(
+            MonsterIndividualValues a, MonsterIndividualValues b)
+        {
+            return new MonsterIndividualValues
+            {
+                hp = UnityEngine.Random.Range(0, 2) == 0 ? a.hp : b.hp,
+                mp = UnityEngine.Random.Range(0, 2) == 0 ? a.mp : b.mp,
+                attack = UnityEngine.Random.Range(0, 2) == 0 ? a.attack : b.attack,
+                magic = UnityEngine.Random.Range(0, 2) == 0 ? a.magic : b.magic,
+                defense = UnityEngine.Random.Range(0, 2) == 0 ? a.defense : b.defense,
+                magicDefense = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.magicDefense : b.magicDefense,
+                criticalRate = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.criticalRate : b.criticalRate,
+                criticalMultiplier = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.criticalMultiplier : b.criticalMultiplier,
+                moveSpeed = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.moveSpeed : b.moveSpeed,
+                attackSpeed = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.attackSpeed : b.attackSpeed,
+                attackRange = UnityEngine.Random.Range(0, 2) == 0
+                    ? a.attackRange : b.attackRange
+            };
         }
 
         public void RestoreMonsters(
