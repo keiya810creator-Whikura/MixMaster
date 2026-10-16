@@ -36,12 +36,29 @@ namespace MixMaster.UI
             if (string.IsNullOrEmpty(label))
                 return text;
 
-            string prefix = " " + label + " ";
-            int start = text.IndexOf(prefix, StringComparison.Ordinal);
-            if (start < 0)
+            // Values may be at the start of a line, e.g. "\\n攻撃 85".
+            // Match exact label tokens, not prefixes like 攻撃 in 攻撃速度.
+            string token = label + " ";
+            int valueStart = -1;
+            int searchAt = 0;
+            while (searchAt < text.Length)
+            {
+                int start = text.IndexOf(token, searchAt,
+                    StringComparison.Ordinal);
+                if (start < 0)
+                    break;
+
+                if (start == 0 || char.IsWhiteSpace(text[start - 1]))
+                {
+                    valueStart = start + token.Length;
+                    break;
+                }
+                searchAt = start + 1;
+            }
+
+            if (valueStart < 0)
                 return text;
 
-            int valueStart = start + prefix.Length;
             int valueEnd = valueStart;
             while (valueEnd < text.Length &&
                 !char.IsWhiteSpace(text[valueEnd]))
