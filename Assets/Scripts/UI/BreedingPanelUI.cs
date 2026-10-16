@@ -1007,7 +1007,8 @@ namespace MixMaster.UI
             toggle.targetGraphic = checkboxImage;
             toggle.graphic = checkImage;
             toggle.SetIsOnWithoutNotify(false);
-            check.SetActive(false);
+            // Let Toggle control the checkmark graphic alpha; disabling the
+            // GameObject here would prevent the tick from ever appearing.
             return toggle;
         }
 
