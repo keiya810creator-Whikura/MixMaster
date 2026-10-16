@@ -319,8 +319,24 @@ namespace MixMaster.UI
         {
             MonsterSO species = monsterCatalog != null
                 ? monsterCatalog.GetMonster(record.monsterId) : null;
-            return (species != null ? species.displayName : record.monsterId) +
-                " Lv." + record.level;
+            TitleSO title = monsterCatalog != null
+                ? monsterCatalog.GetTitle(record.titleId) : null;
+            string titleName = title != null ? "《" + title.displayName + "》" : "";
+            return titleName +
+                (species != null ? species.displayName : record.monsterId) +
+                " Lv." + record.level + "（個体値 " + GetTotalIv(record) + "）";
+        }
+
+        private static int GetTotalIv(OwnedMonsterRecord record)
+        {
+            MonsterIndividualValues iv = record != null
+                ? record.individualValues : null;
+            if (iv == null)
+                return 0;
+            return iv.hp + iv.mp + iv.attack + iv.magic +
+                iv.defense + iv.magicDefense + iv.criticalRate +
+                iv.criticalMultiplier + iv.moveSpeed +
+                iv.attackSpeed + iv.attackRange;
         }
 
         private void RefreshAll()
@@ -397,12 +413,19 @@ namespace MixMaster.UI
                 MonsterSO species = monsterCatalog != null
                     ? monsterCatalog.GetMonster(record.monsterId) : null;
                 string name = species != null ? species.displayName : record.monsterId;
-                string status = protectedMonster ? " [保護中・編成中]" :
-                    sameAsOtherParent ? " [もう一方の親]" :
-                    selected ? " [選択中]" : "";
-                row.label.text = name + "  Lv." + record.level +
-                    "  Stage " + (species != null ? species.appearanceStage : 0) +
-                    status;
+                string status = protectedMonster
+                    ? (record.isLocked ? " [ロック]" :
+                       record.isFavorite ? " [お気に入り]" : " [パーティ編成中]")
+                    : sameAsOtherParent ? " [もう一方の親]" :
+                      selected ? " [選択中]" : "";
+                TitleSO title = monsterCatalog != null
+                    ? monsterCatalog.GetTitle(record.titleId) : null;
+                string titlePrefix = title != null
+                    ? "《" + title.displayName + "》" : "";
+                row.label.text = titlePrefix + name + " Lv." + record.level +
+                    status + "\nStage " +
+                    (species != null ? species.appearanceStage : 0) +
+                    " / 個体値合計 " + GetTotalIv(record);
                 SetIcon(row.icon, species != null
                     ? (species.icon != null ? species.icon : species.sprite) : null);
                 row.button.interactable = !protectedMonster && !sameAsOtherParent;
