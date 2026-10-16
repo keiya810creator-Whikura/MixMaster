@@ -38,6 +38,8 @@ namespace MixMaster.EditorTools
                     action = TitleCsvImporter.ImportOrUpdate },
                 new Step { label = "モンスター", csvPath = "Assets/DataCSV/モンスター.csv",
                     action = MonsterCsvImporter.ImportOrUpdate },
+                new Step { label = "特殊配合", csvPath = "Assets/DataCSV/特殊配合.csv",
+                    action = BreedingRecipeCsvImporter.Import },
                 new Step { label = "素材", csvPath = "Assets/DataCSV/素材.csv",
                     action = () =>
                     {
