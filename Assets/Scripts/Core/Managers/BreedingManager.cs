@@ -39,8 +39,8 @@ namespace MixMaster.Core
         [Header("Breeding")]
         [SerializeField] private int averageCorrection;
 
-        public const int BaseSuccessPercent = 50;
-        public const int BonusPercentPerStep = 5;
+        public const int BaseSuccessPercent = 80;
+        public const int BonusPercentPerStep = 2;
         public const int MaxMaterialStepsPerParent = 5;
         public const long MaterialCostPerStep = 10000L;
 
