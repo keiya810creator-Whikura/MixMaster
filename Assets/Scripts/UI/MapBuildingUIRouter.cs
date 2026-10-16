@@ -13,6 +13,7 @@ namespace MixMaster.UI
         [Header("Panels")]
         [SerializeField] private GameObject altarPanel;
         [SerializeField] private GameObject dungeonEntrancePanel;
+        [SerializeField] private GameObject breedingPanel;
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -50,6 +51,16 @@ namespace MixMaster.UI
                 dungeonEntrancePanel = existing.gameObject;
             }
 
+            if (breedingPanel == null ||
+                breedingPanel.GetComponent<BreedingPanelUI>() == null)
+            {
+                BreedingPanelUI existing =
+                    FindFirstObjectByType<BreedingPanelUI>(FindObjectsInactive.Include);
+                if (existing == null)
+                    existing = BreedingPanelUI.CreateRuntime(transform);
+                breedingPanel = existing.gameObject;
+            }
+
             CloseAllInternal(false);
         }
 
@@ -62,9 +73,9 @@ namespace MixMaster.UI
         public void Open(MapBuildingType type)
         {
             GameObject targetPanel =
-                type == MapBuildingType.Altar
-                    ? altarPanel
-                    : dungeonEntrancePanel;
+                type == MapBuildingType.Altar ? altarPanel :
+                type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
+                type == MapBuildingType.BreedingShop ? breedingPanel : null;
 
             if (targetPanel == null)
             {
@@ -85,6 +96,9 @@ namespace MixMaster.UI
             SetPanelActive(
                 dungeonEntrancePanel,
                 type == MapBuildingType.DungeonEntrance);
+            SetPanelActive(
+                breedingPanel,
+                type == MapBuildingType.BreedingShop);
 
             CurrentBuilding = type;
             IsOpen = true;
@@ -112,10 +126,16 @@ namespace MixMaster.UI
             dungeonEntrancePanel = panel;
         }
 
+        public void SetBreedingPanel(GameObject panel)
+        {
+            breedingPanel = panel;
+        }
+
         private void CloseAllInternal(bool invokeEvent)
         {
             SetPanelActive(altarPanel, false);
             SetPanelActive(dungeonEntrancePanel, false);
+            SetPanelActive(breedingPanel, false);
 
             bool wasOpen = IsOpen;
 
