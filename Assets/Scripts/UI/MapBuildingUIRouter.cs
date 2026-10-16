@@ -51,15 +51,23 @@ namespace MixMaster.UI
                 dungeonEntrancePanel = existing.gameObject;
             }
 
+            // BreedingShopPanel is now authored as a Prefab and placed in
+            // the scene by the user (usually inactive under the scene Canvas).
+            // Never instantiate a duplicate at runtime.
             if (breedingPanel == null ||
                 breedingPanel.GetComponent<BreedingPanelUI>() == null)
             {
-                BreedingPanelUI existing =
+                BreedingPanelUI scenePanel =
                     FindFirstObjectByType<BreedingPanelUI>(FindObjectsInactive.Include);
-                if (existing == null)
-                    existing = BreedingPanelUI.CreateRuntime(transform);
-                breedingPanel = existing.gameObject;
+                breedingPanel = scenePanel != null
+                    ? scenePanel.gameObject : null;
             }
+
+            if (breedingPanel == null)
+                Debug.LogWarning(
+                    "[MapBuildingUIRouter] シーンに配合パネルPrefabがありません。" +
+                    " Assets/Prefab/UI/BreedingShopPanel.prefab をCanvas下に配置し、" +
+                    " RouterのBreeding Panelへ設定してください。", this);
 
             CloseAllInternal(false);
         }
