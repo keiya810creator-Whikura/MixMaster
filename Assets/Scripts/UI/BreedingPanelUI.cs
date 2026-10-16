@@ -25,6 +25,7 @@ namespace MixMaster.UI
         [SerializeField] private BreedingManager breedingManager;
         [SerializeField] private MonsterCatalogSO monsterCatalog;
         [SerializeField] private MaterialInventoryManager materialInventory;
+        [SerializeField] private EquipmentManager equipmentManager;
 
         [Header("UI")]
         [SerializeField] private Button parentAButton;
@@ -46,6 +47,11 @@ namespace MixMaster.UI
         [SerializeField] private Button materialBMinusButton;
         [SerializeField] private TMP_Text selectionHeader;
         [SerializeField] private Toggle individualValuesToggle;
+        [SerializeField] private TMP_Dropdown sortDropdown;
+        [SerializeField] private TMP_Dropdown statFilterDropdown;
+        [SerializeField] private TMP_Dropdown thresholdDropdown;
+        [SerializeField] private Button sortDirectionButton;
+        [SerializeField] private TMP_Text sortDirectionText;
         [SerializeField] private OwnedMonsterDetailUI detailPanel;
         [SerializeField] private TMP_Text pageText;
         [SerializeField] private TMP_Text noticeText;
@@ -63,6 +69,9 @@ namespace MixMaster.UI
 
         private readonly List<OwnedMonsterRecord> candidates = new List<OwnedMonsterRecord>();
         private readonly List<CandidateRow> rows = new List<CandidateRow>();
+        private readonly Dictionary<string, CharacterStats> statCache =
+            new Dictionary<string, CharacterStats>(StringComparer.Ordinal);
+        private bool ascending;
         private string parentAUniqueId;
         private string parentBUniqueId;
         private MonsterSO previewChild;
@@ -99,6 +108,7 @@ namespace MixMaster.UI
             selectingParent = 0;
             page = 0;
             showIndividualValues = false;
+            statCache.Clear();
             if (individualValuesToggle != null)
                 individualValuesToggle.SetIsOnWithoutNotify(false);
             if (detailPanel != null)
@@ -122,6 +132,8 @@ namespace MixMaster.UI
                 monsterCatalog = MonsterCatalogSO.Load();
             if (materialInventory == null)
                 materialInventory = FindFirstObjectByType<MaterialInventoryManager>();
+            if (equipmentManager == null)
+                equipmentManager = FindFirstObjectByType<EquipmentManager>();
         }
 
         private void WireButtons()
@@ -154,6 +166,15 @@ namespace MixMaster.UI
             materialAMinusButton.onClick.AddListener(RemoveMaterialA);
             materialBPlusButton.onClick.AddListener(AddMaterialB);
             materialBMinusButton.onClick.AddListener(RemoveMaterialB);
+            if (sortDropdown != null)
+                sortDropdown.onValueChanged.AddListener(HandleFilterChanged);
+            if (statFilterDropdown != null)
+                statFilterDropdown.onValueChanged.AddListener(HandleStatFilterChanged);
+            if (thresholdDropdown != null)
+                thresholdDropdown.onValueChanged.AddListener(HandleFilterChanged);
+            if (sortDirectionButton != null)
+                sortDirectionButton.onClick.AddListener(ChangeSortDirection);
+            RefreshThresholdInteractable();
             wired = true;
         }
 
@@ -177,6 +198,48 @@ namespace MixMaster.UI
             materialAMinusButton.onClick.RemoveListener(RemoveMaterialA);
             materialBPlusButton.onClick.RemoveListener(AddMaterialB);
             materialBMinusButton.onClick.RemoveListener(RemoveMaterialB);
+            if (sortDropdown != null)
+                sortDropdown.onValueChanged.RemoveListener(HandleFilterChanged);
+            if (statFilterDropdown != null)
+                statFilterDropdown.onValueChanged.RemoveListener(HandleStatFilterChanged);
+            if (thresholdDropdown != null)
+                thresholdDropdown.onValueChanged.RemoveListener(HandleFilterChanged);
+            if (sortDirectionButton != null)
+                sortDirectionButton.onClick.RemoveListener(ChangeSortDirection);
+        }
+
+        private void HandleFilterChanged(int value)
+        {
+            page = 0;
+            RefreshAll();
+            if (listScroll != null)
+                listScroll.verticalNormalizedPosition = 1f;
+        }
+
+        private void HandleStatFilterChanged(int value)
+        {
+            RefreshThresholdInteractable();
+            HandleFilterChanged(value);
+        }
+
+        private void RefreshThresholdInteractable()
+        {
+            if (thresholdDropdown == null || statFilterDropdown == null)
+                return;
+            int filter = statFilterDropdown.value;
+            thresholdDropdown.interactable = filter > 0 &&
+                filter < InventoryStatFilter.Labels.Length;
+        }
+
+        private void ChangeSortDirection()
+        {
+            ascending = !ascending;
+            if (sortDirectionText != null)
+                sortDirectionText.text = ascending ? "昇順" : "降順";
+            page = 0;
+            RefreshAll();
+            if (listScroll != null)
+                listScroll.verticalNormalizedPosition = 1f;
         }
 
         private void ChangeIvDisplay(bool enabled)
@@ -599,33 +662,124 @@ namespace MixMaster.UI
                 species.icon != null ? species.icon : species.sprite);
         }
 
+        private CharacterStats GetCachedStats(OwnedMonsterRecord record)
+        {
+            if (record == null)
+                return null;
+            string key = record.uniqueId ?? string.Empty;
+            if (!statCache.TryGetValue(key, out CharacterStats stats))
+            {
+                MonsterSO monster = monsterCatalog != null
+                    ? monsterCatalog.GetMonster(record.monsterId) : null;
+                TitleSO title = monsterCatalog != null
+                    ? monsterCatalog.GetTitle(record.titleId) : null;
+                stats = StatCalculator.CalculateMonsterStats(
+                    monster, Mathf.Max(1, record.level),
+                    record.individualValues, title,
+                    equipmentManager != null
+                        ? equipmentManager.GetEquippedModifiers(
+                            record.equippedItemUniqueIds)
+                        : null);
+                statCache[key] = stats;
+            }
+            return stats;
+        }
+
         private void BuildCandidateSnapshot()
         {
             candidates.Clear();
             if (monsterManager == null)
                 return;
-            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
-            for (int i = owned.Count - 1; i >= 0; i--)
-                if (owned[i] != null)
-                    candidates.Add(owned[i]);
 
-            // Available Lv10+ monsters first, protected Lv10+ next,
-            // and every underleveled monster at the bottom.
-            candidates.Sort((left, right) =>
+            // Exact same sorting/filtering choices and score calculation as
+            // OwnedMonsterListUI. Eligibility is a separate first sort key:
+            // available Lv10+ > protected Lv10+ > all monsters below Lv10.
+            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
+            int sortValue = sortDropdown != null ? sortDropdown.value : 0;
+            int filterValue = statFilterDropdown != null
+                ? statFilterDropdown.value : 0;
+            int thresholdValue = thresholdDropdown != null
+                ? thresholdDropdown.value : 0;
+
+            var filteredIndices = new List<int>(owned.Count);
+            for (int i = 0; i < owned.Count; i++)
             {
-                int lRank = left.level < MinimumParentLevel ? 2 :
+                OwnedMonsterRecord record = owned[i];
+                if (record != null &&
+                    InventoryProtectionIcons.MatchesCombinedStatFilter(
+                        filterValue, record.isFavorite, record.isLocked))
+                    filteredIndices.Add(i);
+            }
+
+            if (filterValue > 0 &&
+                filterValue < InventoryStatFilter.Labels.Length &&
+                filteredIndices.Count > 0)
+            {
+                InventoryStat selected = (InventoryStat)filterValue;
+                if (thresholdValue < 3)
+                {
+                    var scores = new List<double>(filteredIndices.Count);
+                    foreach (int index in filteredIndices)
+                        scores.Add(InventoryStatFilter.GetValue(
+                            GetCachedStats(owned[index]), selected));
+
+                    scores.Sort((x, y) => y.CompareTo(x));
+                    float fraction = thresholdValue == 0 ? 0.25f :
+                        thresholdValue == 1 ? 0.5f : 0.75f;
+                    int cutoff = Mathf.Clamp(
+                        Mathf.CeilToInt(scores.Count * fraction) - 1,
+                        0, scores.Count - 1);
+                    double minimum = scores[cutoff];
+                    filteredIndices.RemoveAll(index =>
+                        InventoryStatFilter.GetValue(
+                            GetCachedStats(owned[index]), selected) < minimum);
+                }
+                else
+                {
+                    filteredIndices.RemoveAll(index =>
+                        Math.Abs(InventoryStatFilter.GetValue(
+                            GetCachedStats(owned[index]), selected)) < 0.000001d);
+                }
+            }
+
+            filteredIndices.Sort((a, b) =>
+            {
+                OwnedMonsterRecord left = owned[a];
+                OwnedMonsterRecord right = owned[b];
+                int groupLeft = left.level < MinimumParentLevel ? 2 :
                     monsterManager.IsProtectedFromConsumption(left) ? 1 : 0;
-                int rRank = right.level < MinimumParentLevel ? 2 :
+                int groupRight = right.level < MinimumParentLevel ? 2 :
                     monsterManager.IsProtectedFromConsumption(right) ? 1 : 0;
-                int priority = lRank.CompareTo(rRank);
-                if (priority != 0) return priority;
-                priority = right.level.CompareTo(left.level);
-                return priority != 0 ? priority :
-                    string.Compare(left.uniqueId, right.uniqueId,
-                        StringComparison.Ordinal);
+                if (groupLeft != groupRight)
+                    return groupLeft.CompareTo(groupRight);
+
+                int cmp;
+                if (sortValue == 0)
+                    cmp = b.CompareTo(a);
+                else if (sortValue == 1)
+                    cmp = right.level.CompareTo(left.level);
+                else if (sortValue == InventoryStatFilter.Labels.Length + 1)
+                    cmp = right.isFavorite.CompareTo(left.isFavorite);
+                else if (sortValue == InventoryStatFilter.Labels.Length + 2)
+                    cmp = right.isLocked.CompareTo(left.isLocked);
+                else
+                {
+                    InventoryStat stat = (InventoryStat)(sortValue - 1);
+                    cmp = InventoryStatFilter.GetValue(
+                        GetCachedStats(right), stat).CompareTo(
+                        InventoryStatFilter.GetValue(
+                        GetCachedStats(left), stat));
+                }
+
+                if (cmp == 0) cmp = b.CompareTo(a);
+                return ascending ? -cmp : cmp;
             });
-            int maxPage = Mathf.Max(0, (candidates.Count - 1) / PageSize);
-            page = Mathf.Clamp(page, 0, maxPage);
+
+            for (int i = 0; i < filteredIndices.Count; i++)
+                candidates.Add(owned[filteredIndices[i]]);
+
+            page = Mathf.Clamp(page, 0,
+                Mathf.Max(0, (candidates.Count - 1) / PageSize));
         }
 
         private void RefreshCandidateRows()
@@ -693,7 +847,9 @@ namespace MixMaster.UI
             int totalPages = Mathf.Max(1, (candidates.Count + PageSize - 1) / PageSize);
             if (pageText != null)
                 pageText.text = (page + 1) + " / " + totalPages +
-                    "  （所持 " + candidates.Count + "体）";
+                    " （表示 " + candidates.Count + " / 所持 " +
+                    (monsterManager != null ? monsterManager.OwnedMonsters.Count : 0) +
+                    "体）";
             if (previousPageButton != null)
                 previousPageButton.interactable = page > 0;
             if (nextPageButton != null)
