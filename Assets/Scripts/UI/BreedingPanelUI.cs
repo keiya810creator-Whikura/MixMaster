@@ -250,7 +250,12 @@ namespace MixMaster.UI
             OwnedMonsterRecord a = monsterManager.FindOwnedMonster(parentAUniqueId);
             OwnedMonsterRecord b = monsterManager.FindOwnedMonster(parentBUniqueId);
             if (a == null || b == null)
+            {
+                InvalidatePreview();
+                RefreshAll();
+                ShowNotice("親モンスターが所持一覧に見つかりません。");
                 return;
+            }
 
             confirmationText.text =
                 "本当に配合しますか？\n\n" +
@@ -268,10 +273,13 @@ namespace MixMaster.UI
             EnsureReferences();
 
             // Recheck the preview immediately before the irreversible action.
+            MonsterSO nextChild = null;
+            bool nextSpecial = false;
+            string previewError = string.Empty;
             if (breedingManager == null ||
                 !breedingManager.TryPreviewOwned(
                     parentAUniqueId, parentBUniqueId,
-                    out MonsterSO nextChild, out bool nextSpecial, out string previewError) ||
+                    out nextChild, out nextSpecial, out previewError) ||
                 previewChild == null || previewChild != nextChild ||
                 previewIsSpecial != nextSpecial)
             {
