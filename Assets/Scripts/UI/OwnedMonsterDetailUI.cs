@@ -57,9 +57,29 @@ namespace MixMaster.UI
         private OwnedMonsterRecord selectedRecord;
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
+        private bool readOnlyMode;
         private Color defaultPartyButtonColor = Color.white;
 
         public OwnedMonsterRecord SelectedRecord => selectedRecord;
+
+        // A breeding shop can reuse this exact detail prefab without allowing
+        // party changes, sales, locking or other mutations while previewing.
+        public void SetReadOnlyMode(bool enabled)
+        {
+            readOnlyMode = enabled;
+            if (equipmentInventoryButton != null)
+                equipmentInventoryButton.gameObject.SetActive(!enabled);
+            if (partyButton != null)
+                partyButton.gameObject.SetActive(!enabled);
+            if (behaviorDropdown != null)
+                behaviorDropdown.gameObject.SetActive(!enabled);
+            if (favoriteButton != null)
+                favoriteButton.transform.parent.gameObject.SetActive(!enabled);
+            if (sellConfirmOverlay != null && enabled)
+                sellConfirmOverlay.SetActive(false);
+            RefreshPartyControls();
+            RefreshProtectionControls();
+        }
 
         private void Awake()
         {
@@ -315,7 +335,7 @@ namespace MixMaster.UI
 
         private void OpenEquipmentInventory()
         {
-            if (selectedRecord == null) return;
+            if (readOnlyMode || selectedRecord == null) return;
             EquipmentInventoryUI inventory =
                 FindFirstObjectByType<EquipmentInventoryUI>(
                     FindObjectsInactive.Include);
@@ -348,7 +368,7 @@ namespace MixMaster.UI
 
         private void HandleBehaviorChanged(int selectedIndex)
         {
-            if (selectedRecord == null)
+            if (readOnlyMode || selectedRecord == null)
                 return;
 
             SubscribeParty();
@@ -744,12 +764,12 @@ namespace MixMaster.UI
                             ? "　(編成中・ロック・お気に入りは売却不可)"
                             : "");
             if (sellButton != null)
-                sellButton.interactable = !protectedFromSale;
+                sellButton.interactable = !readOnlyMode && !protectedFromSale;
         }
 
         private void ToggleFavorite()
         {
-            if (monsterManager == null || selectedRecord == null) return;
+            if (readOnlyMode || monsterManager == null || selectedRecord == null) return;
             monsterManager.SetFavorite(
                 selectedRecord.uniqueId, !selectedRecord.isFavorite);
             RefreshProtectionControls();
@@ -757,7 +777,7 @@ namespace MixMaster.UI
 
         private void ToggleLock()
         {
-            if (monsterManager == null || selectedRecord == null) return;
+            if (readOnlyMode || monsterManager == null || selectedRecord == null) return;
             monsterManager.SetLocked(
                 selectedRecord.uniqueId, !selectedRecord.isLocked);
             RefreshProtectionControls();
@@ -765,7 +785,7 @@ namespace MixMaster.UI
 
         private void OpenSellConfirmation()
         {
-            if (monsterManager == null || selectedRecord == null ||
+            if (readOnlyMode || monsterManager == null || selectedRecord == null ||
                 monsterManager.IsProtectedFromConsumption(selectedRecord) ||
                 sellConfirmOverlay == null) return;
 
@@ -786,7 +806,7 @@ namespace MixMaster.UI
 
         private void ConfirmSale()
         {
-            if (monsterManager == null || selectedRecord == null) return;
+            if (readOnlyMode || monsterManager == null || selectedRecord == null) return;
             string id = selectedRecord.uniqueId;
             if (!monsterManager.TrySellMonster(id, out long goldEarned))
             {
@@ -806,7 +826,7 @@ namespace MixMaster.UI
 
         private void ToggleParty()
         {
-            if (selectedRecord == null)
+            if (readOnlyMode || selectedRecord == null)
                 return;
 
             SubscribeParty();
@@ -849,7 +869,7 @@ namespace MixMaster.UI
 
             if (partyButton != null)
             {
-                partyButton.interactable = selected || current < max;
+                partyButton.interactable = !readOnlyMode && (selected || current < max);
                 if (partyButton.targetGraphic is Image background)
                 {
                     Color color = defaultPartyButtonColor;
@@ -887,7 +907,7 @@ namespace MixMaster.UI
             Refresh();
         }
 
-        private static string FormatIndividualValues(
+        public static string FormatIndividualValues(
             MonsterIndividualValues iv)
         {
             if (iv == null)
