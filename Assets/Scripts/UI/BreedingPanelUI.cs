@@ -954,70 +954,9 @@ namespace MixMaster.UI
             MapBuildingAccess.SuppressOpenFor(0.5f);
         }
 
-        public static BreedingPanelUI CreateRuntime(Transform host)
-        {
-            GameObject savedPrefab = Resources.Load<GameObject>(
-                "UI/BreedingShopPanel");
-            if (savedPrefab == null)
-            {
-                Debug.LogWarning("[BreedingPanelUI] 配合パネルPrefab未生成です。" +
-                    " MixMaster/UI/配合パネルPrefabを作成 を実行してください。" +
-                    " 既存のランタイム生成に切り替えます。");
-                return BuildPrototype(host);
-            }
-
-            if (Application.isPlaying && EventSystem.current == null)
-            {
-                new GameObject("BreedingShopEventSystem",
-                    typeof(EventSystem), typeof(InputSystemUIInputModule));
-            }
-
-            Canvas targetCanvas = host != null
-                ? host.GetComponentInParent<Canvas>() : null;
-            if (targetCanvas == null)
-            {
-                Canvas[] canvases = FindObjectsByType<Canvas>(
-                    FindObjectsInactive.Include, FindObjectsSortMode.None);
-                for (int i = 0; i < canvases.Length; i++)
-                {
-                    if (canvases[i] != null && canvases[i].isRootCanvas &&
-                        canvases[i].gameObject.activeInHierarchy &&
-                        canvases[i].isActiveAndEnabled &&
-                        canvases[i].renderMode != RenderMode.WorldSpace)
-                    {
-                        targetCanvas = canvases[i];
-                        break;
-                    }
-                }
-            }
-
-            if (targetCanvas == null)
-            {
-                GameObject canvasObject = new GameObject(
-                    "BreedingShopCanvas", typeof(RectTransform),
-                    typeof(Canvas), typeof(CanvasScaler),
-                    typeof(GraphicRaycaster));
-                targetCanvas = canvasObject.GetComponent<Canvas>();
-                targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                targetCanvas.sortingOrder = 630;
-                CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1080f, 1920f);
-                scaler.matchWidthOrHeight = 1f;
-            }
-
-            GameObject instance = Instantiate(
-                savedPrefab, targetCanvas.transform, false);
-            instance.name = "BreedingShopPanel";
-            BreedingPanelUI panel = instance.GetComponent<BreedingPanelUI>();
-            if (panel == null)
-            {
-                Destroy(instance);
-                Debug.LogError("[BreedingPanelUI] 保存済みPrefabにBreedingPanelUIがありません。");
-            }
-            return panel;
-        }
-
+        // The panel is a scene-placed prefab. Runtime creation is intentionally
+        // disabled; this builder exists only to initially author the prefab.
+#if UNITY_EDITOR
         // Editor-only asset creator also uses this initial construction code.
         // In normal gameplay CreateRuntime instantiates the saved Prefab.
         public static BreedingPanelUI BuildPrototype(Transform host)
@@ -1488,5 +1427,6 @@ namespace MixMaster.UI
                 button = button, detailButton = details, icon = icon, label = label
             };
         }
+#endif
     }
 }
