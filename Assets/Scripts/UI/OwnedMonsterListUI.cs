@@ -206,8 +206,7 @@ namespace MixMaster.UI
                 {
                     var scores = new List<double>(filteredIndices.Count);
                     foreach (int index in filteredIndices)
-                        scores.Add(InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected));
+                        scores.Add(GetValueForSorting(owned[index], selected));
 
                     scores.Sort((x, y) => y.CompareTo(x));
                     float fraction = thresholdValue == 0 ? 0.25f :
@@ -217,13 +216,11 @@ namespace MixMaster.UI
                         0, scores.Count - 1);
                     double minimum = scores[cutoff];
                     filteredIndices.RemoveAll(index =>
-                        InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected) < minimum);
+                        GetValueForSorting(owned[index], selected) < minimum);
                 }
                 else
                     filteredIndices.RemoveAll(index =>
-                        Math.Abs(InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[index]), selected)) < 0.000001d);
+                        Math.Abs(GetValueForSorting(owned[index], selected)) < 0.000001d);
             }
 
             filteredIndices.Sort((a, b) =>
@@ -240,10 +237,8 @@ namespace MixMaster.UI
                 else
                 {
                     InventoryStat stat = (InventoryStat)(sortValue - 1);
-                    cmp = InventoryStatFilter.GetValue(
-                        GetCachedStats(owned[b]), stat).CompareTo(
-                        InventoryStatFilter.GetValue(
-                            GetCachedStats(owned[a]), stat));
+                    cmp = GetValueForSorting(owned[b], stat).CompareTo(
+                        GetValueForSorting(owned[a], stat));
                 }
 
                 if (cmp == 0) cmp = b.CompareTo(a);
@@ -253,6 +248,17 @@ namespace MixMaster.UI
             int pages = Math.Max(1, (filteredIndices.Count + PageSize - 1) / PageSize);
             pageIndex = Mathf.Clamp(pageIndex, 0, pages - 1);
             RenderPage();
+        }
+
+        private double GetValueForSorting(
+            OwnedMonsterRecord record, InventoryStat stat)
+        {
+            if (showIndividualValues &&
+                InventoryStatFilter.SupportsIndividualValues(stat))
+                return InventoryStatFilter.GetIndividualValue(
+                    record != null ? record.individualValues : null, stat);
+
+            return InventoryStatFilter.GetValue(GetCachedStats(record), stat);
         }
 
         private CharacterStats GetCachedStats(OwnedMonsterRecord record)
@@ -523,6 +529,10 @@ namespace MixMaster.UI
             }
 
             RefreshDisplayModeText();
+
+            // Re-evaluate rankings and thresholds for the new display mode.
+            pageIndex = 0;
+            Rebuild();
         }
 
         private void RefreshDisplayModeText()
