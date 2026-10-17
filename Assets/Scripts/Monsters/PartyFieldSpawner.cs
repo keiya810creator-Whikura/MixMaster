@@ -74,8 +74,8 @@ namespace MixMaster.Monsters
             var mods = equipmentManager != null
                 ? equipmentManager.GetEquippedModifiers(record.equippedItemUniqueIds)
                 : null;
-            return StatCalculator.CalculateMonsterStats(
-                definition, record.level, record.individualValues, title, mods);
+            return StatCalculator.CalculateOwnedMonsterStats(
+                definition, record, title, mods);
         }
 
         private void HandleEquipmentChanged()
@@ -114,6 +114,7 @@ namespace MixMaster.Monsters
             {
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
+                monsterManager.MonsterIntimacyLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
                 monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
             }
@@ -154,7 +155,9 @@ namespace MixMaster.Monsters
                 monsterManager.PartyChanged -= HandlePartyChanged;
                 monsterManager.PartyChanged += HandlePartyChanged;
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
+                monsterManager.MonsterIntimacyLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterLeveledUp += HandleMonsterLeveledUp;
+                monsterManager.MonsterIntimacyLeveledUp += HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
                 monsterManager.MonsterBehaviorChanged += HandleMonsterBehaviorChanged;
                 monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
@@ -357,7 +360,8 @@ namespace MixMaster.Monsters
 
             CharacterStats calculated = BuildStats(record, monster);
 
-            combat.ConfigureOwnedMonster(monster, calculated);
+            combat.ConfigureOwnedMonster(
+                monster, calculated, record.uniqueId);
             combat.SetCombatMode((PartyCombatMode)
                 monsterManager.GetEffectiveCombatBehavior(record));
 
