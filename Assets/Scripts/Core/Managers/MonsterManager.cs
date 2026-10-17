@@ -112,6 +112,8 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action<OwnedMonsterRecord> MonsterExperienceChanged;
         public event Action<OwnedMonsterRecord> MonsterLeveledUp;
+        public event Action<OwnedMonsterRecord> MonsterIntimacyChanged;
+        public event Action<OwnedMonsterRecord> MonsterIntimacyLeveledUp;
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action PartyChanged;
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
