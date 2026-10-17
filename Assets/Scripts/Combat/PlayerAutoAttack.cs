@@ -310,10 +310,7 @@ namespace MixMaster.Combat
                 return 0L;
 
             long defense = Math.Max(0L, playerManager.Stats.defense);
-            long damage = attackPower - defense;
-
-            if (damage < 1L)
-                damage = 1L;
+            long damage = DamageCalculator.Calculate(attackPower, defense);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
@@ -343,10 +340,8 @@ namespace MixMaster.Combat
             long magicDefense =
                 Math.Max(0L, playerManager.Stats.magicDefense);
 
-            long damage = magicPower - magicDefense;
-
-            if (damage < 1L)
-                damage = 1L;
+            long damage = DamageCalculator.Calculate(
+                magicPower, magicDefense);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
