@@ -50,7 +50,12 @@ namespace MixMaster.Core
         public List<string> learnedSkillIds =
             new List<string>();
 
+        // Legacy float is kept so older save data can still be loaded.
         public float intimacy;
+
+        // Personal kill progression: 0 kills = intimacy Lv.1.
+        // The current level is derived from the accumulated kills.
+        public int intimacyKills;
 
         // Saved per individual. Both prevent selling and future breeding
         // consumption until explicitly turned off.
