@@ -133,6 +133,7 @@ namespace MixMaster.Monsters
 
         private long currentHp;
         private long currentMp;
+        private string ownedMonsterUniqueId;
         private bool isAlive = true;
         private float attackGauge;
         private float targetRefreshTimer;
@@ -508,7 +509,8 @@ namespace MixMaster.Monsters
 
             return MaterialDropSourceInfo.Party(
                 followOrder,
-                DropRateBonus);
+                DropRateBonus,
+                ownedMonsterUniqueId);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -656,12 +658,14 @@ namespace MixMaster.Monsters
         /// </summary>
         public void ConfigureOwnedMonster(
             MonsterSO definition,
-            CharacterStats calculatedStats)
+            CharacterStats calculatedStats,
+            string individualUniqueId = null)
         {
             if (definition == null || calculatedStats == null)
                 return;
 
             stats = calculatedStats;
+            ownedMonsterUniqueId = individualUniqueId;
 
             attackStyle = definition.attackType == MonsterAttackType.Ranged
                 ? PartyAttackStyle.Ranged
