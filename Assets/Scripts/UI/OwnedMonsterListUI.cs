@@ -458,6 +458,7 @@ namespace MixMaster.UI
             monsterManager.MonsterExperienceChanged +=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp += HandleMonsterLevelChanged;
+            monsterManager.MonsterIntimacyLeveledUp += HandleMonsterLevelChanged;
             monsterManager.PartyChanged += RefreshAll;
 
             subscribed = true;
@@ -484,6 +485,7 @@ namespace MixMaster.UI
             monsterManager.MonsterExperienceChanged -=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp -= HandleMonsterLevelChanged;
+            monsterManager.MonsterIntimacyLeveledUp -= HandleMonsterLevelChanged;
             monsterManager.PartyChanged -= RefreshAll;
 
             subscribed = false;
@@ -655,9 +657,8 @@ namespace MixMaster.UI
                 ? catalog.GetMonster(record.monsterId) : null;
             TitleSO title = catalog != null
                 ? catalog.GetTitle(record.titleId) : null;
-            return StatCalculator.CalculateMonsterStats(
-                monster, Mathf.Max(1, record.level),
-                record.individualValues, title,
+            return StatCalculator.CalculateOwnedMonsterStats(
+                monster, record, title,
                 equipmentManager != null ? equipmentManager.GetEquippedModifiers(
                     record.equippedItemUniqueIds) : null);
         }

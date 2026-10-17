@@ -112,6 +112,8 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterObtained;
         public event Action<OwnedMonsterRecord> MonsterExperienceChanged;
         public event Action<OwnedMonsterRecord> MonsterLeveledUp;
+        public event Action<OwnedMonsterRecord> MonsterIntimacyChanged;
+        public event Action<OwnedMonsterRecord> MonsterIntimacyLeveledUp;
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action PartyChanged;
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
@@ -441,6 +443,7 @@ namespace MixMaster.Core
                         record.individualValues = new MonsterIndividualValues();
 
                     record.individualValues.ClampAll();
+                    record.intimacyKills = Math.Max(0, record.intimacyKills);
                     if (!Enum.IsDefined(typeof(MonsterCombatBehavior), record.combatBehavior))
                         record.combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
                     record.level = Mathf.Clamp(record.level, 1, ExperienceProgression.MaxLevel);
@@ -534,6 +537,31 @@ namespace MixMaster.Core
 
             partyMonsterUniqueIds.Clear();
             PartyChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Only credited to the owned monster that delivered a killing blow.
+        /// Separate from shared normal EXP and capped at intimacy Lv.10.
+        /// </summary>
+        public bool AddPersonalKill(string uniqueId)
+        {
+            OwnedMonsterRecord monster = FindOwnedMonster(uniqueId);
+            if (monster == null ||
+                MonsterIntimacyBalance.GetLevelFromTotalKills(
+                    monster.intimacyKills) >= MonsterIntimacyBalance.MaxLevel)
+                return false;
+
+            int oldLevel = MonsterIntimacyBalance.GetLevelFromTotalKills(
+                monster.intimacyKills);
+            monster.intimacyKills = Math.Min(int.MaxValue,
+                monster.intimacyKills + 1);
+            int newLevel = MonsterIntimacyBalance.GetLevelFromTotalKills(
+                monster.intimacyKills);
+            if (newLevel > oldLevel)
+                MonsterIntimacyLeveledUp?.Invoke(monster);
+
+            MonsterIntimacyChanged?.Invoke(monster);
+            return true;
         }
 
         public void AddExperience(string monsterUniqueId, long amount)

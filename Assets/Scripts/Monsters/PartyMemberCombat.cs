@@ -133,6 +133,7 @@ namespace MixMaster.Monsters
 
         private long currentHp;
         private long currentMp;
+        private string ownedMonsterUniqueId;
         private bool isAlive = true;
         private float attackGauge;
         private float targetRefreshTimer;
@@ -508,7 +509,8 @@ namespace MixMaster.Monsters
 
             return MaterialDropSourceInfo.Party(
                 followOrder,
-                DropRateBonus);
+                DropRateBonus,
+                ownedMonsterUniqueId);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -656,12 +658,14 @@ namespace MixMaster.Monsters
         /// </summary>
         public void ConfigureOwnedMonster(
             MonsterSO definition,
-            CharacterStats calculatedStats)
+            CharacterStats calculatedStats,
+            string individualUniqueId = null)
         {
             if (definition == null || calculatedStats == null)
                 return;
 
             stats = calculatedStats;
+            ownedMonsterUniqueId = individualUniqueId;
 
             attackStyle = definition.attackType == MonsterAttackType.Ranged
                 ? PartyAttackStyle.Ranged
@@ -788,10 +792,8 @@ namespace MixMaster.Monsters
             if (!isAlive || attackPower <= 0)
                 return 0;
 
-            long damage = attackPower - Math.Max(0L, stats.defense);
-
-            if (damage < 1)
-                damage = 1;
+            long damage = DamageCalculator.Calculate(
+                attackPower, stats.defense);
 
             return TakeDamage(damage);
         }
@@ -801,12 +803,8 @@ namespace MixMaster.Monsters
             if (!isAlive || magicPower <= 0L)
                 return 0L;
 
-            long damage =
-                magicPower -
-                Math.Max(0L, stats.magicDefense);
-
-            if (damage < 1L)
-                damage = 1L;
+            long damage = DamageCalculator.Calculate(
+                magicPower, stats.magicDefense);
 
             return TakeDamage(damage);
         }

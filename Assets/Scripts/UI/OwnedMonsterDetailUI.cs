@@ -244,8 +244,21 @@ namespace MixMaster.UI
                       " / " + requiredExp.ToString("N0")
                     : "EXP: MAX");
 
+            int affectionLevel = MonsterIntimacyBalance.GetLevelFromTotalKills(
+                selectedRecord.intimacyKills);
+            float affectionPercent = MonsterIntimacyBalance.GetPowerPercent(
+                monster, affectionLevel);
+            int neededKills = affectionLevel < MonsterIntimacyBalance.MaxLevel
+                ? MonsterIntimacyBalance.GetRequiredKillsForNextLevel(affectionLevel)
+                : 0;
+            int currentKills = MonsterIntimacyBalance.GetKillsWithinLevel(
+                selectedRecord.intimacyKills);
             SetText(intimacyText,
-                "親密度: " + selectedRecord.intimacy.ToString("0.##"));
+                "親密度 Lv." + affectionLevel + "/10（能力" +
+                affectionPercent.ToString("0.#") + "%／初期" +
+                MonsterIntimacyBalance.GetStartingPercent(monster) +
+                "%） " + (affectionLevel >= MonsterIntimacyBalance.MaxLevel
+                    ? "MAX" : "討伐 " + currentKills + "/" + neededKills));
 
             SetText(titleDescriptionText, title != null
                 ? (!string.IsNullOrWhiteSpace(title.description)
@@ -254,11 +267,8 @@ namespace MixMaster.UI
                 : "称号: なし");
 
             CharacterStats stats = monster != null
-                ? StatCalculator.CalculateMonsterStats(
-                    monster,
-                    Mathf.Max(1, selectedRecord.level),
-                    selectedRecord.individualValues,
-                    title,
+                ? StatCalculator.CalculateOwnedMonsterStats(
+                    monster, selectedRecord, title,
                     GetEquippedModifiers())
                 : null;
 
@@ -607,6 +617,8 @@ namespace MixMaster.UI
             monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
             monsterManager.MonsterSold += HandleMonsterSold;
             monsterManager.MonsterExperienceChanged += HandleExperienceChanged;
+            monsterManager.MonsterIntimacyLeveledUp += HandleExperienceChanged;
+            monsterManager.MonsterIntimacyChanged += HandleExperienceChanged;
             partySubscribed = true;
         }
 
@@ -621,6 +633,8 @@ namespace MixMaster.UI
                 monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
                 monsterManager.MonsterSold -= HandleMonsterSold;
                 monsterManager.MonsterExperienceChanged -= HandleExperienceChanged;
+                monsterManager.MonsterIntimacyLeveledUp -= HandleExperienceChanged;
+                monsterManager.MonsterIntimacyChanged -= HandleExperienceChanged;
             }
 
             partySubscribed = false;

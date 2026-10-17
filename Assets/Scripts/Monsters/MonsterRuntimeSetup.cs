@@ -88,6 +88,22 @@ namespace MixMaster.Monsters
                     game.AddGold(goldReward);
             }
 
+            // Intimacy is credited to the individual that dealt the
+            // lethal hit, not every party member. This also runs for
+            // enemies that do not grant normal EXP.
+            MaterialDropSourceInfo killer = defeatedEnemy != null
+                ? defeatedEnemy.LastHitSource
+                : MaterialDropSourceInfo.Unknown();
+            MonsterManager killerMonsters = FindFirstObjectByType<MonsterManager>();
+            if (killerMonsters != null &&
+                killer != null &&
+                killer.sourceType >= MaterialDropSourceType.Party1 &&
+                killer.sourceType <= MaterialDropSourceType.Party3 &&
+                !string.IsNullOrWhiteSpace(killer.ownedMonsterUniqueId))
+            {
+                killerMonsters.AddPersonalKill(killer.ownedMonsterUniqueId);
+            }
+
             if (monsterDefinition.experienceReward <= 0L)
                 return;
 

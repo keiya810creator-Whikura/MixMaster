@@ -107,10 +107,7 @@ namespace MixMaster.Combat
             if (!IsAlive || attackPower <= 0)
                 return 0;
 
-            long damage = attackPower - defense;
-
-            if (damage < 1)
-                damage = 1;
+            long damage = DamageCalculator.Calculate(attackPower, defense);
 
             return TakeDamage(
                 damage,
@@ -131,11 +128,7 @@ namespace MixMaster.Combat
             if (!IsAlive || magicPower <= 0)
                 return 0;
 
-            long damage =
-                magicPower - magicDefense;
-
-            if (damage < 1)
-                damage = 1;
+            long damage = DamageCalculator.Calculate(magicPower, magicDefense);
 
             return TakeDamage(
                 damage,
@@ -156,11 +149,11 @@ namespace MixMaster.Combat
             if (!IsAlive || damage <= 0)
                 return 0;
 
-            if (sourceInfo != null)
-            {
-                lastHitSource =
-                    sourceInfo.Clone();
-            }
+            // The killing blow must identify its own attacker.
+            // A hit without attribution must never inherit a prior killer.
+            lastHitSource = sourceInfo != null
+                ? sourceInfo.Clone()
+                : MaterialDropSourceInfo.Unknown();
 
             long actualDamage = Math.Min(CurrentHp, damage);
             CurrentHp -= actualDamage;
