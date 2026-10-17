@@ -458,6 +458,7 @@ namespace MixMaster.UI
             monsterManager.MonsterExperienceChanged +=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp += HandleMonsterLevelChanged;
+            monsterManager.MonsterIntimacyLeveledUp += HandleMonsterLevelChanged;
             monsterManager.PartyChanged += RefreshAll;
 
             subscribed = true;
@@ -484,6 +485,7 @@ namespace MixMaster.UI
             monsterManager.MonsterExperienceChanged -=
                 HandleMonsterExperienceChanged;
             monsterManager.MonsterLeveledUp -= HandleMonsterLevelChanged;
+            monsterManager.MonsterIntimacyLeveledUp -= HandleMonsterLevelChanged;
             monsterManager.PartyChanged -= RefreshAll;
 
             subscribed = false;
