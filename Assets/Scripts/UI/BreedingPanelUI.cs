@@ -725,9 +725,8 @@ namespace MixMaster.UI
                     ? monsterCatalog.GetMonster(record.monsterId) : null;
                 TitleSO title = monsterCatalog != null
                     ? monsterCatalog.GetTitle(record.titleId) : null;
-                stats = StatCalculator.CalculateMonsterStats(
-                    monster, Mathf.Max(1, record.level),
-                    record.individualValues, title,
+                stats = StatCalculator.CalculateOwnedMonsterStats(
+                    monster, record, title,
                     equipmentManager != null
                         ? equipmentManager.GetEquippedModifiers(
                             record.equippedItemUniqueIds)
