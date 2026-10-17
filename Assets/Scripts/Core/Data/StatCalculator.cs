@@ -24,6 +24,42 @@ namespace MixMaster.Core
                 equipmentModifiers);
         }
 
+        /// <summary>
+        /// Owned monsters alone receive intimacy scaling. Enemy monsters
+        /// continue to use CalculateMonsterStats and keep their wild strength.
+        /// We scale HP, MP, physical/magical attack and defenses; attack
+        /// interval, range, movement speed, criticals and resistances keep
+        /// their personality and are not reduced to unusable values.
+        /// </summary>
+        public static CharacterStats CalculateOwnedMonsterStats(
+            MonsterSO monster,
+            OwnedMonsterRecord individual,
+            TitleSO title = null,
+            IReadOnlyList<StatPercentageModifiers> equipmentModifiers = null)
+        {
+            if (individual == null)
+                return CalculateMonsterStats(monster, 1,
+                    new MonsterIndividualValues(), title, equipmentModifiers);
+
+            CharacterStats stats = CalculateMonsterStats(
+                monster, individual.level, individual.individualValues,
+                title, equipmentModifiers);
+            if (monster == null)
+                return stats;
+
+            int affinity = MonsterIntimacyBalance.GetLevelFromTotalKills(
+                individual.intimacyKills);
+            double multiplier = MonsterIntimacyBalance.GetPowerMultiplier(
+                monster, affinity);
+            stats.maxHp = Math.Max(1L, ScaleLong(stats.maxHp, multiplier));
+            stats.maxMp = ScaleLong(stats.maxMp, multiplier);
+            stats.attack = ScaleLong(stats.attack, multiplier);
+            stats.magic = ScaleLong(stats.magic, multiplier);
+            stats.defense = ScaleLong(stats.defense, multiplier);
+            stats.magicDefense = ScaleLong(stats.magicDefense, multiplier);
+            return stats;
+        }
+
         public static CharacterStats CalculateStats(
             CharacterStats baseStats,
             int level,
