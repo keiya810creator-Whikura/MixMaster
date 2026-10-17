@@ -20,6 +20,10 @@ namespace MixMaster.Core
 
         public float dropRateBonus;
 
+        // Exact owned-individual identity is carried through projectiles.
+        // Party slot alone is insufficient if members are rearranged.
+        public string ownedMonsterUniqueId;
+
         public static MaterialDropSourceInfo Unknown()
         {
             return new MaterialDropSourceInfo();
@@ -37,7 +41,8 @@ namespace MixMaster.Core
 
         public static MaterialDropSourceInfo Party(
             int followOrder,
-            float dropRateBonus)
+            float dropRateBonus,
+            string individualUniqueId = null)
         {
             MaterialDropSourceType type;
 
@@ -59,7 +64,8 @@ namespace MixMaster.Core
             return new MaterialDropSourceInfo
             {
                 sourceType = type,
-                dropRateBonus = Mathf.Max(0f, dropRateBonus)
+                dropRateBonus = Mathf.Max(0f, dropRateBonus),
+                ownedMonsterUniqueId = individualUniqueId
             };
         }
 
@@ -68,7 +74,8 @@ namespace MixMaster.Core
             return new MaterialDropSourceInfo
             {
                 sourceType = sourceType,
-                dropRateBonus = dropRateBonus
+                dropRateBonus = dropRateBonus,
+                ownedMonsterUniqueId = ownedMonsterUniqueId
             };
         }
     }
