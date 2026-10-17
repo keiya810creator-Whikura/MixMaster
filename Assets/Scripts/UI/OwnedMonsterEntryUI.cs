@@ -250,9 +250,8 @@ namespace MixMaster.UI
             {
                 if (equipmentManager == null)
                     equipmentManager = FindFirstObjectByType<EquipmentManager>();
-                stats = StatCalculator.CalculateMonsterStats(
-                    monster, Mathf.Max(1, record.level),
-                    record.individualValues, title,
+                stats = StatCalculator.CalculateOwnedMonsterStats(
+                    monster, record, title,
                     equipmentManager != null
                         ? equipmentManager.GetEquippedModifiers(
                             record.equippedItemUniqueIds)
