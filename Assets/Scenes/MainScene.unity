@@ -33400,7 +33400,6 @@ RectTransform:
   - {fileID: 1383658139}
   - {fileID: 1179098446}
   - {fileID: 1478905500}
-  - {fileID: 730190000000000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -42320,6 +42319,7 @@ MonoBehaviour:
   altarPanel: {fileID: 658171801}
   dungeonEntrancePanel: {fileID: 0}
   breedingPanel: {fileID: 0}
+  blacksmithInventory: {fileID: 0}
   lockPlayerMovementWhileOpen: 1
   disableJoystickWhileOpen: 1
 --- !u!4 &1784329211
@@ -42836,6 +42836,7 @@ RectTransform:
   - {fileID: 576165575}
   - {fileID: 176253659}
   - {fileID: 2136112892}
+  - {fileID: 730190000000000002}
   m_Father: {fileID: 824269458}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -56766,8 +56767,32 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 824269458}
-    m_Modifications: []
+    m_TransformParent: {fileID: 1823755960}
+    m_Modifications:
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 400
+      objectReference: {fileID: 0}
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -680
+      objectReference: {fileID: 0}
+    - target: {fileID: 224000, guid: 65bf65f651bc569089c19261c2bff7b1, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -145
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
