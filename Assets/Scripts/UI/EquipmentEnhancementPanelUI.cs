@@ -21,6 +21,7 @@ namespace MixMaster.UI
         private TMP_Text noticeText;
         private Button upgradeButton;
         private TMP_Text upgradeLabel;
+        private EquipmentInventoryUI ownerInventory;
         private readonly TMP_Text[] materialTexts = new TMP_Text[6];
         private readonly Image[] materialIcons = new Image[6];
         private static readonly Color Enough = new Color32(190, 224, 209, 255);
@@ -41,6 +42,9 @@ namespace MixMaster.UI
 
         public void Open(EquipmentManager manager, string equipmentUniqueId)
         {
+            ownerInventory = GetComponentInParent<EquipmentInventoryUI>();
+            if (ownerInventory == null || !ownerInventory.isActiveAndEnabled ||
+                !ownerInventory.EnhancementAllowed) return;
             // Flush an unfinished hold before switching the selected item.
             if (gameObject.activeSelf) Close();
             equipment = manager;
@@ -76,7 +80,9 @@ namespace MixMaster.UI
 
         private bool TryUpgrade()
         {
-            if (equipment == null || !isActiveAndEnabled) return false;
+            if (equipment == null || !isActiveAndEnabled || ownerInventory == null ||
+                !ownerInventory.isActiveAndEnabled || !ownerInventory.EnhancementAllowed)
+                return false;
             bool success = equipment.TryEnhanceEquipment(uniqueId, out string error);
             Refresh();
             if (!success && !string.IsNullOrEmpty(error)) noticeText.text = error;
