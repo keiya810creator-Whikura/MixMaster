@@ -115,6 +115,7 @@ namespace MixMaster.UI
 
             pressed = true;
             repeated = false;
+            suppressClick = false;
             dirty = false;
             holdTime = 0f;
             nextTick = initialDelay;
@@ -122,6 +123,13 @@ namespace MixMaster.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            // A failed purchase can stop the hold several frames before
+            // release. Suppress the release click even in that case.
+            if (repeated)
+            {
+                suppressClick = true;
+                suppressClickFrame = Time.frameCount;
+            }
             StopPress();
         }
 

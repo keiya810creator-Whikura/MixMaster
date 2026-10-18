@@ -121,6 +121,11 @@ namespace MixMaster.Core
         public string uniqueId;
         public string equipmentId;
         public int level = 1;
+        // level remains the effective level used by existing combat and UI.
+        // Missing fields in old saves mean an unenhanced item at its saved Lv.
+        public int originalLevel;
+        public int enhancementCount;
+        public string sourceMapId;
         public long baseValue = 1;
         public bool isFavorite;
         public bool isLocked;

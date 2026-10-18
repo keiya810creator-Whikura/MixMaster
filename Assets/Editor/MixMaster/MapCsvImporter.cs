@@ -332,6 +332,7 @@ namespace MixMaster.EditorTools
             }
 
             AssetDatabase.SaveAssets();
+            MapCatalogBuilder.RebuildCatalog();
             AssetDatabase.Refresh();
 
             string result = "新規 " + created + " / 更新 " + updated +
@@ -619,3 +620,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+

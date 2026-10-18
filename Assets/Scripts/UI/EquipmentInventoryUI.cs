@@ -33,6 +33,8 @@ namespace MixMaster.UI
         private Button favoriteButton;
         private Button lockButton;
         private Button sellButton;
+        private Button enhanceButton;
+        private EquipmentEnhancementPanelUI enhancementPanel;
         private TMP_Text favoriteLabel;
         private TMP_Text lockLabel;
         private TMP_Text sellLabel;
@@ -114,6 +116,8 @@ namespace MixMaster.UI
                 saleDialog.Close();
             if (autoSellDialog != null)
                 autoSellDialog.Close();
+            if (enhancementPanel != null)
+                enhancementPanel.Close();
             if (subscribed && manager != null)
                 manager.InventoryChanged -= Rebuild;
             subscribed = false;
@@ -161,6 +165,8 @@ namespace MixMaster.UI
                 saleDialog.Close();
             if (autoSellDialog != null)
                 autoSellDialog.Close();
+            if (enhancementPanel != null)
+                enhancementPanel.Close();
             gameObject.SetActive(false);
         }
 
@@ -301,7 +307,9 @@ namespace MixMaster.UI
             pageIndex = Mathf.Clamp(pageIndex, 0, Math.Max(0,
                 (filteredIds.Count + PageSize - 1) / PageSize - 1));
             RenderPage();
-            if (matches.Count == 0 && detailText != null)
+            EquipmentRecord inspected = manager.FindEquipment(inspectedId);
+            if (inspected != null) Inspect(inspected);
+            else if (matches.Count == 0 && detailText != null)
                 detailText.text = "条件に一致する装備がありません。";
         }
 
@@ -550,6 +558,7 @@ namespace MixMaster.UI
             {
                 string owner = manager.GetEquippedOwner(record.uniqueId);
                 detailText.text = name + "　Lv." + record.level +
+                    "（＋" + EquipmentEnhancement.Count(record) + "/50）" +
                     "　[" + EquipmentRarityUtility.Labels[(int)rarity] + "]" +
                     "\n" + (definition != null
                         ? InventoryStatFilter.FormatModifiers(
@@ -899,16 +908,19 @@ namespace MixMaster.UI
 
             favoriteButton = InventoryUiFactory.Button(transform,
                 "FavoriteEquipment", "☆ お気に入り",
-                new Vector2(23f, 0f), new Vector2(240f, 54f));
+                new Vector2(23f, 0f), new Vector2(205f, 54f));
             lockButton = InventoryUiFactory.Button(transform,
                 "LockEquipment", "ロックする",
-                new Vector2(278f, 0f), new Vector2(240f, 54f));
+                new Vector2(238f, 0f), new Vector2(175f, 54f));
             sellButton = InventoryUiFactory.Button(transform,
                 "SellEquipment", "売却",
-                new Vector2(533f, 0f), new Vector2(300f, 54f));
+                new Vector2(423f, 0f), new Vector2(235f, 54f));
+            enhanceButton = InventoryUiFactory.Button(transform,
+                "EnhanceEquipment", "強化",
+                new Vector2(668f, 0f), new Vector2(247f, 54f));
 
-            var controls = new[] { favoriteButton, lockButton, sellButton };
-            float[] positions = { 23f, 278f, 533f };
+            var controls = new[] { favoriteButton, lockButton, sellButton, enhanceButton };
+            float[] positions = { 23f, 238f, 423f, 668f };
             for (int i = 0; i < controls.Length; i++)
             {
                 RectTransform rect = controls[i].GetComponent<RectTransform>();
@@ -940,6 +952,14 @@ namespace MixMaster.UI
                 Inspect(selected);
             });
             sellButton.onClick.AddListener(ConfirmSingleSale);
+            enhanceButton.GetComponent<Image>().color = new Color(0.18f, 0.43f, 0.35f, 1f);
+            enhanceButton.onClick.AddListener(() =>
+            {
+                if (manager == null || manager.FindEquipment(inspectedId) == null) return;
+                if (enhancementPanel == null)
+                    enhancementPanel = EquipmentEnhancementPanelUI.Ensure(transform);
+                enhancementPanel.Open(manager, inspectedId);
+            });
 
             // Keep paging/detail actions clear of the longer filtering bar.
             ScrollRect scroll = contentRoot != null
@@ -962,6 +982,7 @@ namespace MixMaster.UI
 
             favoriteButton.interactable = selected != null;
             lockButton.interactable = selected != null;
+            if (enhanceButton != null) enhanceButton.interactable = selected != null;
             bool canSell = manager != null && manager.CanSell(selected);
             sellButton.interactable = canSell;
 

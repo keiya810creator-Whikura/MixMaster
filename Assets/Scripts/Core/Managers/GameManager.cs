@@ -53,10 +53,19 @@ namespace MixMaster.Core
 
         public bool TrySpendGold(long amount)
         {
+            return TrySpendGold(amount, true);
+        }
+
+        // Resource transactions publish only after gold, materials and the
+        // equipment level have all been committed.
+        internal bool TrySpendGold(long amount, bool notify)
+        {
             if (amount < 0 || Gold < amount) return false;
             Gold -= amount;
-            GoldChanged?.Invoke(Gold);
+            if (notify) NotifyGoldChanged();
             return true;
         }
+
+        internal void NotifyGoldChanged() => GoldChanged?.Invoke(Gold);
     }
 }
