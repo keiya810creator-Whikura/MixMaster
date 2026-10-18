@@ -43,6 +43,9 @@ MAP1のGoldは6、8、10、12、15、18、22、27、33、40…と増えます。
 配置済みの鍛冶屋をHierarchyで選択し、
 「MixMaster > Map > 選択した鍛冶屋にアクセスTriggerを追加」を一度実行してシーンを保存します。
 入口前に接触Triggerを作り、既存の装備インベントリと建物UIルーターを接続します。
+途中で設定に失敗した場合も、同じメニューを再実行すると既存の
+`BlacksmithAccessTrigger`を再利用し、不足するコンポーネントを追加します。
+鍛冶屋本体・作成済みTriggerのどちらを選択しても再設定できます。
 建物の固いColliderは保持します。Tilemap上の建物は入口前に空のGameObjectを置き、
 そのオブジェクトを選んで同じメニューを実行してください。
 手動で設定する場合は、入口Triggerの `MapBuildingAccess.BuildingType` を `Blacksmith` にし、
