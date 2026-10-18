@@ -9,7 +9,8 @@ namespace MixMaster.World
     {
         Altar,
         DungeonEntrance,
-        BreedingShop
+        BreedingShop,
+        Blacksmith
     }
 
     [DisallowMultipleComponent]
@@ -74,7 +75,8 @@ namespace MixMaster.World
 
             if (router == null &&
                 (buildingType == MapBuildingType.DungeonEntrance ||
-                 buildingType == MapBuildingType.BreedingShop))
+                 buildingType == MapBuildingType.BreedingShop ||
+                 buildingType == MapBuildingType.Blacksmith))
             {
                 // The entrance must work in older exploration scenes that
                 // contain the map prefab but have no UI router yet.

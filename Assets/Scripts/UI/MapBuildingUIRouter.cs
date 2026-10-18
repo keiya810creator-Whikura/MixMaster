@@ -16,6 +16,7 @@ namespace MixMaster.UI
         [SerializeField] private GameObject altarPanel;
         [SerializeField] private GameObject dungeonEntrancePanel;
         [SerializeField] private GameObject breedingPanel;
+        [SerializeField] private EquipmentInventoryUI blacksmithInventory;
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -76,25 +77,34 @@ namespace MixMaster.UI
 
         private void OnDestroy()
         {
+            if (IsOpen) CloseAllInternal(false);
+            if (blacksmithInventory != null)
+                blacksmithInventory.Closed -= HandleBlacksmithInventoryClosed;
             if (Instance == this)
                 Instance = null;
         }
 
         public void Open(MapBuildingType type)
         {
+            if (IsOpen && CurrentBuilding == type) return;
             // UI itself comes from the scene. Keep standalone town scenes
             // usable when no global EventSystem has been provided.
-            if (type == MapBuildingType.BreedingShop &&
+            if ((type == MapBuildingType.BreedingShop || type == MapBuildingType.Blacksmith) &&
                 EventSystem.current == null)
             {
-                new GameObject("BreedingShopEventSystem",
+                new GameObject("MapBuildingEventSystem",
                     typeof(EventSystem), typeof(InputSystemUIInputModule));
             }
+
+            if (type == MapBuildingType.Blacksmith)
+                ResolveBlacksmithInventory();
 
             GameObject targetPanel =
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
-                type == MapBuildingType.BreedingShop ? breedingPanel : null;
+                type == MapBuildingType.BreedingShop ? breedingPanel :
+                type == MapBuildingType.Blacksmith && blacksmithInventory != null
+                    ? blacksmithInventory.gameObject : null;
 
             if (targetPanel == null)
             {
@@ -108,16 +118,22 @@ namespace MixMaster.UI
                 return;
             }
 
-            SetPanelActive(
-                altarPanel,
-                type == MapBuildingType.Altar);
+            // Clear the previous building BEFORE disabling its inventory;
+            // its Closed callback must not close the newly requested panel.
+            CloseAllInternal(false);
 
-            SetPanelActive(
-                dungeonEntrancePanel,
-                type == MapBuildingType.DungeonEntrance);
-            SetPanelActive(
-                breedingPanel,
-                type == MapBuildingType.BreedingShop);
+            if (type == MapBuildingType.Blacksmith)
+            {
+                blacksmithInventory.OpenForBlacksmith();
+                if (!blacksmithInventory.isActiveAndEnabled)
+                {
+                    blacksmithInventory.Close();
+                    Debug.LogWarning("[MapBuildingUIRouter] 装備インベントリの親Canvasを有効にしてください。", this);
+                    return;
+                }
+            }
+            else
+                SetPanelActive(targetPanel, true);
 
             CurrentBuilding = type;
             IsOpen = true;
@@ -150,16 +166,42 @@ namespace MixMaster.UI
             breedingPanel = panel;
         }
 
+        public void SetBlacksmithInventory(EquipmentInventoryUI inventory)
+        {
+            if (blacksmithInventory != null)
+                blacksmithInventory.Closed -= HandleBlacksmithInventoryClosed;
+            blacksmithInventory = inventory;
+            if (blacksmithInventory != null)
+                blacksmithInventory.Closed += HandleBlacksmithInventoryClosed;
+        }
+
+        private void ResolveBlacksmithInventory()
+        {
+            EquipmentInventoryUI inventory = blacksmithInventory != null
+                ? blacksmithInventory
+                : FindFirstObjectByType<EquipmentInventoryUI>(FindObjectsInactive.Include);
+            SetBlacksmithInventory(inventory);
+        }
+
+        private void HandleBlacksmithInventoryClosed()
+        {
+            if (IsOpen && CurrentBuilding == MapBuildingType.Blacksmith)
+                CloseAll();
+        }
+
         private void CloseAllInternal(bool invokeEvent)
         {
+            bool wasOpen = IsOpen;
+            bool closeBlacksmith = CurrentBuilding == MapBuildingType.Blacksmith;
+            IsOpen = false;
+            CurrentBuilding = null;
+
             SetPanelActive(altarPanel, false);
             SetPanelActive(dungeonEntrancePanel, false);
             SetPanelActive(breedingPanel, false);
 
-            bool wasOpen = IsOpen;
-
-            IsOpen = false;
-            CurrentBuilding = null;
+            if (closeBlacksmith && blacksmithInventory != null)
+                blacksmithInventory.Close();
 
             SetPlayerMovementLocked(false);
             SetJoystickInteractionEnabled(true);

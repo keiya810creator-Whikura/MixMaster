@@ -35,6 +35,8 @@ namespace MixMaster.UI
         private Button sellButton;
         private Button enhanceButton;
         private EquipmentEnhancementPanelUI enhancementPanel;
+        public bool EnhancementAllowed { get; private set; }
+        public event Action Closed;
         private TMP_Text favoriteLabel;
         private TMP_Text lockLabel;
         private TMP_Text sellLabel;
@@ -106,6 +108,7 @@ namespace MixMaster.UI
 
         private void OnDisable()
         {
+            SetEnhancementAccess(false);
             if (comparisonPanel != null)
                 comparisonPanel.Close();
             if (saleDialog != null)
@@ -117,6 +120,7 @@ namespace MixMaster.UI
             if (subscribed && manager != null)
                 manager.InventoryChanged -= Rebuild;
             subscribed = false;
+            Closed?.Invoke();
         }
 
         private void OnDestroy()
@@ -127,17 +131,41 @@ namespace MixMaster.UI
 
         public void Open()
         {
-            targetMonster = null;
-            inspectedId = null;
-            OpenPanel();
+            OpenInventory(false, null);
         }
 
         public void OpenForMonster(OwnedMonsterRecord monster)
         {
             if (monster == null) return;
+            OpenInventory(false, monster);
+        }
+
+        public void OpenForBlacksmith()
+        {
+            OpenInventory(true, null);
+        }
+
+        private void OpenInventory(bool allowEnhancement, OwnedMonsterRecord monster)
+        {
+            // End the previous building session before changing its mode.
+            if (gameObject.activeSelf && EnhancementAllowed != allowEnhancement)
+                Close();
+            SetEnhancementAccess(allowEnhancement);
             targetMonster = monster;
             inspectedId = null;
             OpenPanel();
+        }
+
+        private void SetEnhancementAccess(bool allowed)
+        {
+            EnhancementAllowed = allowed;
+            if (!allowed && enhancementPanel != null) enhancementPanel.Close();
+            if (enhanceButton != null)
+            {
+                enhanceButton.gameObject.SetActive(allowed);
+                enhanceButton.interactable = allowed && manager != null &&
+                    manager.FindEquipment(inspectedId) != null;
+            }
         }
 
         private void OpenPanel()
@@ -155,6 +183,7 @@ namespace MixMaster.UI
 
         public void Close()
         {
+            SetEnhancementAccess(false);
             if (comparisonPanel != null)
                 comparisonPanel.Close();
             if (saleDialog != null)
@@ -945,11 +974,13 @@ namespace MixMaster.UI
             enhanceButton.GetComponent<Image>().color = new Color(0.18f, 0.43f, 0.35f, 1f);
             enhanceButton.onClick.AddListener(() =>
             {
-                if (manager == null || manager.FindEquipment(inspectedId) == null) return;
+                if (!EnhancementAllowed || !isActiveAndEnabled || manager == null ||
+                    manager.FindEquipment(inspectedId) == null) return;
                 if (enhancementPanel == null)
                     enhancementPanel = EquipmentEnhancementPanelUI.Ensure(transform);
                 enhancementPanel.Open(manager, inspectedId);
             });
+            SetEnhancementAccess(EnhancementAllowed);
 
             // Keep paging/detail actions clear of the longer filtering bar.
             ScrollRect scroll = contentRoot != null
@@ -972,7 +1003,11 @@ namespace MixMaster.UI
 
             favoriteButton.interactable = selected != null;
             lockButton.interactable = selected != null;
-            if (enhanceButton != null) enhanceButton.interactable = selected != null;
+            if (enhanceButton != null)
+            {
+                enhanceButton.gameObject.SetActive(EnhancementAllowed);
+                enhanceButton.interactable = EnhancementAllowed && selected != null;
+            }
             bool canSell = manager != null && manager.CanSell(selected);
             sellButton.interactable = canSell;
 
