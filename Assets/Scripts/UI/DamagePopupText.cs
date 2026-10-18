@@ -52,7 +52,16 @@ namespace MixMaster.UI
             MaterialDropSourceType attackSource,
             bool takenByAlly = false)
         {
-            if (!Application.isPlaying || damage <= 0L || activeCount >= MaxActive)
+            if (!Application.isPlaying || damage <= 0L)
+                return;
+
+            Color damageColor = takenByAlly
+                ? EnemyDamageColor
+                : MaterialDropLogUI.GetSourceColor(attackSource);
+            DamageHitParticles.Show(worldPosition, damageColor);
+
+            // Particle feedback remains available when the text pool is full.
+            if (activeCount >= MaxActive)
                 return;
 
             DamagePopupText popup = null;
@@ -68,7 +77,7 @@ namespace MixMaster.UI
             }
 
             popup.gameObject.SetActive(true);
-            popup.Begin(worldPosition, damage, attackSource, takenByAlly);
+            popup.Begin(worldPosition, damage, damageColor, takenByAlly);
         }
 
         private void Awake()
@@ -94,7 +103,7 @@ namespace MixMaster.UI
                 renderer.sortingOrder = 3000;
         }
 
-        private void Begin(Vector3 position, long damage, MaterialDropSourceType attackSource, bool takenByAlly)
+        private void Begin(Vector3 position, long damage, Color damageColor, bool takenByAlly)
         {
             startPosition = position +
                 new Vector3(Random.Range(-0.15f, 0.15f), 0.72f, -0.2f);
@@ -102,9 +111,7 @@ namespace MixMaster.UI
             transform.position = startPosition;
             elapsed = 0f;
 
-            baseColor = takenByAlly
-                ? EnemyDamageColor
-                : MaterialDropLogUI.GetSourceColor(attackSource);
+            baseColor = damageColor;
             // White outline improves contrast for black enemy-origin damage;
             // party-colored damage retains its original dark outline.
             label.outlineColor = takenByAlly

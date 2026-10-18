@@ -74,7 +74,6 @@ namespace MixMaster.UI
             if (canvas != null)
             {
                 PartyCombatOrdersHUD.EnsureOnCanvas(canvas);
-                GoldCounterHUD.EnsureOnCanvas(canvas);
             }
 
             EnsureManagers();
@@ -287,3 +286,4 @@ namespace MixMaster.UI
         }
     }
 }
+
