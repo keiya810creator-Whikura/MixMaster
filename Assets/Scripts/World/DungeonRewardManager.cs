@@ -305,7 +305,7 @@ namespace MixMaster.World
                     EquipmentRecord created =
                         equipment.CreateEquipment(
                             definition.equipmentId, level,
-                            equipmentBaseValue, true);
+                            equipmentBaseValue, true, sourceMap != null ? sourceMap.mapId : null);
                     if (created == null) continue;
 
                     report.equipment.Add(new DungeonEquipmentAward
@@ -466,3 +466,4 @@ namespace MixMaster.World
 #endif
     }
 }
+

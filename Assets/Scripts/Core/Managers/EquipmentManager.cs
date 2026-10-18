@@ -10,10 +10,13 @@ namespace MixMaster.Core
         public const int MaxEquipmentSlots = 3;
         public const int MinEquipmentLevel = 1;
         public const int MaxEquipmentLevel = 100;
+        public const int MaxEnhancedEquipmentLevel =
+            MaxEquipmentLevel + EquipmentEnhancement.MaxEnhancements;
 
         private readonly List<EquipmentRecord> inventory = new List<EquipmentRecord>();
         private readonly List<string> playerEquipmentUniqueIds = new List<string>();
         private MonsterManager monsterManager;
+        private bool enhancing;
 
         public IReadOnlyList<EquipmentRecord> Inventory => inventory;
         public IReadOnlyList<string> PlayerEquipmentUniqueIds => playerEquipmentUniqueIds;
@@ -66,8 +69,7 @@ namespace MixMaster.Core
                     if (item == null || string.IsNullOrWhiteSpace(item.uniqueId) ||
                         !uniqueIds.Add(item.uniqueId)) continue;
 
-                    item.level = Mathf.Clamp(item.level,
-                        MinEquipmentLevel, MaxEquipmentLevel);
+                    EquipmentEnhancement.Normalize(item);
                     item.baseValue = Math.Max(0L, item.baseValue);
                     inventory.Add(item);
                 }
@@ -88,15 +90,22 @@ namespace MixMaster.Core
         }
 
         public EquipmentRecord CreateEquipment(string equipmentId, int level,
-            long baseValue, bool allowAutoSell = true)
+            long baseValue, bool allowAutoSell = true, string sourceMapId = null)
         {
             var item = new EquipmentRecord
             {
                 uniqueId = Guid.NewGuid().ToString("N"),
                 equipmentId = equipmentId ?? string.Empty,
                 level = Mathf.Clamp(level, MinEquipmentLevel, MaxEquipmentLevel),
+                originalLevel = Mathf.Clamp(level, MinEquipmentLevel, MaxEquipmentLevel),
+                sourceMapId = sourceMapId,
                 baseValue = Math.Max(0L, baseValue)
             };
+            if (string.IsNullOrWhiteSpace(item.sourceMapId))
+            {
+                MapSO origin = ResolveEnhancementMap(item);
+                if (origin != null) item.sourceMapId = origin.mapId;
+            }
             inventory.Add(item);
 
             // Reuse the ordinary validated sale path, including gold credit.
@@ -116,7 +125,81 @@ namespace MixMaster.Core
             if (equipment == null) return 0L;
             return LongMath.SaturatingMultiply(
                 equipment.baseValue,
-                Mathf.Clamp(equipment.level, MinEquipmentLevel, MaxEquipmentLevel));
+                EquipmentEnhancement.Level(equipment));
+        }
+
+        public MapSO ResolveEnhancementMap(EquipmentRecord record)
+        {
+            if (record == null) return null;
+            MapCatalogSO catalog = MapCatalogSO.Load();
+            if (catalog == null) return null;
+            if (!string.IsNullOrWhiteSpace(record.sourceMapId))
+                return catalog.GetMap(record.sourceMapId);
+            MapSO found = catalog.FindEquipmentMap(record.equipmentId);
+            if (found != null) return found;
+            // The two guaranteed training items belong to the first field.
+            return record.equipmentId == "EQP_001" || record.equipmentId == "EQP_002"
+                ? catalog.GetMap("MAP_001") : null;
+        }
+
+        public bool CanEnhanceEquipment(string uniqueId,
+            out EquipmentEnhancementCost cost, out string error)
+        {
+            EquipmentRecord record = FindEquipment(uniqueId);
+            if (!EquipmentEnhancement.TryBuildCost(record,
+                    ResolveEnhancementMap(record), out cost, out error))
+                return false;
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+            if (game == null || materials == null)
+            { error = "所持金・素材管理を確認してください。"; return false; }
+            if (game.Gold < cost.gold)
+            { error = "ゴールドが不足しています。"; return false; }
+            foreach (MaterialSO material in cost.materials)
+                if (materials.GetAmount(material) < cost.amountPerMaterial)
+                { error = "素材が不足しています。"; return false; }
+            return true;
+        }
+
+        public bool TryEnhanceEquipment(string uniqueId, out string error)
+        {
+            error = string.Empty;
+            if (enhancing) return false;
+            if (!CanEnhanceEquipment(uniqueId, out EquipmentEnhancementCost cost, out error))
+                return false;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            GameManager game = GetComponent<GameManager>() ??
+                FindFirstObjectByType<GameManager>();
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+
+            // No callbacks run while resources/level are being committed.
+            // Guard the subsequent notifications against recursive purchases.
+            enhancing = true;
+            try
+            {
+                if (!game.TrySpendGold(cost.gold, false))
+                { error = "ゴールドが不足しています。"; return false; }
+                if (!materials.TryConsumeSet(cost.materials, cost.amountPerMaterial))
+                {
+                    game.AddGold(cost.gold);
+                    error = "素材が不足しています。";
+                    return false;
+                }
+                EquipmentEnhancement.Normalize(record);
+                record.enhancementCount++;
+                record.level = record.originalLevel + record.enhancementCount;
+                record.sourceMapId = cost.map.mapId;
+
+                game.NotifyGoldChanged();
+                materials.NotifyConsumedSet(cost.materials, cost.amountPerMaterial);
+                InventoryChanged?.Invoke();
+                EquipmentChanged?.Invoke();
+                return true;
+            }
+            finally { enhancing = false; }
         }
 
         public bool SetFavorite(string uniqueId, bool favorite)
@@ -229,13 +312,19 @@ namespace MixMaster.Core
         /// </summary>
         public StatPercentageModifiers GetScaledModifiers(EquipmentRecord record)
         {
+            return GetScaledModifiers(record, EquipmentEnhancement.Level(record));
+        }
+
+        public StatPercentageModifiers GetScaledModifiers(EquipmentRecord record,
+            int effectiveLevel)
+        {
             EquipmentSO def = record != null
                 ? GetEquipmentDefinition(record.equipmentId) : null;
             if (def == null || def.modifiers == null)
                 return StatPercentageModifiers.CreateZero();
 
-            float scale = Mathf.Clamp(record.level,
-                MinEquipmentLevel, MaxEquipmentLevel);
+            float scale = Mathf.Clamp(effectiveLevel,
+                MinEquipmentLevel, MaxEnhancedEquipmentLevel);
             StatPercentageModifiers src = def.modifiers;
             ElementResistanceSet r = src.resistanceBonus;
             return new StatPercentageModifiers

@@ -189,6 +189,34 @@ namespace MixMaster.Core
             return true;
         }
 
+        /// <summary>Checks the entire set before any deduction or notification.</summary>
+        internal bool TryConsumeSet(IReadOnlyList<MaterialSO> materials, long amount)
+        {
+            if (materials == null || materials.Count == 0 || amount <= 0L)
+                return false;
+            var costs = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (MaterialSO material in materials)
+            {
+                if (material == null || string.IsNullOrWhiteSpace(material.materialId))
+                    return false;
+                costs.TryGetValue(material.materialId, out long previous);
+                if (previous > long.MaxValue - amount) return false;
+                costs[material.materialId] = previous + amount;
+            }
+            foreach (var cost in costs)
+                if (GetAmount(cost.Key) < cost.Value) return false;
+            foreach (var cost in costs)
+                records.Find(x => x.materialId == cost.Key).amount -= cost.Value;
+            return true;
+        }
+
+        internal void NotifyConsumedSet(IReadOnlyList<MaterialSO> materials, long amount)
+        {
+            foreach (MaterialSO material in materials)
+                MaterialChanged?.Invoke(material.materialId, -amount,
+                    GetAmount(material.materialId));
+        }
+
         public bool TryConsume(
             MaterialSO material,
             long amount)
