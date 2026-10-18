@@ -62,6 +62,7 @@ namespace MixMaster.EditorTools
             Canvas canvas = PartyCircularHudPrefabCreator.FindScreenCanvas();
             if (canvas == null)
                 canvas = PartyCircularHudPrefabCreator.CreateCanvas();
+            GoldCounterHudPrefabCreator.EnsureAndPlace(canvas);
 
             PlayerCircularStatusHUD existing =
                 canvas.GetComponentInChildren<PlayerCircularStatusHUD>(true);

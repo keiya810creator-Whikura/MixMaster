@@ -62,10 +62,6 @@ namespace MixMaster.UI
 
         private void OnEnable()
         {
-            Canvas canvas = GetComponentInParent<Canvas>();
-            if (canvas != null)
-                GoldCounterHUD.EnsureOnCanvas(canvas);
-
             EnsureBindings();
             RefreshAll();
         }
