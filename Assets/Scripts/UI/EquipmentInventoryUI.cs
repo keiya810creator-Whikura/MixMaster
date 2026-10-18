@@ -63,11 +63,7 @@ namespace MixMaster.UI
 
         private static readonly string[] SortChoices = BuildSortChoices();
         private static readonly string[] StatChoices = InventoryStatFilter.Labels;
-        private static readonly string[] RarityChoices =
-        {
-            "全レア度", "ノーマル", "レア", "スーパーレア",
-            "エピックレア", "レジェンダリーレア"
-        };
+        private static readonly string[] RarityChoices = EquipmentRarityUtility.FilterLabels;
 
         public void SetReferences(RectTransform content,
             TMP_Text count, TMP_Text detail, Button close)
@@ -385,7 +381,7 @@ namespace MixMaster.UI
             EquipmentSO definition =
                 manager.GetEquipmentDefinition(record.equipmentId);
             Image background = row.GetComponent<Image>();
-            background.color = RarityColor(
+            background.color = EquipmentRarityUtility.BackgroundColor(
                 EquipmentRarityUtility.GetRarity(record.level));
 
             Button button = row.GetComponent<Button>();
@@ -400,14 +396,11 @@ namespace MixMaster.UI
             string name = definition != null &&
                 !string.IsNullOrWhiteSpace(definition.displayName)
                     ? definition.displayName : record.equipmentId;
-            EquipmentRarity rarity =
-                EquipmentRarityUtility.GetRarity(record.level);
             TMP_Text summary =
                 row.transform.Find("Summary").GetComponent<TMP_Text>();
             string equippedOwner =
                 manager.GetEquippedOwner(record.uniqueId);
-            summary.text = name + "  Lv." + record.level +
-                " 《" + EquipmentRarityUtility.Labels[(int)rarity] + "》\n" +
+            summary.text = EquipmentRarityUtility.FormatInventoryName(name, record) + "\n" +
                 (definition != null
                     ? InventoryStatFilter.FormatModifiers(
                         manager.GetScaledModifiers(record))
@@ -553,13 +546,10 @@ namespace MixMaster.UI
                 manager.GetEquipmentDefinition(record.equipmentId);
             string name = definition != null
                 ? definition.displayName : record.equipmentId;
-            var rarity = EquipmentRarityUtility.GetRarity(record.level);
             if (detailText != null)
             {
                 string owner = manager.GetEquippedOwner(record.uniqueId);
-                detailText.text = name + "　Lv." + record.level +
-                    "（＋" + EquipmentEnhancement.Count(record) + "/50）" +
-                    "　[" + EquipmentRarityUtility.Labels[(int)rarity] + "]" +
+                detailText.text = EquipmentRarityUtility.FormatInventoryName(name, record) +
                     "\n" + (definition != null
                         ? InventoryStatFilter.FormatModifiers(
                             manager.GetScaledModifiers(record)) +
@@ -1165,6 +1155,14 @@ namespace MixMaster.UI
             }
 
             directionLabel = directionButton.GetComponentInChildren<TMP_Text>();
+            if (rarityFilter.options.Count != RarityChoices.Length)
+            {
+                int selected = rarityFilter.value;
+                rarityFilter.ClearOptions();
+                rarityFilter.AddOptions(new List<string>(RarityChoices));
+                rarityFilter.SetValueWithoutNotify(Mathf.Clamp(selected, 0,
+                    RarityChoices.Length - 1));
+            }
             if (statFilter.options.Count !=
                 InventoryProtectionIcons.CombinedStatFilterLabels.Length)
             {
@@ -1202,21 +1200,5 @@ namespace MixMaster.UI
             return options.ToArray();
         }
 
-        private static Color RarityColor(EquipmentRarity rarity)
-        {
-            switch (rarity)
-            {
-                case EquipmentRarity.Rare:
-                    return new Color(0.13f, 0.27f, 0.43f, 1f);
-                case EquipmentRarity.SuperRare:
-                    return new Color(0.20f, 0.29f, 0.52f, 1f);
-                case EquipmentRarity.EpicRare:
-                    return new Color(0.36f, 0.20f, 0.48f, 1f);
-                case EquipmentRarity.LegendaryRare:
-                    return new Color(0.47f, 0.31f, 0.11f, 1f);
-                default:
-                    return new Color(0.15f, 0.19f, 0.25f, 1f);
-            }
-        }
     }
 }

@@ -1044,6 +1044,9 @@ MonoBehaviour:
     - m_Text: "\u30EC\u30B8\u30A7\u30F3\u30C0\u30EA\u30FC\u30EC\u30A2"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30B4\u30C3\u30C9\u30EC\u30A2"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []

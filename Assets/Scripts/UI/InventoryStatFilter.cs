@@ -1,5 +1,6 @@
 using System;
 using MixMaster.Core;
+using UnityEngine;
 
 namespace MixMaster.UI
 {
@@ -134,13 +135,15 @@ namespace MixMaster.UI
 
     public enum EquipmentRarity
     {
-        Normal, Rare, SuperRare, EpicRare, LegendaryRare
+        Normal, Rare, SuperRare, EpicRare, LegendaryRare, GodRare
     }
 
     public static class EquipmentRarityUtility
     {
         public static EquipmentRarity GetRarity(int level)
         {
+            if (level >= EquipmentManager.MaxEnhancedEquipmentLevel)
+                return EquipmentRarity.GodRare;
             if (level <= 50) return EquipmentRarity.Normal;
             if (level <= 70) return EquipmentRarity.Rare;
             if (level <= 85) return EquipmentRarity.SuperRare;
@@ -150,7 +153,43 @@ namespace MixMaster.UI
 
         public static readonly string[] Labels = {
             "ノーマル", "レア", "スーパーレア", "エピックレア",
-            "レジェンダリーレア"
+            "レジェンダリーレア", "ゴッドレア"
         };
+
+        public static readonly string[] FilterLabels = BuildFilterLabels();
+
+        private static string[] BuildFilterLabels()
+        {
+            var labels = new string[Labels.Length + 1];
+            labels[0] = "全レア度";
+            Array.Copy(Labels, 0, labels, 1, Labels.Length);
+            return labels;
+        }
+
+        public static string FormatInventoryName(string name, EquipmentRecord record)
+        {
+            int level = EquipmentEnhancement.Level(record);
+            return name + " Lv" + level + " 《" + Labels[(int)GetRarity(level)] +
+                "》 +" + EquipmentEnhancement.Count(record);
+        }
+
+        public static Color BackgroundColor(EquipmentRarity rarity)
+        {
+            switch (rarity)
+            {
+                case EquipmentRarity.Rare:
+                    return new Color(0.13f, 0.27f, 0.43f, 1f);
+                case EquipmentRarity.SuperRare:
+                    return new Color(0.20f, 0.29f, 0.52f, 1f);
+                case EquipmentRarity.EpicRare:
+                    return new Color(0.48f, 0.18f, 0.20f, 1f);
+                case EquipmentRarity.LegendaryRare:
+                    return new Color(0.36f, 0.20f, 0.48f, 1f);
+                case EquipmentRarity.GodRare:
+                    return new Color(0.47f, 0.31f, 0.11f, 1f);
+                default:
+                    return new Color(0.15f, 0.19f, 0.25f, 1f);
+            }
+        }
     }
 }

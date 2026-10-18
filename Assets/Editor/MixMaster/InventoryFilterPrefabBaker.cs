@@ -25,11 +25,7 @@ namespace MixMaster.EditorTools
             "上位25%", "上位50%", "上位75%", "0以外"
         };
 
-        private static readonly string[] EquipmentRarities =
-        {
-            "全レア度", "ノーマル", "レア", "スーパーレア",
-            "エピックレア", "レジェンダリーレア"
-        };
+        private static readonly string[] EquipmentRarities = EquipmentRarityUtility.FilterLabels;
 
         static InventoryFilterPrefabBaker()
         {
