@@ -20,28 +20,28 @@ MonoBehaviour:
   enemyPrefab: {fileID: 3290457914211444514, guid: 26f9de9e24f7baf4fb22e11fb4b1acb2, type: 3}
   partyPrefab: {fileID: 0}
   baseStats:
-    maxHp: 70
-    maxMp: 10
-    attack: 15
-    magic: 4
-    defense: 10
-    magicDefense: 6
-    criticalRate: 0.08
+    maxHp: 749
+    maxMp: 47
+    attack: 157
+    magic: 57
+    defense: 60
+    magicDefense: 55
+    criticalRate: 0.07
     criticalMultiplier: 1.6
-    moveSpeed: 2.8
-    attackSpeed: 1
-    attackRange: 1.2
+    moveSpeed: 2.45
+    attackSpeed: 0.94
+    attackRange: 2.73
     element: 1
     resistances:
-      fire: 0.25
-      water: -0.15
-      wind: 0
-      lightning: 0.05
-      light: 0
-      dark: 0
+      fire: 0.165
+      water: -0.135
+      wind: -0.035
+      lightning: -0.035
+      light: -0.035
+      dark: -0.035
     dropRateBonus: 0
   attackType: 0
-  detectionRange: 4.5
+  detectionRange: 5.6
   projectilePrefab: {fileID: 0}
   projectileSpeed: 0.1
   projectileLifetime: 0.1

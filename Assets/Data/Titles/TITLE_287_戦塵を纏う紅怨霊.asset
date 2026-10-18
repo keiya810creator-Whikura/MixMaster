@@ -18,22 +18,22 @@ MonoBehaviour:
   icon: {fileID: 0}
   selectionWeight: 0.5
   modifiers:
-    maxHp: 0.3
-    maxMp: 0.2
-    attack: 0.1
-    magic: 0.2
-    defense: 0.25
-    magicDefense: 0.3
-    criticalRate: -0.02
-    criticalMultiplier: 0.1
-    moveSpeed: -0.1
-    attackSpeed: -0.05
-    attackRange: 0.1
-    dropRateBonus: 0.12
+    maxHp: 1.4363
+    maxMp: 0.6703
+    attack: 2.7202
+    magic: 0.2258
+    defense: 0.7029
+    magicDefense: 1.9422
+    criticalRate: 0.5984
+    criticalMultiplier: 0.6931
+    moveSpeed: 0.5865
+    attackSpeed: 1.0881
+    attackRange: 0.7083
+    dropRateBonus: 3.8223
     resistanceBonus:
-      fire: -0.1
-      water: 0.35
-      wind: 0.05
-      lightning: 0
-      light: 0.1
-      dark: 0
+      fire: 0.0287
+      water: 0.0287
+      wind: 0.0287
+      lightning: 0.0287
+      light: 0.0764
+      dark: 0.5732
