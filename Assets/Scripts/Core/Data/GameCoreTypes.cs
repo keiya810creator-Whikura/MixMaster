@@ -134,6 +134,7 @@ namespace MixMaster.Core
     [Serializable]
     public class OfflineGainRecord
     {
+        public OfflineGainKind kind;
         public string itemId;
         public long amount;
     }
@@ -142,7 +143,7 @@ namespace MixMaster.Core
     public class OfflineRecordProfile
     {
         public string mapId;
-        public float recordDurationSeconds = 30f;
+        public float recordDurationSeconds = 180f;
         public List<OfflineGainRecord> gains = new List<OfflineGainRecord>();
     }
 
