@@ -28,6 +28,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text sortText;
         [SerializeField] private TMP_Text directionText;
         [SerializeField] private TMP_Text favoritesFilterText;
+        [SerializeField] private ScrollRect detailsScroll;
         [SerializeField] private RectTransform content;
         [SerializeField] private RectTransform viewport;
         [SerializeField] private GridLayoutGroup grid;
@@ -160,6 +161,7 @@ namespace MixMaster.UI
             lastWidth = -1f;
             UpdateGridSize();
             RefreshDetails();
+            if (detailsScroll != null) detailsScroll.verticalNormalizedPosition = 1f;
         }
 
         private void UpdateGridSize()
@@ -174,6 +176,7 @@ namespace MixMaster.UI
             int rows = Mathf.CeilToInt((float)visibleCount / columns);
             content.sizeDelta = new Vector2(content.sizeDelta.x,
                 grid.padding.top + grid.padding.bottom + rows * grid.cellSize.y + Mathf.Max(0, rows - 1) * grid.spacing.y);
+            UpdateDetailHeight();
         }
 
         private void RefreshDetails()
@@ -188,6 +191,9 @@ namespace MixMaster.UI
                 if (stats == null) detailText.text = "転生先のデータがありません。";
                 else
                 {
+                    // Preview the actual Lv1 values before equipment, including the
+                    // shared speed multiplier and normal caps on criticals/resistances.
+                    CharacterStats preview = StatCalculator.CalculateStats(stats, 1, new MonsterIndividualValues());
                     var text = new StringBuilder(manager.GetBookName(selectedId));
                     text.Append("\n基礎値　HP ").Append(stats.maxHp.ToString("N0"))
                         .Append(" ／ MP ").Append(stats.maxMp.ToString("N0"))
@@ -195,9 +201,24 @@ namespace MixMaster.UI
                         .Append(" ／ 魔力 ").Append(stats.magic.ToString("N0"))
                         .Append(" ／ 防御 ").Append(stats.defense.ToString("N0"))
                         .Append(" ／ 魔防 ").Append(stats.magicDefense.ToString("N0"));
+                    text.Append("\n移動速度 ").Append(preview.moveSpeed.ToString("0.##"))
+                        .Append(" ／ 攻撃速度 ").Append(preview.attackSpeed.ToString("0.##")).Append("回/秒")
+                        .Append("\n攻撃間隔 ").Append((1f / preview.attackSpeed).ToString("0.##")).Append("秒")
+                        .Append(" ／ 攻撃範囲 ").Append(preview.attackRange.ToString("0.##"))
+                        .Append("\nクリティカル率 ").Append(Percent(preview.criticalRate))
+                        .Append(" ／ 倍率 ×").Append(preview.criticalMultiplier.ToString("0.##"))
+                        .Append("\n属性 ").Append(ElementName(preview.element))
+                        .Append(" ／ ドロップ率補正 +").Append(Percent(preview.dropRateBonus));
+                    ElementResistanceSet r = preview.resistances;
+                    text.Append("\n属性耐性　火 ").Append(Percent(r.fire))
+                        .Append(" ／ 水 ").Append(Percent(r.water)).Append(" ／ 風 ").Append(Percent(r.wind))
+                        .Append("\n雷 ").Append(Percent(r.lightning)).Append(" ／ 光 ").Append(Percent(r.light))
+                        .Append(" ／ 闇 ").Append(Percent(r.dark))
+                        .Append("\nLv1・装備補正なし。移動・攻撃速度は2倍補正込み。");
                     text.Append(selectedId == ReincarnationRules.HumanBookId
                         ? "\n成長/レベル: HP+5、MP・攻撃・魔力・防御・魔防+1"
-                        : "\n成長/レベル: 上記の基礎値を加算（個体値・称号・信頼度補正なし）");
+                        : "\n成長/レベル: 6つの基礎値を加算（個体値・称号・信頼度補正なし）");
+                    text.Append("\n成長するのはHP・MP・攻撃・魔力・防御・魔防です。");
                     MonsterSO species = manager.GetSpecies(selectedId);
                     text.Append("\n使用可能スキル: ");
                     int skillCount = 0;
@@ -213,7 +234,33 @@ namespace MixMaster.UI
                     detailText.text = text.ToString();
                 }
             }
+            UpdateDetailHeight();
             if (reincarnateButton != null) reincarnateButton.interactable = !executing && stats != null;
+        }
+
+        private void UpdateDetailHeight()
+        {
+            if (detailsScroll == null || detailsScroll.content == null ||
+                detailsScroll.viewport == null || detailText == null) return;
+            RectTransform detailContent = detailsScroll.content;
+            detailContent.sizeDelta = new Vector2(detailContent.sizeDelta.x,
+                Mathf.Max(detailsScroll.viewport.rect.height, detailText.preferredHeight + 24f));
+        }
+
+        private static string Percent(float value) => (value * 100f).ToString("0.##") + "%";
+
+        private static string ElementName(ElementType element)
+        {
+            switch (element)
+            {
+                case ElementType.Fire: return "火";
+                case ElementType.Water: return "水";
+                case ElementType.Wind: return "風";
+                case ElementType.Lightning: return "雷";
+                case ElementType.Light: return "光";
+                case ElementType.Dark: return "闇";
+                default: return "無";
+            }
         }
 
         private void RequestReincarnation()

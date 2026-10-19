@@ -159,7 +159,7 @@ namespace MixMaster.Player
 
             float effectiveSpeed = playerManager != null
                 ? Mathf.Max(0f, playerManager.Stats.moveSpeed)
-                : moveSpeed;
+                : moveSpeed * MixMaster.Core.StatCalculator.ActionSpeedMultiplier;
             body.linearVelocity = combatMovementLocked
                 ? Vector2.zero
                 : moveInput * effectiveSpeed;

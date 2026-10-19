@@ -6,6 +6,14 @@ namespace MixMaster.Core
 {
     public static class StatCalculator
     {
+        // Apply once to calculated stats; authored and saved base values stay raw.
+        public const float ActionSpeedMultiplier = 2f;
+
+        public static float ApplyActionSpeedMultiplier(float speed)
+        {
+            return Mathf.Max(0.1f, speed) * ActionSpeedMultiplier;
+        }
+
         public static CharacterStats CalculateMonsterStats(
             MonsterSO monster,
             int level,
@@ -28,7 +36,7 @@ namespace MixMaster.Core
         /// Owned monsters alone receive intimacy scaling. Enemy monsters
         /// continue to use CalculateMonsterStats and keep their wild strength.
         /// We scale HP, MP, physical/magical attack and defenses; attack
-        /// interval, range, movement speed, criticals and resistances keep
+        /// speed, range, criticals and resistances keep
         /// their personality and are not reduced to unusable values.
         /// </summary>
         public static CharacterStats CalculateOwnedMonsterStats(
@@ -142,16 +150,14 @@ namespace MixMaster.Core
                     GetPercent(titleModifiers, x => x.criticalMultiplier),
                     equipment.criticalMultiplier));
 
-            result.moveSpeed = Mathf.Max(
-                0.1f,
+            result.moveSpeed = ApplyActionSpeedMultiplier(
                 CalculateFloat(
                     baseStats.moveSpeed,
                     individualValues.moveSpeed,
                     GetPercent(titleModifiers, x => x.moveSpeed),
                     equipment.moveSpeed));
 
-            result.attackSpeed = Mathf.Max(
-                0.1f,
+            result.attackSpeed = ApplyActionSpeedMultiplier(
                 CalculateFloat(
                     baseStats.attackSpeed,
                     individualValues.attackSpeed,
