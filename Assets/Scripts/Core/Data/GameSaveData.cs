@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 10;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
@@ -24,6 +24,11 @@ namespace MixMaster.Core
         public bool playerAutoAttackEnabled = true;
         public long playerCurrentHp;
         public long playerCurrentMp;
+        public string playerReincarnationBookId = ReincarnationRules.HumanBookId;
+        public int playerSkillPoints;
+        public int playerSpentSkillPoints;
+        public int playerReincarnationCount;
+        public List<ReincarnationBookRecord> reincarnationBooks = new List<ReincarnationBookRecord>();
 
         public List<OwnedMonsterRecord> monsters =
             new List<OwnedMonsterRecord>();

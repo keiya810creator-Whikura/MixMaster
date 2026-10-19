@@ -27,6 +27,7 @@ GameObject:
   - component: {fileID: 8048436327840766571}
   - component: {fileID: 8017196253285157035}
   - component: {fileID: 1307781908138402714}
+  - component: {fileID: 731190000000000301}
   m_Layer: 0
   m_Name: GameManagers
   m_TagString: Untagged
@@ -121,6 +122,10 @@ MonoBehaviour:
   level: 1
   experience: 0
   autoAttackEnabled: 1
+  reincarnationBookId: HUMAN
+  skillPoints: 0
+  spentSkillPoints: 0
+  reincarnationCount: 0
 --- !u!114 &9017986044849736074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -317,3 +322,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43c863ed9f9b56b4bb0f1a15051aefa3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+
+--- !u!114 &731190000000000301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4813397495859680307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42001ec9a9f35ab0ae5f4176710862a2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:

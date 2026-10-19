@@ -52,6 +52,7 @@ namespace MixMaster.Core
                 EnsureStarterEquipment();
 
             initialized = true;
+            StartCoroutine(SpawnAtVillage());
         }
 
         private void Update()
@@ -184,7 +185,15 @@ namespace MixMaster.Core
                 data.playerAutoAttackEnabled = player.AutoAttackEnabled;
                 data.playerCurrentHp = player.CurrentHp;
                 data.playerCurrentMp = player.CurrentMp;
+                data.playerReincarnationBookId = player.ReincarnationBookId;
+                data.playerSkillPoints = player.SkillPoints;
+                data.playerSpentSkillPoints = player.SpentSkillPoints;
+                data.playerReincarnationCount = player.ReincarnationCount;
             }
+
+            ReincarnationManager reincarnation = GetComponent<ReincarnationManager>();
+            if (reincarnation != null)
+                data.reincarnationBooks = new List<ReincarnationBookRecord>(reincarnation.Books);
 
             if (monster != null)
             {
@@ -301,6 +310,13 @@ namespace MixMaster.Core
             if (map != null)
                 map.RestoreMapId(data.mapId);
 
+            if (player != null)
+                player.RestoreReincarnationProgress(
+                    data.version >= 10 ? data.playerReincarnationBookId : ReincarnationRules.HumanBookId,
+                    data.version >= 10 ? data.playerSkillPoints : Math.Max(0, data.playerLevel - 1),
+                    data.version >= 10 ? data.playerSpentSkillPoints : 0,
+                    data.version >= 10 ? data.playerReincarnationCount : 0);
+
             if (player != null && data.playerStats != null)
                 player.RestorePlayerState(
                     data.playerStats,
@@ -322,6 +338,10 @@ namespace MixMaster.Core
                 monster.RestoreMonsters(data.monsters, data.partyIds);
             }
 
+            ReincarnationManager reincarnation = GetComponent<ReincarnationManager>();
+            if (reincarnation != null)
+                reincarnation.RestoreBooks(data.reincarnationBooks);
+
             // Equipment and monsters must both be loaded before ensuring
             // that one item is never assigned to two characters.
             if (equipment != null)
@@ -340,18 +360,24 @@ namespace MixMaster.Core
                     data.version >= 7 ? data.monsterAutoSellIvThreshold : 90,
                     data.version >= 7 ? data.monsterAutoSellRequiredStats : 1);
 
-            hasLastLocation = data.hasPlayerPosition &&
-                !string.IsNullOrWhiteSpace(data.sceneName);
+            // Saved coordinates are retained in the file for compatibility,
+            // but a new application session always starts in the village.
+            hasLastLocation = false;
+        }
 
-            if (hasLastLocation)
+        private IEnumerator SpawnAtVillage()
+        {
+            // Let scene objects and their map/player setup finish first.
+            yield return null;
+            yield return null;
+            for (int attempt = 0; attempt < 120; attempt++)
             {
-                lastLocationScene = data.sceneName;
-                lastLocationMapId = data.mapId;
-                lastLocationPosition = data.playerPosition;
-
-                if (SceneManager.GetActiveScene().name == lastLocationScene)
-                    StartCoroutine(RestorePlayerPosition());
+                MixMaster.World.VillageSpawnPoint spawn =
+                    FindFirstObjectByType<MixMaster.World.VillageSpawnPoint>(FindObjectsInactive.Include);
+                if (spawn != null && spawn.TryRespawnPlayer()) yield break;
+                yield return null;
             }
+            Debug.LogWarning("[SaveManager] 村のVillageSpawnPointまたはプレイヤーが見つからず、起動位置を設定できませんでした。", this);
         }
 
         private IEnumerator RestorePlayerPosition()

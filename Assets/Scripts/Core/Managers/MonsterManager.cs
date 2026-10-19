@@ -282,7 +282,8 @@ namespace MixMaster.Core
             string monsterId,
             MonsterIndividualValues individualValues,
             string titleId = "",
-            bool bypassAutoSell = false)
+            bool bypassAutoSell = false,
+            int initialSkillPoints = 0)
         {
             var monster = new OwnedMonsterRecord
             {
@@ -290,6 +291,7 @@ namespace MixMaster.Core
                 monsterId = monsterId ?? string.Empty,
                 level = 1,
                 experience = 0,
+                skillPoints = Math.Max(0, initialSkillPoints),
                 individualValues =
                     MonsterDropRoller.CloneIndividualValues(
                         individualValues),
@@ -340,6 +342,9 @@ namespace MixMaster.Core
 
             MonsterIndividualValues inheritedIvs = null;
             string inheritedTitleId = string.Empty;
+            int inheritedSkillPoints = ReincarnationRules.TotalSkillPoints(
+                parentA.skillPoints, parentA.spentSkillPoints,
+                parentB.skillPoints, parentB.spentSkillPoints);
             if (succeeded)
             {
                 MonsterIndividualValues ivA = parentA.individualValues ??
@@ -369,7 +374,7 @@ namespace MixMaster.Core
             if (succeeded)
             {
                 child = ObtainMonster(childSpecies.monsterId,
-                    inheritedIvs, inheritedTitleId, true);
+                    inheritedIvs, inheritedTitleId, true, inheritedSkillPoints);
             }
 
             // Reuse the existing single-rebuild inventory notification.
@@ -444,6 +449,8 @@ namespace MixMaster.Core
 
                     record.individualValues.ClampAll();
                     record.intimacyKills = Math.Max(0, record.intimacyKills);
+                    record.skillPoints = Math.Max(0, record.skillPoints);
+                    record.spentSkillPoints = Math.Max(0, record.spentSkillPoints);
                     if (!Enum.IsDefined(typeof(MonsterCombatBehavior), record.combatBehavior))
                         record.combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
                     record.level = Mathf.Clamp(record.level, 1, ExperienceProgression.MaxLevel);
