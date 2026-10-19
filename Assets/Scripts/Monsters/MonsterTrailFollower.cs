@@ -1,5 +1,6 @@
 using UnityEngine;
 using MixMaster.Player;
+using MixMaster.Core;
 
 namespace MixMaster.Monsters
 {
@@ -24,6 +25,8 @@ namespace MixMaster.Monsters
         [Header("Movement")]
         [SerializeField, Min(0.1f)] private float followSpeed = 7f;
         [SerializeField, Min(0f)] private float stopDistance = 0.03f;
+        [Tooltip("Time to ease into trail movement and slow down near the target.")]
+        [SerializeField, Min(0.02f)] private float followSmoothTime = 0.12f;
 
         [Tooltip("If the follower gets farther than this from its trail target, snap it back to the party.")]
         [SerializeField, Min(0.5f)] private float snapDistance = 8f;
@@ -42,7 +45,9 @@ namespace MixMaster.Monsters
         private Direction8 facingDirection;
         private float animationTimer;
         private int animationFrame;
-        private Vector2 lastPosition;
+        private Vector2 followVelocity;
+        private Vector2 lastTrailTarget;
+        private bool hasTrailTarget;
         private bool isMoving;
         private bool combatControlled;
 
@@ -60,9 +65,9 @@ namespace MixMaster.Monsters
 
             body.gravityScale = 0f;
             body.freezeRotation = true;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
 
             facingDirection = initialDirection;
-            lastPosition = body.position;
             RefreshIdleSprite();
         }
 
@@ -80,12 +85,16 @@ namespace MixMaster.Monsters
             if (playerTrail == null)
             {
                 body.linearVelocity = Vector2.zero;
-                isMoving = false;
+                ResetFollowMovement();
+                UpdateMovementVisual(Vector2.zero);
                 return;
             }
 
             Vector2 current = body.position;
             Vector2 target = playerTrail.GetPositionBehind(TrailDistance);
+            bool targetMoved = !hasTrailTarget || (target - lastTrailTarget).sqrMagnitude > 0.0000000001f;
+            lastTrailTarget = target;
+            hasTrailTarget = true;
             Vector2 toTarget = target - current;
             float distance = toTarget.magnitude;
 
@@ -93,29 +102,32 @@ namespace MixMaster.Monsters
             {
                 body.position = target;
                 body.linearVelocity = Vector2.zero;
-                UpdateMovementVisual(target - lastPosition);
-                lastPosition = target;
+                followVelocity = Vector2.zero;
+                UpdateMovementVisual(Vector2.zero);
                 return;
             }
 
-            if (distance <= stopDistance)
+            // A moving target must not repeatedly cross a stop/start dead zone.
+            if (!targetMoved && distance <= stopDistance)
             {
                 body.linearVelocity = Vector2.zero;
+                followVelocity = Vector2.zero;
                 UpdateMovementVisual(Vector2.zero);
-                lastPosition = current;
                 return;
             }
 
-            Vector2 nextPosition = Vector2.MoveTowards(
+            Vector2 nextPosition = Vector2.SmoothDamp(
                 current,
                 target,
-                followSpeed * Time.fixedDeltaTime);
+                ref followVelocity,
+                followSmoothTime,
+                StatCalculator.ApplyActionSpeedMultiplier(followSpeed),
+                Time.fixedDeltaTime);
 
             body.MovePosition(nextPosition);
 
             Vector2 movement = nextPosition - current;
             UpdateMovementVisual(movement);
-            lastPosition = nextPosition;
         }
 
         private void Update()
@@ -129,19 +141,38 @@ namespace MixMaster.Monsters
         public void SetFollowOrder(int order)
         {
             followOrder = Mathf.Max(0, order);
+            ResetFollowMovement();
         }
 
         public void SetPlayerTrail(PlayerTrailRecorder trail)
         {
             playerTrail = trail;
+            ResetFollowMovement();
         }
 
         public void SetCombatControlled(bool controlled)
         {
-            combatControlled = controlled;
+            if (combatControlled == controlled)
+                return;
 
-            if (!controlled && body != null)
+            combatControlled = controlled;
+            ResetFollowMovement();
+
+            if (body != null)
                 body.linearVelocity = Vector2.zero;
+        }
+
+        private void ResetFollowMovement()
+        {
+            followVelocity = Vector2.zero;
+            hasTrailTarget = false;
+        }
+
+        private void OnDisable()
+        {
+            ResetFollowMovement();
+            if (body != null) body.linearVelocity = Vector2.zero;
+            UpdateMovementVisual(Vector2.zero);
         }
 
         /// <summary>
@@ -171,7 +202,6 @@ namespace MixMaster.Monsters
 
             body.MovePosition(next);
             UpdateMovementVisual(next - current);
-            lastPosition = next;
             return true;
         }
 
@@ -203,7 +233,7 @@ namespace MixMaster.Monsters
 
         private void UpdateMovementVisual(Vector2 movement)
         {
-            isMoving = movement.sqrMagnitude > 0.000001f;
+            isMoving = movement.sqrMagnitude > 0.0000000001f;
 
             if (!isMoving)
             {
@@ -216,6 +246,13 @@ namespace MixMaster.Monsters
 
             if (newDirection != facingDirection)
             {
+                // Keep the current sprite near a direction boundary so tiny
+                // low-speed rounding changes cannot flicker between two poses.
+                float angle = Mathf.Atan2(movement.y, movement.x) * Mathf.Rad2Deg;
+                float facingAngle = (int)facingDirection * 45f - 90f;
+                if (Mathf.Abs(Mathf.DeltaAngle(facingAngle, angle)) <= 27.5f)
+                    return;
+
                 facingDirection = newDirection;
                 animationTimer = 0f;
                 animationFrame = 0;
@@ -283,6 +320,7 @@ namespace MixMaster.Monsters
             followerSpacing = Mathf.Max(0.1f, followerSpacing);
             followSpeed = Mathf.Max(0.1f, followSpeed);
             stopDistance = Mathf.Max(0f, stopDistance);
+            followSmoothTime = Mathf.Max(0.02f, followSmoothTime);
             snapDistance = Mathf.Max(0.5f, snapDistance);
             animationFps = Mathf.Max(0.1f, animationFps);
             idleFrameIndex = Mathf.Max(0, idleFrameIndex);

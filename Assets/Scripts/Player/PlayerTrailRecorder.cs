@@ -8,6 +8,7 @@ namespace MixMaster.Player
     /// Followers can ask for a position a specified distance behind the player,
     /// allowing them to trace corners instead of directly chasing the player.
     /// </summary>
+    [DefaultExecutionOrder(-100)]
     [DisallowMultipleComponent]
     public sealed class PlayerTrailRecorder : MonoBehaviour
     {
@@ -23,11 +24,16 @@ namespace MixMaster.Player
 
         private readonly List<Vector2> points = new List<Vector2>(512);
         private Vector2 lastRecordedPosition;
+        private Rigidbody2D body;
+
+        // Physics samples must not use the interpolated render transform.
+        private Vector2 CurrentPosition => body != null ? body.position : (Vector2)transform.position;
 
         public int PointCount => points.Count;
 
         private void Awake()
         {
+            body = GetComponent<Rigidbody2D>();
             ResetTrail();
         }
 
@@ -46,14 +52,14 @@ namespace MixMaster.Player
         {
             points.Clear();
 
-            Vector2 current = transform.position;
+            Vector2 current = CurrentPosition;
             points.Add(current);
             lastRecordedPosition = current;
         }
 
         public Vector2 GetPositionBehind(float distanceBehind)
         {
-            Vector2 current = transform.position;
+            Vector2 current = CurrentPosition;
 
             if (distanceBehind <= 0f || points.Count == 0)
                 return current;
@@ -87,7 +93,7 @@ namespace MixMaster.Player
 
         private void RecordCurrentPosition()
         {
-            Vector2 current = transform.position;
+            Vector2 current = CurrentPosition;
             float movedDistance = Vector2.Distance(lastRecordedPosition, current);
 
             if (movedDistance <= Mathf.Epsilon)
@@ -120,7 +126,7 @@ namespace MixMaster.Player
             if (points.Count <= 2)
                 return;
 
-            float accumulatedDistance = Vector2.Distance(transform.position, points[points.Count - 1]);
+            float accumulatedDistance = Vector2.Distance(CurrentPosition, points[points.Count - 1]);
 
             for (int i = points.Count - 1; i > 0; i--)
             {

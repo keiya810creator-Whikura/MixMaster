@@ -585,7 +585,7 @@ namespace MixMaster.Combat
             if (usePlayerManagerStats && playerManager != null)
                 return Mathf.Max(0.1f, playerManager.Stats.attackSpeed);
 
-            return Mathf.Max(0.1f, fallbackAttackSpeed);
+            return StatCalculator.ApplyActionSpeedMultiplier(fallbackAttackSpeed);
         }
 
         private float GetCriticalRate()
