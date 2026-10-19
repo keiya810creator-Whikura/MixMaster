@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -10,6 +11,39 @@ namespace MixMaster.Core
         private CharacterStats effectiveStats;
         private EquipmentManager equipmentManager;
         private bool equipmentSubscribed;
+        private CharacterStats humanBaseStats;
+
+        [Header("Reincarnation")]
+        [SerializeField] private string reincarnationBookId = ReincarnationRules.HumanBookId;
+        [SerializeField, Min(0)] private int skillPoints;
+        [SerializeField, Min(0)] private int spentSkillPoints;
+        [SerializeField, Min(0)] private int reincarnationCount;
+        private static readonly SkillSO[] NoSkills = new SkillSO[0];
+
+        public string ReincarnationBookId => reincarnationBookId;
+        public int SkillPoints => skillPoints;
+        public int SpentSkillPoints => spentSkillPoints;
+        public int ReincarnationCount => reincarnationCount;
+        public CharacterStats HumanBaseStats => ReincarnationRules.CopyStats(humanBaseStats);
+        public MonsterSO ReincarnationSpecies
+        {
+            get
+            {
+                if (reincarnationBookId == ReincarnationRules.HumanBookId) return null;
+                MonsterCatalogSO catalog = MonsterCatalogSO.Load();
+                return catalog != null ? catalog.GetMonster(reincarnationBookId) : null;
+            }
+        }
+        // Skill execution/learning will use this species catalog later.
+        public IReadOnlyList<SkillSO> AvailableReincarnationSkills
+        {
+            get
+            {
+                MonsterSO species = ReincarnationSpecies;
+                return species != null && species.availableSkills != null
+                    ? (IReadOnlyList<SkillSO>)species.availableSkills : NoSkills;
+            }
+        }
 
         // Base growth values are saved; equipment is only applied at runtime.
         public CharacterStats BaseStats => stats;
@@ -50,6 +84,7 @@ namespace MixMaster.Core
 
         private void Awake()
         {
+            humanBaseStats = ReincarnationRules.CopyStats(stats);
             CurrentHp = Math.Max(1L, stats.maxHp);
             CurrentMp = Math.Max(0L, stats.maxMp);
             effectiveStats = stats;
@@ -137,6 +172,30 @@ namespace MixMaster.Core
             ExperienceChanged?.Invoke(experience, ExperienceToNextLevel);
         }
 
+        public void RestoreReincarnationProgress(string bookId, int availablePoints,
+            int usedPoints, int count)
+        {
+            reincarnationBookId = string.IsNullOrWhiteSpace(bookId)
+                ? ReincarnationRules.HumanBookId : bookId;
+            skillPoints = Math.Max(0, availablePoints);
+            spentSkillPoints = Math.Max(0, usedPoints);
+            reincarnationCount = Math.Max(0, count);
+        }
+
+        internal void Reincarnate(MonsterSO species)
+        {
+            skillPoints = ReincarnationRules.TotalSkillPoints(skillPoints, spentSkillPoints);
+            spentSkillPoints = 0;
+            reincarnationCount = ReincarnationRules.TotalSkillPoints(reincarnationCount, 1);
+            reincarnationBookId = species != null ? species.monsterId : ReincarnationRules.HumanBookId;
+            stats = ReincarnationRules.CopyStats(species != null ? species.baseStats : humanBaseStats);
+            level = 1;
+            experience = 0L;
+            RecalculateEquipmentStats();
+            RestoreFullResources();
+            ExperienceChanged?.Invoke(experience, ExperienceToNextLevel);
+        }
+
         public void AddExperience(long amount)
         {
             if (amount <= 0L || level >= ExperienceProgression.MaxLevel)
@@ -148,6 +207,7 @@ namespace MixMaster.Core
                 ref nextLevel, ref nextExperience, amount, out int gainedLevels);
 
             experience = nextExperience;
+            skillPoints = ReincarnationRules.TotalSkillPoints(skillPoints, gainedLevels);
             for (int i = 0; i < gainedLevels; i++)
             {
                 level++;
@@ -160,15 +220,16 @@ namespace MixMaster.Core
 
         private void ApplyLevelUpStats()
         {
-            // Before the reincarnation system is implemented, use fixed
-            // base-stat gains (NOT multiplicative/percentage growth).
-            // Preserve all other stats, equipment, resistance, crit and speed.
-            stats.maxHp = LongMath.SaturatingAdd(Math.Max(1L, stats.maxHp), 5L);
-            stats.maxMp = LongMath.SaturatingAdd(Math.Max(0L, stats.maxMp), 1L);
-            stats.attack = LongMath.SaturatingAdd(stats.attack, 1L);
-            stats.magic = LongMath.SaturatingAdd(stats.magic, 1L);
-            stats.defense = LongMath.SaturatingAdd(stats.defense, 1L);
-            stats.magicDefense = LongMath.SaturatingAdd(stats.magicDefense, 1L);
+            MonsterSO species = ReincarnationSpecies;
+            CharacterStats growth = species != null ? species.baseStats : null;
+            stats.maxHp = LongMath.SaturatingAdd(Math.Max(1L, stats.maxHp),
+                growth != null ? Math.Max(1L, growth.maxHp) : 5L);
+            stats.maxMp = LongMath.SaturatingAdd(Math.Max(0L, stats.maxMp),
+                growth != null ? Math.Max(0L, growth.maxMp) : 1L);
+            stats.attack = LongMath.SaturatingAdd(stats.attack, growth != null ? Math.Max(0L, growth.attack) : 1L);
+            stats.magic = LongMath.SaturatingAdd(stats.magic, growth != null ? Math.Max(0L, growth.magic) : 1L);
+            stats.defense = LongMath.SaturatingAdd(stats.defense, growth != null ? Math.Max(0L, growth.defense) : 1L);
+            stats.magicDefense = LongMath.SaturatingAdd(stats.magicDefense, growth != null ? Math.Max(0L, growth.magicDefense) : 1L);
             RecalculateEquipmentStats();
         }
 

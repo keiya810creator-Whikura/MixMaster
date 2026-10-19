@@ -276,7 +276,7 @@ namespace MixMaster.EditorTools
             TMP_Text noteText = MakeText(
                 note, "GrowthInfo",
                 "レベルアップ：HP +5、MP・攻撃・魔力・防御・魔防 +1" +
-                "\n転生は今後、祭壇や町のオブジェクトから行います。",
+                "\n転生は村の転生の祭壇から行えます。",
                 new Vector2(20f, -60f), new Vector2(850f, 75f), 22f);
             noteText.color = new Color(0.84f, 0.84f, 0.89f);
 
