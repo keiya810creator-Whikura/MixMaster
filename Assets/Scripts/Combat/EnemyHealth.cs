@@ -160,9 +160,10 @@ namespace MixMaster.Combat
 
             wanderAI?.EnterCombat(1.5f);
 
+            // Show the full hit, including overkill; HP loss stays capped.
             DamagePopupText.Show(
                 transform.position,
-                actualDamage,
+                damage,
                 sourceInfo != null
                     ? sourceInfo.sourceType
                     : MaterialDropSourceType.Unknown);

@@ -7,11 +7,11 @@ namespace MixMaster.Core
     public static class StatCalculator
     {
         // Apply once to calculated stats; authored and saved base values stay raw.
-        public const float ActionSpeedMultiplier = 2f;
+        public const float MovementSpeedMultiplier = 2f;
 
-        public static float ApplyActionSpeedMultiplier(float speed)
+        public static float ApplyMovementSpeedMultiplier(float speed)
         {
-            return Mathf.Max(0.1f, speed) * ActionSpeedMultiplier;
+            return Mathf.Max(0.1f, speed) * MovementSpeedMultiplier;
         }
 
         public static CharacterStats CalculateMonsterStats(
@@ -150,14 +150,15 @@ namespace MixMaster.Core
                     GetPercent(titleModifiers, x => x.criticalMultiplier),
                     equipment.criticalMultiplier));
 
-            result.moveSpeed = ApplyActionSpeedMultiplier(
+            result.moveSpeed = ApplyMovementSpeedMultiplier(
                 CalculateFloat(
                     baseStats.moveSpeed,
                     individualValues.moveSpeed,
                     GetPercent(titleModifiers, x => x.moveSpeed),
                     equipment.moveSpeed));
 
-            result.attackSpeed = ApplyActionSpeedMultiplier(
+            result.attackSpeed = Mathf.Max(
+                0.1f,
                 CalculateFloat(
                     baseStats.attackSpeed,
                     individualValues.attackSpeed,

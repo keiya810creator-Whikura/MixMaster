@@ -192,7 +192,7 @@ namespace MixMaster.UI
                 else
                 {
                     // Preview the actual Lv1 values before equipment, including the
-                    // shared speed multiplier and normal caps on criticals/resistances.
+                    // shared movement multiplier and normal caps on criticals/resistances.
                     CharacterStats preview = StatCalculator.CalculateStats(stats, 1, new MonsterIndividualValues());
                     var text = new StringBuilder(manager.GetBookName(selectedId));
                     text.Append("\n基礎値　HP ").Append(stats.maxHp.ToString("N0"))
@@ -203,8 +203,7 @@ namespace MixMaster.UI
                         .Append(" ／ 魔防 ").Append(stats.magicDefense.ToString("N0"));
                     text.Append("\n移動速度 ").Append(preview.moveSpeed.ToString("0.##"))
                         .Append(" ／ 攻撃速度 ").Append(preview.attackSpeed.ToString("0.##")).Append("回/秒")
-                        .Append("\n攻撃間隔 ").Append((1f / preview.attackSpeed).ToString("0.##")).Append("秒")
-                        .Append(" ／ 攻撃範囲 ").Append(preview.attackRange.ToString("0.##"))
+                        .Append("\n攻撃範囲 ").Append(preview.attackRange.ToString("0.##"))
                         .Append("\nクリティカル率 ").Append(Percent(preview.criticalRate))
                         .Append(" ／ 倍率 ×").Append(preview.criticalMultiplier.ToString("0.##"))
                         .Append("\n属性 ").Append(ElementName(preview.element))
@@ -213,24 +212,7 @@ namespace MixMaster.UI
                     text.Append("\n属性耐性　火 ").Append(Percent(r.fire))
                         .Append(" ／ 水 ").Append(Percent(r.water)).Append(" ／ 風 ").Append(Percent(r.wind))
                         .Append("\n雷 ").Append(Percent(r.lightning)).Append(" ／ 光 ").Append(Percent(r.light))
-                        .Append(" ／ 闇 ").Append(Percent(r.dark))
-                        .Append("\nLv1・装備補正なし。移動・攻撃速度は2倍補正込み。");
-                    text.Append(selectedId == ReincarnationRules.HumanBookId
-                        ? "\n成長/レベル: HP+5、MP・攻撃・魔力・防御・魔防+1"
-                        : "\n成長/レベル: 6つの基礎値を加算（個体値・称号・信頼度補正なし）");
-                    text.Append("\n成長するのはHP・MP・攻撃・魔力・防御・魔防です。");
-                    MonsterSO species = manager.GetSpecies(selectedId);
-                    text.Append("\n使用可能スキル: ");
-                    int skillCount = 0;
-                    if (species != null && species.availableSkills != null)
-                        foreach (SkillSO skill in species.availableSkills)
-                        {
-                            if (skill == null) continue;
-                            if (skillCount++ < 4) text.Append(skillCount == 1 ? "" : "、").Append(skill.displayName);
-                        }
-                    if (skillCount == 0) text.Append("未設定");
-                    else if (skillCount > 4) text.Append(" ほか").Append(skillCount - 4).Append("種");
-                    text.Append("（スキル使用機能は今後実装）");
+                        .Append(" ／ 闇 ").Append(Percent(r.dark));
                     detailText.text = text.ToString();
                 }
             }

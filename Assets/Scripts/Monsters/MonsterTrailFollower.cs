@@ -121,7 +121,7 @@ namespace MixMaster.Monsters
                 target,
                 ref followVelocity,
                 followSmoothTime,
-                StatCalculator.ApplyActionSpeedMultiplier(followSpeed),
+                StatCalculator.ApplyMovementSpeedMultiplier(followSpeed),
                 Time.fixedDeltaTime);
 
             body.MovePosition(nextPosition);
