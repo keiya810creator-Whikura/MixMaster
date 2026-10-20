@@ -99,7 +99,7 @@ namespace MixMaster.UI
             EnsureSortingControls();
             EnsurePagingControls();
             EnsureBulkSaleDialog();
-            autoSellDialog = InventoryAutoSellDialog.Ensure(transform);
+            autoSellDialog = InventoryAutoSellDialog.Ensure(SafeAreaLayout.ContentRoot(transform));
         }
 
         private void OnEnable()
@@ -677,7 +677,7 @@ namespace MixMaster.UI
         {
             // Dropdowns are authored into the panel prefab by the Editor
             // baker. Never instantiate a TMP_Dropdown during gameplay.
-            Transform controls = transform.Find("InventoryFilters");
+            Transform controls = SafeAreaLayout.ContentRoot(transform).Find("InventoryFilters");
             if (controls == null)
             {
                 Debug.LogError(
@@ -748,7 +748,7 @@ namespace MixMaster.UI
         private void EnsureBulkSaleDialog()
         {
             if (bulkSaleDialog == null)
-                bulkSaleDialog = InventoryBulkSaleDialog.Ensure(transform);
+                bulkSaleDialog = InventoryBulkSaleDialog.Ensure(SafeAreaLayout.ContentRoot(transform));
         }
 
         private void GetEligibleFilteredMonsters(List<string> destination,
@@ -820,7 +820,7 @@ namespace MixMaster.UI
             if (previousPageButton != null) return;
             GameObject area = new GameObject(
                 "MonsterPageControls", typeof(RectTransform));
-            area.transform.SetParent(transform, false);
+            area.transform.SetParent(SafeAreaLayout.ContentRoot(transform), false);
             RectTransform bar = area.GetComponent<RectTransform>();
             bar.anchorMin = new Vector2(0f, 0f);
             bar.anchorMax = new Vector2(1f, 0f);
@@ -864,7 +864,7 @@ namespace MixMaster.UI
             nextPageButton.onClick.AddListener(NextPage);
 
             RectTransform scroll =
-                transform.Find("ScrollView") as RectTransform;
+                SafeAreaLayout.ContentRoot(transform).Find("ScrollView") as RectTransform;
             if (scroll != null)
             {
                 Vector2 min = scroll.offsetMin;

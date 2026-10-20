@@ -185,7 +185,7 @@ namespace MixMaster.UI
                     typeof(VerticalLayoutGroup));
 
             content.transform.SetParent(
-                canvasObject.transform,
+                SafeAreaLayout.CreateContent(canvasObject.transform),
                 false);
 
             contentRoot =

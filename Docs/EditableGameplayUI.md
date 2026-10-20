@@ -19,6 +19,7 @@ UIはPlay中にコードで組み立てる方式から、Prefab内の参照済�
 | `PlayerStatusMenuPanel` | 既存ステータス画面。自動攻撃トグルを追加 |
 
 Prefabを開き、ボタンやCardのRectTransform、Image、TMPの設定を編集してください。
+各画面の操作部分は子の `SafeArea` 以下にあります。ノッチ・ホームバーへの対応は `Docs/MobileSafeArea.md` を参照してください。
 配置・サイズ・色は表示時にコードで再生成しません。素材・数値・残り時間・ON/OFFなどの可変情報はコードで更新します。
 受取・記録結果・ダンジョン画面のルートは初期状態を非アクティブにします。
 一覧の行間・高さはContentのVerticalLayoutGroupと `RewardItemRow` のLayoutElementで編集できます。

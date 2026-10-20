@@ -44,7 +44,7 @@ namespace MixMaster.UI
             GameObject card = new GameObject("StatsCard",
                 typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup));
-            card.transform.SetParent(transform, false);
+            card.transform.SetParent(SafeAreaLayout.CreateContent(transform), false);
             RectTransform rect = card.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.07f, 0.08f);
             rect.anchorMax = new Vector2(0.93f, 0.92f);

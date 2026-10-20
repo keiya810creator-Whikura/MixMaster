@@ -103,7 +103,7 @@ namespace MixMaster.EditorTools
             bool changed = false;
             try
             {
-                RectTransform host = root.GetComponent<RectTransform>();
+                RectTransform host = SafeAreaLayout.ContentRoot(root.transform) as RectTransform;
                 if (host == null)
                     throw new InvalidOperationException(prefabPath +
                         " に RectTransform がありません。");

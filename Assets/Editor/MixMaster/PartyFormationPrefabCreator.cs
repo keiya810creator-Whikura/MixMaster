@@ -179,7 +179,7 @@ namespace MixMaster.EditorTools
                     return;
 
                 Transform buttonTransform =
-                    root.transform.Find("PartyActionButton");
+                    SafeAreaLayout.ContentRoot(root.transform).Find("PartyActionButton");
 
                 Button partyButton = buttonTransform != null
                     ? buttonTransform.GetComponent<Button>()
@@ -190,7 +190,7 @@ namespace MixMaster.EditorTools
                 if (partyButton == null)
                 {
                     partyButton = CreateTopRightButton(
-                        root.transform,
+                        SafeAreaLayout.ContentRoot(root.transform),
                         "PartyActionButton",
                         "パーティに編成",
                         new Vector2(-186f, -20f),
@@ -200,7 +200,7 @@ namespace MixMaster.EditorTools
                 partyButtonText = partyButton.GetComponentInChildren<TMP_Text>(true);
 
                 Transform statusTransform =
-                    root.transform.Find("PartyStatusText");
+                    SafeAreaLayout.ContentRoot(root.transform).Find("PartyStatusText");
 
                 TMP_Text partyStatus = statusTransform != null
                     ? statusTransform.GetComponent<TMP_Text>()
@@ -209,7 +209,7 @@ namespace MixMaster.EditorTools
                 if (partyStatus == null)
                 {
                     partyStatus = CreateText(
-                        root.transform,
+                        SafeAreaLayout.ContentRoot(root.transform),
                         "PartyStatusText",
                         "パーティ 0/3",
                         new Vector2(380f, -64f),
@@ -256,7 +256,7 @@ namespace MixMaster.EditorTools
                         return;
 
                     GameObject instance = PrefabUtility.InstantiatePrefab(
-                        prefab, root.transform) as GameObject;
+                        prefab, SafeAreaLayout.ContentRoot(root.transform)) as GameObject;
 
                     if (instance == null)
                         return;
@@ -277,7 +277,7 @@ namespace MixMaster.EditorTools
 
                 // Leave room below the party bar; preserve other layout
                 // settings and only move the scroll top if necessary.
-                Transform scrollTransform = root.transform.Find("ScrollView");
+                Transform scrollTransform = SafeAreaLayout.ContentRoot(root.transform).Find("ScrollView");
 
                 if (scrollTransform != null)
                 {
