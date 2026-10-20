@@ -58,6 +58,8 @@ namespace MixMaster.Core
         public long ExperienceToNextLevel => ExperienceProgression.RequiredExperience(level);
         public event Action<long, long> ExperienceChanged;
         public event Action<int> LeveledUp;
+        // Received EXP remains meaningful across level-up gauge resets.
+        public event Action<long> ExperienceGained;
 
         [Header("Combat")]
         [SerializeField] private bool autoAttackEnabled = true;
@@ -216,6 +218,7 @@ namespace MixMaster.Core
             }
 
             ExperienceChanged?.Invoke(experience, ExperienceToNextLevel);
+            ExperienceGained?.Invoke(amount);
         }
 
         private void ApplyLevelUpStats()

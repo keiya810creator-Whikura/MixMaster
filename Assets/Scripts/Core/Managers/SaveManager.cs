@@ -52,6 +52,8 @@ namespace MixMaster.Core
                 EnsureStarterEquipment();
 
             initialized = true;
+            OfflineRewardManager offline = GetComponent<OfflineRewardManager>();
+            if (offline != null) offline.InitializeAfterLoad();
             StartCoroutine(SpawnAtVillage());
         }
 
@@ -76,14 +78,27 @@ namespace MixMaster.Core
 
         private void OnApplicationPause(bool paused)
         {
-            if (paused && initialized)
-                SaveGame();
+            if (!initialized) return;
+            OfflineRewardManager offline = GetComponent<OfflineRewardManager>();
+            if (offline != null) offline.SetApplicationPaused(paused);
+            else if (paused) SaveGame();
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!initialized) return;
+            OfflineRewardManager offline = GetComponent<OfflineRewardManager>();
+            if (offline != null) offline.SetApplicationFocused(focused);
         }
 
         private void OnApplicationQuit()
         {
             if (initialized)
+            {
+                OfflineRewardManager offline = GetComponent<OfflineRewardManager>();
+                if (offline != null) offline.PrepareForQuit();
                 SaveGame();
+            }
         }
 
         private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -129,6 +144,11 @@ namespace MixMaster.Core
             try
             {
                 Apply(data);
+                if (initialized)
+                {
+                    OfflineRewardManager offline = GetComponent<OfflineRewardManager>();
+                    if (offline != null) offline.InitializeAfterLoad();
+                }
                 Loaded?.Invoke();
                 Debug.Log("[SaveManager] セーブデータをロードしました。");
                 return true;
@@ -232,7 +252,11 @@ namespace MixMaster.Core
             }
 
             if (offline != null)
-                data.offlineProfile = offline.LastCompletedProfile;
+            {
+                data.offlineProfile = OfflineRewardRules.CopyProfile(offline.LastCompletedProfile);
+                data.offlinePendingProfile = OfflineRewardRules.CopyProfile(offline.PendingProfile);
+                data.offlineCheckpointUtc = offline.CheckpointUtcForSave;
+            }
 
             PlayerController playerController =
                 FindFirstObjectByType<PlayerController>();
@@ -327,7 +351,10 @@ namespace MixMaster.Core
                     data.version < 2 || data.playerAutoAttackEnabled);
 
             if (offline != null)
-                offline.RestoreLastCompletedProfile(data.offlineProfile);
+                offline.RestoreProgress(data.offlineProfile,
+                    data.version >= 11 ? data.offlinePendingProfile : null,
+                    data.version >= 11 && !string.IsNullOrWhiteSpace(data.offlineCheckpointUtc)
+                        ? data.offlineCheckpointUtc : data.savedUtc);
 
             if (monster != null)
             {

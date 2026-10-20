@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 10;
+        public const int CurrentVersion = 11;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
@@ -60,5 +60,7 @@ namespace MixMaster.Core
         public int monsterAutoSellRequiredStats = 1;
 
         public OfflineRecordProfile offlineProfile;
+        public OfflineRecordProfile offlinePendingProfile;
+        public string offlineCheckpointUtc = string.Empty;
     }
 }
