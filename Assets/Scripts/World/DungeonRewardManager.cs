@@ -327,7 +327,6 @@ namespace MixMaster.World
                     "[DungeonReward] 報酬は所持品に反映されましたが、" +
                     "セーブの確認ができませんでした。", this);
 
-            mapGenerator?.SetTemporaryReturnVisible(false);
             var player = FindFirstObjectByType<PlayerController>();
             player?.SetCombatMovementLocked(true);
             var joystick = FindFirstObjectByType<FloatingJoystick>();
@@ -335,6 +334,7 @@ namespace MixMaster.World
 
             results = DungeonResultPanelUI.Show(
                 report, ReturnFromResult, RetryFromResult);
+            if (results == null) ReturnFromResult();
         }
 
         private SaveManager GetSaveManager()

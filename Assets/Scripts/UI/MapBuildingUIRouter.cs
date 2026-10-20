@@ -42,17 +42,18 @@ namespace MixMaster.UI
 
             Instance = this;
 
-            // Automatically provide a dungeon entrance panel when the scene
-            // has not yet assigned one in the router Inspector.
+            // Resolve the editable scene prefab, including inactive panels.
             if (dungeonEntrancePanel == null ||
                 dungeonEntrancePanel.GetComponent<DungeonEntrancePanelUI>() == null)
             {
                 DungeonEntrancePanelUI existing =
                     FindFirstObjectByType<DungeonEntrancePanelUI>(
                         FindObjectsInactive.Include);
-                if (existing == null)
-                    existing = DungeonEntrancePanelUI.CreateRuntime(transform);
-                dungeonEntrancePanel = existing.gameObject;
+                dungeonEntrancePanel = existing != null ? existing.gameObject : null;
+            }
+            if (dungeonEntrancePanel == null)
+            {
+                Debug.LogWarning("[MapBuildingUIRouter] Assets/Prefab/UI/DungeonEntrancePanel.prefab をCanvas下に配置してください。", this);
             }
 
             // BreedingShopPanel is now authored as a Prefab and placed in

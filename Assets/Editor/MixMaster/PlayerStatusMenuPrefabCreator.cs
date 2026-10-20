@@ -247,6 +247,27 @@ namespace MixMaster.EditorTools
                 identity, "Resources", "HP\nMP\nEXP",
                 new Vector2(178f, -116f), new Vector2(650f, 94f), 23f);
 
+            GameObject autoAttack = new GameObject("AutoAttackSetting",
+                typeof(RectTransform), typeof(Image), typeof(LayoutElement), typeof(Toggle));
+            autoAttack.transform.SetParent(content, false);
+            autoAttack.GetComponent<LayoutElement>().preferredHeight = 104f;
+            Image autoBackground = autoAttack.GetComponent<Image>();
+            autoBackground.color = new Color(0.10f, 0.15f, 0.22f, 0.96f);
+            Image box = MakeImage(autoAttack.transform, "Checkbox",
+                new Vector2(22f, -24f), new Vector2(56f, 56f));
+            box.color = new Color(0.24f, 0.34f, 0.43f);
+            Image mark = MakeImage(box.transform, "OnMark",
+                new Vector2(10f, -10f), new Vector2(36f, 36f));
+            mark.color = new Color(0.4f, 1f, 0.65f);
+            MakeText(autoAttack.transform, "Label", "主人公の自動攻撃",
+                new Vector2(102f, -24f), new Vector2(610f, 56f), 29f);
+            TMP_Text autoState = MakeText(autoAttack.transform, "State", "ON",
+                new Vector2(720f, -24f), new Vector2(130f, 56f), 29f);
+            Toggle autoToggle = autoAttack.GetComponent<Toggle>();
+            autoToggle.targetGraphic = autoBackground;
+            autoToggle.graphic = mark;
+            autoToggle.isOn = true;
+
             RectTransform core = MakeSection(
                 content, "CoreStatsSection", "基礎ステータス", 312f);
             TMP_Text coreText = MakeText(
@@ -305,6 +326,7 @@ namespace MixMaster.EditorTools
                 new Vector2(34f, -153f), new Vector2(815f, 520f), 30f);
 
             PlayerStatusMenuUI menu = root.GetComponent<PlayerStatusMenuUI>();
+            menu.SetAutoAttackControls(autoToggle, autoState);
             menu.SetReferences(level, resources, coreText, combatText,
                 resistanceText, equipmentText, portrait,
                 statusPage, gearPage, gearText,

@@ -6,11 +6,9 @@ using MixMaster.Core;
 using MixMaster.Monsters;
 using MixMaster.Player;
 using MixMaster.UI;
-using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
-using UnityEngine.UI;
 
 namespace MixMaster.World
 {
@@ -32,10 +30,6 @@ namespace MixMaster.World
             new Color(0.90f, 0.73f, 0.46f, 1f);
         [SerializeField] private Color finalBossFloorColor =
             new Color(0.64f, 0.50f, 0.88f, 1f);
-
-        [Header("Temporary development navigation")]
-        [Tooltip("Allows returning while bosses/results are not yet implemented.")]
-        [SerializeField] private bool showTemporaryReturnButton = true;
 
         private sealed class SuspendedEnemy
         {
@@ -59,7 +53,6 @@ namespace MixMaster.World
         private Tilemap generatedGround;
         private Tilemap generatedWalls;
         private Tile collisionTile;
-        private GameObject temporaryReturnCanvas;
         private PlayerController player;
         private Vector3 entranceWorldPosition;
         private string fieldMapId;
@@ -236,8 +229,6 @@ namespace MixMaster.World
             Vector3 startWorld = GetRoomWorldPosition(
                 CurrentLayout.EntranceRoom);
             WarpParty(startWorld);
-            if (showTemporaryReturnButton)
-                CreateTemporaryReturnButton();
 
             Debug.Log(
                 "[DungeonMapGenerator] Dungeon created. map=" + fieldMapId +
@@ -292,16 +283,6 @@ namespace MixMaster.World
                 }
         }
 
-        /// <summary>
-        /// This will later be called by the dungeon result Return button.
-        /// For now a small temporary on-screen return button invokes it.
-        /// </summary>
-        public void SetTemporaryReturnVisible(bool visible)
-        {
-            if (temporaryReturnCanvas != null)
-                temporaryReturnCanvas.SetActive(visible);
-        }
-
         public void ReturnToEntrance()
         {
             if (dungeon != null && dungeon.IsDungeonActive)
@@ -344,14 +325,11 @@ namespace MixMaster.World
                 WarpParty(entranceWorldPosition);
             }
 
-            if (temporaryReturnCanvas != null)
-                Destroy(temporaryReturnCanvas);
             if (generatedRoot != null)
                 Destroy(generatedRoot);
             if (collisionTile != null)
                 Destroy(collisionTile);
 
-            temporaryReturnCanvas = null;
             generatedRoot = null;
             generatedGround = null;
             generatedWalls = null;
@@ -534,41 +512,5 @@ namespace MixMaster.World
                 camera.SetTarget(player.transform, true);
         }
 
-        private void CreateTemporaryReturnButton()
-        {
-            GameObject canvasObject = new GameObject(
-                "_DungeonTemporaryReturnCanvas", typeof(RectTransform),
-                typeof(Canvas), typeof(CanvasScaler),
-                typeof(GraphicRaycaster));
-            temporaryReturnCanvas = canvasObject;
-            Canvas canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 800;
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
-
-            Button exit = InventoryUiFactory.Button(
-                canvasObject.transform, "TemporaryReturn",
-                "帰還（仮）", Vector2.zero, new Vector2(260f, 86f));
-            RectTransform rect = exit.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-28f, -115f);
-            exit.onClick.AddListener(ReturnToEntrance);
-
-            TMP_Text note = InventoryUiFactory.Text(
-                canvasObject.transform, "TestingNotice",
-                "マップ生成テスト中：ボス・宝箱は次の段階で追加",
-                Vector2.zero, new Vector2(750f, 65f), 23f);
-            RectTransform textRect = note.rectTransform;
-            textRect.anchorMin = new Vector2(0.5f, 1f);
-            textRect.anchorMax = new Vector2(0.5f, 1f);
-            textRect.pivot = new Vector2(0.5f, 1f);
-            textRect.anchoredPosition = new Vector2(0f, -24f);
-            note.alignment = TextAlignmentOptions.Center;
-        }
     }
 }

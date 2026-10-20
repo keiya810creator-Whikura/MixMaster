@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace MixMaster.UI
 {
     /// <summary>
-    /// Read-only player status page. The equipment button opens a working
+    /// Player status and auto-attack setting. The equipment button opens a working
     /// equipment overview and exposes an event for a future equip/change UI.
     /// Reincarnation is intentionally handled by world altar/town objects,
     /// not from the player's status screen.
@@ -27,6 +27,8 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text equipmentPreviewText;
         [SerializeField] private Image portraitImage;
         [SerializeField] private Sprite portraitOverride;
+        [SerializeField] private Toggle autoAttackToggle;
+        [SerializeField] private TMP_Text autoAttackStateText;
 
         [Header("Navigation")]
         [SerializeField] private GameObject statusPage;
@@ -42,6 +44,12 @@ namespace MixMaster.UI
         public void SetEquipmentInventory(EquipmentInventoryUI inventory)
         {
             equipmentInventory = inventory;
+        }
+
+        public void SetAutoAttackControls(Toggle toggle, TMP_Text stateText)
+        {
+            autoAttackToggle = toggle;
+            autoAttackStateText = stateText;
         }
 
         [Header("Future Equipment UI")]
@@ -81,6 +89,8 @@ namespace MixMaster.UI
 
         private void Awake()
         {
+            if (autoAttackToggle != null)
+                autoAttackToggle.onValueChanged.AddListener(SetAutoAttack);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (equipmentButton != null)
                 equipmentButton.onClick.AddListener(OpenEquipment);
@@ -104,6 +114,8 @@ namespace MixMaster.UI
         private void OnDestroy()
         {
             Unsubscribe();
+            if (autoAttackToggle != null)
+                autoAttackToggle.onValueChanged.RemoveListener(SetAutoAttack);
             if (closeButton != null) closeButton.onClick.RemoveListener(Close);
             if (equipmentButton != null)
                 equipmentButton.onClick.RemoveListener(OpenEquipment);
@@ -197,6 +209,7 @@ namespace MixMaster.UI
             player.MpChanged += HandleResourceChange;
             player.ExperienceChanged += HandleResourceChange;
             player.LeveledUp += HandleLevelUp;
+            player.AutoAttackSettingChanged += RefreshAutoAttack;
             subscribed = true;
         }
 
@@ -208,6 +221,7 @@ namespace MixMaster.UI
                 player.MpChanged -= HandleResourceChange;
                 player.ExperienceChanged -= HandleResourceChange;
                 player.LeveledUp -= HandleLevelUp;
+                player.AutoAttackSettingChanged -= RefreshAutoAttack;
             }
 
             subscribed = false;
@@ -223,8 +237,25 @@ namespace MixMaster.UI
             Refresh();
         }
 
+        private void SetAutoAttack(bool enabled)
+        {
+            if (player == null) { RefreshAutoAttack(false); return; }
+            player.SetAutoAttackEnabled(enabled);
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
+        }
+
+        private void RefreshAutoAttack(bool enabled)
+        {
+            if (autoAttackToggle == null) return;
+            autoAttackToggle.interactable = player != null;
+            autoAttackToggle.SetIsOnWithoutNotify(player != null && player.AutoAttackEnabled);
+            if (autoAttackStateText != null)
+                autoAttackStateText.text = player != null && player.AutoAttackEnabled ? "ON" : "OFF";
+        }
+
         public void Refresh()
         {
+            RefreshAutoAttack(player != null && player.AutoAttackEnabled);
             if (player == null)
             {
                 SetText(levelText, "プレイヤー");

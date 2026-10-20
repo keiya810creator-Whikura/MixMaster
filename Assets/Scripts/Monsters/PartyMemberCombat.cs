@@ -159,6 +159,7 @@ namespace MixMaster.Monsters
         public float AttackGauge => attackGauge;
         public PartyCombatMode CombatMode => combatMode;
         public PartyAttackStyle AttackStyle => attackStyle;
+        public float AttackRange => GetEffectiveAttackRange();
 
         public event Action<long, long> HpChanged;
         public event Action<long, long> MpChanged;

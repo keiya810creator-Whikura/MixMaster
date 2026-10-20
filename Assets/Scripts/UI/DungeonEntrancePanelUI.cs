@@ -10,7 +10,7 @@ namespace MixMaster.UI
 {
     /// <summary>
     /// Dungeon entrance: map-wide title-rate upgrade, challenge and close.
-    /// The UI is created once, then reused by MapBuildingUIRouter.
+    /// All controls are authored in the scene prefab and reused by the router.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DungeonEntrancePanelUI : MonoBehaviour
@@ -47,8 +47,10 @@ namespace MixMaster.UI
         private bool listening;
         private bool buttonsWired;
 
+        [Serializable]
         private sealed class DungeonUpgradeRow
         {
+            public DungeonUpgradeType type;
             public TMP_Text heading;
             public TMP_Text effect;
             public TMP_Text cost;
@@ -60,11 +62,7 @@ namespace MixMaster.UI
             public Button maxButton;
         }
 
-        private readonly System.Collections.Generic.Dictionary<
-            DungeonUpgradeType, DungeonUpgradeRow> dungeonUpgradeRows =
-            new System.Collections.Generic.Dictionary<
-                DungeonUpgradeType, DungeonUpgradeRow>();
-
+        [SerializeField] private DungeonUpgradeRow[] dungeonUpgradeRows = Array.Empty<DungeonUpgradeRow>();
 
         private void Awake()
         {
@@ -80,13 +78,24 @@ namespace MixMaster.UI
                 upgradeButton, TryUpgradeTitleRate, SaveUpgradeProgress);
             challengeButton.onClick.AddListener(Challenge);
             closeButton.onClick.AddListener(Close);
+            foreach (DungeonUpgradeRow row in dungeonUpgradeRows)
+            {
+                if (row == null) continue;
+                DungeonUpgradeType type = row.type;
+                HoldToUpgradeButton.Attach(row.upgradeButton,
+                    () => TryUpgradeDungeon(type), SaveUpgradeProgress);
+                row.minButton.onClick.AddListener(() => SetDungeonAppliedLevel(type, 0));
+                row.minusButton.onClick.AddListener(() => AdjustDungeonAppliedLevel(type, -1));
+                row.plusButton.onClick.AddListener(() => AdjustDungeonAppliedLevel(type, 1));
+                row.maxButton.onClick.AddListener(() => SetDungeonAppliedLevel(type,
+                    altar != null ? altar.GetDungeonUpgradeLevel(currentMapId, type) : 0));
+            }
             buttonsWired = true;
         }
 
         private void OnEnable()
         {
             WireButtons();
-            EnsureDungeonUpgradeControls();
             CacheManagers();
             ResolveMap();
             Subscribe();
@@ -193,10 +202,10 @@ namespace MixMaster.UI
                     ? "このマップのMapSOとダンジョン素材を設定してください。"
                     : "強化はこのマップ専用です。他のマップには影響しません。";
 
-            foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
+            foreach (DungeonUpgradeRow row in dungeonUpgradeRows)
             {
-                if (!dungeonUpgradeRows.TryGetValue(type, out DungeonUpgradeRow row))
-                    continue;
+                if (row == null) continue;
+                DungeonUpgradeType type = row.type;
                 int upgradeLevel = altar != null &&
                     !string.IsNullOrWhiteSpace(currentMapId)
                     ? altar.GetDungeonUpgradeLevel(currentMapId, type) : 0;
@@ -290,9 +299,7 @@ namespace MixMaster.UI
             if (dungeon == null || string.IsNullOrWhiteSpace(currentMapId))
                 return;
 
-            // First release input/movement locks and close the panel.
-            // Next implementation step will listen for DungeonStarted
-            // to build the 10x10-room map and relocate the player.
+            // Release the entrance locks before generating the dungeon.
             string entranceMap = currentMapId;
 
             // Persist the safe field position before switching to the
@@ -410,307 +417,5 @@ namespace MixMaster.UI
                 Refresh();
         }
 
-        /// <summary>
-        /// Adds an upgrade list to both runtime-generated and hand-authored
-        /// panels. Preserves existing title upgrade and challenge buttons.
-        /// </summary>
-        private void EnsureDungeonUpgradeControls()
-        {
-            if (dungeonUpgradeRows.Count > 0 || challengeButton == null)
-                return;
-
-            Transform card = challengeButton.transform.parent;
-            if (card == null) return;
-
-            GameObject scrollObject = new GameObject(
-                "DungeonUpgradeScroll", typeof(RectTransform),
-                typeof(Image), typeof(ScrollRect), typeof(LayoutElement));
-            scrollObject.transform.SetParent(card, false);
-            scrollObject.transform.SetSiblingIndex(
-                challengeButton.transform.GetSiblingIndex());
-            scrollObject.GetComponent<Image>().color =
-                new Color(0.06f, 0.12f, 0.18f, 1f);
-            LayoutElement scrollSize =
-                scrollObject.GetComponent<LayoutElement>();
-            scrollSize.preferredHeight = 565f;
-            scrollSize.minHeight = 280f;
-
-            GameObject viewportGo = new GameObject(
-                "Viewport", typeof(RectTransform),
-                typeof(Image), typeof(Mask));
-            viewportGo.transform.SetParent(scrollObject.transform, false);
-            RectTransform viewport =
-                viewportGo.GetComponent<RectTransform>();
-            InventoryUiFactory.Stretch(viewport);
-            viewportGo.GetComponent<Image>().color = Color.white;
-            viewportGo.GetComponent<Mask>().showMaskGraphic = false;
-
-            GameObject contentGo = new GameObject(
-                "UpgradeRows", typeof(RectTransform),
-                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            contentGo.transform.SetParent(viewport, false);
-            RectTransform content = contentGo.GetComponent<RectTransform>();
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = Vector2.zero;
-            content.sizeDelta = Vector2.zero;
-
-            VerticalLayoutGroup layout =
-                contentGo.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(8, 8, 10, 10);
-            layout.spacing = 9f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-
-            ContentSizeFitter fitter =
-                contentGo.GetComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
-            scroll.viewport = viewport;
-            scroll.content = content;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 38f;
-
-            foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
-            {
-                GameObject panel = new GameObject(
-                    "Upgrade_" + type, typeof(RectTransform),
-                    typeof(Image), typeof(LayoutElement));
-                panel.transform.SetParent(content, false);
-                panel.GetComponent<Image>().color =
-                    new Color(0.15f, 0.23f, 0.31f, 1f);
-                panel.GetComponent<LayoutElement>().preferredHeight = 220f;
-
-                var row = new DungeonUpgradeRow();
-                row.heading = InventoryUiFactory.Text(
-                    panel.transform, "Name", "", new Vector2(12f, -9f),
-                    new Vector2(700f, 36f), 26f);
-                row.heading.alignment = TextAlignmentOptions.MidlineLeft;
-                row.effect = InventoryUiFactory.Text(
-                    panel.transform, "Effect", "", new Vector2(12f, -49f),
-                    new Vector2(700f, 33f), 21f);
-                row.effect.alignment = TextAlignmentOptions.MidlineLeft;
-                row.cost = InventoryUiFactory.Text(
-                    panel.transform, "Cost", "", new Vector2(12f, -97f),
-                    new Vector2(530f, 38f), 23f);
-                row.cost.alignment = TextAlignmentOptions.MidlineLeft;
-
-                row.upgradeButton = InventoryUiFactory.Button(
-                    panel.transform, "UpgradeButton", "強化",
-                    Vector2.zero, new Vector2(148f, 65f));
-                RectTransform buttonRect =
-                    row.upgradeButton.GetComponent<RectTransform>();
-                buttonRect.anchorMin = Vector2.one;
-                buttonRect.anchorMax = Vector2.one;
-                buttonRect.pivot = Vector2.one;
-                buttonRect.anchoredPosition = new Vector2(-10f, -79f);
-                HoldToUpgradeButton.Attach(
-                    row.upgradeButton, () => TryUpgradeDungeon(type),
-                    SaveUpgradeProgress);
-
-                row.minButton = InventoryUiFactory.Button(
-                    panel.transform, "MinimumApplied", "Lv0",
-                    new Vector2(12f, -151f), new Vector2(106f, 60f));
-                row.minusButton = InventoryUiFactory.Button(
-                    panel.transform, "DecreaseApplied", "−",
-                    new Vector2(126f, -151f), new Vector2(80f, 60f));
-                row.applied = InventoryUiFactory.Text(
-                    panel.transform, "AppliedLevel", "",
-                    new Vector2(214f, -153f), new Vector2(215f, 56f), 23f);
-                row.applied.alignment = TextAlignmentOptions.Center;
-                row.plusButton = InventoryUiFactory.Button(
-                    panel.transform, "IncreaseApplied", "＋",
-                    new Vector2(434f, -151f), new Vector2(80f, 60f));
-                row.maxButton = InventoryUiFactory.Button(
-                    panel.transform, "MaximumApplied", "最大",
-                    new Vector2(522f, -151f), new Vector2(130f, 60f));
-
-                row.minButton.onClick.AddListener(
-                    () => SetDungeonAppliedLevel(type, 0));
-                row.minusButton.onClick.AddListener(
-                    () => AdjustDungeonAppliedLevel(type, -1));
-                row.plusButton.onClick.AddListener(
-                    () => AdjustDungeonAppliedLevel(type, 1));
-                row.maxButton.onClick.AddListener(() =>
-                    SetDungeonAppliedLevel(type,
-                        altar != null ? altar.GetDungeonUpgradeLevel(
-                            currentMapId, type) : 0));
-
-                dungeonUpgradeRows.Add(type, row);
-            }
-        }
-
-        /// <summary>
-        /// Runtime fallback if no hand-authored entrance panel is wired into
-        /// MapBuildingUIRouter. A UI Canvas is reused whenever available.
-        /// </summary>
-        public static DungeonEntrancePanelUI CreateRuntime(Transform host)
-        {
-            Canvas canvas = host != null
-                ? host.GetComponentInParent<Canvas>() : null;
-            if (canvas == null)
-            {
-                Canvas[] available =
-                    FindObjectsByType<Canvas>(FindObjectsInactive.Include,
-                        FindObjectsSortMode.None);
-                for (int i = 0; i < available.Length; i++)
-                {
-                    if (available[i] != null && available[i].isRootCanvas &&
-                        available[i].renderMode != RenderMode.WorldSpace)
-                    {
-                        canvas = available[i];
-                        break;
-                    }
-                }
-            }
-            if (canvas == null)
-            {
-                GameObject canvasObject = new GameObject(
-                    "DungeonEntranceUICanvas", typeof(RectTransform),
-                    typeof(Canvas), typeof(CanvasScaler),
-                    typeof(GraphicRaycaster));
-                canvas = canvasObject.GetComponent<Canvas>();
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 600;
-                CanvasScaler scaler =
-                    canvasObject.GetComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1080f, 1920f);
-                scaler.matchWidthOrHeight = 1f;
-            }
-
-            GameObject overlay = new GameObject("DungeonEntrancePanel",
-                typeof(RectTransform), typeof(Image),
-                typeof(Canvas), typeof(GraphicRaycaster));
-            overlay.transform.SetParent(canvas.transform, false);
-            overlay.SetActive(false);
-            InventoryUiFactory.Stretch(overlay.GetComponent<RectTransform>());
-            Image shade = overlay.GetComponent<Image>();
-            shade.color = new Color(0.015f, 0.025f, 0.045f, 0.94f);
-            shade.raycastTarget = true;
-            Canvas overlayCanvas = overlay.GetComponent<Canvas>();
-            overlayCanvas.overrideSorting = true;
-            overlayCanvas.sortingOrder = 610;
-
-            DungeonEntrancePanelUI view =
-                overlay.AddComponent<DungeonEntrancePanelUI>();
-
-            GameObject card = new GameObject("DungeonEntranceCard",
-                typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup));
-            card.transform.SetParent(overlay.transform, false);
-            RectTransform rect = card.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.07f, 0.055f);
-            rect.anchorMax = new Vector2(0.93f, 0.945f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            card.GetComponent<Image>().color =
-                new Color(0.11f, 0.18f, 0.26f, 1f);
-
-            VerticalLayoutGroup layout =
-                card.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(24, 24, 20, 20);
-            layout.spacing = 9f;
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-
-            TMP_Text title = AddLabel(card.transform,
-                "Heading", "ダンジョンへの挑戦", 35f, 60f);
-            title.alignment = TextAlignmentOptions.Center;
-            view.mapNameText = AddLabel(card.transform,
-                "MapName", "", 29f, 55f);
-            view.mapNameText.alignment = TextAlignmentOptions.Center;
-
-            GameObject materialRow = new GameObject("MaterialRow",
-                typeof(RectTransform), typeof(LayoutElement),
-                typeof(Image));
-            materialRow.transform.SetParent(card.transform, false);
-            materialRow.GetComponent<Image>().color =
-                new Color(0.18f, 0.25f, 0.33f, 1f);
-            Size(materialRow, 82f);
-            GameObject materialIconObject = new GameObject("MaterialIcon",
-                typeof(RectTransform), typeof(Image));
-            materialIconObject.transform.SetParent(materialRow.transform, false);
-            RectTransform iconRect =
-                materialIconObject.GetComponent<RectTransform>();
-            InventoryUiFactory.TopLeft(iconRect,
-                new Vector2(16f, -9f), new Vector2(62f, 62f));
-            view.materialIcon = materialIconObject.GetComponent<Image>();
-            view.materialIcon.preserveAspect = true;
-            view.materialIcon.raycastTarget = false;
-            view.materialNameText = InventoryUiFactory.Text(
-                materialRow.transform, "MaterialName", "",
-                Vector2.zero, new Vector2(600f, 75f), 27f);
-            RectTransform nameRect =
-                view.materialNameText.rectTransform;
-            nameRect.anchorMin = Vector2.zero;
-            nameRect.anchorMax = Vector2.one;
-            nameRect.offsetMin = new Vector2(93f, 0f);
-            nameRect.offsetMax = new Vector2(-12f, 0f);
-            view.materialNameText.alignment = TextAlignmentOptions.MidlineLeft;
-
-            view.materialCountText =
-                AddLabel(card.transform, "OwnedCount", "", 24f, 50f);
-            view.levelText =
-                AddLabel(card.transform, "UpgradeLevel", "", 27f, 55f);
-            view.rateText =
-                AddLabel(card.transform, "TitleRate", "", 28f, 55f);
-            view.upgradeCostText =
-                AddLabel(card.transform, "UpgradeCost", "", 24f, 50f);
-
-            view.upgradeButton = AddButton(card.transform,
-                "UpgradeTitleRate", "ダンジョン素材を投入して強化", 69f);
-            view.challengeButton = AddButton(card.transform,
-                "ChallengeDungeon", "ダンジョンに挑戦する", 79f);
-            view.challengeButton.GetComponent<Image>().color =
-                new Color(0.23f, 0.42f, 0.36f, 1f);
-            view.closeButton = AddButton(card.transform,
-                "CloseDungeonEntrance", "閉じる", 63f);
-            view.noticeText = AddLabel(card.transform,
-                "Notice", "", 21f, 78f);
-            view.noticeText.enableWordWrapping = true;
-            view.noticeText.alignment = TextAlignmentOptions.Center;
-
-            view.WireButtons();
-            view.EnsureDungeonUpgradeControls();
-            return view;
-        }
-
-        private static TMP_Text AddLabel(Transform parent,
-            string name, string label, float fontSize, float height)
-        {
-            TMP_Text text = InventoryUiFactory.Text(
-                parent, name, label, Vector2.zero,
-                new Vector2(700f, height), fontSize);
-            text.alignment = TextAlignmentOptions.Center;
-            Size(text.gameObject, height);
-            return text;
-        }
-
-        private static Button AddButton(Transform parent,
-            string name, string caption, float height)
-        {
-            Button button = InventoryUiFactory.Button(
-                parent, name, caption,
-                Vector2.zero, new Vector2(720f, height));
-            Size(button.gameObject, height);
-            return button;
-        }
-
-        private static void Size(GameObject obj, float height)
-        {
-            LayoutElement element = obj.GetComponent<LayoutElement>() ??
-                obj.AddComponent<LayoutElement>();
-            element.preferredHeight = height;
-        }
     }
 }
