@@ -33396,6 +33396,8 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 733200000000000002}
+  - {fileID: 733200000000000012}
   - {fileID: 1823755960}
   - {fileID: 1214699904}
   - {fileID: 1383658139}
@@ -42321,7 +42323,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   altarPanel: {fileID: 658171801}
-  dungeonEntrancePanel: {fileID: 0}
+  dungeonEntrancePanel: {fileID: 733200000000000003}
   breedingPanel: {fileID: 0}
   blacksmithInventory: {fileID: 0}
   reincarnationPanel: {fileID: 731190000000000003}
@@ -57010,4 +57012,50 @@ PrefabInstance:
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 324000, guid: 8d1c2fea7cfe4b62a9235c5c1d9d1b0d, type: 3}
   m_PrefabInstance: {fileID: 732200000000000001}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &733200000000000001
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 824269458}
+    m_Modifications: []
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b4d68847483e502ca5f977304c3a751f, type: 3}
+--- !u!224 &733200000000000002 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000, guid: b4d68847483e502ca5f977304c3a751f, type: 3}
+  m_PrefabInstance: {fileID: 733200000000000001}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &733200000000000003 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 100000, guid: b4d68847483e502ca5f977304c3a751f, type: 3}
+  m_PrefabInstance: {fileID: 733200000000000001}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &733200000000000011
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 824269458}
+    m_Modifications: []
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: cc4e24ecf33c535b801bec232404f82c, type: 3}
+--- !u!224 &733200000000000012 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000, guid: cc4e24ecf33c535b801bec232404f82c, type: 3}
+  m_PrefabInstance: {fileID: 733200000000000011}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &733200000000000013 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 100000, guid: cc4e24ecf33c535b801bec232404f82c, type: 3}
+  m_PrefabInstance: {fileID: 733200000000000011}
   m_PrefabAsset: {fileID: 0}

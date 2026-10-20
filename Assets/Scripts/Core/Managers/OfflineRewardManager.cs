@@ -26,6 +26,7 @@ namespace MixMaster.Core
         public OfflineRecordProfile PendingProfile { get; private set; }
         public OfflineRewardReport LatestReport { get; private set; }
         public event Action Changed;
+        public event Action RecordingCompleted;
         public double RemainingSeconds => IsRecording
             ? Math.Max(0d, DefaultRecordDurationSeconds - (Time.realtimeSinceStartupAsDouble - recordingStartedAt)) : 0d;
         public string CheckpointUtcForSave =>
@@ -162,6 +163,7 @@ namespace MixMaster.Core
             recordingProfile = null;
             SaveProgress();
             Changed?.Invoke();
+            if (!IsAway) RecordingCompleted?.Invoke();
             return true;
         }
 
@@ -229,6 +231,9 @@ namespace MixMaster.Core
                 }
             }
             else ApplyOfflineRewards(DateTime.UtcNow);
+            // Panels must also close while away when there are no gains or
+            // active recording to publish a resource/recording change.
+            Changed?.Invoke();
         }
 
         public void PrepareForQuit()

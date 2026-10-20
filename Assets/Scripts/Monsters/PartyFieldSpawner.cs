@@ -365,6 +365,16 @@ namespace MixMaster.Monsters
             combat.SetCombatMode((PartyCombatMode)
                 monsterManager.GetEffectiveCombatBehavior(record));
 
+            // Copy the player's authored circle style for custom/fallback
+            // ally prefabs as well as the shared PartyMember prefab.
+            var range = actor.GetComponentInChildren<MixMaster.Combat.PlayerAttackRangeIndicator>(true);
+            if (range == null)
+            {
+                var template = trail.GetComponentInChildren<MixMaster.Combat.PlayerAttackRangeIndicator>(true);
+                if (template != null) range = Instantiate(template, actor.transform);
+            }
+            if (range != null) range.SetPartyMember(combat);
+
             // Every field ally can be revived at its death location.
             // Adding this at runtime keeps existing monster prefabs intact.
             if (actor.GetComponent<PartyReviveZone>() == null)

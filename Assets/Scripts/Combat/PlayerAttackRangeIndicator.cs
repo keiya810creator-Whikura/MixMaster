@@ -1,4 +1,5 @@
 using UnityEngine;
+using MixMaster.Monsters;
 
 namespace MixMaster.Combat
 {
@@ -8,6 +9,7 @@ namespace MixMaster.Combat
     {
         [Header("References")]
         [SerializeField] private PlayerAutoAttack playerAutoAttack;
+        [SerializeField] private PartyMemberCombat partyMember;
         [SerializeField] private SpriteRenderer circleRenderer;
 
         [Header("Display")]
@@ -19,6 +21,7 @@ namespace MixMaster.Combat
 
         private float lastRange = -1f;
         private Sprite lastSprite;
+        private Vector3 lastParentScale;
 
         private void Awake()
         {
@@ -28,6 +31,8 @@ namespace MixMaster.Combat
             if (playerAutoAttack == null)
                 playerAutoAttack =
                     GetComponentInParent<PlayerAutoAttack>();
+            if (playerAutoAttack == null && partyMember == null)
+                partyMember = GetComponentInParent<PartyMemberCombat>();
 
             ConfigureRenderer();
             RefreshScale(true);
@@ -40,7 +45,7 @@ namespace MixMaster.Combat
 
             circleRenderer.enabled =
                 visible &&
-                playerAutoAttack != null &&
+                (partyMember != null ? partyMember.IsAlive : playerAutoAttack != null) &&
                 circleRenderer.sprite != null;
 
             if (!circleRenderer.enabled)
@@ -57,9 +62,17 @@ namespace MixMaster.Combat
                 circleRenderer.enabled = value;
         }
 
+        public void SetPartyMember(PartyMemberCombat member)
+        {
+            partyMember = member;
+            playerAutoAttack = null;
+            ConfigureRenderer();
+            RefreshScale(true);
+        }
+
         public void RefreshScale(bool force = false)
         {
-            if (playerAutoAttack == null ||
+            if ((playerAutoAttack == null && partyMember == null) ||
                 circleRenderer == null ||
                 circleRenderer.sprite == null)
             {
@@ -69,18 +82,23 @@ namespace MixMaster.Combat
             float range =
                 Mathf.Max(
                     0.01f,
-                    playerAutoAttack.AttackRange *
+                    (partyMember != null ? partyMember.AttackRange : playerAutoAttack.AttackRange) *
                     radiusMultiplier);
+
+            Vector3 parentScale = transform.parent != null
+                ? transform.parent.lossyScale : Vector3.one;
 
             if (!force &&
                 Mathf.Approximately(range, lastRange) &&
-                lastSprite == circleRenderer.sprite)
+                lastSprite == circleRenderer.sprite &&
+                lastParentScale == parentScale)
             {
                 return;
             }
 
             lastRange = range;
             lastSprite = circleRenderer.sprite;
+            lastParentScale = parentScale;
 
             Vector2 spriteSize =
                 circleRenderer.sprite.bounds.size;
@@ -92,11 +110,6 @@ namespace MixMaster.Combat
             }
 
             float desiredDiameter = range * 2f;
-
-            Vector3 parentScale =
-                transform.parent != null
-                    ? transform.parent.lossyScale
-                    : Vector3.one;
 
             float parentScaleX =
                 Mathf.Max(0.0001f, Mathf.Abs(parentScale.x));
@@ -136,7 +149,7 @@ namespace MixMaster.Combat
             SpriteRenderer playerRenderer =
                 playerAutoAttack != null
                     ? playerAutoAttack.GetComponentInChildren<SpriteRenderer>()
-                    : null;
+                    : partyMember != null ? partyMember.GetComponentInChildren<SpriteRenderer>() : null;
 
             if (playerRenderer != null &&
                 playerRenderer != circleRenderer)

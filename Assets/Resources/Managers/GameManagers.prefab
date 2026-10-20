@@ -284,7 +284,6 @@ MonoBehaviour:
   corridorWidth: 3
   midBossFloorColor: {r: 0.9, g: 0.73, b: 0.46, a: 1}
   finalBossFloorColor: {r: 0.64, g: 0.5, b: 0.88, a: 1}
-  showTemporaryReturnButton: 1
 --- !u!114 &8048436327840766571
 MonoBehaviour:
   m_ObjectHideFlags: 0
