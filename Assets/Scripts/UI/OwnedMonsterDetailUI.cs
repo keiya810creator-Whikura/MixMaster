@@ -360,7 +360,7 @@ namespace MixMaster.UI
         private void EnsureEquipmentButton()
         {
             if (equipmentInventoryButton != null) return;
-            Transform area = transform.Find(
+            Transform area = SafeAreaLayout.ContentRoot(transform).Find(
                 "ScrollView/Viewport/Content/Equipment");
             if (area == null) return;
 
@@ -458,7 +458,7 @@ namespace MixMaster.UI
 
         private TMP_Dropdown CreateBehaviorDropdown()
         {
-            Transform content = transform.Find("ScrollView/Viewport/Content");
+            Transform content = SafeAreaLayout.ContentRoot(transform).Find("ScrollView/Viewport/Content");
             if (content == null)
             {
                 Debug.LogWarning(
@@ -673,7 +673,7 @@ namespace MixMaster.UI
         private void EnsureProtectionControls()
         {
             if (favoriteButton != null) return;
-            Transform content = transform.Find("ScrollView/Viewport/Content");
+            Transform content = SafeAreaLayout.ContentRoot(transform).Find("ScrollView/Viewport/Content");
             if (content == null) return;
 
             GameObject section = new GameObject(
@@ -718,7 +718,7 @@ namespace MixMaster.UI
             if (sellConfirmOverlay != null) return;
             GameObject overlay = new GameObject(
                 "MonsterSellConfirmation", typeof(RectTransform), typeof(Image));
-            overlay.transform.SetParent(transform, false);
+            overlay.transform.SetParent(SafeAreaLayout.ContentRoot(transform), false);
             InventoryUiFactory.Stretch(overlay.GetComponent<RectTransform>());
             Image cover = overlay.GetComponent<Image>();
             cover.color = new Color(0.015f, 0.026f, 0.042f, 0.96f);

@@ -94,8 +94,8 @@ namespace MixMaster.UI
             EnsureSaleActions();
             EnsurePagingControls();
             EnsureComparisonPanel();
-            saleDialog = InventoryBulkSaleDialog.Ensure(transform);
-            autoSellDialog = InventoryAutoSellDialog.Ensure(transform);
+            saleDialog = InventoryBulkSaleDialog.Ensure(SafeAreaLayout.ContentRoot(transform));
+            autoSellDialog = InventoryAutoSellDialog.Ensure(SafeAreaLayout.ContentRoot(transform));
             if (closeButton != null)
                 closeButton.onClick.AddListener(Close);
         }
@@ -624,11 +624,11 @@ namespace MixMaster.UI
         {
             if (unequipButton != null) return;
 
-            ownerHeading = InventoryUiFactory.Text(transform,
+            ownerHeading = InventoryUiFactory.Text(SafeAreaLayout.ContentRoot(transform),
                 "CurrentOwner", "装備先: プレイヤー",
                 new Vector2(470f, -83f), new Vector2(440f, 36f), 23f);
 
-            TMP_Text compareHint = InventoryUiFactory.Text(transform,
+            TMP_Text compareHint = InventoryUiFactory.Text(SafeAreaLayout.ContentRoot(transform),
                 "ComparisonHint",
                 "装備：比較して確定 ／ 解除：すぐに反映",
                 new Vector2(25f, -308f), new Vector2(850f, 28f), 20f);
@@ -637,7 +637,7 @@ namespace MixMaster.UI
             for (int i = 0; i < 3; i++)
             {
                 int slot = i;
-                Button button = InventoryUiFactory.Button(transform,
+                Button button = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                     "EquipSlot" + (i + 1),
                     (i + 1) + "枠に装備",
                     new Vector2(23f + i * 180f, 18f),
@@ -652,7 +652,7 @@ namespace MixMaster.UI
                 button.onClick.AddListener(() => PreviewEquip(slot));
             }
 
-            unequipButton = InventoryUiFactory.Button(transform,
+            unequipButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "UnequipButton", "装備解除",
                 new Vector2(566f, 18f), new Vector2(170f, 53f));
             RectTransform un = unequipButton.GetComponent<RectTransform>();
@@ -662,7 +662,7 @@ namespace MixMaster.UI
             un.anchoredPosition = new Vector2(566f, 13f);
             unequipButton.onClick.AddListener(UnequipSelected);
 
-            unequipAllButton = InventoryUiFactory.Button(transform,
+            unequipAllButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "UnequipAllButton", "装備全解除",
                 new Vector2(745f, 18f), new Vector2(170f, 53f));
             RectTransform allRect = unequipAllButton.GetComponent<RectTransform>();
@@ -753,7 +753,7 @@ namespace MixMaster.UI
             comparisonPanel = GetComponentInChildren<EquipmentComparisonPanelUI>(
                 true);
             if (comparisonPanel == null)
-                comparisonPanel = EquipmentComparisonPanelUI.Create(transform);
+                comparisonPanel = EquipmentComparisonPanelUI.Create(SafeAreaLayout.ContentRoot(transform));
         }
 
         // Called by each of the three equip-slot buttons.
@@ -925,16 +925,16 @@ namespace MixMaster.UI
         {
             if (favoriteButton != null) return;
 
-            favoriteButton = InventoryUiFactory.Button(transform,
+            favoriteButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "FavoriteEquipment", "☆ お気に入り",
                 new Vector2(23f, 0f), new Vector2(205f, 54f));
-            lockButton = InventoryUiFactory.Button(transform,
+            lockButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "LockEquipment", "ロックする",
                 new Vector2(238f, 0f), new Vector2(175f, 54f));
-            sellButton = InventoryUiFactory.Button(transform,
+            sellButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "SellEquipment", "売却",
                 new Vector2(423f, 0f), new Vector2(235f, 54f));
-            enhanceButton = InventoryUiFactory.Button(transform,
+            enhanceButton = InventoryUiFactory.Button(SafeAreaLayout.ContentRoot(transform),
                 "EnhanceEquipment", "強化",
                 new Vector2(668f, 0f), new Vector2(247f, 54f));
 
@@ -977,7 +977,7 @@ namespace MixMaster.UI
                 if (!EnhancementAllowed || !isActiveAndEnabled || manager == null ||
                     manager.FindEquipment(inspectedId) == null) return;
                 if (enhancementPanel == null)
-                    enhancementPanel = EquipmentEnhancementPanelUI.Ensure(transform);
+                    enhancementPanel = EquipmentEnhancementPanelUI.Ensure(SafeAreaLayout.ContentRoot(transform));
                 enhancementPanel.Open(manager, inspectedId);
             });
             SetEnhancementAccess(EnhancementAllowed);
@@ -1102,7 +1102,7 @@ namespace MixMaster.UI
 
             GameObject barObject = new GameObject(
                 "EquipmentPageControls", typeof(RectTransform));
-            barObject.transform.SetParent(transform, false);
+            barObject.transform.SetParent(SafeAreaLayout.ContentRoot(transform), false);
             RectTransform bar = barObject.GetComponent<RectTransform>();
             bar.anchorMin = new Vector2(0f, 0f);
             bar.anchorMax = new Vector2(1f, 0f);
@@ -1161,7 +1161,7 @@ namespace MixMaster.UI
         {
             // Serialized TMP_Dropdowns come from the prefab, never rebuilt
             // as GameObjects when the inventory is opened.
-            Transform controls = transform.Find("FilterControls");
+            Transform controls = SafeAreaLayout.ContentRoot(transform).Find("FilterControls");
             if (controls == null)
             {
                 Debug.LogError(
