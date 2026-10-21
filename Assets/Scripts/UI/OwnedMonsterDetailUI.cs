@@ -41,6 +41,7 @@ namespace MixMaster.UI
 
         [Header("Behavior")]
         [SerializeField] private TMP_Dropdown behaviorDropdown;
+        [SerializeField] private Toggle attackRangeToggle;
 
         private MonsterManager monsterManager;
         private Button favoriteButton;
@@ -73,6 +74,8 @@ namespace MixMaster.UI
                 partyButton.gameObject.SetActive(!enabled);
             if (behaviorDropdown != null)
                 behaviorDropdown.gameObject.SetActive(!enabled);
+            if (attackRangeToggle != null)
+                attackRangeToggle.gameObject.SetActive(!enabled);
             if (favoriteButton != null)
                 favoriteButton.transform.parent.gameObject.SetActive(!enabled);
             if (sellConfirmOverlay != null && enabled)
@@ -83,13 +86,15 @@ namespace MixMaster.UI
 
         private void Awake()
         {
-            EnsureBehaviorDropdown();
+            BuildCombatControls();
             EnsureEquipmentButton();
             EnsureProtectionControls();
             if (equipmentInventoryButton != null)
                 equipmentInventoryButton.onClick.AddListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
                 behaviorDropdown.onValueChanged.AddListener(HandleBehaviorChanged);
+            if (attackRangeToggle != null)
+                attackRangeToggle.onValueChanged.AddListener(HandleAttackRangeChanged);
 
             if (closeButton != null)
                 closeButton.onClick.AddListener(Hide);
@@ -128,6 +133,8 @@ namespace MixMaster.UI
                 equipmentInventoryButton.onClick.RemoveListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
                 behaviorDropdown.onValueChanged.RemoveListener(HandleBehaviorChanged);
+            if (attackRangeToggle != null)
+                attackRangeToggle.onValueChanged.RemoveListener(HandleAttackRangeChanged);
 
             if (closeButton != null)
                 closeButton.onClick.RemoveListener(Hide);
@@ -305,6 +312,7 @@ namespace MixMaster.UI
 
             RefreshPartyControls();
             RefreshBehaviorDropdown();
+            RefreshAttackRangeToggle();
             RefreshProtectionControls();
         }
 
@@ -391,9 +399,71 @@ namespace MixMaster.UI
                 case 0: behavior = MonsterCombatBehavior.HostileEnemies; break;
                 case 2: behavior = MonsterCombatBehavior.AutoHunt; break;
                 case 3: behavior = MonsterCombatBehavior.NoAttack; break;
+                case 4: behavior = MonsterCombatBehavior.OwnAttackRange; break;
                 default: behavior = MonsterCombatBehavior.PlayerAttackRange; break;
             }
             monsterManager.SetMonsterCombatBehavior(selectedRecord.uniqueId, behavior);
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
+        }
+
+        private void HandleAttackRangeChanged(bool visible)
+        {
+            if (readOnlyMode || selectedRecord == null) return;
+            SubscribeParty();
+            if (monsterManager == null) return;
+            if (monsterManager.SetMonsterAttackRangeVisible(selectedRecord.uniqueId, visible))
+                FindFirstObjectByType<SaveManager>()?.SaveGame();
+            RefreshAttackRangeToggle();
+        }
+
+        private void RefreshAttackRangeToggle()
+        {
+            if (attackRangeToggle == null) return;
+            attackRangeToggle.interactable = !readOnlyMode && selectedRecord != null &&
+                monsterManager != null && monsterManager.FindOwnedMonster(selectedRecord.uniqueId) != null;
+            attackRangeToggle.SetIsOnWithoutNotify(selectedRecord != null && !selectedRecord.hideAttackRange);
+        }
+
+        public void BuildCombatControls()
+        {
+            EnsureBehaviorDropdown();
+            if (attackRangeToggle != null || behaviorDropdown == null) return;
+            Transform section = behaviorDropdown.transform.parent;
+            Transform existing = section.Find("AttackRangeToggle");
+            if (existing != null)
+            {
+                attackRangeToggle = existing.GetComponent<Toggle>();
+                return;
+            }
+            RectTransform sectionRect = section as RectTransform;
+            LayoutElement layout = section.GetComponent<LayoutElement>();
+            if (sectionRect != null)
+                sectionRect.sizeDelta = new Vector2(sectionRect.sizeDelta.x, 216f);
+            if (layout != null) layout.minHeight = layout.preferredHeight = 216f;
+
+            var toggleObject = new GameObject("AttackRangeToggle", typeof(RectTransform), typeof(Toggle));
+            toggleObject.transform.SetParent(section, false);
+            RectTransform toggleRect = toggleObject.GetComponent<RectTransform>();
+            SetTopLeft(toggleRect, new Vector2(16f, -142f), new Vector2(840f, 54f));
+            var backgroundObject = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            backgroundObject.transform.SetParent(toggleRect, false);
+            RectTransform background = backgroundObject.GetComponent<RectTransform>();
+            SetTopLeft(background, Vector2.zero, new Vector2(50f, 50f));
+            Image backgroundImage = backgroundObject.GetComponent<Image>();
+            backgroundImage.color = new Color(0.2f, 0.26f, 0.35f, 1f);
+            var markObject = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+            markObject.transform.SetParent(background, false);
+            SetTopLeft(markObject.GetComponent<RectTransform>(), new Vector2(8f, -8f), new Vector2(34f, 34f));
+            Image mark = markObject.GetComponent<Image>();
+            mark.color = new Color(0.35f, 0.9f, 0.65f, 1f);
+            mark.raycastTarget = false;
+            TextMeshProUGUI label = CreateBehaviorText(toggleRect, "Label", "攻撃範囲を表示",
+                new Vector2(68f, -5f), new Vector2(740f, 44f), 25f);
+            label.raycastTarget = true;
+            attackRangeToggle = toggleObject.GetComponent<Toggle>();
+            attackRangeToggle.targetGraphic = backgroundImage;
+            attackRangeToggle.graphic = mark;
+            attackRangeToggle.SetIsOnWithoutNotify(true);
         }
 
         private void RefreshBehaviorDropdown()
@@ -409,6 +479,7 @@ namespace MixMaster.UI
                     case MonsterCombatBehavior.HostileEnemies: selectedIndex = 0; break;
                     case MonsterCombatBehavior.AutoHunt: selectedIndex = 2; break;
                     case MonsterCombatBehavior.NoAttack: selectedIndex = 3; break;
+                    case MonsterCombatBehavior.OwnAttackRange: selectedIndex = 4; break;
                 }
             }
             behaviorDropdown.SetValueWithoutNotify(selectedIndex);
@@ -428,10 +499,13 @@ namespace MixMaster.UI
                 return;
 
             // Also repair old/prefab-assigned dropdowns, not only runtime
-            // generated ones. All four options should remain visible without
+            // generated ones. All five options should remain visible without
             // a scrollbar.
             if (behaviorDropdown.template != null)
             {
+                Vector2 size = behaviorDropdown.template.sizeDelta;
+                size.y = Mathf.Max(size.y, 280f);
+                behaviorDropdown.template.sizeDelta = size;
                 ScrollRect existingScroll =
                     behaviorDropdown.template.GetComponent<ScrollRect>();
                 if (existingScroll != null)
@@ -450,7 +524,8 @@ namespace MixMaster.UI
                 "敵対した敵を攻撃",
                 "プレイヤーの攻撃範囲内の敵を攻撃",
                 "自動狩りモード（マップ全体）",
-                "攻撃しない"
+                "攻撃しない",
+                "自身の攻撃範囲内の敵を攻撃"
             });
             // Default displayed option is the player attack-range behavior.
             behaviorDropdown.SetValueWithoutNotify(1);
@@ -510,7 +585,7 @@ namespace MixMaster.UI
             template.anchorMax = new Vector2(1f, 0f);
             template.pivot = new Vector2(0.5f, 1f);
             template.anchoredPosition = Vector2.zero;
-            template.sizeDelta = new Vector2(0f, 224f);
+            template.sizeDelta = new Vector2(0f, 280f);
             templateObject.GetComponent<Image>().color =
                 new Color(0.12f, 0.16f, 0.22f, 1f);
 
@@ -529,7 +604,7 @@ namespace MixMaster.UI
             itemContent.anchorMin = new Vector2(0f, 1f);
             itemContent.anchorMax = Vector2.one;
             itemContent.pivot = new Vector2(0.5f, 1f);
-            itemContent.sizeDelta = new Vector2(0f, 220f);
+            itemContent.sizeDelta = new Vector2(0f, 275f);
             itemContent.anchoredPosition = Vector2.zero;
 
             GameObject itemObject = new GameObject(
@@ -558,7 +633,7 @@ namespace MixMaster.UI
             scroller.viewport = viewport;
             scroller.content = itemContent;
             scroller.horizontal = false;
-            // All four options fit entirely in the viewport (4 x 55px).
+            // All five options fit entirely in the viewport (5 x 55px).
             // Disable nested dragging to avoid scrolling beyond the last
             // option or passing accidental drag input into the detail panel.
             scroller.vertical = false;
@@ -619,6 +694,8 @@ namespace MixMaster.UI
             monsterManager.MonsterExperienceChanged += HandleExperienceChanged;
             monsterManager.MonsterIntimacyLeveledUp += HandleExperienceChanged;
             monsterManager.MonsterIntimacyChanged += HandleExperienceChanged;
+            monsterManager.MonsterAttackRangeDisplayChanged += HandleAttackRangeDisplayChanged;
+            monsterManager.MonsterBehaviorChanged += HandleBehaviorSettingChanged;
             partySubscribed = true;
         }
 
@@ -635,6 +712,8 @@ namespace MixMaster.UI
                 monsterManager.MonsterExperienceChanged -= HandleExperienceChanged;
                 monsterManager.MonsterIntimacyLeveledUp -= HandleExperienceChanged;
                 monsterManager.MonsterIntimacyChanged -= HandleExperienceChanged;
+                monsterManager.MonsterAttackRangeDisplayChanged -= HandleAttackRangeDisplayChanged;
+                monsterManager.MonsterBehaviorChanged -= HandleBehaviorSettingChanged;
             }
 
             partySubscribed = false;
@@ -644,6 +723,16 @@ namespace MixMaster.UI
         {
             RefreshPartyControls();
             RefreshProtectionControls();
+        }
+
+        private void HandleAttackRangeDisplayChanged(OwnedMonsterRecord record)
+        {
+            if (record == selectedRecord) RefreshAttackRangeToggle();
+        }
+
+        private void HandleBehaviorSettingChanged(OwnedMonsterRecord record)
+        {
+            if (record == selectedRecord) RefreshBehaviorDropdown();
         }
 
         private void HandleProtectionChanged(OwnedMonsterRecord record)

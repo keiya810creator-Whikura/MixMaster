@@ -667,6 +667,9 @@ MonoBehaviour:
     - m_Text: "\u653B\u6483\u3057\u306A\u3044"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: 自身の攻撃範囲内の敵を攻撃
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -708,7 +711,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 260}
+  m_SizeDelta: {x: 0, y: 332}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &2630928563608003419
 CanvasRenderer:

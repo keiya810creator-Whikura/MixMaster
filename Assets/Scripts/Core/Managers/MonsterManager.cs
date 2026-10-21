@@ -104,6 +104,8 @@ namespace MixMaster.Core
                     return MonsterCombatBehavior.AutoHunt;
                 case PartyCombatOrder.NoAttack:
                     return MonsterCombatBehavior.NoAttack;
+                case PartyCombatOrder.OwnAttackRange:
+                    return MonsterCombatBehavior.OwnAttackRange;
                 default:
                     return MonsterCombatBehavior.PlayerAttackRange;
             }
@@ -115,6 +117,7 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterIntimacyChanged;
         public event Action<OwnedMonsterRecord> MonsterIntimacyLeveledUp;
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
+        public event Action<OwnedMonsterRecord> MonsterAttackRangeDisplayChanged;
         public event Action PartyChanged;
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
         public event Action<string> MonsterSold;
@@ -534,6 +537,18 @@ namespace MixMaster.Core
                 MonsterBehaviorChanged?.Invoke(record);
             }
 
+            return true;
+        }
+
+        public bool SetMonsterAttackRangeVisible(string monsterUniqueId, bool visible)
+        {
+            OwnedMonsterRecord record = FindOwnedMonster(monsterUniqueId);
+            if (record == null) return false;
+            if (record.hideAttackRange == visible)
+            {
+                record.hideAttackRange = !visible;
+                MonsterAttackRangeDisplayChanged?.Invoke(record);
+            }
             return true;
         }
 

@@ -18,7 +18,8 @@ namespace MixMaster.Core
         HostileEnemies = 1,
         PlayerAttackRange = 2,
         AutoHunt = 3,
-        NoAttack = 4
+        NoAttack = 4,
+        OwnAttackRange = 5
     }
 
     // Serialized on each owned monster. Explicit numeric values preserve old saves.
@@ -27,7 +28,8 @@ namespace MixMaster.Core
         PlayerAttackRange = 0,
         AutoHunt = 1,
         HostileEnemies = 2,
-        NoAttack = 3
+        NoAttack = 3,
+        OwnAttackRange = 4
     }
 
     [Serializable]
@@ -39,6 +41,8 @@ namespace MixMaster.Core
         public int level = 1;
         public long experience;
         public MonsterCombatBehavior combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
+        // An absent field in older saves keeps the previously visible circle.
+        public bool hideAttackRange;
 
         public MonsterIndividualValues individualValues =
             new MonsterIndividualValues();
