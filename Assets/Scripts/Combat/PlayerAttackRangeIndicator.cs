@@ -1,5 +1,7 @@
 using UnityEngine;
 using MixMaster.Monsters;
+using MixMaster.Core;
+using MixMaster.UI;
 
 namespace MixMaster.Combat
 {
@@ -22,6 +24,7 @@ namespace MixMaster.Combat
         private float lastRange = -1f;
         private Sprite lastSprite;
         private Vector3 lastParentScale;
+        private int lastPartySlot = -1;
 
         private void Awake()
         {
@@ -43,6 +46,9 @@ namespace MixMaster.Combat
             if (circleRenderer == null)
                 return;
 
+            if (partyMember != null && lastPartySlot != partyMember.PartySlot)
+                ConfigureRenderer();
+
             circleRenderer.enabled =
                 visible &&
                 (partyMember != null ? partyMember.IsAlive : playerAutoAttack != null) &&
@@ -59,7 +65,8 @@ namespace MixMaster.Combat
             visible = value;
 
             if (circleRenderer != null)
-                circleRenderer.enabled = value;
+                circleRenderer.enabled = value && circleRenderer.sprite != null &&
+                    (partyMember != null ? partyMember.IsAlive : playerAutoAttack != null);
         }
 
         public void SetPartyMember(PartyMemberCombat member)
@@ -138,6 +145,15 @@ namespace MixMaster.Combat
         {
             if (circleRenderer == null)
                 return;
+
+            if (partyMember != null)
+            {
+                lastPartySlot = partyMember.PartySlot;
+                Color tint = MaterialDropLogUI.GetSourceColor(
+                    MaterialDropSourceInfo.Party(lastPartySlot, 0f).sourceType);
+                tint.a = circleRenderer.color.a;
+                circleRenderer.color = tint;
+            }
 
             if (applyOpacity)
             {

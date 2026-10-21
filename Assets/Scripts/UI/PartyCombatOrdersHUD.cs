@@ -19,7 +19,8 @@ namespace MixMaster.UI
             "敵対した敵を攻撃",
             "プレイヤーの攻撃範囲内の敵を攻撃",
             "自動狩りモード（マップ全体）",
-            "攻撃しない"
+            "攻撃しない",
+            "自身の攻撃範囲内の敵を攻撃"
         };
 
         [SerializeField] private TMP_Dropdown orderDropdown;
@@ -70,12 +71,12 @@ namespace MixMaster.UI
                 background.raycastTarget = false;
             }
 
-            if (orderDropdown != null)
-                return;
-
-            Transform old = transform.Find("PartyOrderDropdown");
-            if (old != null)
-                orderDropdown = old.GetComponent<TMP_Dropdown>();
+            if (orderDropdown == null)
+            {
+                Transform old = transform.Find("PartyOrderDropdown");
+                if (old != null)
+                    orderDropdown = old.GetComponent<TMP_Dropdown>();
+            }
 
             if (orderDropdown == null)
             {
@@ -90,10 +91,14 @@ namespace MixMaster.UI
                     new Vector2(404f, 56f), Options);
             }
 
-            // All five options fit within the 260px template, so clamp the
-            // scroll instead of allowing scrolling past the final item.
+            orderDropdown.ClearOptions();
+            orderDropdown.AddOptions(new List<string>(Options));
+            // Leave room for all six rows, including on older scene instances.
             if (orderDropdown != null && orderDropdown.template != null)
             {
+                Vector2 size = orderDropdown.template.sizeDelta;
+                size.y = Mathf.Max(size.y, 332f);
+                orderDropdown.template.sizeDelta = size;
                 ScrollRect scroller =
                     orderDropdown.template.GetComponent<ScrollRect>();
                 if (scroller != null)
@@ -166,6 +171,7 @@ namespace MixMaster.UI
                 return;
 
             manager.SetPartyCombatOrder((PartyCombatOrder)index);
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
         }
 
         public void Refresh()

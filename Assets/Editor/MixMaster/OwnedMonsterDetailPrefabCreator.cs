@@ -359,6 +359,7 @@ namespace MixMaster.EditorTools
             detail.SetLearnedSkillsText(learned);
             detail.SetEquipmentText(equipment);
             detail.SetCloseButton(closeButton);
+            detail.BuildCombatControls();
 
             // Detail is shown explicitly on an entry tap.
             root.SetActive(false);

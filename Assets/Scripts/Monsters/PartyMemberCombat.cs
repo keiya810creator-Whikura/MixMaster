@@ -15,7 +15,8 @@ namespace MixMaster.Monsters
         Follow = 0,
         AutoHunt = 1,
         HostileEnemies = 2,
-        NoAttack = 3
+        NoAttack = 3,
+        OwnAttackRange = 4
     }
 
     public enum PartyAttackStyle
@@ -80,12 +81,6 @@ namespace MixMaster.Monsters
         [SerializeField] private Color hitFlashColor = new Color(1f, 0.35f, 0.35f, 1f);
         [SerializeField, Min(0.01f)] private float hitFlashDuration = 0.08f;
 
-        [Header("Attack Feedback")]
-        [SerializeField] private Color slashColor = new Color(0.75f, 0.95f, 1f, 1f);
-        [SerializeField, Min(0.03f)] private float slashDuration = 0.12f;
-        [SerializeField, Min(0.01f)] private float slashWidth = 0.07f;
-        [SerializeField, Min(0.1f)] private float slashRadius = 0.65f;
-
         private MonsterTrailFollower follower;
         private Rigidbody2D body;
         private Transform playerTransform;
@@ -121,7 +116,7 @@ namespace MixMaster.Monsters
             SetCurrentTarget(FindNearestTarget());
             if (follower != null)
                 follower.SetCombatControlled(
-                    currentTarget != null || isAttackLunging);
+                    ControlsCombatMovement);
         }
 
         private void HandleCurrentTargetDied(EnemyHealth defeated)
@@ -141,10 +136,10 @@ namespace MixMaster.Monsters
         private Color originalColor = Color.white;
         private Coroutine hitFlashRoutine;
 
-        private GameObject slashObject;
-        private LineRenderer slashRenderer;
-        private Material slashMaterial;
-        private Coroutine slashRoutine;
+        private PartyMeleeSwordSwing meleeSword;
+
+        private bool ControlsCombatMovement => isAttackLunging ||
+            (currentTarget != null && combatMode != PartyCombatMode.OwnAttackRange);
 
         private Coroutine lungeRoutine;
         private bool isAttackLunging;
@@ -160,6 +155,7 @@ namespace MixMaster.Monsters
         public PartyCombatMode CombatMode => combatMode;
         public PartyAttackStyle AttackStyle => attackStyle;
         public float AttackRange => GetEffectiveAttackRange();
+        public int PartySlot => follower != null ? follower.FollowOrder : 0;
 
         public event Action<long, long> HpChanged;
         public event Action<long, long> MpChanged;
@@ -184,7 +180,9 @@ namespace MixMaster.Monsters
             ConfigureSlider(attackSpeedSlider);
             RefreshHpSlider();
             SetAttackGauge(0f);
-            CreateSlashRenderer();
+            meleeSword = GetComponent<PartyMeleeSwordSwing>();
+            if (meleeSword == null)
+                meleeSword = gameObject.AddComponent<PartyMeleeSwordSwing>();
         }
 
         private void OnEnable()
@@ -221,6 +219,12 @@ namespace MixMaster.Monsters
 
         private void OnDisable()
         {
+            if (meleeSword != null) meleeSword.StopSwing();
+            if (lungeRoutine != null)
+            {
+                StopCoroutine(lungeRoutine);
+                lungeRoutine = null;
+            }
             SetCurrentTarget(null);
             activeMembers.Remove(this);
             WorldUIManager.TryUnregisterParty(this);
@@ -240,8 +244,6 @@ namespace MixMaster.Monsters
         private void OnDestroy()
         {
             SetCurrentTarget(null);
-            if (slashMaterial != null)
-                Destroy(slashMaterial);
         }
 
         private void Update()
@@ -261,14 +263,15 @@ namespace MixMaster.Monsters
 
             if (currentTarget != null && !IsTargetValid(currentTarget))
                 RetargetBeforeFollowing();
-            else if (targetRefreshTimer <= 0f)
+            else if (currentTarget == null || targetRefreshTimer <= 0f ||
+                combatMode == PartyCombatMode.OwnAttackRange)
             {
                 targetRefreshTimer = targetRefreshInterval;
                 SetCurrentTarget(FindNearestTarget());
             }
 
             bool hasTarget = IsTargetValid(currentTarget);
-            follower.SetCombatControlled(hasTarget || isAttackLunging);
+            follower.SetCombatControlled(ControlsCombatMovement);
 
             if (chargeWhileNoTarget || hasTarget)
                 SetAttackGauge(attackGauge + Mathf.Max(0.1f, stats.attackSpeed) * Time.deltaTime);
@@ -282,13 +285,10 @@ namespace MixMaster.Monsters
             if (toTarget.sqrMagnitude > attackRange * attackRange)
                 return;
 
-            Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
-            float slotDistance = Vector2.Distance(transform.position, attackPosition);
-
-            // The attack gauge may finish charging before reaching the assigned
-            // slot. As long as the enemy is in range, attack from here.
-            // FixedUpdate continues moving toward the slot when not lunging.
-            if (slotDistance <= GetAttackSlotTolerance())
+            if (combatMode != PartyCombatMode.OwnAttackRange &&
+                (combatMode != PartyCombatMode.Follow ||
+                 Vector2.Distance(transform.position, GetDesiredAttackPosition(currentTarget)) <=
+                    GetAttackSlotTolerance()))
                 follower.StopCombatMovement();
 
             follower.FaceDirection(toTarget);
@@ -302,13 +302,34 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
-            if (!isAlive || isAttackLunging)
+            if (!isAlive || isAttackLunging || combatMode == PartyCombatMode.OwnAttackRange)
                 return;
 
             if (currentTarget != null && !IsTargetValid(currentTarget))
                 RetargetBeforeFollowing();
             if (!IsTargetValid(currentTarget))
                 return;
+
+            // Only the player-range mode retains the old fixed party slots.
+            // Hunting and retaliation approach the enemy directly and stop at
+            // their own reach, even while waiting for the attack gauge.
+            if (combatMode != PartyCombatMode.Follow)
+            {
+                float range = GetEffectiveAttackRange();
+                Vector2 enemyPosition = currentTarget.transform.position;
+                Vector2 approach = enemyPosition - body.position;
+                if (approach.sqrMagnitude <= range * range)
+                    follower.StopCombatMovement();
+                else
+                {
+                    // Clamp even a very fast physics step to the range edge.
+                    // A tiny inset avoids oscillation from float rounding.
+                    float stoppingRange = range - Mathf.Min(0.01f, range * 0.01f);
+                    follower.MoveForCombat(enemyPosition - approach.normalized * stoppingRange,
+                        Mathf.Max(0.1f, stats.moveSpeed) * combatMoveSpeedMultiplier, 0f);
+                }
+                return;
+            }
 
             Vector2 attackPosition = GetDesiredAttackPosition(currentTarget);
             float distanceToSlot = Vector2.Distance(body.position, attackPosition);
@@ -425,17 +446,7 @@ namespace MixMaster.Monsters
                     Mathf.Max(1f, (float)stats.criticalMultiplier));
             }
 
-            target.TakePhysicalHit(
-                attackPower,
-                CreateDropSourceInfo());
-
-            if (!IsTargetValid(currentTarget))
-                RetargetBeforeFollowing();
-
-            if (slashRoutine != null)
-                StopCoroutine(slashRoutine);
-
-            slashRoutine = StartCoroutine(PlaySlash(direction));
+            meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(), spriteRenderer);
             StartAttackLunge(direction);
         }
 
@@ -516,7 +527,7 @@ namespace MixMaster.Monsters
 
         private EnemyHealth FindNearestTarget()
         {
-            if (playerTransform == null)
+            if (combatMode == PartyCombatMode.Follow && playerTransform == null)
                 return null;
 
             float bestDistanceSqr = float.MaxValue;
@@ -541,7 +552,8 @@ namespace MixMaster.Monsters
                 if (requireEnemyTag && !enemy.CompareTag(enemyTag))
                     continue;
 
-                Vector2 fromPlayer = enemy.transform.position - playerTransform.position;
+                Vector2 fromPlayer = playerTransform != null
+                    ? enemy.transform.position - playerTransform.position : Vector3.zero;
                 Vector2 fromMember = enemy.transform.position - transform.position;
                 float memberDistanceSqr = fromMember.sqrMagnitude;
 
@@ -550,6 +562,12 @@ namespace MixMaster.Monsters
                     // Follow mode only fights enemies that are currently
                     // inside the player's own attack range.
                     if (fromPlayer.sqrMagnitude > playerRangeSqr)
+                        continue;
+                }
+                else if (combatMode == PartyCombatMode.OwnAttackRange)
+                {
+                    float range = GetEffectiveAttackRange();
+                    if (memberDistanceSqr > range * range)
                         continue;
                 }
                 else if (combatMode == PartyCombatMode.HostileEnemies)
@@ -621,6 +639,12 @@ namespace MixMaster.Monsters
             if (combatMode == PartyCombatMode.AutoHunt)
                 return true;
 
+            if (combatMode == PartyCombatMode.OwnAttackRange)
+            {
+                float range = GetEffectiveAttackRange();
+                return (target.transform.position - transform.position).sqrMagnitude <= range * range;
+            }
+
             if (combatMode == PartyCombatMode.HostileEnemies)
             {
                 EnemyCombatAI ai = target.GetComponent<EnemyCombatAI>();
@@ -643,6 +667,9 @@ namespace MixMaster.Monsters
 
             return false;
         }
+
+        internal bool CanHitWithSword(EnemyHealth enemy) => isAlive &&
+            isActiveAndEnabled && attackStyle == PartyAttackStyle.Melee && IsTargetValid(enemy);
 
         private float GetEffectiveAttackRange()
         {
@@ -769,6 +796,7 @@ namespace MixMaster.Monsters
                 return;
 
             attackStyle = style;
+            if (meleeSword != null) meleeSword.StopSwing();
             SetCurrentTarget(null);
 
             if (follower == null)
@@ -949,6 +977,8 @@ namespace MixMaster.Monsters
             if (!isAlive)
                 return;
 
+            if (meleeSword != null) meleeSword.StopSwing();
+
             if (lungeRoutine != null)
             {
                 StopCoroutine(lungeRoutine);
@@ -1081,83 +1111,6 @@ namespace MixMaster.Monsters
                 RetargetBeforeFollowing();
         }
 
-        private void CreateSlashRenderer()
-        {
-            slashObject = new GameObject("_PartyAttackSlash");
-            slashObject.transform.SetParent(transform, false);
-            slashObject.SetActive(false);
-
-            slashRenderer = slashObject.AddComponent<LineRenderer>();
-            slashRenderer.useWorldSpace = false;
-            slashRenderer.loop = false;
-            slashRenderer.positionCount = 9;
-            slashRenderer.numCapVertices = 2;
-            slashRenderer.widthMultiplier = slashWidth;
-
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                slashMaterial = new Material(shader);
-                slashRenderer.material = slashMaterial;
-            }
-
-            if (spriteRenderer != null)
-            {
-                slashRenderer.sortingLayerID = spriteRenderer.sortingLayerID;
-                slashRenderer.sortingOrder = spriteRenderer.sortingOrder + 5;
-            }
-
-            BuildSlashArc();
-        }
-
-        private void BuildSlashArc()
-        {
-            if (slashRenderer == null)
-                return;
-
-            const int pointCount = 9;
-
-            for (int i = 0; i < pointCount; i++)
-            {
-                float t = i / (float)(pointCount - 1);
-                float angle = Mathf.Lerp(-55f, 55f, t) * Mathf.Deg2Rad;
-
-                slashRenderer.SetPosition(i, new Vector3(
-                    Mathf.Cos(angle) * slashRadius,
-                    Mathf.Sin(angle) * slashRadius,
-                    0f));
-            }
-        }
-
-        private IEnumerator PlaySlash(Vector2 direction)
-        {
-            if (slashObject == null || slashRenderer == null)
-                yield break;
-
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            slashObject.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            slashObject.SetActive(true);
-
-            float elapsed = 0f;
-
-            while (elapsed < slashDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / slashDuration);
-
-                Color c = slashColor;
-                c.a = 1f - t;
-
-                slashRenderer.startColor = c;
-                slashRenderer.endColor = c;
-                slashRenderer.widthMultiplier = Mathf.Lerp(slashWidth, slashWidth * 0.35f, t);
-                yield return null;
-            }
-
-            slashObject.SetActive(false);
-            slashRoutine = null;
-        }
-
         private void OnDrawGizmosSelected()
         {
             float effectiveRange = attackStyle == PartyAttackStyle.Ranged
@@ -1192,18 +1145,9 @@ namespace MixMaster.Monsters
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
             hitFlashDuration = Mathf.Max(0.01f, hitFlashDuration);
-            slashDuration = Mathf.Max(0.03f, slashDuration);
-            slashWidth = Mathf.Max(0.01f, slashWidth);
-            slashRadius = Mathf.Max(0.1f, slashRadius);
 
             if (string.IsNullOrWhiteSpace(enemyTag))
                 enemyTag = "Enemy";
-
-            if (slashRenderer != null)
-            {
-                slashRenderer.widthMultiplier = slashWidth;
-                BuildSlashArc();
-            }
         }
 #endif
     }

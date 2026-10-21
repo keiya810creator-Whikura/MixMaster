@@ -116,6 +116,7 @@ namespace MixMaster.Monsters
                 monsterManager.MonsterLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterIntimacyLeveledUp -= HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
+                monsterManager.MonsterAttackRangeDisplayChanged -= HandleAttackRangeDisplayChanged;
                 monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
             }
 
@@ -160,6 +161,8 @@ namespace MixMaster.Monsters
                 monsterManager.MonsterIntimacyLeveledUp += HandleMonsterLeveledUp;
                 monsterManager.MonsterBehaviorChanged -= HandleMonsterBehaviorChanged;
                 monsterManager.MonsterBehaviorChanged += HandleMonsterBehaviorChanged;
+                monsterManager.MonsterAttackRangeDisplayChanged -= HandleAttackRangeDisplayChanged;
+                monsterManager.MonsterAttackRangeDisplayChanged += HandleAttackRangeDisplayChanged;
                 monsterManager.PartyCombatOrderChanged -= HandlePartyCombatOrderChanged;
                 monsterManager.PartyCombatOrderChanged += HandlePartyCombatOrderChanged;
             }
@@ -199,6 +202,14 @@ namespace MixMaster.Monsters
                 combat.SetCombatMode((PartyCombatMode)
                     monsterManager.GetEffectiveCombatBehavior(record));
             }
+        }
+
+        private void HandleAttackRangeDisplayChanged(OwnedMonsterRecord record)
+        {
+            if (record == null || !activeByMonsterId.TryGetValue(record.uniqueId,
+                    out PartyMemberCombat combat) || combat == null) return;
+            var indicator = combat.GetComponentInChildren<MixMaster.Combat.PlayerAttackRangeIndicator>(true);
+            if (indicator != null) indicator.SetVisible(!record.hideAttackRange);
         }
 
         private void HandlePartyCombatOrderChanged(PartyCombatOrder order)
@@ -373,7 +384,11 @@ namespace MixMaster.Monsters
                 var template = trail.GetComponentInChildren<MixMaster.Combat.PlayerAttackRangeIndicator>(true);
                 if (template != null) range = Instantiate(template, actor.transform);
             }
-            if (range != null) range.SetPartyMember(combat);
+            if (range != null)
+            {
+                range.SetPartyMember(combat);
+                range.SetVisible(!record.hideAttackRange);
+            }
 
             // Every field ally can be revived at its death location.
             // Adding this at runtime keeps existing monster prefabs intact.
