@@ -152,7 +152,7 @@ namespace MixMaster.Combat
 
             targetRefreshTimer -= Time.deltaTime;
 
-            if (targetRefreshTimer <= 0f || !IsCurrentTargetValid())
+            if (!TryApplyLureTarget() && (targetRefreshTimer <= 0f || !IsCurrentTargetValid()))
             {
                 targetRefreshTimer = targetRefreshInterval;
                 FindNearestTarget();
@@ -228,6 +228,7 @@ namespace MixMaster.Combat
         private void FindNearestTarget()
         {
             ClearTarget();
+            if (TryApplyLureTarget()) return;
 
             float detectionSqr = detectionRange * detectionRange;
             float bestDistanceSqr = float.MaxValue;
@@ -276,6 +277,18 @@ namespace MixMaster.Combat
             }
         }
 
+        private bool TryApplyLureTarget()
+        {
+            ConsumableManager items = ConsumableManager.Instance;
+            PlayerAutoAttack lure = items != null ? items.LureTarget : null;
+            if (lure == null || lure.gameObject.scene != gameObject.scene) return false;
+            cachedPlayer = lure;
+            playerTarget = lure;
+            partyTarget = null;
+            targetTransform = lure.transform;
+            return true;
+        }
+
         private bool IsCurrentTargetValid()
         {
             if (targetTransform == null)
@@ -286,6 +299,10 @@ namespace MixMaster.Combat
 
             if (partyTarget != null && !partyTarget.IsAlive)
                 return false;
+
+            ConsumableManager items = ConsumableManager.Instance;
+            if (playerTarget != null && items != null && items.LureTarget == playerTarget &&
+                playerTarget.gameObject.scene == gameObject.scene) return true;
 
             float loseRange = Mathf.Max(detectionRange, loseTargetRange);
             float distanceSqr =

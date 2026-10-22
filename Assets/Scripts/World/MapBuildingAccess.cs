@@ -11,7 +11,8 @@ namespace MixMaster.World
         DungeonEntrance,
         BreedingShop,
         Blacksmith,
-        Reincarnation
+        Reincarnation,
+        ConsumableShop
     }
 
     [DisallowMultipleComponent]
@@ -78,7 +79,8 @@ namespace MixMaster.World
                 (buildingType == MapBuildingType.DungeonEntrance ||
                  buildingType == MapBuildingType.BreedingShop ||
                  buildingType == MapBuildingType.Blacksmith ||
-                 buildingType == MapBuildingType.Reincarnation))
+                 buildingType == MapBuildingType.Reincarnation ||
+                 buildingType == MapBuildingType.ConsumableShop))
             {
                 // The entrance must work in older exploration scenes that
                 // contain the map prefab but have no UI router yet.

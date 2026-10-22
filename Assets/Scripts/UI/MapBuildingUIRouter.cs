@@ -18,6 +18,7 @@ namespace MixMaster.UI
         [SerializeField] private GameObject breedingPanel;
         [SerializeField] private EquipmentInventoryUI blacksmithInventory;
         [SerializeField] private ReincarnationPanelUI reincarnationPanel;
+        [SerializeField] private ConsumablePanelUI consumableShop;
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -75,6 +76,7 @@ namespace MixMaster.UI
                     " RouterのBreeding Panelへ設定してください。", this);
 
             ResolveReincarnationPanel();
+            ResolveConsumableShop();
             CloseAllInternal(false);
         }
 
@@ -85,6 +87,7 @@ namespace MixMaster.UI
                 blacksmithInventory.Closed -= HandleBlacksmithInventoryClosed;
             if (reincarnationPanel != null)
                 reincarnationPanel.Closed -= HandleReincarnationPanelClosed;
+            if (consumableShop != null) consumableShop.Closed -= HandleConsumableShopClosed;
             if (Instance == this)
                 Instance = null;
         }
@@ -95,7 +98,7 @@ namespace MixMaster.UI
             // UI itself comes from the scene. Keep standalone town scenes
             // usable when no global EventSystem has been provided.
             if ((type == MapBuildingType.BreedingShop || type == MapBuildingType.Blacksmith ||
-                type == MapBuildingType.Reincarnation) &&
+                type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop) &&
                 EventSystem.current == null)
             {
                 new GameObject("MapBuildingEventSystem",
@@ -106,11 +109,13 @@ namespace MixMaster.UI
                 ResolveBlacksmithInventory();
             if (type == MapBuildingType.Reincarnation)
                 ResolveReincarnationPanel();
+            if (type == MapBuildingType.ConsumableShop) ResolveConsumableShop();
 
             GameObject targetPanel =
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
                 type == MapBuildingType.BreedingShop ? breedingPanel :
+                type == MapBuildingType.ConsumableShop && consumableShop != null ? consumableShop.gameObject :
                 type == MapBuildingType.Reincarnation && reincarnationPanel != null ? reincarnationPanel.gameObject :
                 type == MapBuildingType.Blacksmith && blacksmithInventory != null
                     ? blacksmithInventory.gameObject : null;
@@ -140,6 +145,12 @@ namespace MixMaster.UI
                     Debug.LogWarning("[MapBuildingUIRouter] 装備インベントリの親Canvasを有効にしてください。", this);
                     return;
                 }
+            }
+            else if (type == MapBuildingType.ConsumableShop)
+            {
+                ConsumablePanelUI inventory = ConsumablePanelUI.Find(false);
+                if (inventory != null) inventory.Close();
+                consumableShop.Show();
             }
             else
                 SetPanelActive(targetPanel, true);
@@ -222,6 +233,18 @@ namespace MixMaster.UI
                 CloseAll();
         }
 
+        public void SetConsumableShop(ConsumablePanelUI panel)
+        {
+            if (consumableShop != null) consumableShop.Closed -= HandleConsumableShopClosed;
+            consumableShop = panel;
+            if (consumableShop != null) consumableShop.Closed += HandleConsumableShopClosed;
+        }
+        private void ResolveConsumableShop() => SetConsumableShop(consumableShop != null ? consumableShop : ConsumablePanelUI.Find(true));
+        private void HandleConsumableShopClosed()
+        {
+            if (IsOpen && CurrentBuilding == MapBuildingType.ConsumableShop) CloseAll();
+        }
+
         private void CloseAllInternal(bool invokeEvent)
         {
             bool wasOpen = IsOpen;
@@ -233,6 +256,7 @@ namespace MixMaster.UI
             SetPanelActive(dungeonEntrancePanel, false);
             SetPanelActive(breedingPanel, false);
             if (reincarnationPanel != null) SetPanelActive(reincarnationPanel.gameObject, false);
+            if (consumableShop != null) SetPanelActive(consumableShop.gameObject, false);
 
             if (closeBlacksmith && blacksmithInventory != null)
                 blacksmithInventory.Close();
