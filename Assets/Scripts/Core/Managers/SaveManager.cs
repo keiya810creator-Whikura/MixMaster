@@ -175,6 +175,8 @@ namespace MixMaster.Core
         {
             GameSaveData data = new GameSaveData();
             data.savedUtc = DateTime.UtcNow.ToString("o");
+            ConsumableManager consumables = GetComponent<ConsumableManager>();
+            if (consumables != null) data.consumables = consumables.Capture();
 
             GameManager game = GetComponent<GameManager>();
             MapManager map = GetComponent<MapManager>();
@@ -386,6 +388,9 @@ namespace MixMaster.Core
                     data.version >= 7 && data.monsterAutoSellUntitled,
                     data.version >= 7 ? data.monsterAutoSellIvThreshold : 90,
                     data.version >= 7 ? data.monsterAutoSellRequiredStats : 1);
+
+            ConsumableManager consumables = GetComponent<ConsumableManager>();
+            if (consumables != null) consumables.Restore(data.consumables);
 
             // Saved coordinates are retained in the file for compatibility,
             // but a new application session always starts in the village.

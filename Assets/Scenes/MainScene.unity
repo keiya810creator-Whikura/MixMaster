@@ -33419,6 +33419,9 @@ RectTransform:
   - {fileID: 658171802}
   - {fileID: 1744330769}
   - {fileID: 898631257}
+  - {fileID: 757220000000000002}
+  - {fileID: 757220000000000012}
+  - {fileID: 757220000000000022}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -57007,6 +57010,60 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   buildingType: 4
+--- !u!1001 &757220000000000001
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 824269458}
+    m_Modifications: []
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0ac1495821c55b86b212c6c806111416, type: 3}
+--- !u!224 &757220000000000002 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000, guid: 0ac1495821c55b86b212c6c806111416, type: 3}
+  m_PrefabInstance: {fileID: 757220000000000001}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &757220000000000011
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 824269458}
+    m_Modifications: []
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c7fa1702273857e297f8599eb6f72969, type: 3}
+--- !u!224 &757220000000000012 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000, guid: c7fa1702273857e297f8599eb6f72969, type: 3}
+  m_PrefabInstance: {fileID: 757220000000000011}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &757220000000000021
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 824269458}
+    m_Modifications: []
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 3ea7f4ba9faf5c76bd76608d0dcc220a, type: 3}
+--- !u!224 &757220000000000022 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000, guid: 3ea7f4ba9faf5c76bd76608d0dcc220a, type: 3}
+  m_PrefabInstance: {fileID: 757220000000000021}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

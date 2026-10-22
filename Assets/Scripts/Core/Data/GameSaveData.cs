@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
 
@@ -18,6 +18,7 @@ namespace MixMaster.Core
         public Vector3 playerPosition;
 
         public long gold;
+        public ConsumableSaveData consumables;
         public CharacterStats playerStats = new CharacterStats();
         public int playerLevel = 1;
         public long playerExperience;
