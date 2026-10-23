@@ -1,0 +1,4 @@
+スキルID,順番,効果,威力参照,倍率,固定値,適用先,配送,半径,命中上限,弾速,弾寿命秒,追尾,演出プレファブパス
+fireball,1,Damage,Magic,2,0,SelectedTarget,Projectile,0,1,8,3,true,
+healing,1,Heal,Magic,1.5,200,SelectedTarget,Instant,0,1,0,0,false,
+shockwave,1,Damage,Attack,1.5,0,EnemiesInArea,Instant,3,0,0,0,false,

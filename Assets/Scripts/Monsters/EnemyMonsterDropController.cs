@@ -54,11 +54,6 @@ namespace MixMaster.Monsters
             if (dropManager == null)
                 return;
 
-            MaterialDropSourceInfo source =
-                enemy != null
-                    ? enemy.LastHitSource
-                    : MaterialDropSourceInfo.Unknown();
-
             float bodyDropRate =
                 altarManager != null
                     ? altarManager.GetMonsterBodyDropRate(
@@ -67,16 +62,8 @@ namespace MixMaster.Monsters
                     : Mathf.Clamp01(
                         monsterDefinition.baseMonsterDropRate);
 
-            float killerBonus =
-                source != null
-                    ? Mathf.Max(
-                        0f,
-                        source.dropRateBonus)
-                    : 0f;
-
             if (!dropManager.RollMonsterBodyDrop(
-                    bodyDropRate,
-                    killerBonus))
+                    bodyDropRate))
             {
                 return;
             }

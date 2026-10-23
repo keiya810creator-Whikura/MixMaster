@@ -1,0 +1,7 @@
+ルールID,スキルID,イベント,イベント回数,間隔秒,条件,比較,閾値,判定半径,対象選択,発動確率,優先度
+heal_self,healing,Ready,1,0,SelfHpPercent,LE,50,,Self,100,100
+heal_ally,healing,Ready,1,0,TargetHpPercent,LE,50,,LowestHpAlly,100,90
+fire_ready,fireball,Ready,1,0,None,,,,NearestEnemy,100,10
+shock_emergency,shockwave,Ready,1,0,SelfHpPercent,LE,50,,Self,100,80
+shock_emergency,shockwave,Ready,1,0,EnemyCount,GE,3,3,Self,100,80
+fire_every_5_hits,fireball,NormalAttackHit,5,0,None,,,,CurrentEnemy,100,20

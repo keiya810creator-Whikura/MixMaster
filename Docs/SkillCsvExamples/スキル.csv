@@ -1,0 +1,4 @@
+ID,名前,説明,種別,必要Lv,習得SP,消費MP,CT秒,詠唱秒,発動間隔秒,射程,対象,属性,クリティカル可,アイコンパス
+fireball,ファイアボール,敵1体へ火属性の魔弾を放つ,Active,1,1,10,5,0,0.2,6,SingleEnemy,Fire,true,
+healing,ヒーリング,自分または味方1体のHPを回復する,Active,1,1,15,8,0,0.2,5,SingleAlly,Owner,false,
+shockwave,衝撃波,自身の周囲の敵に物理ダメージ,Active,5,2,20,10,0.3,0.2,0,AreaAroundSelf,Owner,true,
