@@ -76,23 +76,20 @@ namespace MixMaster.Core
             return RollQuantityFromRate(finalRate);
         }
 
-        public bool RollMonsterBodyDrop(
-            double bodyDropRate,
-            double killerDropRateBonus)
+        /// <summary>
+        /// Monster acquisition uses only the species/map altar rate.
+        /// Character drop-rate bonuses apply to materials, not monster bodies.
+        /// </summary>
+        public bool RollMonsterBodyDrop(double bodyDropRate)
         {
-            double finalRate =
-                CalculateAdditiveRate(
-                    bodyDropRate,
-                    killerDropRateBonus);
-
-            if (finalRate >= 1d)
+            if (bodyDropRate >= 1d)
                 return true;
 
-            if (finalRate <= 0d)
+            if (bodyDropRate <= 0d)
                 return false;
 
             return UnityEngine.Random.value <
-                   finalRate;
+                   bodyDropRate;
         }
 
         public void SpawnMaterialDrop(

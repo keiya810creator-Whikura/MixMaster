@@ -1,0 +1,3 @@
+モンスターID,スキルID,初回待機秒,対象選択,優先度
+1,fireball,5,NearestEnemy,10
+1,shockwave,10,Self,20

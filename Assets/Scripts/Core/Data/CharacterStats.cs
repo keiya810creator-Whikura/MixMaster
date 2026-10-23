@@ -78,6 +78,7 @@ namespace MixMaster.Core
         public ElementType element = ElementType.None;
         public ElementResistanceSet resistances = new ElementResistanceSet();
 
+        // Material drops only; monster acquisition uses its own species/altar rate.
         // Only used by Player / allied monsters.
         // Additive decimal rate: 1.0 = +100%, 2.0 = +200%.
         public float dropRateBonus = 0f;
