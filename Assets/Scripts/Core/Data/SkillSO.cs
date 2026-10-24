@@ -12,7 +12,8 @@ namespace MixMaster.Core
     {
         None,
         Attack,
-        Magic
+        Magic,
+        MaxHp
     }
 
     public enum SkillTargetType
@@ -20,7 +21,8 @@ namespace MixMaster.Core
         Self,
         SingleEnemy,
         AreaAroundSelf,
-        AreaAroundTarget
+        AreaAroundTarget,
+        SingleAlly
     }
 
     [CreateAssetMenu(
@@ -48,6 +50,18 @@ namespace MixMaster.Core
         [Header("Element")]
         public bool useOwnerElement = true;
         public ElementType overrideElement = ElementType.None;
+
+        [Header("共通スキル実行")]
+        public bool executable;
+        public SkillBaseEffect effect;
+        public SkillApplication application;
+        [Min(0)] public long flatPower;
+        [Min(0)] public float cooldown = 5f, castTime, globalCooldown = 0.2f, range = 6f, radius;
+        [Min(0)] public int hitLimit = 1;
+        public bool canCritical = true, projectile, homing;
+        [Min(0)] public float projectileSpeed = 8f, projectileLifetime = 3f;
+        public GameObject effectPrefab;
+        public SkillAffix[] affixes = new SkillAffix[0];
 
 #if UNITY_EDITOR
         private void OnValidate()

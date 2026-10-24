@@ -109,6 +109,7 @@ namespace MixMaster.Combat
 
         private void Awake()
         {
+            SkillActor.Ensure(gameObject);
             playerController = GetComponent<PlayerController>();
             if (playerSpriteRenderer == null)
                 playerSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -200,6 +201,7 @@ namespace MixMaster.Combat
 
         private void Update()
         {
+            if (GetComponent<SkillActor>()?.NormalAttackBlocked == true) return;
             if (!AutoAttackEnabled)
             {
                 currentTarget = null;
