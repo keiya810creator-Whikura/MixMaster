@@ -34,6 +34,8 @@ namespace MixMaster.EditorTools
 
             var steps = new List<Step>
             {
+                new Step { label = "スキル", csvPath = File.Exists(SkillExcelImporter.DefaultPath) ? SkillExcelImporter.DefaultPath : "Assets/DataCSV/スキル.csv",
+                    action = () => SkillExcelImporter.Import(File.Exists(SkillExcelImporter.DefaultPath) ? SkillExcelImporter.DefaultPath : "Assets/DataCSV/スキル.csv", false) },
                 new Step { label = "称号", csvPath = "Assets/DataCSV/称号.csv",
                     action = TitleCsvImporter.ImportOrUpdate },
                 new Step { label = "モンスター", csvPath = "Assets/DataCSV/モンスター.csv",

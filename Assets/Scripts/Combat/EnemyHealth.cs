@@ -40,8 +40,14 @@ namespace MixMaster.Combat
         public long MaxMp => maxMp;
         public long CurrentHp { get; private set; }
         public long CurrentMp { get; private set; }
-        public long Defense => defense;
-        public long MagicDefense => magicDefense;
+        public long BaseDefense => defense;
+        public long BaseMagicDefense => magicDefense;
+        public long Defense => GetComponent<SkillActor>()?.Stats.defense ?? defense;
+        public long MagicDefense => GetComponent<SkillActor>()?.Stats.magicDefense ?? magicDefense;
+        public void Heal(long amount)
+        {
+            if (IsAlive && amount > 0) CurrentHp = Math.Min(maxHp, LongMath.SaturatingAdd(CurrentHp, amount));
+        }
         public bool IsAlive { get; private set; }
         public MaterialDropSourceInfo LastHitSource =>
             lastHitSource != null
@@ -107,7 +113,7 @@ namespace MixMaster.Combat
             if (!IsAlive || attackPower <= 0)
                 return 0;
 
-            long damage = DamageCalculator.Calculate(attackPower, defense);
+            long damage = DamageCalculator.Calculate(attackPower, Defense);
 
             return TakeDamage(
                 damage,
@@ -128,7 +134,7 @@ namespace MixMaster.Combat
             if (!IsAlive || magicPower <= 0)
                 return 0;
 
-            long damage = DamageCalculator.Calculate(magicPower, magicDefense);
+            long damage = DamageCalculator.Calculate(magicPower, MagicDefense);
 
             return TakeDamage(
                 damage,
@@ -149,6 +155,8 @@ namespace MixMaster.Combat
             if (!IsAlive || damage <= 0)
                 return 0;
 
+            if (!SkillActor.AllowNormalHit(sourceInfo)) return 0;
+
             // The killing blow must identify its own attacker.
             // A hit without attribution must never inherit a prior killer.
             lastHitSource = sourceInfo != null
@@ -157,6 +165,8 @@ namespace MixMaster.Combat
 
             long actualDamage = Math.Min(CurrentHp, damage);
             CurrentHp -= actualDamage;
+            GetComponent<SkillActor>()?.NotifyDamage(SkillActor.ApplyingSkill || sourceInfo?.isSkill == true);
+            SkillActor.FromSource(sourceInfo)?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);
 
             wanderAI?.EnterCombat(1.5f);
 

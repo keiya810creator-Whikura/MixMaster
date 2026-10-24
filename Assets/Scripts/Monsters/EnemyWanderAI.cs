@@ -48,6 +48,7 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
+            if (GetComponent<MixMaster.Combat.SkillActor>()?.MovementBlocked == true) { StopMoving(); return; }
             if (externallyCombatControlled)
             {
                 StopMoving();
@@ -80,7 +81,7 @@ namespace MixMaster.Monsters
             Vector2 next = Vector2.MoveTowards(
                 current,
                 targetPosition,
-                moveSpeed * Time.fixedDeltaTime);
+                moveSpeed * Time.fixedDeltaTime * (GetComponent<MixMaster.Combat.SkillActor>()?.MovementRatio ?? 1f));
 
             body.MovePosition(next);
 

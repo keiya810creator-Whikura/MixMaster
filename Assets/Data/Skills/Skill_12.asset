@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_12
+  m_EditorClassIdentifier:
+  skillId: "12"
+  displayName: "腐食毒弾"
+  description: "ダメージと同時に防御力低下と毒を付与"
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 1
+  mpCost: 10
+  powerMultiplier: 2.0
+  useOwnerElement: 1
+  overrideElement: 0
+  executable: 1
+  effect: 0
+  application: 0
+  flatPower: 0
+  cooldown: 5.0
+  castTime: 0.0
+  globalCooldown: 0.2
+  range: 6.0
+  radius: 0.0
+  hitLimit: 1
+  canCritical: 1
+  projectile: 1
+  homing: 1
+  projectileSpeed: 8.0
+  projectileLifetime: 3.0
+  icon: {fileID: 0}
+  effectPrefab: {fileID: 0}
+  affixes:
+  - type: 2
+    stat: 3
+    change: 1
+    amount: 20.0
+    duration: 10.0
+    chance: 100.0
+    interval: 0.0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1
+  - type: 3
+    stat: 0
+    change: 4
+    amount: 1.0
+    duration: 10.0
+    chance: 80.0
+    interval: 2.0
+    ailment: 1
+    stacking: 0
+    stackLimit: 1
