@@ -11,54 +11,54 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 10f30c60e0615d068accda1a52aa564d, type: 3}
   m_Name: ConsumableCatalog
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   items:
   - itemId: hp_low
-    displayName: HP回復ポーション 下
-    icon: {fileID: 21300000, guid: 99ab59af96745907b0964d944378512e, type: 3}
+    displayName: "HP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E0B"
+    icon: {fileID: -8804568250833803084, guid: 326bc02794b79b24390f4fcb01d98545, type: 3}
     effect: 0
     recoveryAmount: 200
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: hp_mid
-    displayName: HP回復ポーション 中
-    icon: {fileID: 21300000, guid: ddad54e124a2504c9bcb01c4e5fc97e0, type: 3}
+    displayName: "HP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E2D"
+    icon: {fileID: 6191152725710636290, guid: 00643933b4a912849a33cb88db48e0a4, type: 3}
     effect: 0
     recoveryAmount: 1000
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: hp_high
-    displayName: HP回復ポーション 上
-    icon: {fileID: 21300000, guid: fdeace8abb35519cac4c3c0ff2a8c272, type: 3}
+    displayName: "HP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E0A"
+    icon: {fileID: 3478876151887043543, guid: 3b2eeb93c9e84284d952b2e16a357f9a, type: 3}
     effect: 0
     recoveryAmount: 5000
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: mp_low
-    displayName: MP回復ポーション 下
-    icon: {fileID: 21300000, guid: 26c5e6eda94d53af82ca877295d2d4d6, type: 3}
+    displayName: "MP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E0B"
+    icon: {fileID: 2987869953936080293, guid: 53406c069661ea34582cadb074934e70, type: 3}
     effect: 1
     recoveryAmount: 200
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: mp_mid
-    displayName: MP回復ポーション 中
-    icon: {fileID: 21300000, guid: 3b03675a70c259689bba34bb953227ac, type: 3}
+    displayName: "MP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E2D"
+    icon: {fileID: -788912972422304250, guid: 1a0ef7b4a524f4944a67573e1bb56ec6, type: 3}
     effect: 1
     recoveryAmount: 1000
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: mp_high
-    displayName: MP回復ポーション 上
-    icon: {fileID: 21300000, guid: d8fa88272a795b70bec274407c4e7865, type: 3}
+    displayName: "MP\u56DE\u5FA9\u30DD\u30FC\u30B7\u30E7\u30F3 \u4E0A"
+    icon: {fileID: 2987869953936080293, guid: 53406c069661ea34582cadb074934e70, type: 3}
     effect: 1
     recoveryAmount: 5000
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
   - itemId: monster_lure_bell
-    displayName: 魔よけの鈴
-    icon: {fileID: 21300000, guid: 3416aef8ab195ce98c22af2d8c41c70e, type: 3}
+    displayName: "\u9B54\u3088\u3051\u306E\u9234"
+    icon: {fileID: -7436925880145425713, guid: e3c3cec64533aed4dab67460fc7b6cc2, type: 3}
     effect: 2
     recoveryAmount: 0
     durationSeconds: 60
-    purchasePrice: -1
+    purchasePrice: 1
