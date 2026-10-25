@@ -24,7 +24,7 @@ namespace MixMaster.UI
         private SkillProgressionManager manager;
         private int slotIndex;
         private float refreshAt;
-        private static readonly string[] Triggers={"手動のみ／追加条件なし","使用可能になったら","自分の体力％以下","自分の魔力％以上","対象の体力％以下","攻撃範囲内の敵の数以上","通常攻撃が指定回数命中","指定回数ダメージを受けたら","指定秒数ごと","指定数の敵を倒したら"};
+        private static readonly string[] Triggers={"手動のみ／追加条件なし","使用可能になったら","自分の体力％以下","自分のMP％以上","対象の体力％以下","攻撃範囲内の敵の数以上","通常攻撃が指定回数命中","指定回数ダメージを受けたら","指定秒数ごと","指定数の敵を倒したら"};
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
@@ -101,7 +101,7 @@ namespace MixMaster.UI
         {
             if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=false;return;}
             var s=Selected;bool learned=manager.Learned(Owner.OwnerId,s.skillId);
-            details.text=s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費魔力 "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
+            details.text=s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
             learnButton.interactable=!learned;saveButton.interactable=learned;
         }
         private void SaveRule()

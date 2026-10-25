@@ -59,6 +59,7 @@ namespace MixMaster.EditorTools
                         Undo.RecordObject(target,"スキル更新");
                         if(string.IsNullOrWhiteSpace(Cell(sourceRow,"画像パス")))incoming.icon=target.icon;
                         if(string.IsNullOrWhiteSpace(Cell(sourceRow,"演出パス")))incoming.effectPrefab=target.effectPrefab;
+                        if(string.IsNullOrWhiteSpace(Cell(sourceRow,"発射物プレファブパス")))incoming.projectilePrefab=target.projectilePrefab;
                         EditorUtility.CopySerialized(incoming,target);EditorUtility.SetDirty(target);
                     }
                     else{target=ScriptableObject.CreateInstance<SkillSO>();EditorUtility.CopySerialized(incoming,target);AssetDatabase.CreateAsset(target,"Assets/Data/Skills/Skill_"+incoming.skillId+".asset");}
@@ -106,7 +107,7 @@ namespace MixMaster.EditorTools
                 s.skillId=idNumber.ToString("0",CultureInfo.InvariantCulture);s.name="Skill_"+s.skillId;
                 s.displayName=Cell(r,"名前",true);s.description=Cell(r,"説明");
                 s.requiredLevel=Int(r,"必要レベル",1);if(s.requiredLevel<1)throw new InvalidDataException("必要レベルは1以上です。");
-                s.skillPointCost=Int(r,"習得ポイント",1);s.mpCost=Integer(r,"消費魔力");
+                s.skillPointCost=Int(r,"習得ポイント",1);s.mpCost=Integer(r,r.ContainsKey("消費MP")?"消費MP":"消費魔力");
                 s.cooldown=(float)Number(r,"再使用時間秒");s.castTime=(float)Number(r,"詠唱時間秒");s.globalCooldown=(float)Number(r,"共通待機時間秒",0.2);
                 s.range=(float)Number(r,"射程");s.radius=(float)Number(r,"範囲半径");s.hitLimit=Int(r,"命中上限",1);
                 string target=Cell(r,"対象",true);
@@ -122,6 +123,24 @@ namespace MixMaster.EditorTools
                 s.projectileSpeed=s.projectile?(float)Number(r,r.ContainsKey("発射物速度入力")?"発射物速度入力":"発射物速度"):0;
                 s.projectileLifetime=s.projectile?(float)Number(r,r.ContainsKey("発射物寿命入力秒")?"発射物寿命入力秒":"発射物寿命秒"):0;
                 s.homing=s.projectile&&On(r,r.ContainsKey("追尾入力")?"追尾入力":"追尾");
+                s.useProjectileMotionOverrides=true;
+                var motion=new List<ProjectileMotionOverride>();
+                string homingKey=r.ContainsKey("追尾入力")?"追尾入力":"追尾";
+                if(!string.IsNullOrWhiteSpace(Cell(r,homingKey)))motion.Add(new ProjectileMotionOverride{option=ProjectileMotionOption.Homing,value=s.homing?1:0});
+                string[] motionColumns={"発射物_貫通","発射物_回転","発射物_回転速度","発射物_蛇行","発射物_蛇行幅","発射物_蛇行回数","発射物_加速","発射物_加速度","発射物_最高速度","発射物_命中半径"};
+                ProjectileMotionOption[] motionOptions={ProjectileMotionOption.Piercing,ProjectileMotionOption.Spin,ProjectileMotionOption.SpinSpeed,ProjectileMotionOption.Wave,ProjectileMotionOption.WaveWidth,ProjectileMotionOption.WaveFrequency,ProjectileMotionOption.Accelerate,ProjectileMotionOption.Acceleration,ProjectileMotionOption.MaximumSpeed,ProjectileMotionOption.HitRadius};
+                for(int i=0;i<motionColumns.Length;i++)
+                {
+                    string value=Cell(r,motionColumns[i]);if(value=="")continue;
+                    float number;
+                    if(i==0||i==1||i==3||i==6)number=On(r,motionColumns[i])?1:0;
+                    else if(!float.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out number)||float.IsNaN(number)||float.IsInfinity(number)||Math.Abs(number)>1000000)throw new InvalidDataException(motionColumns[i]+"は有限の数値を指定してください。");
+                    if((i==4||i==5)&&number<0)throw new InvalidDataException(motionColumns[i]+"は0以上です。");
+                    if((i==8||i==9)&&number<=0)throw new InvalidDataException(motionColumns[i]+"は0より大きい値です。");
+                    motion.Add(new ProjectileMotionOverride{option=motionOptions[i],value=number});
+                }
+                s.projectileMotionOverrides=motion.ToArray();
+                ParseAdvancedMotion(r,motion);s.projectileMotionOverrides=motion.ToArray();
                 if(s.projectile&&(s.projectileSpeed<=0||s.projectileLifetime<=0))throw new InvalidDataException("発射物の速度・寿命は0より大きい値です。");
                 if(s.effect==SkillBaseEffect.Damage&&(s.powerSource!=SkillPowerSource.Attack&&s.powerSource!=SkillPowerSource.Magic))throw new InvalidDataException("ダメージの参照能力は攻撃力／魔法攻撃力です。");
                 if(s.effect==SkillBaseEffect.Heal&&s.powerSource==SkillPowerSource.Attack)throw new InvalidDataException("回復には攻撃力を使えません。");
@@ -154,9 +173,55 @@ namespace MixMaster.EditorTools
                 string icon=Cell(r,"画像パス"),vfx=Cell(r,"演出パス");
                 if(icon!=""){s.icon=AssetDatabase.LoadAssetAtPath<Sprite>(icon);if(s.icon==null)throw new InvalidDataException("画像パスが不正: "+icon);}
                 if(vfx!=""){s.effectPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(vfx);if(s.effectPrefab==null)throw new InvalidDataException("演出パスが不正: "+vfx);}
+                string projectilePath=Cell(r,"発射物プレファブパス");
+                if(projectilePath!="")
+                {
+                    s.projectilePrefab=AssetDatabase.LoadAssetAtPath<GameObject>(projectilePath);
+                    if(s.projectilePrefab==null||s.projectilePrefab.GetComponent<MixMaster.Combat.SkillProjectile>()==null||s.projectilePrefab.GetComponentInChildren<SpriteRenderer>()==null)
+                        throw new InvalidDataException("発射物プレファブにはSkillProjectileとSpriteRendererが必要です: "+projectilePath);
+                }
                 s.executable=true;return s;
             }
             catch{UnityEngine.Object.DestroyImmediate(s);throw;}
+        }
+        public static readonly string[] MotionTypes={"直進","追尾","拡大直進","その場","ブーメラン","周回後に射出","蛇行","加速","減速停止","遅延追尾","螺旋","往復","感応地雷","収束成長"};
+        public static readonly (ProjectileMotionOption option,string column)[] AdvancedMotionColumns={
+            (ProjectileMotionOption.MoveType,"移動タイプ"),(ProjectileMotionOption.TurnSpeed,"追尾旋回速度"),
+            (ProjectileMotionOption.GrowSpeed,"拡大速度"),(ProjectileMotionOption.MaximumScale,"最大拡大倍率"),
+            (ProjectileMotionOption.OutboundTime,"直進秒"),(ProjectileMotionOption.ReturnSpeed,"帰還速度"),
+            (ProjectileMotionOption.OrbitTime,"周回秒"),(ProjectileMotionOption.OrbitRadius,"周回半径"),(ProjectileMotionOption.OrbitAngularSpeed,"周回角速度"),
+            (ProjectileMotionOption.DelayedHomingTime,"追尾開始秒"),(ProjectileMotionOption.SpiralAngularSpeed,"螺旋角速度"),(ProjectileMotionOption.SpiralGrowth,"螺旋拡大速度"),
+            (ProjectileMotionOption.PingPongDistance,"往復距離"),(ProjectileMotionOption.Reversals,"反転回数"),(ProjectileMotionOption.DestroyAfterReversals,"反転終了で消滅"),
+            (ProjectileMotionOption.FollowOwner,"使用者に追従"),(ProjectileMotionOption.RepeatHits,"再命中"),(ProjectileMotionOption.RepeatInterval,"再命中間隔秒"),
+            (ProjectileMotionOption.ChargeTime,"収束秒"),(ProjectileMotionOption.ChargeScale,"収束最大拡大倍率"),(ProjectileMotionOption.ChargePower,"収束最大威力倍率"),
+            (ProjectileMotionOption.TimedPhase,"時間切替"),(ProjectileMotionOption.PhaseTime,"切替秒"),(ProjectileMotionOption.PhaseType,"切替後移動タイプ"),(ProjectileMotionOption.PhaseSpeed,"切替後速度"),
+            (ProjectileMotionOption.Chain,"連鎖"),(ProjectileMotionOption.ChainCount,"連鎖回数"),(ProjectileMotionOption.ChainRadius,"連鎖半径"),(ProjectileMotionOption.ChainPower,"連鎖威力倍率"),
+            (ProjectileMotionOption.Split,"分裂"),(ProjectileMotionOption.SplitCount,"子弾数"),(ProjectileMotionOption.SplitAngle,"分裂角度"),(ProjectileMotionOption.SplitPower,"子弾威力倍率"),(ProjectileMotionOption.SplitDepth,"分裂世代数"),
+            (ProjectileMotionOption.ExplodeOnHit,"命中時爆発"),(ProjectileMotionOption.ExplodeOnStop,"停止時爆発"),(ProjectileMotionOption.ExplosionRadius,"爆発半径"),(ProjectileMotionOption.ExplosionDuration,"爆発表示秒")};
+        private static void ParseAdvancedMotion(Dictionary<string,string> row,List<ProjectileMotionOverride> result)
+        {
+            var flags=new HashSet<ProjectileMotionOption>{ProjectileMotionOption.DestroyAfterReversals,ProjectileMotionOption.FollowOwner,ProjectileMotionOption.RepeatHits,ProjectileMotionOption.TimedPhase,ProjectileMotionOption.Chain,ProjectileMotionOption.Split,ProjectileMotionOption.ExplodeOnHit,ProjectileMotionOption.ExplodeOnStop};
+            foreach(var item in AdvancedMotionColumns)
+            {
+                string key="発射物_"+item.column,raw=Cell(row,key);if(raw=="")continue;
+                float value;
+                if(item.option==ProjectileMotionOption.MoveType||item.option==ProjectileMotionOption.PhaseType)
+                {int index=Array.IndexOf(MotionTypes,raw);if(index<0)throw new InvalidDataException(key+"の移動タイプが不正です。");value=index;}
+                else if(flags.Contains(item.option))value=On(row,key)?1:0;
+                else
+                {
+                    if(!float.TryParse(raw,NumberStyles.Float,CultureInfo.InvariantCulture,out value)||float.IsNaN(value)||float.IsInfinity(value)||Math.Abs(value)>1000000)throw new InvalidDataException(key+"は有限の数値で指定してください。");
+                    bool signed=item.option==ProjectileMotionOption.OrbitAngularSpeed||item.option==ProjectileMotionOption.SpiralAngularSpeed;
+                    if(!signed&&value<0)throw new InvalidDataException(key+"は0以上です。");
+                    bool integer=item.option==ProjectileMotionOption.Reversals||item.option==ProjectileMotionOption.ChainCount||item.option==ProjectileMotionOption.SplitCount||item.option==ProjectileMotionOption.SplitDepth;
+                    if(integer&&(value!=(int)value||value>(item.option==ProjectileMotionOption.SplitDepth?3:16)))throw new InvalidDataException(key+"の整数範囲が不正です。");
+                    if((item.option==ProjectileMotionOption.SplitCount||item.option==ProjectileMotionOption.Reversals||item.option==ProjectileMotionOption.PingPongDistance||item.option==ProjectileMotionOption.ExplosionRadius)&&value<=0)throw new InvalidDataException(key+"は0より大きい値です。");
+                    if(item.option==ProjectileMotionOption.RepeatInterval&&value<.02f)throw new InvalidDataException(key+"は0.02秒以上です。");
+                    if((item.option==ProjectileMotionOption.ChargeScale||item.option==ProjectileMotionOption.MaximumScale)&&value<1)throw new InvalidDataException(key+"は1以上です。");
+                    if(item.option==ProjectileMotionOption.SplitAngle&&value>360)throw new InvalidDataException(key+"は360度以下です。");
+                }
+                result.Add(new ProjectileMotionOverride{option=item.option,value=value});
+            }
         }
     }
 }
