@@ -61,6 +61,10 @@ namespace MixMaster.Core
         public bool canCritical = true, projectile, homing;
         [Min(0)] public float projectileSpeed = 8f, projectileLifetime = 3f;
         public GameObject effectPrefab;
+        [Header("発射物の共通プレファブとCSV上書き")]
+        public GameObject projectilePrefab;
+        public bool useProjectileMotionOverrides;
+        public ProjectileMotionOverride[] projectileMotionOverrides = new ProjectileMotionOverride[0];
         public SkillAffix[] affixes = new SkillAffix[0];
 
 #if UNITY_EDITOR

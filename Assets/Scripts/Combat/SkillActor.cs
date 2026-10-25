@@ -221,7 +221,7 @@ namespace MixMaster.Combat
             }
             else if (species == null || !species.enemySkills.Contains(s)) return false;
             if (Remaining(s) > 0 || Time.time < globalUntil) { message = "再使用待ちです。"; return false; }
-            if (Mp < s.mpCost) { message = "魔力が足りません。"; return false; }
+            if (Mp < s.mpCost) { message = "MPが足りません。"; return false; }
             var target = SelectTarget(s);
             if (!ValidTarget(s, target)) { message = "射程内に対象がいません。"; return false; }
             if (s.castTime > 0) { casting = s; castTarget = target; finishAt = Time.time + s.castTime; }
@@ -260,24 +260,33 @@ namespace MixMaster.Combat
             if (ally) options.Sort((a,b) => ((double)a.Hp/Math.Max(1,a.Stats.maxHp)).CompareTo((double)b.Hp/Math.Max(1,b.Stats.maxHp)));
             return options[0];
         }
-        public void Execute(SkillSO s, SkillActor selected, Vector3 center, CharacterStats powerStats, MaterialDropSourceInfo source)
+        public bool ProjectileTargetAllowed(SkillSO skill,SkillActor candidate)
+        {
+            if(candidate==null||!candidate.Alive||candidate.gameObject.scene!=gameObject.scene)return false;
+            if(skill.targetType==SkillTargetType.Self||skill.targetType==SkillTargetType.AreaAroundSelf)return candidate==this;
+            if(Has(SkillAilment.Confusion))return candidate!=this;
+            return (candidate.IsEnemy==IsEnemy)==(skill.targetType==SkillTargetType.SingleAlly);
+        }
+        public void Execute(SkillSO s, SkillActor selected, Vector3 center, CharacterStats powerStats, MaterialDropSourceInfo source, HashSet<SkillActor> affected = null, float powerScale = 1, float areaRadiusOverride = -1)
         {
             var targets = new List<SkillActor>();
-            if (s.application == SkillApplication.Self) targets.Add(this);
-            else if (s.application == SkillApplication.SelectedTarget) { if (selected != null && selected.Alive) targets.Add(selected); }
+            if (s.application == SkillApplication.Self && areaRadiusOverride<0) targets.Add(this);
+            else if (s.application == SkillApplication.SelectedTarget && areaRadiusOverride<0) { if (selected != null && selected.Alive) targets.Add(selected); }
             else
             {
+                bool allies=s.application==SkillApplication.AlliesInArea||(areaRadiusOverride>=0&&(s.targetType==SkillTargetType.SingleAlly||s.application==SkillApplication.Self));
                 foreach (var a in Active)
-                    if (a != null && a.Alive && a.gameObject.scene == gameObject.scene && (Has(SkillAilment.Confusion) || ((a.IsEnemy == IsEnemy) == (s.application == SkillApplication.AlliesInArea))) && Vector2.Distance(center,a.transform.position) <= s.radius) targets.Add(a);
+                    if (a != null && a.Alive && a.gameObject.scene == gameObject.scene && (Has(SkillAilment.Confusion) || ((a.IsEnemy == IsEnemy) == allies)) && Vector2.Distance(center,a.transform.position) <= (areaRadiusOverride>=0?areaRadiusOverride:s.radius)) targets.Add(a);
                 targets.Sort((a,b) => { int d=(a.transform.position-center).sqrMagnitude.CompareTo((b.transform.position-center).sqrMagnitude); return d!=0?d:a.GetInstanceID().CompareTo(b.GetInstanceID()); });
-                if (s.hitLimit > 0 && targets.Count > s.hitLimit) targets.RemoveRange(s.hitLimit,targets.Count-s.hitLimit);
+                if (areaRadiusOverride<0&&s.hitLimit > 0 && targets.Count > s.hitLimit) targets.RemoveRange(s.hitLimit,targets.Count-s.hitLimit);
             }
             foreach (var target in targets)
             {
                 if (target == null || !target.Alive) continue;
+                if (affected!=null&&!affected.Add(target))continue;
                 if (s.effect == SkillBaseEffect.Damage && Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) continue;
                 long stat = s.powerSource == SkillPowerSource.Attack ? powerStats.attack : s.powerSource == SkillPowerSource.Magic ? powerStats.magic : s.powerSource == SkillPowerSource.MaxHp ? powerStats.maxHp : 0;
-                long amount = SkillMath.Amount(stat * (double)s.powerMultiplier + s.flatPower);
+                long amount = SkillMath.Amount((stat * (double)s.powerMultiplier + s.flatPower)*Math.Max(0,powerScale));
                 if (s.effect == SkillBaseEffect.Damage)
                 {
                     amount = DamageCalculator.Calculate(amount, s.powerSource == SkillPowerSource.Attack ? target.Stats.defense : target.Stats.magicDefense);

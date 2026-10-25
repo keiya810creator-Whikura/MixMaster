@@ -5696,7 +5696,7 @@ MonoBehaviour:
     - m_Text: 自分の体力％以下
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
-    - m_Text: 自分の魔力％以上
+    - m_Text: 自分のMP％以上
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
     - m_Text: 対象の体力％以下
@@ -6625,7 +6625,7 @@ MonoBehaviour:
     - m_Text: 自分の体力％以下
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
-    - m_Text: 自分の魔力％以上
+    - m_Text: 自分のMP％以上
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
     - m_Text: 対象の体力％以下
