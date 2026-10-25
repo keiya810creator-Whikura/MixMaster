@@ -11,44 +11,44 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_11
-  m_EditorClassIdentifier:
-  skillId: "11"
-  displayName: "封魔"
-  description: "敵一体のスキル使用を5秒間封じる"
+  m_EditorClassIdentifier: 
+  skillId: 11
+  displayName: "\u5C01\u9B54"
+  description: "\u6575\u4E00\u4F53\u306E\u30B9\u30AD\u30EB\u4F7F\u7528\u30925\u79D2\u9593\u5C01\u3058\u308B"
+  icon: {fileID: 0}
   skillPointCost: 1
   requiredLevel: 1
   category: 0
   powerSource: 0
   targetType: 1
   mpCost: 10
-  powerMultiplier: 0.0
+  powerMultiplier: 0
   useOwnerElement: 1
   overrideElement: 0
   executable: 1
   effect: 2
   application: 0
   flatPower: 0
-  cooldown: 5.0
-  castTime: 0.0
+  cooldown: 5
+  castTime: 0
   globalCooldown: 0.2
-  range: 6.0
-  radius: 0.0
+  range: 6
+  radius: 0
   hitLimit: 1
   canCritical: 0
   projectile: 0
   homing: 0
   projectileSpeed: 0
   projectileLifetime: 0
-  icon: {fileID: 0}
   effectPrefab: {fileID: 0}
   affixes:
   - type: 3
     stat: 0
     change: 0
-    amount: 0.0
-    duration: 5.0
-    chance: 70.0
-    interval: 0.0
+    amount: 0
+    duration: 5
+    chance: 70
+    interval: 0
     ailment: 6
     stacking: 0
     stackLimit: 1

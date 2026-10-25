@@ -57,6 +57,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 48797209eb79b0f46b4f02dd7cb1ae5d, type: 2}
   - {fileID: 11400000, guid: b9fba130271f5424cb49a021f51a031c, type: 2}
   - {fileID: 11400000, guid: 1419b1ab007e11c43aa68bb475c5937a, type: 2}
+  enemySkills: []
   appearanceStage: 24
   breedingValue: 82
   specialBreedingOnly: 0

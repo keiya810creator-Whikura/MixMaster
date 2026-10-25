@@ -161,7 +161,13 @@ namespace MixMaster.EditorTools
                 {
                     Vector2 offset = scroll.offsetMax;
                     scroll.offsetMax = new Vector2(offset.x,
-                        Mathf.Min(offset.y, -283f));
+                        Mathf.Min(offset.y, -290f));
+
+                    // Keep the list content below the authored filter controls.
+                    // Otherwise the top of the list overlaps the filter GUI and
+                    // appears visually duplicated.
+                    if (scroll.offsetMin.y < 30f)
+                        scroll.offsetMin = new Vector2(scroll.offsetMin.x, 30f);
                 }
             }
             return changed;

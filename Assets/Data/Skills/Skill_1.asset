@@ -11,34 +11,34 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_1
-  m_EditorClassIdentifier:
-  skillId: "1"
-  displayName: "ファイアボール"
-  description: "敵一体へ火属性の魔弾を放つ"
+  m_EditorClassIdentifier: 
+  skillId: 1
+  displayName: "\u30D5\u30A1\u30A4\u30A2\u30DC\u30FC\u30EB"
+  description: "\u6575\u4E00\u4F53\u3078\u706B\u5C5E\u6027\u306E\u9B54\u5F3E\u3092\u653E\u3064"
+  icon: {fileID: 0}
   skillPointCost: 1
   requiredLevel: 1
   category: 0
   powerSource: 2
   targetType: 1
   mpCost: 10
-  powerMultiplier: 2.0
+  powerMultiplier: 2
   useOwnerElement: 0
   overrideElement: 1
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5.0
-  castTime: 0.0
+  cooldown: 5
+  castTime: 0
   globalCooldown: 0.2
-  range: 6.0
-  radius: 0.0
+  range: 6
+  radius: 0
   hitLimit: 1
   canCritical: 1
   projectile: 1
   homing: 1
-  projectileSpeed: 8.0
-  projectileLifetime: 3.0
-  icon: {fileID: 0}
+  projectileSpeed: 8
+  projectileLifetime: 3
   effectPrefab: {fileID: 0}
   affixes: []

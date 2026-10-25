@@ -54,9 +54,10 @@ MonoBehaviour:
   titlePool:
   - {fileID: 11400000, guid: 7f597240ac5c22e4aa6d80df76e57799, type: 2}
   availableSkills:
-  - {fileID: 11400000, guid: 0ec6e210875f5cc4096a98f4adbda0fe, type: 2}
-  - {fileID: 11400000, guid: ca24255f8e4d7b84fab6d4e841d09e1c, type: 2}
-  - {fileID: 11400000, guid: 7ca362960387e6449a284c7ed31a3324, type: 2}
+  - {fileID: 11400000, guid: 4e416eaf4149504886db071483830362, type: 2}
+  - {fileID: 11400000, guid: 13a17849899c5879803b2dc54352a143, type: 2}
+  - {fileID: 11400000, guid: 6d03e5fa51d458c8a3653ce07e56c2b0, type: 2}
+  enemySkills: []
   appearanceStage: 1
   breedingValue: 12
   specialBreedingOnly: 0

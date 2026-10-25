@@ -11,44 +11,44 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_4
-  m_EditorClassIdentifier:
-  skillId: "4"
-  displayName: "剛力の加護"
-  description: "味方一体の攻撃力を20％上昇"
+  m_EditorClassIdentifier: 
+  skillId: 4
+  displayName: "\u525B\u529B\u306E\u52A0\u8B77"
+  description: "\u5473\u65B9\u4E00\u4F53\u306E\u653B\u6483\u529B\u309220\uFF05\u4E0A\u6607"
+  icon: {fileID: 0}
   skillPointCost: 1
   requiredLevel: 1
   category: 0
   powerSource: 0
   targetType: 4
   mpCost: 10
-  powerMultiplier: 0.0
+  powerMultiplier: 0
   useOwnerElement: 1
   overrideElement: 0
   executable: 1
   effect: 2
   application: 0
   flatPower: 0
-  cooldown: 5.0
-  castTime: 0.0
+  cooldown: 5
+  castTime: 0
   globalCooldown: 0.2
-  range: 6.0
-  radius: 0.0
+  range: 6
+  radius: 0
   hitLimit: 1
   canCritical: 0
   projectile: 0
   homing: 0
   projectileSpeed: 0
   projectileLifetime: 0
-  icon: {fileID: 0}
   effectPrefab: {fileID: 0}
   affixes:
   - type: 1
     stat: 1
     change: 1
-    amount: 20.0
-    duration: 10.0
-    chance: 100.0
-    interval: 0.0
+    amount: 20
+    duration: 10
+    chance: 100
+    interval: 0
     ailment: 0
     stacking: 0
     stackLimit: 1

@@ -11,44 +11,44 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_5
-  m_EditorClassIdentifier:
-  skillId: "5"
-  displayName: "疾風の光弾"
-  description: "味方へ命中すると移動速度が30％上昇"
+  m_EditorClassIdentifier: 
+  skillId: 5
+  displayName: "\u75BE\u98A8\u306E\u5149\u5F3E"
+  description: "\u5473\u65B9\u3078\u547D\u4E2D\u3059\u308B\u3068\u79FB\u52D5\u901F\u5EA6\u304C30\uFF05\u4E0A\u6607"
+  icon: {fileID: 0}
   skillPointCost: 1
   requiredLevel: 1
   category: 0
   powerSource: 0
   targetType: 4
   mpCost: 10
-  powerMultiplier: 0.0
+  powerMultiplier: 0
   useOwnerElement: 1
   overrideElement: 0
   executable: 1
   effect: 2
   application: 0
   flatPower: 0
-  cooldown: 5.0
-  castTime: 0.0
+  cooldown: 5
+  castTime: 0
   globalCooldown: 0.2
-  range: 6.0
-  radius: 0.0
+  range: 6
+  radius: 0
   hitLimit: 1
   canCritical: 0
   projectile: 1
   homing: 1
-  projectileSpeed: 8.0
-  projectileLifetime: 3.0
-  icon: {fileID: 0}
+  projectileSpeed: 8
+  projectileLifetime: 3
   effectPrefab: {fileID: 0}
   affixes:
   - type: 1
     stat: 5
     change: 1
-    amount: 30.0
-    duration: 10.0
-    chance: 100.0
-    interval: 0.0
+    amount: 30
+    duration: 10
+    chance: 100
+    interval: 0
     ailment: 0
     stacking: 0
     stackLimit: 1

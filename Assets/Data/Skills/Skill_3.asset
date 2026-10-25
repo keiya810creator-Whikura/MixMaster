@@ -11,10 +11,11 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_3
-  m_EditorClassIdentifier:
-  skillId: "3"
-  displayName: "衝撃波"
-  description: "自身の周囲の敵に物理ダメージ"
+  m_EditorClassIdentifier: 
+  skillId: 3
+  displayName: "\u885D\u6483\u6CE2"
+  description: "\u81EA\u8EAB\u306E\u5468\u56F2\u306E\u6575\u306B\u7269\u7406\u30C0\u30E1\u30FC\u30B8"
+  icon: {fileID: 0}
   skillPointCost: 2
   requiredLevel: 5
   category: 0
@@ -28,17 +29,16 @@ MonoBehaviour:
   effect: 0
   application: 2
   flatPower: 0
-  cooldown: 10.0
+  cooldown: 10
   castTime: 0.3
   globalCooldown: 0.2
-  range: 0.0
-  radius: 3.0
+  range: 0
+  radius: 3
   hitLimit: 0
   canCritical: 1
   projectile: 0
   homing: 0
   projectileSpeed: 0
   projectileLifetime: 0
-  icon: {fileID: 0}
   effectPrefab: {fileID: 0}
   affixes: []

@@ -11,44 +11,44 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
   m_Name: Skill_7
-  m_EditorClassIdentifier:
-  skillId: "7"
-  displayName: "鈍足の陣"
-  description: "周囲の敵の移動速度を30％低下"
+  m_EditorClassIdentifier: 
+  skillId: 7
+  displayName: "\u920D\u8DB3\u306E\u9663"
+  description: "\u5468\u56F2\u306E\u6575\u306E\u79FB\u52D5\u901F\u5EA6\u309230\uFF05\u4F4E\u4E0B"
+  icon: {fileID: 0}
   skillPointCost: 1
   requiredLevel: 1
   category: 0
   powerSource: 0
   targetType: 2
   mpCost: 10
-  powerMultiplier: 0.0
+  powerMultiplier: 0
   useOwnerElement: 1
   overrideElement: 0
   executable: 1
   effect: 2
   application: 2
   flatPower: 0
-  cooldown: 5.0
-  castTime: 0.0
+  cooldown: 5
+  castTime: 0
   globalCooldown: 0.2
-  range: 0.0
-  radius: 3.0
+  range: 0
+  radius: 3
   hitLimit: 0
   canCritical: 0
   projectile: 0
   homing: 0
   projectileSpeed: 0
   projectileLifetime: 0
-  icon: {fileID: 0}
   effectPrefab: {fileID: 0}
   affixes:
   - type: 2
     stat: 5
     change: 1
-    amount: 30.0
-    duration: 8.0
-    chance: 100.0
-    interval: 0.0
+    amount: 30
+    duration: 8
+    chance: 100
+    interval: 0
     ailment: 0
     stacking: 0
     stackLimit: 1
