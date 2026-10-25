@@ -76,7 +76,16 @@ namespace MixMaster.Core
             AutoAttackSettingChanged?.Invoke(enabled);
         }
 
-        public CharacterStats Stats => effectiveStats ?? stats;
+        public CharacterStats UnmodifiedStats => effectiveStats ?? stats;
+        public CharacterStats Stats => MixMaster.Combat.SkillActor.PlayerActor != null
+            ? MixMaster.Combat.SkillActor.PlayerActor.Effective(UnmodifiedStats) : UnmodifiedStats;
+        public bool TrySpendSkillPoints(int amount)
+        {
+            if (amount < 0 || skillPoints < amount) return false;
+            skillPoints -= amount;
+            spentSkillPoints = ReincarnationRules.TotalSkillPoints(spentSkillPoints, amount);
+            return true;
+        }
         public long CurrentHp { get; private set; }
         public long CurrentMp { get; private set; }
         public float DropRateBonus => Mathf.Max(0f, Stats.dropRateBonus);
@@ -186,6 +195,7 @@ namespace MixMaster.Core
 
         internal void Reincarnate(MonsterSO species)
         {
+            GetComponent<SkillProgressionManager>()?.ResetPlayer();
             skillPoints = ReincarnationRules.TotalSkillPoints(skillPoints, spentSkillPoints);
             spentSkillPoints = 0;
             reincarnationCount = ReincarnationRules.TotalSkillPoints(reincarnationCount, 1);
@@ -257,6 +267,8 @@ namespace MixMaster.Core
         public void TakeDamage(long amount)
         {
             if (amount <= 0) return;
+
+            MixMaster.Combat.SkillActor.PlayerActor?.NotifyDamage(MixMaster.Combat.SkillActor.ApplyingSkill);
 
             CurrentHp = Math.Max(0L, CurrentHp - amount);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);

@@ -72,8 +72,9 @@ namespace MixMaster.Combat
         private Coroutine slashRoutine;
 
         public float DetectionRange => detectionRange;
-        public float AttackRange => attackRange;
+        public float AttackRange => skills != null ? skills.Stats.attackRange : attackRange;
         public bool HasTarget => targetTransform != null;
+        private SkillActor skills;
 
         public void ApplyMonsterData(
             MonsterSO monster,
@@ -104,6 +105,8 @@ namespace MixMaster.Combat
             targetRefreshTimer = 0f;
             attackGauge = 0f;
             ClearTarget();
+            skills = SkillActor.Ensure(gameObject);
+            skills.Configure(monster, null, stats);
         }
 
         private void Awake()
@@ -147,6 +150,7 @@ namespace MixMaster.Combat
 
         private void Update()
         {
+            if (skills != null && skills.NormalAttackBlocked) return;
             if (health == null || !health.IsAlive)
                 return;
 
@@ -170,7 +174,7 @@ namespace MixMaster.Combat
             }
 
             attackGauge = Mathf.Clamp01(
-                attackGauge + Mathf.Max(0.1f, attackSpeed) * Time.deltaTime);
+                attackGauge + Mathf.Max(0.1f, skills != null ? skills.Stats.attackSpeed : attackSpeed) * Time.deltaTime);
 
             Vector2 toTarget = targetTransform.position - transform.position;
 
@@ -181,7 +185,7 @@ namespace MixMaster.Combat
                 spriteRenderer.flipX = toTarget.x < 0f;
             }
 
-            float range = Mathf.Max(0.1f, attackRange);
+            float range = Mathf.Max(0.1f, AttackRange);
 
             if (toTarget.sqrMagnitude > range * range ||
                 attackGauge < 1f ||
@@ -196,6 +200,7 @@ namespace MixMaster.Combat
 
         private void FixedUpdate()
         {
+            if (skills != null && skills.MovementBlocked) { body.linearVelocity = Vector2.zero; return; }
             if (health == null ||
                 !health.IsAlive ||
                 isLunging ||
@@ -209,7 +214,7 @@ namespace MixMaster.Combat
             Vector2 delta = target - current;
 
             float stopDistance =
-                Mathf.Max(0.05f, attackRange * stopRangeRatio);
+                Mathf.Max(0.05f, AttackRange * stopRangeRatio);
 
             if (delta.sqrMagnitude <= stopDistance * stopDistance)
             {
@@ -220,7 +225,7 @@ namespace MixMaster.Combat
             Vector2 next = Vector2.MoveTowards(
                 current,
                 target,
-                Mathf.Max(0.1f, moveSpeed) * Time.fixedDeltaTime);
+                Mathf.Max(0.1f, skills != null ? skills.Stats.moveSpeed : moveSpeed) * Time.fixedDeltaTime);
 
             body.MovePosition(next);
         }
@@ -316,7 +321,8 @@ namespace MixMaster.Combat
         {
             if (attackType == MonsterAttackType.Ranged)
             {
-                long magicPower = Math.Max(1L, magic);
+                if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
+                long magicPower = Math.Max(1L, skills != null ? skills.Stats.magic : magic);
 
                 if (UnityEngine.Random.value <
                     Mathf.Clamp01(criticalRate))
@@ -330,7 +336,8 @@ namespace MixMaster.Combat
                 return;
             }
 
-            long attackPower = Math.Max(1L, attack);
+            if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
+            long attackPower = Math.Max(1L, skills != null ? skills.Stats.attack : attack);
 
             if (UnityEngine.Random.value <
                 Mathf.Clamp01(criticalRate))
@@ -452,6 +459,7 @@ namespace MixMaster.Combat
 
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
@@ -469,6 +477,7 @@ namespace MixMaster.Combat
 
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = t * t;

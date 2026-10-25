@@ -145,7 +145,9 @@ namespace MixMaster.Monsters
         private bool isAttackLunging;
         private Vector2 lungeStartPosition;
 
-        public CharacterStats Stats => stats;
+        private SkillActor skills;
+        public CharacterStats BaseStats => stats;
+        public CharacterStats Stats => skills != null ? skills.Effective(stats) : stats;
         public long CurrentHp => currentHp;
         public long CurrentMp => currentMp;
         public float DropRateBonus => Mathf.Max(0f, stats.dropRateBonus);
@@ -163,6 +165,7 @@ namespace MixMaster.Monsters
 
         private void Awake()
         {
+            skills = SkillActor.Ensure(gameObject);
             follower = GetComponent<MonsterTrailFollower>();
             body = GetComponent<Rigidbody2D>();
 
@@ -248,6 +251,7 @@ namespace MixMaster.Monsters
 
         private void Update()
         {
+            if (skills != null && skills.NormalAttackBlocked) return;
             if (!isAlive)
                 return;
 
@@ -274,7 +278,7 @@ namespace MixMaster.Monsters
             follower.SetCombatControlled(ControlsCombatMovement);
 
             if (chargeWhileNoTarget || hasTarget)
-                SetAttackGauge(attackGauge + Mathf.Max(0.1f, stats.attackSpeed) * Time.deltaTime);
+                SetAttackGauge(attackGauge + Mathf.Max(0.1f, Stats.attackSpeed) * Time.deltaTime);
 
             if (!hasTarget || isAttackLunging)
                 return;
@@ -302,6 +306,7 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
+            if (skills != null && skills.MovementBlocked) { follower.StopCombatMovement(); return; }
             if (!isAlive || isAttackLunging || combatMode == PartyCombatMode.OwnAttackRange)
                 return;
 
@@ -326,7 +331,7 @@ namespace MixMaster.Monsters
                     // A tiny inset avoids oscillation from float rounding.
                     float stoppingRange = range - Mathf.Min(0.01f, range * 0.01f);
                     follower.MoveForCombat(enemyPosition - approach.normalized * stoppingRange,
-                        Mathf.Max(0.1f, stats.moveSpeed) * combatMoveSpeedMultiplier, 0f);
+                        Mathf.Max(0.1f, Stats.moveSpeed) * combatMoveSpeedMultiplier, 0f);
                 }
                 return;
             }
@@ -343,7 +348,7 @@ namespace MixMaster.Monsters
             }
 
             float moveSpeed =
-                Mathf.Max(0.1f, stats.moveSpeed) *
+                Mathf.Max(0.1f, Stats.moveSpeed) *
                 combatMoveSpeedMultiplier;
 
             follower.MoveForCombat(
@@ -364,7 +369,7 @@ namespace MixMaster.Monsters
             // Existing melee spacing was a bit too wide, so melee uses
             // half of the configured base ratio. Ranged stands at about
             // three times that melee distance.
-            float baseAttackRange = Mathf.Max(0.1f, stats.attackRange);
+            float baseAttackRange = Mathf.Max(0.1f, Stats.attackRange);
             float meleeRadius = Mathf.Max(
                 0.08f,
                 baseAttackRange * attackPositionRadiusRatio * 0.5f);
@@ -422,28 +427,28 @@ namespace MixMaster.Monsters
 
             if (attackStyle == PartyAttackStyle.Ranged)
             {
-                long magicPower = Math.Max(1L, stats.magic);
+                long magicPower = Math.Max(1L, Stats.magic);
 
                 if (UnityEngine.Random.value <
-                    Mathf.Clamp01((float)stats.criticalRate))
+                    Mathf.Clamp01((float)Stats.criticalRate))
                 {
                     magicPower = MultiplyLong(
                         magicPower,
-                        Mathf.Max(1f, (float)stats.criticalMultiplier));
+                        Mathf.Max(1f, (float)Stats.criticalMultiplier));
                 }
 
                 FireProjectile(target, magicPower);
                 return;
             }
 
-            long attackPower = Math.Max(1L, stats.attack);
+            long attackPower = Math.Max(1L, Stats.attack);
 
             if (UnityEngine.Random.value <
-                Mathf.Clamp01((float)stats.criticalRate))
+                Mathf.Clamp01((float)Stats.criticalRate))
             {
                 attackPower = MultiplyLong(
                     attackPower,
-                    Mathf.Max(1f, (float)stats.criticalMultiplier));
+                    Mathf.Max(1f, (float)Stats.criticalMultiplier));
             }
 
             meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(), spriteRenderer);
@@ -538,7 +543,7 @@ namespace MixMaster.Monsters
 
             float playerRange = playerAutoAttack != null
                 ? playerAutoAttack.AttackRange
-                : Mathf.Max(0.1f, stats.attackRange);
+                : Mathf.Max(0.1f, Stats.attackRange);
 
             float playerRangeSqr = playerRange * playerRange;
 
@@ -660,7 +665,7 @@ namespace MixMaster.Monsters
             {
                 float playerRange = playerAutoAttack != null
                     ? playerAutoAttack.AttackRange
-                    : Mathf.Max(0.1f, stats.attackRange);
+                    : Mathf.Max(0.1f, Stats.attackRange);
 
                 return fromPlayer.sqrMagnitude <= playerRange * playerRange;
             }
@@ -673,7 +678,7 @@ namespace MixMaster.Monsters
 
         private float GetEffectiveAttackRange()
         {
-            float baseRange = Mathf.Max(0.1f, stats.attackRange);
+            float baseRange = Mathf.Max(0.1f, Stats.attackRange);
 
             return attackStyle == PartyAttackStyle.Ranged
                 ? baseRange * 2f
@@ -694,6 +699,8 @@ namespace MixMaster.Monsters
 
             stats = calculatedStats;
             ownedMonsterUniqueId = individualUniqueId;
+            skills = SkillActor.Ensure(gameObject);
+            skills.Configure(definition, individualUniqueId);
 
             attackStyle = definition.attackType == MonsterAttackType.Ranged
                 ? PartyAttackStyle.Ranged
@@ -822,7 +829,7 @@ namespace MixMaster.Monsters
                 return 0;
 
             long damage = DamageCalculator.Calculate(
-                attackPower, stats.defense);
+                attackPower, Stats.defense);
 
             return TakeDamage(damage);
         }
@@ -833,7 +840,7 @@ namespace MixMaster.Monsters
                 return 0L;
 
             long damage = DamageCalculator.Calculate(
-                magicPower, stats.magicDefense);
+                magicPower, Stats.magicDefense);
 
             return TakeDamage(damage);
         }
@@ -844,6 +851,7 @@ namespace MixMaster.Monsters
                 return 0;
 
             long actual = Math.Min(currentHp, damage);
+            skills?.NotifyDamage(SkillActor.ApplyingSkill);
             currentHp -= actual;
 
             DamagePopupText.Show(transform.position, actual, true);
@@ -1086,6 +1094,7 @@ namespace MixMaster.Monsters
             float elapsed = 0f;
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
@@ -1096,6 +1105,7 @@ namespace MixMaster.Monsters
             elapsed = 0f;
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = t * t;
@@ -1114,8 +1124,8 @@ namespace MixMaster.Monsters
         private void OnDrawGizmosSelected()
         {
             float effectiveRange = attackStyle == PartyAttackStyle.Ranged
-                ? Mathf.Max(0.1f, stats.attackRange) * 2f
-                : Mathf.Max(0.1f, stats.attackRange);
+                ? Mathf.Max(0.1f, Stats.attackRange) * 2f
+                : Mathf.Max(0.1f, Stats.attackRange);
 
             Gizmos.DrawWireSphere(
                 transform.position,

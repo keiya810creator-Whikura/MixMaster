@@ -74,6 +74,8 @@ namespace MixMaster.EditorTools
 
             Dictionary<string, int> header =
                 BuildHeaderMap(rows[0]);
+            if (!header.ContainsKey("SkillIds") && header.ContainsKey("習得可能スキル"))
+                header["SkillIds"] = header["習得可能スキル"];
 
             string[] requiredHeaders =
             {
@@ -626,6 +628,11 @@ namespace MixMaster.EditorTools
                         header,
                         "SkillIds"),
                     skillsById);
+            string learnedJapanese = GetCell(row, header, "習得可能スキル");
+            if (header.ContainsKey("習得可能スキル")) monster.availableSkills = ResolveSkills(learnedJapanese, skillsById);
+            if (header.ContainsKey("敵使用スキル") || header.ContainsKey("EnemySkillIds"))
+                monster.enemySkills = ResolveSkills(GetCell(row, header,
+                    header.ContainsKey("敵使用スキル") ? "敵使用スキル" : "EnemySkillIds"), skillsById);
         }
 
         private static void ApplyMonsterSprite(
