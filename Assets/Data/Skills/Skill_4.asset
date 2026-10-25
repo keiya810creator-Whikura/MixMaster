@@ -41,6 +41,11 @@ MonoBehaviour:
   projectileSpeed: 0
   projectileLifetime: 0
   effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 0}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
   affixes:
   - type: 1
     stat: 1
