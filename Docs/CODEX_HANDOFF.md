@@ -149,4 +149,6 @@
 
 ## 9. 引き継ぎ後の更新
 
+2026年10月26日：発射物の取り込み仕様を更新。スキル表から番号付きPrefabを `Assets/Resources/Skills/Projectile` へ生成・更新し、`素材/Profectile` または `素材/Projectile` の番号付きSpriteとSkillSO参照を自動設定する。動作・見た目は表を正とし、再取り込みで更新する。実装箇所は `SkillExcelImporter` / `SkillProjectilePrefabBuilder`、操作方法は `Docs/ProjectileSettings.md`。Unity Editorでの保存・Play Mode確認は未実行。
+
 コード調査で分かった実装箇所と確認結果を本資料へ追記する。新しい仕様が決まったら該当項目を更新し、以前の指定との矛盾を残さない。会話履歴を全量読ませる必要が生じないよう、現行仕様と次の課題を保つ。

@@ -12,6 +12,9 @@ namespace MixMaster.Combat
         [InspectorName("回転させる見た目（空欄ならSpriteRenderer）")]
         [SerializeField] private Transform rotatingVisual;
         public ProjectileMotion Defaults => defaults;
+#if UNITY_EDITOR
+        public void ConfigureDefaults(ProjectileMotion settings) => defaults = settings.Copy();
+#endif
         private ProjectileMotion motion;
         private SkillActor owner, target;
         private SkillSO skill;

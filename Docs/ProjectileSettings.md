@@ -1,6 +1,36 @@
 # 共通発射物の設定
 
-## スプライトだけを差し替える
+## 表から番号付きPrefabを自動生成する
+
+`MixMaster → スキル → Excel・CSVを選んで取り込む` で、一回の取り込み中に次を実行します。
+
+1. 全スキル行、発射物の見た目設定、番号付きSpriteを検証。
+2. 発動形式が「発射物」の行から `Assets/Resources/Skills/Projectile/1.prefab` のように、正規化したスキル番号名のPrefabを生成・更新。
+3. 従来どおりSkillSOを作成・更新し、生成したPrefabを `projectilePrefab` へ自動設定。
+
+画像は `Assets/素材/Profectile` または `Assets/素材/Projectile`（綴り違いに対応）へ `1.png` のように置き、Texture Typeを **Sprite (2D and UI)** にします。`001.png` も番号1として扱います。Multipleの場合はサブスプライト名を数字にしてください。同じ番号が複数なら取り込みを停止します。
+現在のリポジトリには番号付き画像が未登録です。画像を配置してから取り込んでください。画像の自動生成は行いません。
+
+画像不足・番号重複・入力不正は、アセットの更新前に行番号とスキル番号を表示します。
+再取り込みでは同じパスへ保存し、Prefabおよび既存SkillSOのGUIDと参照を維持します。
+「即時」に変更した行はSkillSOの発射物参照を解除します。削除した行や以前のPrefab自体は自動削除しません。
+
+生成Prefabのルートは番号名、共通スクリプトは `SkillProjectile`、画像は子 `Visual` のSpriteRendererです。
+Collider/Rigidbodyは不要で、命中半径と移動区間から判定します。
+速度・寿命・ダメージ・追加効果は従来どおりSkillSOへ保存し、発射時に共通実行処理から渡します。
+
+| Excel/CSV列 | 反映先 | 空欄の初期値 |
+| --- | --- | --- |
+| 発射物_表示倍率 | ルートの均等スケール | 0.3 |
+| 発射物_色 | SpriteRendererのColor。#RRGGBB / #RRGGBBAA | #FFFFFFFF（白・不透明） |
+| 発射物_描画順 | SpriteRendererのOrder in Layer | 60 |
+| 発射物_画像角度 | 画像のローカルZ角度（度） | 0 |
+
+動作欄の空欄は共通スクリプトの初期値へ戻ります。前回生成したPrefabの手編集値は引き継ぎません。
+一時的にInspectorを変えても、再取り込みで表の設定に戻ります。継続したい設定は表へ記載してください。
+`発射物プレファブパス` は任意の**複製元テンプレート**として使用できます。指定した場合も、番号付き出力を作りSkillSOには生成先を紐付けます。テンプレート自体は変更しません。空欄なら標準構成・初期値を使用し、生成先自身を指定した場合も初期値から再構成します。
+
+## テンプレートを用意する場合
 
 `Assets/Resources/Skills/CommonSkillProjectile.prefab` を複製して使います。
 SpriteRendererのSprite、色、サイズを変え、共通スクリプト `SkillProjectile` はそのまま使用してください。
@@ -9,9 +39,9 @@ SpriteRendererのSprite、色、サイズを変え、共通スクリプト `Skil
 画像が上向きの状態を基準に進行方向を向きます。必要なら子オブジェクトで画像の向きを調整できます。
 「回転させる見た目」に子Transformを指定すると、親は進行方向を向き、子だけが回転します。
 
-CSVの `発射物プレファブパス` に、複製したPrefabのプロジェクト内パスを指定します。
-例：`Assets/Prefab/FireProjectile.prefab`。空欄なら共通Prefabを使います。
-更新時のパス空欄は既存スキルのPrefab指定を維持します。
+CSVの `発射物プレファブパス` に、複製元Prefabのプロジェクト内パスを指定します。
+例：`Assets/Prefab/FireProjectile.prefab`。通常の番号付き生成では空欄で構いません。
+Sprite・色・均等スケール・描画順・画像角度は表の値（空欄は上記初期値）へ更新します。
 共通スクリプトはPrefabのルートに、SpriteRendererはルートまたは子に配置してください。
 ColliderやRigidbodyを追加しなくても、CSV/Inspectorの命中半径を使って判定します。
 高速弾も移動区間を調べるため、移動先だけの判定によるすり抜けを防ぎます。
@@ -19,7 +49,7 @@ ColliderやRigidbodyを追加しなくても、CSV/Inspectorの命中半径を�
 ## 設定の優先順位
 
 1. CSVに指定した項目を使用。
-2. CSVの空欄は、PrefabのInspectorの既定値を使用。
+2. 動作の空欄は、複製元テンプレートの既定値。テンプレートがなければ共通スクリプトの初期値。
 3. `無効` は明示的なOFF。空欄とは違います。数値の0も明示的な指定です。
 
 Prefabの設定を発射時にコピーするため、同じPrefabで別の動きを持つスキルを使用できます。

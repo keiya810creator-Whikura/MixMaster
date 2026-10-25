@@ -47,6 +47,9 @@ namespace MixMaster.EditorTools
                     if(existing.ContainsKey(skill.skillId))throw new InvalidDataException("既存アセットのIDが重複: "+skill.skillId);
                     existing[skill.skillId]=skill;
                 }
+                // Validate every sprite, template and output before changing assets.
+                var projectiles=SkillProjectilePrefabBuilder.Prepare(temporary,rows);
+                SkillProjectilePrefabBuilder.SaveAll(projectiles);
                 Directory.CreateDirectory("Assets/Data/Skills");Directory.CreateDirectory("Assets/Resources/Skills");AssetDatabase.Refresh();
                 var catalog=AssetDatabase.LoadAssetAtPath<SkillCatalogSO>(CatalogPath);
                 if(catalog==null){catalog=ScriptableObject.CreateInstance<SkillCatalogSO>();AssetDatabase.CreateAsset(catalog,CatalogPath);}
@@ -59,7 +62,6 @@ namespace MixMaster.EditorTools
                         Undo.RecordObject(target,"スキル更新");
                         if(string.IsNullOrWhiteSpace(Cell(sourceRow,"画像パス")))incoming.icon=target.icon;
                         if(string.IsNullOrWhiteSpace(Cell(sourceRow,"演出パス")))incoming.effectPrefab=target.effectPrefab;
-                        if(string.IsNullOrWhiteSpace(Cell(sourceRow,"発射物プレファブパス")))incoming.projectilePrefab=target.projectilePrefab;
                         EditorUtility.CopySerialized(incoming,target);EditorUtility.SetDirty(target);
                     }
                     else{target=ScriptableObject.CreateInstance<SkillSO>();EditorUtility.CopySerialized(incoming,target);AssetDatabase.CreateAsset(target,"Assets/Data/Skills/Skill_"+incoming.skillId+".asset");}
@@ -69,8 +71,8 @@ namespace MixMaster.EditorTools
                 }
                 if(catalog.humanSkills.Count==0)catalog.humanSkills.AddRange(catalog.skills.Where(s=>s!=null&&s.executable));
                 EditorUtility.SetDirty(catalog);AssetDatabase.SaveAssets();AssetDatabase.Refresh();
-                Debug.Log("[SkillExcelImporter] "+temporary.Count+"件を更新しました。数式のキャッシュではなく入力欄と発動形式から弾設定を確定します。");
-                if(dialog)EditorUtility.DisplayDialog("スキル取り込み",temporary.Count+"件を取り込みました。\n既存IDの参照を維持して更新しました。","OK");
+                Debug.Log("[SkillExcelImporter] スキル "+temporary.Count+"件、番号付き発射物Prefab "+projectiles.Count+"件を更新しました。");
+                if(dialog)EditorUtility.DisplayDialog("スキル取り込み",temporary.Count+"件を取り込みました。\n発射物Prefab "+projectiles.Count+"件を生成・更新し、自動で紐付けました。","OK");
             }
             catch(Exception e){Debug.LogError("[SkillExcelImporter] "+e.Message);if(dialog)EditorUtility.DisplayDialog("スキル取り込み失敗",e.Message,"OK");else throw;}
             finally{foreach(var s in temporary)UnityEngine.Object.DestroyImmediate(s);}
