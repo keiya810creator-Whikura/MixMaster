@@ -81,6 +81,8 @@ namespace MixMaster.Combat
         public bool Has(SkillAilment ailment) => statuses.Exists(s => s.effect.ailment == ailment && s.until > Time.time);
         public CharacterStats Effective(CharacterStats original)
         {
+            if(!IsEnemy&&SkillProgressionManager.Instance!=null)
+                original=SkillPassiveRules.Apply(original,t=>SkillProgressionManager.Instance.PassiveValue(ownerId,t));
             if (statuses.Count == 0) return original;
             if (cachedFrame == Time.frameCount && cachedBase == original) return cachedStats;
             cachedFrame = Time.frameCount; cachedBase = original; cachedStats = ReincarnationRules.CopyStats(original);
@@ -132,6 +134,7 @@ namespace MixMaster.Combat
         }
         private void Update()
         {
+            player?.ClampSkillResources();party?.ClampSkillResources();
             if (Time.timeScale <= 0) return;
             if (!Alive) { statuses.Clear(); casting = null; return; }
             foreach (var s in statuses.ToArray())
@@ -211,7 +214,7 @@ namespace MixMaster.Combat
         public bool TryCast(SkillSO s, out string message)
         {
             message = "使用できません。";
-            if (s == null || !s.executable || !Alive || SkillBlocked || casting != null || Time.timeScale <= 0) return false;
+            if (s == null || s.category == SkillCategory.Passive || !s.executable || !Alive || SkillBlocked || casting != null || Time.timeScale <= 0) return false;
             if (!IsEnemy)
             {
                 var m = SkillProgressionManager.Instance;

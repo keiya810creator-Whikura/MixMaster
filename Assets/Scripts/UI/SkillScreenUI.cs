@@ -66,7 +66,7 @@ namespace MixMaster.UI
                 var slot=manager.Loadout("player").slots[i];var skill=manager.Catalog!=null?manager.Catalog.Get(slot.skillId):null;
                 float cd=player!=null?player.Remaining(skill):0;
                 castLabels[i].text=skill==null?"未登録":skill.displayName+(cd>0?"\n"+cd.ToString("0.0")+"秒":"");
-                castButtons[i].interactable=skill!=null&&player!=null&&player.Alive&&cd<=0&&player.Mp>=skill.mpCost&&!player.SkillBlocked;
+                castButtons[i].interactable=skill!=null&&skill.category==SkillCategory.Active&&player!=null&&player.Alive&&cd<=0&&player.Mp>=skill.mpCost&&!player.SkillBlocked;
             }
         }
         private void Cast(int index)
@@ -94,7 +94,9 @@ namespace MixMaster.UI
         {
             slotIndex=i;if(Owner==null)return;var slots=manager.Loadout(Owner.OwnerId).slots;
             for(int n=0;n<5;n++){var skill=manager.Catalog?.Get(slots[n].skillId);assignLabels[n].text=(n==i?"選択中 ":"")+(n+1)+"\n"+(skill!=null?skill.displayName:"未登録");}
-            var slot=slots[i];triggerDropdown.SetValueWithoutNotify((int)slot.trigger);andDropdown.SetValueWithoutNotify((int)slot.andCondition);
+            var choices=new List<string>(Triggers);int offset=Owner.IsPlayer?0:1;
+            if(offset==1)choices.RemoveAt(0);triggerDropdown.ClearOptions();triggerDropdown.AddOptions(choices);
+            var slot=slots[i];triggerDropdown.SetValueWithoutNotify(Mathf.Max(0,(int)slot.trigger-offset));andDropdown.SetValueWithoutNotify((int)slot.andCondition);
             threshold.text=slot.threshold.ToString(CultureInfo.InvariantCulture);andThreshold.text=slot.andThreshold.ToString(CultureInfo.InvariantCulture);priority.text=slot.priority.ToString(CultureInfo.InvariantCulture);
         }
         private void RefreshDetails()
@@ -102,13 +104,16 @@ namespace MixMaster.UI
             if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=false;return;}
             var s=Selected;bool learned=manager.Learned(Owner.OwnerId,s.skillId);
             details.text=s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
+            bool active=s.category==SkillCategory.Active;
+            triggerDropdown.interactable=andDropdown.interactable=threshold.interactable=andThreshold.interactable=priority.interactable=active;
+            if(!active)details.text=s.displayName+"\n"+s.description+"\nパッシブ：枠にセット中のみ有効。\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得");
             learnButton.interactable=!learned;saveButton.interactable=learned;
         }
         private void SaveRule()
         {
             if(Owner==null||Selected==null)return;
             if(!float.TryParse(threshold.text,NumberStyles.Float,CultureInfo.InvariantCulture,out float t)||!float.TryParse(andThreshold.text,NumberStyles.Float,CultureInfo.InvariantCulture,out float a)||!int.TryParse(priority.text,out int p)||float.IsNaN(t)||float.IsInfinity(t)||float.IsNaN(a)||float.IsInfinity(a)||t<0||a<0){message.text="条件の数値を確認してください。";return;}
-            manager.SetSlot(Owner.OwnerId,slotIndex,new SkillSlot{skillId=Selected.skillId,trigger=(SkillTrigger)triggerDropdown.value,threshold=t,andCondition=(SkillTrigger)andDropdown.value,andThreshold=a,priority=p});
+            manager.SetSlot(Owner.OwnerId,slotIndex,new SkillSlot{skillId=Selected.skillId,trigger=(SkillTrigger)(triggerDropdown.value+(Owner.IsPlayer?0:1)),threshold=t,andCondition=(SkillTrigger)andDropdown.value,andThreshold=a,priority=p});
             message.text="登録しました。優先度は大きい枠から判定します。";SelectSlot(slotIndex);
         }
         public static SkillScreenUI Build(Transform parent)

@@ -245,6 +245,15 @@ namespace MixMaster.Combat
             if (!playerController.IsMoving)
                 playerController.FaceDirection(direction);
 
+            if(SkillProgressionManager.Instance!=null&&SkillProgressionManager.Instance.Ranged("player",false))
+            {
+                long magic=playerManager!=null?playerManager.Stats.magic:fallbackAttack;
+                if(UnityEngine.Random.value<GetCriticalRate())magic=MultiplyLong(magic,GetCriticalMultiplier());
+                var go=new GameObject("PlayerPassiveProjectile");go.transform.position=transform.position;
+                var renderer=go.AddComponent<SpriteRenderer>();renderer.sprite=swordSprite!=null?swordSprite:generatedSwordSprite;renderer.sortingOrder=60;go.transform.localScale=Vector3.one*.2f;
+                go.AddComponent<PartyMagicProjectile>().Initialize(target,magic,8f,5f,true,MaterialDropSourceInfo.Player(playerManager!=null?playerManager.DropRateBonus:0));
+                return;
+            }
             long attackPower = GetAttackPower();
 
             if (UnityEngine.Random.value < GetCriticalRate())
@@ -577,7 +586,7 @@ namespace MixMaster.Combat
         private float GetAttackRange()
         {
             if (usePlayerManagerStats && playerManager != null)
-                return Mathf.Max(0.1f, playerManager.Stats.attackRange);
+                return Mathf.Max(0.1f, playerManager.Stats.attackRange)*(SkillProgressionManager.Instance!=null&&SkillProgressionManager.Instance.Ranged("player",false)?2f:1f);
 
             return Mathf.Max(0.1f, fallbackAttackRange);
         }

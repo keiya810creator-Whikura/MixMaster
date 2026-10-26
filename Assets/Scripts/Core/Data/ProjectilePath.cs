@@ -14,6 +14,7 @@ namespace MixMaster.Core
         public SkillProjectileMoveType CurrentMode => mode;
         public ProjectilePath(Vector3 position,Vector3 direction,float speed,ProjectileMotion settings)
         {Position=origin=center=position;Direction=direction.sqrMagnitude>0?direction.normalized:Vector3.up;this.speed=speed;mode=settings.moveType;}
+        public void Translate(Vector3 delta) { Position+=delta;origin+=delta;center+=delta; }
         public void Redirect(Vector3 position,Vector3 direction)
         {Position=center=origin=position;Direction=direction.normalized;travel=0;}
         public void Step(ProjectileMotion m,float dt,Vector3 owner,Vector3 target,bool hasTarget,bool forcedHoming=false)

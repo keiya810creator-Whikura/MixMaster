@@ -82,6 +82,9 @@ namespace MixMaster.Monsters
                 : AltarBalance.BaseTitleRate;
             TitleSO title =
                 MonsterDropRoller.RollTitle(titlePool, titleChance);
+            int extra=(int)System.Math.Min(1000,SkillProgressionManager.PartyBonus(SkillPassiveType.TitleRolls));
+            // Additional chances apply only until a title is acquired; existing title is preserved.
+            for(int i=0;i<extra&&title==null;i++)title=MonsterDropRoller.RollTitle(titlePool,titleChance);
 
             MonsterDropRollData rollData =
                 new MonsterDropRollData

@@ -65,6 +65,11 @@ namespace MixMaster.Core
         public GameObject projectilePrefab;
         public bool useProjectileMotionOverrides;
         public ProjectileMotionOverride[] projectileMotionOverrides = new ProjectileMotionOverride[0];
+        public SkillSpawnPosition spawnPosition;
+        public SkillFollowTarget followTarget;
+        public SkillEffectTiming effectTiming;
+        [Min(0.02f)] public float effectInterval = 1f;
+        public SkillPassive[] passives = new SkillPassive[0];
         public SkillAffix[] affixes = new SkillAffix[0];
 
 #if UNITY_EDITOR

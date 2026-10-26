@@ -312,7 +312,7 @@ namespace MixMaster.Core
                 requiredB = requiredB,
                 ownedA = ownedA,
                 ownedB = ownedB,
-                successPercent = GetSuccessPercent(stepsA, stepsB)
+                successPercent = (int)Math.Min(100, GetSuccessPercent(stepsA, stepsB) + SkillProgressionManager.PartyBonus(SkillPassiveType.BreedingChance))
             };
             return true;
         }

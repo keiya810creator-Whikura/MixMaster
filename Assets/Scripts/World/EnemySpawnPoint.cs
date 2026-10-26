@@ -225,7 +225,8 @@ namespace MixMaster.World
             return Mathf.Max(0f, spawnInterval);
         }
 
-        private float GetEffectiveSpawnInterval()
+        private float GetEffectiveSpawnInterval() => GetAltarSpawnInterval()/(float)(1+SkillProgressionManager.PartyBonus(SkillPassiveType.RespawnSpeed)/100);
+        private float GetAltarSpawnInterval()
         {
             float baseInterval =
                 Mathf.Max(
