@@ -293,13 +293,13 @@ namespace MixMaster.EditorTools
                 new Vector2(25f, -68f), new Vector2(830f, 162f), 27f);
 
             RectTransform note = MakeSection(
-                content, "GrowthNote", "育成", 135f);
+                content, "GrowthNote", "育成", 245f);
             TMP_Text noteText = MakeText(
                 note, "GrowthInfo",
-                "レベルアップ：HP +5、MP・攻撃・魔力・防御・魔防 +1" +
-                "\n転生は村の転生の祭壇から行えます。",
-                new Vector2(20f, -60f), new Vector2(850f, 75f), 22f);
+                "現在の姿と、転生先に応じたレベルアップ時の成長量を表示します。",
+                new Vector2(20f, -60f), new Vector2(850f, 170f), 22f);
             noteText.color = new Color(0.84f, 0.84f, 0.89f);
+            var skillButton=InventoryUiFactory.Button(note,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f));
 
             // Equipment entry is functional now: it opens a concise
             // equipped-items/inventory summary and provides an event hook.
@@ -327,6 +327,7 @@ namespace MixMaster.EditorTools
 
             PlayerStatusMenuUI menu = root.GetComponent<PlayerStatusMenuUI>();
             menu.SetAutoAttackControls(autoToggle, autoState);
+            menu.SetGrowthControls(noteText,skillButton);
             menu.SetReferences(level, resources, coreText, combatText,
                 resistanceText, equipmentText, portrait,
                 statusPage, gearPage, gearText,
