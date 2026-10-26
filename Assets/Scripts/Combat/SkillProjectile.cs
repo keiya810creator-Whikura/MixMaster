@@ -25,6 +25,8 @@ namespace MixMaster.Combat
         private float powerScale=1,explosionStart;
         private Vector3 baseScale;
         private bool exploding,hasSplit,forcedHoming;
+        private float nextEffect;
+        private Vector3 lastFollowPosition;
         private int generation,jumps;
         private SpriteRenderer visual;
         private Color baseColor;
@@ -46,7 +48,7 @@ namespace MixMaster.Combat
         }
         public static void Launch(SkillActor owner, SkillActor target, SkillSO skill, CharacterStats power, MaterialDropSourceInfo source)
         {
-            Spawn(owner,target,skill,power,source,owner.transform.position,(target.transform.position-owner.transform.position).normalized,0,1,new SpawnBudget(),null);
+            Spawn(owner,target,skill,power,source,skill.spawnPosition==SkillSpawnPosition.Target?target.transform.position:owner.transform.position,(target.transform.position-owner.transform.position).normalized,0,1,new SpawnBudget(),null);
         }
         private static SkillProjectile Spawn(SkillActor owner,SkillActor target,SkillSO skill,CharacterStats power,MaterialDropSourceInfo source,Vector3 position,Vector3 direction,int generation,float scale,SpawnBudget budget,SkillActor exclude)
         {
@@ -63,12 +65,21 @@ namespace MixMaster.Combat
             if(prefab==null){renderer.sortingOrder=60;go.transform.localScale=Vector3.one*0.2f;}
             var p=go.GetComponent<SkillProjectile>()??go.AddComponent<SkillProjectile>();
             p.motion=ResolveMotion(skill,p.defaults);
+            if(skill.followTarget!=SkillFollowTarget.None)p.motion.followOwner=false;
             p.owner=owner;p.target=target;p.skill=skill;p.power=ReincarnationRules.CopyStats(power);p.source=source;
             p.path=new ProjectilePath(position,direction,skill.projectileSpeed,p.motion);p.collided.Clear();p.affected.Clear();p.lastHits.Clear();
             if(exclude!=null){p.collided.Add(exclude);p.affected.Add(exclude);p.lastHits[exclude]=Time.time;}
             p.end=Time.time+skill.projectileLifetime;p.baseScale=go.transform.localScale;p.visual=renderer;p.baseColor=renderer.color;
             p.generation=generation;p.powerScale=scale;p.budget=budget;p.hasSplit=p.exploding=p.forcedHoming=false;p.jumps=0;
+            p.nextEffect=Time.time+Mathf.Max(.02f,skill.effectInterval);
+            p.lastFollowPosition=p.FollowPosition();
+            if(skill.effectTiming==SkillEffectTiming.Spawn)p.ApplyTimedEffect();
             return p;
+        }
+        private Vector3 FollowPosition() => skill.followTarget==SkillFollowTarget.Target&&target!=null?target.transform.position:owner.transform.position;
+        private void ApplyTimedEffect()
+        {
+            if(owner!=null)owner.Execute(skill,target,transform.position,power,source,null,powerScale);
         }
         private void Update()
         {
@@ -83,13 +94,19 @@ namespace MixMaster.Combat
                 if(t>=1)Destroy(gameObject);return;
             }
             if(Time.time>=end){Destroy(gameObject);return;}
+            if(skill.followTarget==SkillFollowTarget.Target&&(target==null||!target.Alive)){Destroy(gameObject);return;}
             bool targetValid=target!=null&&target.Alive&&target.gameObject.scene==gameObject.scene;
-            if(!targetValid||collided.Contains(target)){target=Nearest(transform.position,float.MaxValue);targetValid=target!=null;}
+            if(skill.followTarget!=SkillFollowTarget.Target&&(!targetValid||collided.Contains(target))){target=Nearest(transform.position,float.MaxValue);targetValid=target!=null;}
             path.Step(motion,Time.deltaTime,owner.transform.position,targetValid?target.transform.position:transform.position,targetValid,forcedHoming);
             Vector3 next=path.Position;
+            if(skill.followTarget!=SkillFollowTarget.None)
+            {
+                Vector3 follow=FollowPosition();Vector3 delta=follow-lastFollowPosition;
+                path.Translate(delta);next+=delta;transform.position+=delta;lastFollowPosition=follow;
+            }
             Vector3 segment=next-transform.position;
             hits.Clear();
-            if(path.AllowHits)foreach(var candidate in SkillActor.Active)
+            if(skill.effectTiming==SkillEffectTiming.Hit&&path.AllowHits)foreach(var candidate in SkillActor.Active)
             {
                 if(!owner.ProjectileTargetAllowed(skill,candidate))continue;
                 if(lastHits.TryGetValue(candidate,out float last)&&(!motion.repeatHits||Time.time-last<Mathf.Max(.02f,motion.repeatInterval)))continue;
@@ -122,6 +139,8 @@ namespace MixMaster.Combat
                 if(!motion.piercing&&!motion.repeatHits){Destroy(gameObject);return;}
             }
             transform.position=next;
+            if(skill.effectTiming==SkillEffectTiming.Interval&&Time.time>=nextEffect)
+            {nextEffect=Time.time+Mathf.Max(.02f,skill.effectInterval);ApplyTimedEffect();}
             transform.localScale=baseScale*path.Scale;
             if(path.StoppedNow&&motion.explodeOnStop){Explode();return;}
             if(path.Finished){Destroy(gameObject);return;}

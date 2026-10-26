@@ -124,6 +124,12 @@ namespace MixMaster.Core
             }
         }
 
+        public void ClampSkillResources()
+        {
+            long hp=Math.Min(CurrentHp,Stats.maxHp),mp=Math.Min(CurrentMp,Stats.maxMp);
+            if(hp!=CurrentHp){CurrentHp=hp;HpChanged?.Invoke(hp,Stats.maxHp);}
+            if(mp!=CurrentMp){CurrentMp=mp;MpChanged?.Invoke(mp,Stats.maxMp);}
+        }
         public void RecalculateEquipmentStats()
         {
             SubscribeEquipment();

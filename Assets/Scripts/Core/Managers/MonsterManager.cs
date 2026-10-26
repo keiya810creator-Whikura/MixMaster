@@ -343,6 +343,8 @@ namespace MixMaster.Core
                 parentA.level < 10 || parentB.level < 10)
                 return false;
 
+            var skills=GetComponent<SkillProgressionManager>() ?? SkillProgressionManager.Instance;
+            var inheritedSkills=succeeded&&skills!=null?skills.InheritanceCandidates(parentUniqueIdA,parentUniqueIdB):null;
             MonsterIndividualValues inheritedIvs = null;
             string inheritedTitleId = string.Empty;
             int inheritedSkillPoints = ReincarnationRules.TotalSkillPoints(
@@ -378,6 +380,7 @@ namespace MixMaster.Core
             {
                 child = ObtainMonster(childSpecies.monsterId,
                     inheritedIvs, inheritedTitleId, true, inheritedSkillPoints);
+                if(inheritedSkills!=null)skills.Inherit(child,inheritedSkills);
             }
 
             // Reuse the existing single-rebuild inventory notification.

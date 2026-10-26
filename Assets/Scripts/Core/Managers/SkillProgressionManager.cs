@@ -40,7 +40,9 @@ namespace MixMaster.Core
             }
             var record = Record(owner);
             var monster = record != null ? MonsterCatalogSO.Load()?.GetMonster(record.monsterId) : null;
-            return monster != null ? monster.availableSkills : (IReadOnlyList<SkillSO>)Array.Empty<SkillSO>();
+            var available=new List<SkillSO>();if(monster!=null)available.AddRange(monster.availableSkills);
+            if(record?.learnedSkillIds!=null)foreach(var id in record.learnedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
+            return available;
         }
         public bool Learned(string owner, string id) => owner == "player" ? data.playerLearned.Contains(id) : Record(owner)?.learnedSkillIds?.Contains(id) == true;
         public int Points(string owner) => owner == "player" ? GetComponent<PlayerManager>().SkillPoints : Record(owner)?.skillPoints ?? 0;
@@ -70,9 +72,60 @@ namespace MixMaster.Core
         public void SetSlot(string owner, int index, SkillSlot slot)
         {
             if (index < 0 || index >= SlotCount || slot == null || (!string.IsNullOrEmpty(slot.skillId) && !Learned(owner, slot.skillId))) return;
+            if(owner!="player"&&slot.trigger==SkillTrigger.Manual)slot.trigger=SkillTrigger.Ready;
             var l = Loadout(owner);
             for (int i = 0; i < l.slots.Count; i++) if (i != index && l.slots[i].skillId == slot.skillId) l.slots[i] = new SkillSlot();
             l.slots[index] = slot; l.revision++; NotifyChanged();
+        }
+        public double PassiveValue(string owner, SkillPassiveType type)
+        {
+            if(string.IsNullOrEmpty(owner))return 0;
+            double total=0;var seen=new HashSet<string>();
+            foreach(var slot in Loadout(owner).slots)
+            {
+                if(slot==null||string.IsNullOrEmpty(slot.skillId)||!seen.Add(slot.skillId)||!Learned(owner,slot.skillId))continue;
+                var skill=Catalog?.Get(slot.skillId);
+                if(skill==null||skill.category!=SkillCategory.Passive||skill.passives==null)continue;
+                foreach(var p in skill.passives)if(p!=null&&p.type==type)total+=p.amount;
+            }
+            return total;
+        }
+        public static double PartyBonus(SkillPassiveType type)
+        {
+            var m=Instance;if(m==null)return 0;
+            double total=m.PassiveValue("player",type);
+            var monsters=m.GetComponent<MonsterManager>();
+            if(monsters!=null)foreach(var id in monsters.PartyMonsterUniqueIds)total+=m.PassiveValue(id,type);
+            return total;
+        }
+        // Last occupied slot wins if melee and ranged are both equipped.
+        public bool Ranged(string owner,bool fallback)
+        {
+            if(string.IsNullOrEmpty(owner))return fallback;
+            foreach(var slot in Loadout(owner).slots)
+            {
+                if(slot==null||!Learned(owner,slot.skillId))continue;
+                var s=Catalog?.Get(slot.skillId);if(s==null||s.category!=SkillCategory.Passive||s.passives==null)continue;
+                foreach(var p in s.passives)if(p!=null){if(p.type==SkillPassiveType.Melee)fallback=false;if(p.type==SkillPassiveType.Ranged)fallback=true;}
+            }
+            return fallback;
+        }
+        public List<string> InheritanceCandidates(string a,string b)
+        {
+            var result=new List<string>();
+            foreach(var owner in new[]{a,b})foreach(var slot in Loadout(owner).slots)
+                if(slot!=null&&!string.IsNullOrEmpty(slot.skillId)&&Learned(owner,slot.skillId)&&Catalog?.Get(slot.skillId)!=null&&!result.Contains(slot.skillId))result.Add(slot.skillId);
+            return result;
+        }
+        public void Inherit(OwnedMonsterRecord child,List<string> candidates)
+        {
+            if(child==null)return;child.learnedSkillIds ??= new List<string>();
+            for(int i=0;i<3&&candidates.Count>0;i++)
+            {
+                int n=UnityEngine.Random.Range(0,candidates.Count);string id=candidates[n];candidates.RemoveAt(n);
+                if(!child.learnedSkillIds.Contains(id))child.learnedSkillIds.Add(id);
+            }
+            NotifyChanged();
         }
         public void ResetPlayer() { data.playerLearned.Clear(); data.loadouts.RemoveAll(l => l.ownerId == "player"); runtimeCooldowns.Remove("player"); MixMaster.Combat.SkillActor.PlayerActor?.ResetTransient(); NotifyChanged(); }
         public SkillSaveData Capture() => JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));

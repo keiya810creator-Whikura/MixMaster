@@ -109,7 +109,33 @@ namespace MixMaster.EditorTools
                 s.skillId=idNumber.ToString("0",CultureInfo.InvariantCulture);s.name="Skill_"+s.skillId;
                 s.displayName=Cell(r,"名前",true);s.description=Cell(r,"説明");
                 s.requiredLevel=Int(r,"必要レベル",1);if(s.requiredLevel<1)throw new InvalidDataException("必要レベルは1以上です。");
-                s.skillPointCost=Int(r,"習得ポイント",1);s.mpCost=Integer(r,r.ContainsKey("消費MP")?"消費MP":"消費魔力");
+                s.skillPointCost=Int(r,"習得ポイント",1);
+                s.category=Pick<SkillCategory>(r,"スキル種別",new[]{"アクティブ","パッシブ"},true);
+                if(s.category==SkillCategory.Passive)
+                {
+                    var list=new List<SkillPassive>();
+                    for(int n=1;n<=3;n++)
+                    {
+                        string key="パッシブ"+n+"_";
+                        var type=Pick<SkillPassiveType>(r,key+"効果",PassiveNames,true);
+                        if(type==SkillPassiveType.None)continue;
+                        double amount=Number(r,key+"効果量");
+                        if((type==SkillPassiveType.WeaponCount||type==SkillPassiveType.TitleRolls)&&(amount!=Math.Floor(amount)||amount>1000))throw new InvalidDataException(key+"回数は0～1000の整数です。");
+                        if(type!=SkillPassiveType.Melee&&type!=SkillPassiveType.Ranged&&amount<=0)throw new InvalidDataException(key+"効果量は0より大きい値です。");
+                        list.Add(new SkillPassive{type=type,amount=amount});
+                    }
+                    if(list.Count==0)throw new InvalidDataException("パッシブ効果を1つ以上指定してください。");
+                    s.passives=list.ToArray();
+                    string passiveIcon=Cell(r,"画像パス");
+                    if(passiveIcon!=""){s.icon=AssetDatabase.LoadAssetAtPath<Sprite>(passiveIcon);if(s.icon==null)throw new InvalidDataException("画像パスが不正: "+passiveIcon);}
+                    s.executable=true;return s;
+                }
+                s.spawnPosition=Pick<SkillSpawnPosition>(r,"生成位置",new[]{"使用者","対象"},true);
+                s.followTarget=Pick<SkillFollowTarget>(r,"追従先",new[]{"追従なし","使用者","対象"},true);
+                s.effectTiming=Pick<SkillEffectTiming>(r,"効果発生タイミング",new[]{"命中時","生成時","一定間隔"},true);
+                s.effectInterval=(float)Number(r,"効果間隔秒",1);
+                if(s.effectTiming==SkillEffectTiming.Interval&&s.effectInterval<.02f)throw new InvalidDataException("効果間隔秒は0.02以上です。");
+                s.mpCost=Integer(r,r.ContainsKey("消費MP")?"消費MP":"消費魔力");
                 s.cooldown=(float)Number(r,"再使用時間秒");s.castTime=(float)Number(r,"詠唱時間秒");s.globalCooldown=(float)Number(r,"共通待機時間秒",0.2);
                 s.range=(float)Number(r,"射程");s.radius=(float)Number(r,"範囲半径");s.hitLimit=Int(r,"命中上限",1);
                 string target=Cell(r,"対象",true);
@@ -142,7 +168,9 @@ namespace MixMaster.EditorTools
                     motion.Add(new ProjectileMotionOverride{option=motionOptions[i],value=number});
                 }
                 s.projectileMotionOverrides=motion.ToArray();
-                ParseAdvancedMotion(r,motion);s.projectileMotionOverrides=motion.ToArray();
+                ParseAdvancedMotion(r,motion);
+                if(Cell(r,"追従先")!="")motion.Add(new ProjectileMotionOverride{option=ProjectileMotionOption.FollowOwner,value=0});
+                s.projectileMotionOverrides=motion.ToArray();
                 if(s.projectile&&(s.projectileSpeed<=0||s.projectileLifetime<=0))throw new InvalidDataException("発射物の速度・寿命は0より大きい値です。");
                 if(s.effect==SkillBaseEffect.Damage&&(s.powerSource!=SkillPowerSource.Attack&&s.powerSource!=SkillPowerSource.Magic))throw new InvalidDataException("ダメージの参照能力は攻撃力／魔法攻撃力です。");
                 if(s.effect==SkillBaseEffect.Heal&&s.powerSource==SkillPowerSource.Attack)throw new InvalidDataException("回復には攻撃力を使えません。");
@@ -186,6 +214,7 @@ namespace MixMaster.EditorTools
             }
             catch{UnityEngine.Object.DestroyImmediate(s);throw;}
         }
+        public static readonly string[] PassiveNames={"なし","最大HP","最大MP","攻撃力","魔法攻撃力","防御力","魔法防御力","移動速度","攻撃速度","攻撃範囲","会心率","会心倍率","素材ドロップ率","装備ドロップ率","火属性耐性","水属性耐性","風属性耐性","雷属性耐性","光属性耐性","闇属性耐性","全属性耐性","近接攻撃タイプ","遠距離攻撃タイプ","配合確率","武器取得数","称号抽選回数","敵リスポーン速度"};
         public static readonly string[] MotionTypes={"直進","追尾","拡大直進","その場","ブーメラン","周回後に射出","蛇行","加速","減速停止","遅延追尾","螺旋","往復","感応地雷","収束成長"};
         public static readonly (ProjectileMotionOption option,string column)[] AdvancedMotionColumns={
             (ProjectileMotionOption.MoveType,"移動タイプ"),(ProjectileMotionOption.TurnSpeed,"追尾旋回速度"),

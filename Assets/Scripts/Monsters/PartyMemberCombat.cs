@@ -39,6 +39,8 @@ namespace MixMaster.Monsters
         [SerializeField] private PartyCombatMode combatMode = PartyCombatMode.Follow;
         [SerializeField] private PartyAttackStyle attackStyle = PartyAttackStyle.Melee;
 
+        private PartyAttackStyle EffectiveAttackStyle => SkillProgressionManager.Instance!=null
+            ? (SkillProgressionManager.Instance.Ranged(ownedMonsterUniqueId,attackStyle==PartyAttackStyle.Ranged)?PartyAttackStyle.Ranged:PartyAttackStyle.Melee) : attackStyle;
         [Header("Ranged Attack")]
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform projectileSpawnPoint;
@@ -150,12 +152,12 @@ namespace MixMaster.Monsters
         public CharacterStats Stats => skills != null ? skills.Effective(stats) : stats;
         public long CurrentHp => currentHp;
         public long CurrentMp => currentMp;
-        public float DropRateBonus => Mathf.Max(0f, stats.dropRateBonus);
+        public float DropRateBonus => Mathf.Max(0f, Stats.dropRateBonus);
         public bool IsAlive => isAlive;
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public PartyCombatMode CombatMode => combatMode;
-        public PartyAttackStyle AttackStyle => attackStyle;
+        public PartyAttackStyle AttackStyle => EffectiveAttackStyle;
         public float AttackRange => GetEffectiveAttackRange();
         public int PartySlot => follower != null ? follower.FollowOrder : 0;
 
@@ -374,7 +376,7 @@ namespace MixMaster.Monsters
                 0.08f,
                 baseAttackRange * attackPositionRadiusRatio * 0.5f);
 
-            float radius = attackStyle == PartyAttackStyle.Ranged
+            float radius = EffectiveAttackStyle == PartyAttackStyle.Ranged
                 ? meleeRadius * 3f
                 : meleeRadius;
 
@@ -425,7 +427,7 @@ namespace MixMaster.Monsters
 
             follower.FaceDirection(direction);
 
-            if (attackStyle == PartyAttackStyle.Ranged)
+            if (EffectiveAttackStyle == PartyAttackStyle.Ranged)
             {
                 long magicPower = Math.Max(1L, Stats.magic);
 
@@ -674,13 +676,13 @@ namespace MixMaster.Monsters
         }
 
         internal bool CanHitWithSword(EnemyHealth enemy) => isAlive &&
-            isActiveAndEnabled && attackStyle == PartyAttackStyle.Melee && IsTargetValid(enemy);
+            isActiveAndEnabled && EffectiveAttackStyle == PartyAttackStyle.Melee && IsTargetValid(enemy);
 
         private float GetEffectiveAttackRange()
         {
             float baseRange = Mathf.Max(0.1f, Stats.attackRange);
 
-            return attackStyle == PartyAttackStyle.Ranged
+            return EffectiveAttackStyle == PartyAttackStyle.Ranged
                 ? baseRange * 2f
                 : baseRange;
         }
@@ -845,6 +847,10 @@ namespace MixMaster.Monsters
             return TakeDamage(damage);
         }
 
+        public void ClampSkillResources()
+        {
+            currentHp=Math.Min(currentHp,Stats.maxHp);currentMp=Math.Min(currentMp,Stats.maxMp);
+        }
         public long TakeDamage(long damage)
         {
             if (!isAlive || damage <= 0)
@@ -857,7 +863,7 @@ namespace MixMaster.Monsters
             DamagePopupText.Show(transform.position, actual, true);
 
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
 
             if (spriteRenderer != null)
             {
@@ -879,23 +885,23 @@ namespace MixMaster.Monsters
                 return;
 
             currentHp = Math.Min(
-                Math.Max(1L, stats.maxHp),
+                Math.Max(1L, Stats.maxHp),
                 LongMath.SaturatingAdd(currentHp, amount));
 
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
         }
 
         public void RestoreFullHp()
         {
-            currentHp = Math.Max(1L, stats.maxHp);
+            currentHp = Math.Max(1L, Stats.maxHp);
             isAlive = true;
 
             if (spriteRenderer != null)
                 spriteRenderer.color = originalColor;
 
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
         }
 
         /// <summary>
@@ -908,7 +914,7 @@ namespace MixMaster.Monsters
             if (isAlive)
                 return false;
 
-            long maximum = Math.Max(1L, stats.maxHp);
+            long maximum = Math.Max(1L, Stats.maxHp);
             double desired = Math.Ceiling(maximum *
                 (double)Mathf.Clamp01(hpPercent));
             currentHp = desired >= long.MaxValue
@@ -939,14 +945,14 @@ namespace MixMaster.Monsters
 
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, maximum);
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
             return true;
         }
 
         public void RestoreFullMp()
         {
-            currentMp = Math.Max(0L, stats.maxMp);
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            currentMp = Math.Max(0L, Stats.maxMp);
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
         }
 
         public void RestoreFullResources()
@@ -964,20 +970,20 @@ namespace MixMaster.Monsters
                 return false;
 
             currentMp -= amount;
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
             return true;
         }
 
         public void RecoverMp(long amount)
         {
-            if (amount <= 0L || currentMp >= stats.maxMp)
+            if (amount <= 0L || currentMp >= Stats.maxMp)
                 return;
 
             currentMp = Math.Min(
-                Math.Max(0L, stats.maxMp),
+                Math.Max(0L, Stats.maxMp),
                 LongMath.SaturatingAdd(currentMp, amount));
 
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
         }
 
         private void Die()
@@ -1040,7 +1046,7 @@ namespace MixMaster.Monsters
             if (hpSlider == null)
                 return;
 
-            long max = Math.Max(1L, stats.maxHp);
+            long max = Math.Max(1L, Stats.maxHp);
             float normalized = Mathf.Clamp01((float)((double)currentHp / max));
             hpSlider.SetValueWithoutNotify(normalized);
         }
@@ -1123,7 +1129,7 @@ namespace MixMaster.Monsters
 
         private void OnDrawGizmosSelected()
         {
-            float effectiveRange = attackStyle == PartyAttackStyle.Ranged
+            float effectiveRange = EffectiveAttackStyle == PartyAttackStyle.Ranged
                 ? Mathf.Max(0.1f, Stats.attackRange) * 2f
                 : Mathf.Max(0.1f, Stats.attackRange);
 
