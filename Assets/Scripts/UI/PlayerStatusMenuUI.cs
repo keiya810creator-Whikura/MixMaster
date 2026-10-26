@@ -25,6 +25,9 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text combatStatsText;
         [SerializeField] private TMP_Text resistancesText;
         [SerializeField] private TMP_Text equipmentPreviewText;
+        [SerializeField] private TMP_Text growthInfoText;
+        [SerializeField] private Button skillSettingsButton;
+        public void SetGrowthControls(TMP_Text text,Button button) { growthInfoText=text;skillSettingsButton=button; }
         [SerializeField] private Image portraitImage;
         [SerializeField] private Sprite portraitOverride;
         [SerializeField] private Toggle autoAttackToggle;
@@ -89,6 +92,7 @@ namespace MixMaster.UI
 
         private void Awake()
         {
+            EnsureGrowthControls();
             if (autoAttackToggle != null)
                 autoAttackToggle.onValueChanged.AddListener(SetAutoAttack);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
@@ -113,6 +117,7 @@ namespace MixMaster.UI
 
         private void OnDestroy()
         {
+            if(skillSettingsButton!=null)skillSettingsButton.onClick.RemoveListener(OpenSkills);
             Unsubscribe();
             if (autoAttackToggle != null)
                 autoAttackToggle.onValueChanged.RemoveListener(SetAutoAttack);
@@ -255,6 +260,8 @@ namespace MixMaster.UI
 
         public void Refresh()
         {
+            EnsureGrowthControls();
+            SetText(growthInfoText,FormatGrowthInfo(player));
             RefreshAutoAttack(player != null && player.AutoAttackEnabled);
             if (player == null)
             {
@@ -318,6 +325,38 @@ namespace MixMaster.UI
             RefreshEquipment();
         }
 
+        private void EnsureGrowthControls()
+        {
+            if(growthInfoText==null)
+                foreach(var text in GetComponentsInChildren<TMP_Text>(true))if(text.gameObject.name=="GrowthInfo"){growthInfoText=text;break;}
+            if(growthInfoText==null)return;
+            var rect=growthInfoText.rectTransform;
+            rect.sizeDelta=new Vector2(rect.sizeDelta.x,Mathf.Max(170f,rect.sizeDelta.y));
+            var section=growthInfoText.transform.parent;
+            var layout=section.GetComponent<LayoutElement>();
+            if(layout!=null){layout.preferredHeight=Mathf.Max(245f,layout.preferredHeight);layout.minHeight=Mathf.Max(245f,layout.minHeight);}
+            if(skillSettingsButton==null)
+            {
+                var existing=section.Find("OpenSkillSettings");
+                skillSettingsButton=existing!=null?existing.GetComponent<Button>():InventoryUiFactory.Button(section,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f));
+            }
+            if(skillSettingsButton!=null){skillSettingsButton.onClick.RemoveListener(OpenSkills);skillSettingsButton.onClick.AddListener(OpenSkills);}
+        }
+        public void OpenSkills()
+        {
+            if(!SkillScreenUI.OpenForOwner("player"))Debug.LogWarning("[PlayerStatusMenuUI] スキル設定を開けません。GameManagerとCanvasを確認してください。",this);
+        }
+        public static string FormatGrowthInfo(PlayerManager player)
+        {
+            if(player==null)return "育成データを取得中...";
+            var species=player.ReincarnationSpecies;var growth=player.LevelUpGrowth;
+            string form=species!=null?species.displayName:"人間";
+            return "現在の姿："+form+"（転生 "+player.ReincarnationCount+"回）"+
+                "\nレベルアップ：HP +"+growth.maxHp.ToString("N0")+"　MP +"+growth.maxMp.ToString("N0")+
+                "\n攻撃 +"+growth.attack.ToString("N0")+"　魔法攻撃 +"+growth.magic.ToString("N0")+
+                "\n防御 +"+growth.defense.ToString("N0")+"　魔法防御 +"+growth.magicDefense.ToString("N0")+
+                "\nスキルポイント +1（所持 "+player.SkillPoints.ToString("N0")+"）";
+        }
         private void RefreshPortrait()
         {
             if (portraitImage == null)
