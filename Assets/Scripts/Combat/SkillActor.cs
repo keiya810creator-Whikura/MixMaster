@@ -57,21 +57,29 @@ namespace MixMaster.Combat
             }
         }
         public bool MovementBlocked => Has(SkillAilment.Freeze) || Has(SkillAilment.Paralysis) || Has(SkillAilment.Sleep);
-        public bool NormalAttackBlocked => MovementBlocked || Has(SkillAilment.Confusion) || casting != null;
+        public bool NormalAttackBlocked => isActiveAndEnabled && (MovementBlocked || Has(SkillAilment.Confusion) || (casting != null && Time.time < finishAt));
         public bool SkillBlocked => MovementBlocked || Has(SkillAilment.Silence);
         public float MovementRatio => Stats.moveSpeed / Mathf.Max(0.1f, enemy != null ? enemyBase.moveSpeed : party != null ? party.BaseStats.moveSpeed : player.UnmodifiedStats.moveSpeed);
-        public static SkillActor Ensure(GameObject go) => go.GetComponent<SkillActor>() ?? go.AddComponent<SkillActor>();
+        public static SkillActor Ensure(GameObject go)
+        {
+            var actor=go.GetComponent<SkillActor>()??go.AddComponent<SkillActor>();
+            actor.enabled=true;actor.ResolveReferences();return actor;
+        }
+        private void ResolveReferences()
+        {
+            party=GetComponent<PartyMemberCombat>();enemy=party==null?GetComponent<EnemyHealth>():null;playerCombat=GetComponent<PlayerAutoAttack>();
+            if(playerCombat!=null){player=FindFirstObjectByType<PlayerManager>();ownerId="player";PlayerActor=this;}
+        }
         private void Awake()
         {
-            party = GetComponent<PartyMemberCombat>(); enemy = GetComponent<EnemyHealth>(); playerCombat = GetComponent<PlayerAutoAttack>();
-            if (playerCombat != null) { player = FindFirstObjectByType<PlayerManager>(); ownerId = "player"; PlayerActor = this; }
+            ResolveReferences();
         }
         private void OnEnable() { if (!Active.Contains(this)) Active.Add(this); if(IsPlayer)PlayerActor=this; }
         public void ResetTransient() { statuses.Clear(); casting=null; pendingSlot=-1; cachedFrame=-1; }
         private void OnDisable() { Active.Remove(this); ResetTransient(); if (PlayerActor == this) PlayerActor = null; }
         public void Configure(MonsterSO monster, string individualId, CharacterStats enemyStats = null)
         {
-            ResetTransient();
+            ResolveReferences();ResetTransient();
             species = monster; ownerId = individualId;
             if (enemyStats != null) enemyBase = ReincarnationRules.CopyStats(enemyStats);
             statuses.Clear(); readyAt.Clear(); intervals.Clear(); hitsAt.Clear(); damageAt.Clear(); killsAt.Clear(); casting = null; cachedFrame = -1;
@@ -333,3 +341,4 @@ namespace MixMaster.Combat
         }
     }
 }
+

@@ -253,7 +253,6 @@ namespace MixMaster.Monsters
 
         private void Update()
         {
-            if (skills != null && skills.NormalAttackBlocked) return;
             if (!isAlive)
                 return;
 
@@ -278,6 +277,8 @@ namespace MixMaster.Monsters
 
             bool hasTarget = IsTargetValid(currentTarget);
             follower.SetCombatControlled(ControlsCombatMovement);
+            // Casting blocks the strike, not target acquisition or auto-hunt movement.
+            if(skills!=null&&skills.NormalAttackBlocked)return;
 
             if (chargeWhileNoTarget || hasTarget)
                 SetAttackGauge(attackGauge + Mathf.Max(0.1f, Stats.attackSpeed) * Time.deltaTime);
@@ -1168,3 +1169,4 @@ namespace MixMaster.Monsters
 #endif
     }
 }
+

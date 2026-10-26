@@ -134,6 +134,10 @@ namespace MixMaster.EditorTools
                 s.followTarget=Pick<SkillFollowTarget>(r,"追従先",new[]{"追従なし","使用者","対象"},true);
                 s.effectTiming=Pick<SkillEffectTiming>(r,"効果発生タイミング",new[]{"命中時","生成時","一定間隔"},true);
                 s.effectInterval=(float)Number(r,"効果間隔秒",1);
+                s.fitSpriteToArea=Cell(r,"発射物_範囲に表示を合わせる")==""||On(r,"発射物_範囲に表示を合わせる");
+                s.burstVisualDuration=(float)Number(r,"発射物_爆発拡大秒",.35);
+                s.burstVisualStartScale=(float)Number(r,"発射物_爆発開始倍率",.1);
+                if(s.burstVisualDuration<.02f||s.burstVisualStartScale<=0||s.burstVisualStartScale>1)throw new InvalidDataException("爆発拡大秒は0.02以上、開始倍率は0より大きく1以下です。");
                 if(s.effectTiming==SkillEffectTiming.Interval&&s.effectInterval<.02f)throw new InvalidDataException("効果間隔秒は0.02以上です。");
                 s.mpCost=Integer(r,r.ContainsKey("消費MP")?"消費MP":"消費魔力");
                 s.cooldown=(float)Number(r,"再使用時間秒");s.castTime=(float)Number(r,"詠唱時間秒");s.globalCooldown=(float)Number(r,"共通待機時間秒",0.2);
@@ -215,7 +219,7 @@ namespace MixMaster.EditorTools
             catch{UnityEngine.Object.DestroyImmediate(s);throw;}
         }
         public static readonly string[] PassiveNames={"なし","最大HP","最大MP","攻撃力","魔法攻撃力","防御力","魔法防御力","移動速度","攻撃速度","攻撃範囲","会心率","会心倍率","素材ドロップ率","装備ドロップ率","火属性耐性","水属性耐性","風属性耐性","雷属性耐性","光属性耐性","闇属性耐性","全属性耐性","近接攻撃タイプ","遠距離攻撃タイプ","配合確率","武器取得数","称号抽選回数","敵リスポーン速度"};
-        public static readonly string[] MotionTypes={"直進","追尾","拡大直進","その場","ブーメラン","周回後に射出","蛇行","加速","減速停止","遅延追尾","螺旋","往復","感応地雷","収束成長"};
+        public static readonly string[] MotionTypes={"直進","追尾","拡大直進","その場","ブーメラン","周回後に射出","蛇行","加速","減速停止","遅延追尾","螺旋","往復","感応地雷","収束成長","爆発"};
         public static readonly (ProjectileMotionOption option,string column)[] AdvancedMotionColumns={
             (ProjectileMotionOption.MoveType,"移動タイプ"),(ProjectileMotionOption.TurnSpeed,"追尾旋回速度"),
             (ProjectileMotionOption.GrowSpeed,"拡大速度"),(ProjectileMotionOption.MaximumScale,"最大拡大倍率"),
@@ -257,3 +261,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
