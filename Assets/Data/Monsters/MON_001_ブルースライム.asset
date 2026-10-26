@@ -57,6 +57,41 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4e416eaf4149504886db071483830362, type: 2}
   - {fileID: 11400000, guid: 13a17849899c5879803b2dc54352a143, type: 2}
   - {fileID: 11400000, guid: 7d6276b1616558f8bcd8840d1376d832, type: 2}
+  - {fileID: 11400000, guid: 6d03e5fa51d458c8a3653ce07e56c2b0, type: 2}
+  - {fileID: 11400000, guid: b3c7fafd061f5d92a7af219b779f6a2d, type: 2}
+  - {fileID: 11400000, guid: 62f9ce8d7cc15b96af027d5df388fe1d, type: 2}
+  - {fileID: 11400000, guid: 6beb27e708cf5934bb5bba14400434e2, type: 2}
+  - {fileID: 11400000, guid: dce14653fc605a398f14957b0351ec47, type: 2}
+  - {fileID: 11400000, guid: 7d499553132058a9a113e548232e8475, type: 2}
+  - {fileID: 11400000, guid: 7ec89ab437aa5eec819bb34102405986, type: 2}
+  - {fileID: 11400000, guid: 114e5a83dd4d5df2bcecabd742a50f00, type: 2}
+  - {fileID: 11400000, guid: c950fe0d0eb455d99674f690b1f1f424, type: 2}
+  - {fileID: 11400000, guid: 12be8de7669960b46a4e963019db893d, type: 2}
+  - {fileID: 11400000, guid: 63fe359ee8a5823458577fdfa14af572, type: 2}
+  - {fileID: 11400000, guid: 63697d99365752c42bba00186849e051, type: 2}
+  - {fileID: 11400000, guid: 3a90defae134482479ccd6ec1b3a5c25, type: 2}
+  - {fileID: 11400000, guid: 4642f92a320c51345a6c2cc2a2319efc, type: 2}
+  - {fileID: 11400000, guid: 825c7cf201c737942ab72dc7a80b2514, type: 2}
+  - {fileID: 11400000, guid: b53a76fba14dfee48af2631d7e130df6, type: 2}
+  - {fileID: 11400000, guid: fae87132f7160424cb71700f892c181c, type: 2}
+  - {fileID: 11400000, guid: d9bc6a884820ff4438e5b570ae223647, type: 2}
+  - {fileID: 11400000, guid: aea6c7d086158924c98f4e7460ba15b3, type: 2}
+  - {fileID: 11400000, guid: 642d60950e0d30e43acbc7c124de89bb, type: 2}
+  - {fileID: 11400000, guid: a36e27e37ba725a4e8ed6d3993bd4e1b, type: 2}
+  - {fileID: 11400000, guid: 2d381a6b10db8fc43b2cc5a808045f33, type: 2}
+  - {fileID: 11400000, guid: 529ea52e29773324bbc1df27d871e0da, type: 2}
+  - {fileID: 11400000, guid: 44335342e8050e74588a23a4529301fa, type: 2}
+  - {fileID: 11400000, guid: 74c6b3cf675417948b083e3d70c729d1, type: 2}
+  - {fileID: 11400000, guid: c51acd9fe4cae794d860480ca78b48c3, type: 2}
+  - {fileID: 11400000, guid: 295eaf36f373a3c45b89f79624e13646, type: 2}
+  - {fileID: 11400000, guid: cbafa1e05d3ce61428250a5bca95f0f6, type: 2}
+  - {fileID: 11400000, guid: 2873c3ad029fc3c42912a7869de43f0f, type: 2}
+  - {fileID: 11400000, guid: c293cea687c247548be125d50c43e51f, type: 2}
+  - {fileID: 11400000, guid: 5f96102a28f8246418274f2f2be34bd7, type: 2}
+  - {fileID: 11400000, guid: b5d86afe3a1e7f641bef7d604e0775d7, type: 2}
+  - {fileID: 11400000, guid: 41123f32c11c43549ae23b63a1c5fde0, type: 2}
+  - {fileID: 11400000, guid: bbd4a5435b951f24fa467f2ac1cbc3b3, type: 2}
+  - {fileID: 11400000, guid: 8b9a6847e0b09264291c3e5c4a121162, type: 2}
   enemySkills: []
   appearanceStage: 1
   breedingValue: 10

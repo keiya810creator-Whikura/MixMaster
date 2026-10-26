@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_30
+  m_EditorClassIdentifier: 
+  skillId: 30
+  displayName: "\u5149\u5C5E\u6027\u8010\u6027\uFF0B10\uFF05"
+  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  icon: {fileID: 0}
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 1
+  powerSource: 1
+  targetType: 1
+  mpCost: 0
+  powerMultiplier: 1
+  useOwnerElement: 1
+  overrideElement: 0
+  executable: 1
+  effect: 0
+  application: 0
+  flatPower: 0
+  cooldown: 5
+  castTime: 0
+  globalCooldown: 0.2
+  range: 6
+  radius: 0
+  hitLimit: 1
+  canCritical: 1
+  projectile: 0
+  homing: 0
+  projectileSpeed: 8
+  projectileLifetime: 3
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 0}
+  useProjectileMotionOverrides: 0
+  projectileMotionOverrides: []
+  spawnPosition: 0
+  followTarget: 0
+  effectTiming: 0
+  effectInterval: 1
+  passives:
+  - type: 18
+    amount: 10
+  affixes: []
