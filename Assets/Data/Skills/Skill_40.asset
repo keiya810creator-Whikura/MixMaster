@@ -1,0 +1,152 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_40
+  m_EditorClassIdentifier: 
+  skillId: 40
+  displayName: "\u708E\u306E\u9663"
+  description: "\u4F7F\u7528\u3057\u305F\u5730\u70B9\u306B5\u79D2\u6B8B\u308A\u30010.5\u79D2\u3054\u3068\u306B\u534A\u5F843\u306E\u6575\u3078\u706B\u5C5E\u6027\u30C0\u30E1\u30FC\u30B8\u3092\u4E0E\u3048\u308B\u3002"
+  icon: {fileID: 0}
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 0
+  mpCost: 10
+  powerMultiplier: 0.5
+  useOwnerElement: 0
+  overrideElement: 1
+  executable: 1
+  effect: 0
+  application: 2
+  flatPower: 0
+  cooldown: 8
+  castTime: 0
+  globalCooldown: 0.2
+  range: 6
+  radius: 3
+  hitLimit: 0
+  canCritical: 0
+  projectile: 1
+  homing: 0
+  projectileSpeed: 1
+  projectileLifetime: 5
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 6887538829938640553, guid: 81e540f8baa01914ea2fcdfd1c9b7396, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 1
+  - option: 2
+    value: 0
+  - option: 3
+    value: 360
+  - option: 4
+    value: 0
+  - option: 5
+    value: 0.3
+  - option: 6
+    value: 2
+  - option: 7
+    value: 0
+  - option: 8
+    value: 3
+  - option: 9
+    value: 50
+  - option: 10
+    value: 3
+  - option: 11
+    value: 3
+  - option: 12
+    value: 8
+  - option: 13
+    value: 0.8
+  - option: 14
+    value: 2
+  - option: 15
+    value: 0.8
+  - option: 16
+    value: 12
+  - option: 17
+    value: 0.8
+  - option: 18
+    value: 1.5
+  - option: 19
+    value: 720
+  - option: 20
+    value: 0.6
+  - option: 21
+    value: 540
+  - option: 22
+    value: 1.8
+  - option: 23
+    value: 4
+  - option: 24
+    value: 4
+  - option: 25
+    value: 1
+  - option: 26
+    value: 0
+  - option: 27
+    value: 0
+  - option: 28
+    value: 0.5
+  - option: 29
+    value: 1.5
+  - option: 30
+    value: 2.5
+  - option: 31
+    value: 2.5
+  - option: 32
+    value: 0
+  - option: 33
+    value: 1
+  - option: 34
+    value: 1
+  - option: 35
+    value: 10
+  - option: 36
+    value: 0
+  - option: 37
+    value: 4
+  - option: 38
+    value: 8
+  - option: 39
+    value: 0.85
+  - option: 40
+    value: 0
+  - option: 41
+    value: 2
+  - option: 42
+    value: 50
+  - option: 43
+    value: 0.5
+  - option: 44
+    value: 1
+  - option: 45
+    value: 0
+  - option: 46
+    value: 0
+  - option: 47
+    value: 2
+  - option: 48
+    value: 0.4
+  - option: 26
+    value: 0
+  spawnPosition: 0
+  followTarget: 0
+  effectTiming: 2
+  effectInterval: 0.5
+  passives: []
+  affixes: []
