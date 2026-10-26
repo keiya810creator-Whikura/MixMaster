@@ -34,6 +34,9 @@ namespace MixMaster.UI
         private Color[] originalSlotColors;
         private bool initialized;
         private string selectedOwnerId = "player";
+        private SkillOwner individualOwner;
+        private bool individualSelection;
+        private string partySnapshot;
         private int slotIndex;
         private float refreshAt;
         private static readonly string[] Triggers={"手動のみ／追加条件なし","使用可能になったら","自分の体力％以下","自分のMP％以上","対象の体力％以下","攻撃範囲内の敵の数以上","通常攻撃が指定回数命中","指定回数ダメージを受けたら","指定秒数ごと","指定数の敵を倒したら"};
@@ -57,7 +60,7 @@ namespace MixMaster.UI
             var ui=EnsureScreen();if(ui==null)return false;
             ui.Initialize();if(!ui.BindManager())return false;
             if(ownerId!="player"&&(string.IsNullOrEmpty(ownerId)||ui.monsters?.FindOwnedMonster(ownerId)==null))return false;
-            ui.gameObject.SetActive(true);ui.selectedOwnerId=ownerId;ui.slotIndex=0;
+            ui.gameObject.SetActive(true);ui.selectedOwnerId=ownerId;ui.individualSelection=ownerId!="player";ui.slotIndex=0;
             ui.Refresh();ui.transform.SetAsLastSibling();ui.panel.SetActive(true);ui.panel.transform.SetAsLastSibling();
             return true;
         }
@@ -67,9 +70,9 @@ namespace MixMaster.UI
         {
             // Build() adds this component before assigning its UI references.
             if(initialized||panel==null)return;initialized=true;
-            openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
+            openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){individualSelection=false;individualOwner=null;transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
             closeButton.onClick.AddListener(()=>panel.SetActive(false));
-            actorDropdown.onValueChanged.AddListener(_=>{selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
+            actorDropdown.onValueChanged.AddListener(_=>{individualSelection=false;individualOwner=null;selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
             skillDropdown.onValueChanged.AddListener(_=>RefreshDetails());
             learnButton.onClick.AddListener(()=>{if(Owner==null||Selected==null)return;manager.Learn(Owner.OwnerId,Selected.skillId,out string text);message.text=text;RefreshSkills();});
             for(int i=0;i<assignButtons.Length;i++){int index=i;assignButtons[i].onClick.AddListener(()=>SelectSlot(index));}
@@ -93,14 +96,15 @@ namespace MixMaster.UI
             monsters=manager.GetComponent<MonsterManager>();return true;
         }
         private void OnDestroy(){if(manager!=null)manager.Changed-=Refresh;}
-        private SkillOwner Owner=>actorDropdown.value>=0&&actorDropdown.value<actors.Count?actors[actorDropdown.value]:null;
+        private SkillOwner Owner=>individualOwner??(actorDropdown.value>=0&&actorDropdown.value<actors.Count?actors[actorDropdown.value]:null);
         private SkillSO Selected=>skillDropdown.value>=0&&skillDropdown.value<options.Count?options[skillDropdown.value]:null;
         private void Update()
         {
             if(!initialized)Initialize();if(!initialized||!BindManager())return;
             if(Time.unscaledTime<refreshAt)return;refreshAt=Time.unscaledTime+0.2f;
-            int count=1+(monsters!=null?monsters.OwnedMonsters.Count:0);
-            if(count!=actors.Count)Refresh();
+            string signature=monsters!=null?string.Join("|",monsters.PartyMonsterUniqueIds):"";
+            if(signature!=partySnapshot)Refresh();
+            if(individualOwner!=null&&monsters?.FindOwnedMonster(individualOwner.OwnerId)==null){individualSelection=false;Refresh();}
             if(panel.activeSelf)RefreshDetails();
             var player=SkillActor.PlayerActor;
             for(int i=0;i<castButtons.Length;i++)
@@ -122,16 +126,32 @@ namespace MixMaster.UI
             if(!BindManager())return;
             actors.Clear();actors.Add(new SkillOwner{OwnerId="player",Name="主人公"});
             var catalog=MonsterCatalogSO.Load();
-            if(monsters!=null)foreach(var record in monsters.OwnedMonsters)
+            if(monsters!=null)foreach(var id in monsters.PartyMonsterUniqueIds)
             {
+                var record=monsters.FindOwnedMonster(id);
                 if(record==null||string.IsNullOrEmpty(record.uniqueId))continue;
-                var species=catalog!=null?catalog.GetMonster(record.monsterId):null;
-                actors.Add(new SkillOwner{OwnerId=record.uniqueId,Name="仲間："+(species!=null?species.displayName:record.monsterId)+" Lv."+record.level});
+                actors.Add(DescribeOwner(record,catalog));
             }
+            partySnapshot=monsters!=null?string.Join("|",monsters.PartyMonsterUniqueIds):"";
             var names=new List<string>();foreach(var a in actors)names.Add(a.Name);
             actorDropdown.ClearOptions();actorDropdown.AddOptions(names);
-            int index=actors.FindIndex(a=>a.OwnerId==selectedOwnerId);index=Mathf.Max(0,index);
-            actorDropdown.SetValueWithoutNotify(index);selectedOwnerId=actors[index].OwnerId;RefreshSkills();
+            int index=actors.FindIndex(a=>a.OwnerId==selectedOwnerId);
+            individualOwner=null;
+            if(index<0&&individualSelection)
+            {
+                var record=monsters?.FindOwnedMonster(selectedOwnerId);
+                if(record!=null)individualOwner=DescribeOwner(record,catalog);
+            }
+            index=Mathf.Max(0,index);actorDropdown.SetValueWithoutNotify(index);
+            // A reserve opened from its detail has its own context, never a dropdown entry.
+            actorDropdown.gameObject.SetActive(individualOwner==null);
+            if(individualOwner==null)selectedOwnerId=actors[index].OwnerId;
+            RefreshSkills();
+        }
+        private static SkillOwner DescribeOwner(OwnedMonsterRecord record,MonsterCatalogSO catalog)
+        {
+            var species=catalog!=null?catalog.GetMonster(record.monsterId):null;
+            return new SkillOwner{OwnerId=record.uniqueId,Name="仲間："+(species!=null?species.displayName:record.monsterId)+" Lv."+record.level};
         }
         private string SkillLabel(SkillSO skill)
         {
@@ -163,10 +183,11 @@ namespace MixMaster.UI
         {
             if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=saveButton.interactable=false;return;}
             var s=Selected;bool learned=manager.Learned(Owner.OwnerId,s.skillId);
-            details.text=s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
+            string ownerHeading=individualOwner!=null?"設定対象："+individualOwner.Name+"\n":"";
+            details.text=ownerHeading+s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
             bool active=s.category==SkillCategory.Active;
             triggerDropdown.interactable=andDropdown.interactable=threshold.interactable=andThreshold.interactable=priority.interactable=active;
-            if(!active)details.text=s.displayName+"\n"+s.description+"\nパッシブ：枠にセット中のみ有効。\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得");
+            if(!active)details.text=ownerHeading+s.displayName+"\n"+s.description+"\nパッシブ：枠にセット中のみ有効。\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得");
             learnButton.interactable=!learned;saveButton.interactable=learned;
         }
         private void SaveRule()

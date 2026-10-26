@@ -78,10 +78,14 @@ namespace MixMaster.EditorTools
 
         public static Plan CreatePlan(SkillSO skill, Dictionary<string,string> row, Dictionary<string,List<Sprite>> sprites)
         {
-            if (!sprites.TryGetValue(skill.skillId, out var matches) || matches.Count == 0)
-                throw new InvalidDataException("番号 " + skill.skillId + " のSpriteがありません。素材/Profectile または 素材/Projectile に " + skill.skillId + ".png を配置し、Texture TypeをSprite (2D and UI)にしてください。");
+            string imageNumber=Cell(row,"発射物_画像番号");
+            if(imageNumber=="")imageNumber=skill.skillId;
+            imageNumber=NormalizeId(imageNumber);
+            if(imageNumber==null)throw new InvalidDataException("発射物_画像番号は正の整数で指定してください。");
+            if (!sprites.TryGetValue(imageNumber, out var matches) || matches.Count == 0)
+                throw new InvalidDataException("スキル " + skill.skillId + " の画像番号 " + imageNumber + " のSpriteがありません。素材/Profectile または 素材/Projectile に " + imageNumber + ".png を配置し、Texture TypeをSprite (2D and UI)にしてください。");
             if (matches.Count != 1)
-                throw new InvalidDataException("番号 " + skill.skillId + " のSpriteが複数あります。両素材フォルダ・サブスプライトの番号を一意にしてください。");
+                throw new InvalidDataException("画像番号 " + imageNumber + " のSpriteが複数あります。両素材フォルダ・サブスプライトの番号を一意にしてください。");
             // Always rebuild defaults from the template, never from a previous generated prefab.
             var template = skill.projectilePrefab;
             if (template != null && AssetDatabase.GetAssetPath(template) == OutputFolder + "/" + skill.skillId + ".prefab") template = null;
@@ -161,3 +165,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
