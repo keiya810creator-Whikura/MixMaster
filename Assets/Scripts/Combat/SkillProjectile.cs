@@ -25,7 +25,9 @@ namespace MixMaster.Combat
         private float powerScale=1,explosionStart;
         private Vector3 baseScale;
         private bool exploding,hasSplit,forcedHoming;
-        private float nextEffect;
+        private float nextEffect,burstStartedAt,burstSeconds;
+        private bool burstWasActive;
+        private Vector3 baseVisualScale;
         private Vector3 lastFollowPosition;
         private int generation,jumps;
         private SpriteRenderer visual;
@@ -63,8 +65,16 @@ namespace MixMaster.Combat
             // An authored sprite/tint is preserved; the skill icon belongs to the UI.
             if(renderer.sprite==null)renderer.sprite=fallback;
             if(prefab==null){renderer.sortingOrder=60;go.transform.localScale=Vector3.one*0.2f;}
+            if(renderer.transform==go.transform)
+            {
+                var child=new GameObject("Visual");child.transform.SetParent(go.transform,false);
+                var replacement=child.AddComponent<SpriteRenderer>();replacement.sprite=renderer.sprite;replacement.color=renderer.color;
+                replacement.sharedMaterial=renderer.sharedMaterial;replacement.sortingLayerID=renderer.sortingLayerID;replacement.sortingOrder=renderer.sortingOrder;
+                replacement.flipX=renderer.flipX;replacement.flipY=renderer.flipY;renderer.enabled=false;renderer=replacement;
+            }
             var p=go.GetComponent<SkillProjectile>()??go.AddComponent<SkillProjectile>();
             p.motion=ResolveMotion(skill,p.defaults);
+            if(p.motion.moveType==SkillProjectileMoveType.Burst)p.motion.piercing=true;
             if(skill.followTarget!=SkillFollowTarget.None)p.motion.followOwner=false;
             p.owner=owner;p.target=target;p.skill=skill;p.power=ReincarnationRules.CopyStats(power);p.source=source;
             p.path=new ProjectilePath(position,direction,skill.projectileSpeed,p.motion);p.collided.Clear();p.affected.Clear();p.lastHits.Clear();
@@ -72,9 +82,38 @@ namespace MixMaster.Combat
             p.end=Time.time+skill.projectileLifetime;p.baseScale=go.transform.localScale;p.visual=renderer;p.baseColor=renderer.color;
             p.generation=generation;p.powerScale=scale;p.budget=budget;p.hasSplit=p.exploding=p.forcedHoming=false;p.jumps=0;
             p.nextEffect=Time.time+Mathf.Max(.02f,skill.effectInterval);
-            p.lastFollowPosition=p.FollowPosition();
+            p.lastFollowPosition=p.FollowPosition();p.burstWasActive=false;p.baseVisualScale=renderer.transform.localScale;
+            p.UpdateSkillVisual();
             if(skill.effectTiming==SkillEffectTiming.Spawn)p.ApplyTimedEffect();
             return p;
+        }
+        private bool IsArea => skill.radius>0&&(skill.application==SkillApplication.EnemiesInArea||skill.application==SkillApplication.AlliesInArea);
+        private bool BurstVisual => path.CurrentMode==SkillProjectileMoveType.Burst ||
+            (IsArea&&skill.effect==SkillBaseEffect.Damage&&skill.effectTiming==SkillEffectTiming.Spawn&&path.CurrentMode==SkillProjectileMoveType.Stay);
+        private void FitVisual(float radius)
+        {
+            if(visual==null||visual.sprite==null)return;
+            var parent=visual.transform.parent;
+            visual.transform.localScale=SkillVisualMath.FitDiameter(visual.sprite.bounds.size,parent!=null?parent.lossyScale:Vector3.one,radius,baseVisualScale.z);
+        }
+        private void ApplyVisualBurst(float progress,float start)
+        {
+            if(visual==null)return;
+            visual.transform.localScale*=SkillVisualMath.BurstScale(progress,start);
+            var color=baseColor;color.a*=SkillVisualMath.BurstAlpha(progress);visual.color=color;
+        }
+        private void UpdateSkillVisual()
+        {
+            if(visual==null)return;
+            visual.transform.localScale=baseVisualScale;visual.color=baseColor;
+            if(IsArea&&skill.fitSpriteToArea)FitVisual(skill.radius);
+            else if(path.CurrentMode==SkillProjectileMoveType.Burst&&skill.fitSpriteToArea)FitVisual(motion.explosionRadius);
+            if(BurstVisual)
+            {
+                if(!burstWasActive){burstStartedAt=Time.time;burstSeconds=Mathf.Max(.02f,Mathf.Min(end-Time.time,skill.burstVisualDuration));burstWasActive=true;}
+                ApplyVisualBurst((Time.time-burstStartedAt)/burstSeconds,skill.burstVisualStartScale);
+            }
+            else burstWasActive=false;
         }
         private Vector3 FollowPosition() => skill.followTarget==SkillFollowTarget.Target&&target!=null?target.transform.position:owner.transform.position;
         private void ApplyTimedEffect()
@@ -89,8 +128,7 @@ namespace MixMaster.Combat
             if(exploding)
             {
                 float t=Mathf.Clamp01((Time.time-explosionStart)/Mathf.Max(.02f,motion.explosionDuration));
-                transform.localScale=baseScale*Mathf.Lerp(path.Scale,Mathf.Max(path.Scale,motion.explosionRadius/Mathf.Max(.01f,motion.hitRadius)),t);
-                if(visual!=null){var color=baseColor;color.a*=1-t;visual.color=color;}
+                if(visual!=null){visual.transform.localScale=baseVisualScale;FitVisual(motion.explosionRadius);ApplyVisualBurst(t,skill.burstVisualStartScale);}
                 if(t>=1)Destroy(gameObject);return;
             }
             if(Time.time>=end){Destroy(gameObject);return;}
@@ -98,6 +136,7 @@ namespace MixMaster.Combat
             bool targetValid=target!=null&&target.Alive&&target.gameObject.scene==gameObject.scene;
             if(skill.followTarget!=SkillFollowTarget.Target&&(!targetValid||collided.Contains(target))){target=Nearest(transform.position,float.MaxValue);targetValid=target!=null;}
             path.Step(motion,Time.deltaTime,owner.transform.position,targetValid?target.transform.position:transform.position,targetValid,forcedHoming);
+            if(path.CurrentMode==SkillProjectileMoveType.Burst)motion.piercing=true;
             Vector3 next=path.Position;
             if(skill.followTarget!=SkillFollowTarget.None)
             {
@@ -142,6 +181,7 @@ namespace MixMaster.Combat
             if(skill.effectTiming==SkillEffectTiming.Interval&&Time.time>=nextEffect)
             {nextEffect=Time.time+Mathf.Max(.02f,skill.effectInterval);ApplyTimedEffect();}
             transform.localScale=baseScale*path.Scale;
+            UpdateSkillVisual();
             if(path.StoppedNow&&motion.explodeOnStop){Explode();return;}
             if(path.Finished){Destroy(gameObject);return;}
             Transform rotating=rotatingVisual!=null?rotatingVisual:visual!=null?visual.transform:transform;
@@ -174,7 +214,9 @@ namespace MixMaster.Combat
         private void Explode()
         {
             if(exploding)return;exploding=true;explosionStart=Time.time;
+            if(visual!=null){FitVisual(motion.explosionRadius);ApplyVisualBurst(0,skill.burstVisualStartScale);}
             owner.Execute(skill,null,transform.position,power,source,affected,powerScale*path.Power,Mathf.Max(.01f,motion.explosionRadius));
         }
     }
 }
+

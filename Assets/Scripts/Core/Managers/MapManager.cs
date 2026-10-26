@@ -39,7 +39,15 @@ namespace MixMaster.Core
                 GameManager.Instance.SetMode(GameMode.Town);
             }
 
+            RestoreTownResources();
             MapChanged?.Invoke(CurrentMapId);
+        }
+        private void RestoreTownResources()
+        {
+            var player=GetComponent<PlayerManager>()??FindFirstObjectByType<PlayerManager>();
+            player?.RestoreFullResources();
+            foreach(var member in FindObjectsByType<MixMaster.Monsters.PartyMemberCombat>(FindObjectsSortMode.None))
+                if(member!=null)member.RestoreFullResources();
         }
     }
 }

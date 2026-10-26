@@ -25,7 +25,7 @@ namespace MixMaster.Core
             {changed=true;mode=m.phaseType;speed=m.phaseSpeed;origin=center=Position;elapsed=dt;travel=0;orbitReleased=false;stopped=false;Scale=Power=1;}
             var current=forcedHoming?SkillProjectileMoveType.Homing:mode;
             AllowHits=current!=SkillProjectileMoveType.OrbitLaunch||elapsed>=m.orbitTime;
-            bool stationary=current==SkillProjectileMoveType.Stay||current==SkillProjectileMoveType.ProximityMine||current==SkillProjectileMoveType.ChargeGrow;
+            bool stationary=current==SkillProjectileMoveType.Stay||current==SkillProjectileMoveType.ProximityMine||current==SkillProjectileMoveType.ChargeGrow||current==SkillProjectileMoveType.Burst;
             if(stationary)
             {
                 Position=m.followOwner?owner:origin;
@@ -69,3 +69,4 @@ namespace MixMaster.Core
         }
     }
 }
+

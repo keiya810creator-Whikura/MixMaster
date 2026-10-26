@@ -70,6 +70,10 @@ namespace MixMaster.Core
         public SkillEffectTiming effectTiming;
         [Min(0.02f)] public float effectInterval = 1f;
         public SkillPassive[] passives = new SkillPassive[0];
+        [Header("範囲エフェクトの表示（ダメージ範囲とは独立）")]
+        public bool fitSpriteToArea = true;
+        [Min(0.02f)] public float burstVisualDuration = 0.35f;
+        [Range(0.01f,1f)] public float burstVisualStartScale = 0.1f;
         public SkillAffix[] affixes = new SkillAffix[0];
 
 #if UNITY_EDITOR
@@ -83,3 +87,4 @@ namespace MixMaster.Core
 #endif
     }
 }
+

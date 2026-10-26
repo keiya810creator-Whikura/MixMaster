@@ -29,7 +29,8 @@ namespace MixMaster.Core
         [InspectorName("螺旋")] Spiral,
         [InspectorName("往復")] PingPong,
         [InspectorName("感応地雷")] ProximityMine,
-        [InspectorName("収束成長")] ChargeGrow
+        [InspectorName("収束成長")] ChargeGrow,
+        [InspectorName("爆発")] Burst
     }
     [Serializable]
     public sealed class ProjectileMotionOverride
@@ -168,3 +169,4 @@ namespace MixMaster.Core
             new Vector3(-direction.y,direction.x,0)*waveWidth*Mathf.Sin(age*Mathf.PI*2*waveFrequency);
     }
 }
+
