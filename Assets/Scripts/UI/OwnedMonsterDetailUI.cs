@@ -32,6 +32,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text learnedSkillsText;
         [SerializeField] private TMP_Text equipmentText;
         [SerializeField] private Button equipmentInventoryButton;
+        [SerializeField] private Button skillSettingsButton;
         [SerializeField] private Button closeButton;
 
         [Header("Party")]
@@ -44,6 +45,7 @@ namespace MixMaster.UI
         [SerializeField] private Toggle attackRangeToggle;
 
         private MonsterManager monsterManager;
+        private SkillProgressionManager skillManager;
         private Button favoriteButton;
         private Button lockButton;
         private Button sellButton;
@@ -68,6 +70,7 @@ namespace MixMaster.UI
         public void SetReadOnlyMode(bool enabled)
         {
             readOnlyMode = enabled;
+            if(skillSettingsButton!=null)skillSettingsButton.gameObject.SetActive(!enabled);
             if (equipmentInventoryButton != null)
                 equipmentInventoryButton.gameObject.SetActive(!enabled);
             if (partyButton != null)
@@ -88,6 +91,8 @@ namespace MixMaster.UI
         {
             BuildCombatControls();
             EnsureEquipmentButton();
+            EnsureSkillButton();
+            if(skillSettingsButton!=null)skillSettingsButton.onClick.AddListener(OpenSkills);
             EnsureProtectionControls();
             if (equipmentInventoryButton != null)
                 equipmentInventoryButton.onClick.AddListener(OpenEquipmentInventory);
@@ -115,18 +120,22 @@ namespace MixMaster.UI
 
         private void OnEnable()
         {
+            SubscribeSkills();
             SubscribeParty();
             SubscribeEquipment();
         }
 
         private void OnDisable()
         {
+            if(skillManager!=null)skillManager.Changed-=Refresh;
             UnsubscribeParty();
             UnsubscribeEquipment();
         }
 
         private void OnDestroy()
         {
+            if(skillManager!=null)skillManager.Changed-=Refresh;
+            if(skillSettingsButton!=null)skillSettingsButton.onClick.RemoveListener(OpenSkills);
             UnsubscribeParty();
             UnsubscribeEquipment();
             if (equipmentInventoryButton != null)
@@ -158,6 +167,7 @@ namespace MixMaster.UI
                 return;
 
             selectedRecord = record;
+            SubscribeSkills();
             SubscribeParty();
             catalog = monsterCatalog != null
                 ? monsterCatalog
@@ -365,6 +375,27 @@ namespace MixMaster.UI
                     "「MixMaster/UI/装備インベントリを作成・接続」を実行します。", this);
         }
 
+        private void SubscribeSkills()
+        {
+            if(skillManager!=null)skillManager.Changed-=Refresh;
+            skillManager=SkillProgressionManager.Instance;
+            if(skillManager!=null)skillManager.Changed+=Refresh;
+        }
+        public void OpenSkills()
+        {
+            if(readOnlyMode||selectedRecord==null)return;
+            if(!SkillScreenUI.OpenForOwner(selectedRecord.uniqueId))Debug.LogWarning("[OwnedMonsterDetailUI] 所持モンスターのスキル設定を開けません。",this);
+        }
+        private void EnsureSkillButton()
+        {
+            if(skillSettingsButton!=null)return;
+            var section=learnedSkillsText!=null?learnedSkillsText.transform.parent:SafeAreaLayout.ContentRoot(transform).Find("ScrollView/Viewport/Content/Skills");
+            if(section==null)return;
+            var existing=section.Find("OpenSkillSettings");
+            skillSettingsButton=existing!=null?existing.GetComponent<Button>():InventoryUiFactory.Button(section,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f));
+            skillSettingsButton.gameObject.SetActive(!readOnlyMode);
+        }
+        public void SetSkillSettingsButton(Button button) => skillSettingsButton=button;
         private void EnsureEquipmentButton()
         {
             if (equipmentInventoryButton != null) return;
@@ -1099,7 +1130,8 @@ namespace MixMaster.UI
             for (int i = 0; i < record.learnedSkillIds.Count; i++)
             {
                 string id = record.learnedSkillIds[i];
-                string name = id;
+                var inherited=SkillProgressionManager.Instance?.Catalog?.Get(id);
+                string name = inherited!=null&&!string.IsNullOrWhiteSpace(inherited.displayName)?inherited.displayName:id;
 
                 if (monster != null && monster.availableSkills != null)
                 {

@@ -237,18 +237,26 @@ namespace MixMaster.Core
             ExperienceGained?.Invoke(amount);
         }
 
+        // Displayed and applied growth share the same values for every form.
+        public CharacterStats LevelUpGrowth
+        {
+            get
+            {
+                var species=ReincarnationSpecies;var g=species!=null?species.baseStats:null;
+                return new CharacterStats{maxHp=g!=null?Math.Max(1L,g.maxHp):5L,maxMp=g!=null?Math.Max(0L,g.maxMp):1L,
+                    attack=g!=null?Math.Max(0L,g.attack):1L,magic=g!=null?Math.Max(0L,g.magic):1L,
+                    defense=g!=null?Math.Max(0L,g.defense):1L,magicDefense=g!=null?Math.Max(0L,g.magicDefense):1L};
+            }
+        }
         private void ApplyLevelUpStats()
         {
-            MonsterSO species = ReincarnationSpecies;
-            CharacterStats growth = species != null ? species.baseStats : null;
-            stats.maxHp = LongMath.SaturatingAdd(Math.Max(1L, stats.maxHp),
-                growth != null ? Math.Max(1L, growth.maxHp) : 5L);
-            stats.maxMp = LongMath.SaturatingAdd(Math.Max(0L, stats.maxMp),
-                growth != null ? Math.Max(0L, growth.maxMp) : 1L);
-            stats.attack = LongMath.SaturatingAdd(stats.attack, growth != null ? Math.Max(0L, growth.attack) : 1L);
-            stats.magic = LongMath.SaturatingAdd(stats.magic, growth != null ? Math.Max(0L, growth.magic) : 1L);
-            stats.defense = LongMath.SaturatingAdd(stats.defense, growth != null ? Math.Max(0L, growth.defense) : 1L);
-            stats.magicDefense = LongMath.SaturatingAdd(stats.magicDefense, growth != null ? Math.Max(0L, growth.magicDefense) : 1L);
+            var growth=LevelUpGrowth;
+            stats.maxHp=LongMath.SaturatingAdd(Math.Max(1L,stats.maxHp),growth.maxHp);
+            stats.maxMp=LongMath.SaturatingAdd(Math.Max(0L,stats.maxMp),growth.maxMp);
+            stats.attack=LongMath.SaturatingAdd(stats.attack,growth.attack);
+            stats.magic=LongMath.SaturatingAdd(stats.magic,growth.magic);
+            stats.defense=LongMath.SaturatingAdd(stats.defense,growth.defense);
+            stats.magicDefense=LongMath.SaturatingAdd(stats.magicDefense,growth.magicDefense);
             RecalculateEquipmentStats();
         }
 
@@ -323,3 +331,4 @@ namespace MixMaster.Core
         }
     }
 }
+

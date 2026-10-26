@@ -152,3 +152,6 @@
 2026年10月26日：発射物の取り込み仕様を更新。スキル表から番号付きPrefabを `Assets/Resources/Skills/Projectile` へ生成・更新し、`素材/Profectile` または `素材/Projectile` の番号付きSpriteとSkillSO参照を自動設定する。動作・見た目は表を正とし、再取り込みで更新する。実装箇所は `SkillExcelImporter` / `SkillProjectilePrefabBuilder`、操作方法は `Docs/ProjectileSettings.md`。Unity Editorでの保存・Play Mode確認は未実行。
 
 コード調査で分かった実装箇所と確認結果を本資料へ追記する。新しい仕様が決まったら該当項目を更新し、以前の指定との矛盾を残さない。会話履歴を全量読ませる必要が生じないよう、現行仕様と次の課題を保つ。
+
+
+2026年10月26日：詳細画面から個体IDを指定してスキル設定を開く導線を追加。戦闘Actor未生成の控えも対象。選択枠・習得済みの色分けを追加。主人公の育成欄をPlayerManager.LevelUpGrowthに連動し、転生先の実成長と共通化。Excelに衝撃波・攻撃陣・回復陣・防御バフ陣の実入力例（ID39～42）を追加。旧Prefabは実行時に不足UIを補い、Prefab作成処理も更新。Unity Editorの表示・実機確認は未実施。

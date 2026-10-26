@@ -312,7 +312,7 @@ namespace MixMaster.EditorTools
                 new Vector2(24f, -172f),
                 new Vector2(850f, 32f), 23f);
 
-            // Skills: read only, training is a future feature.
+            // Skills can be configured directly for this owned monster.
             RectTransform skillArea =
                 Section(contentRect, "Skills", 370f);
 
@@ -355,6 +355,7 @@ namespace MixMaster.EditorTools
             detail.SetDisplayModeText(mode);
             detail.SetResistanceText(resistances);
             detail.SetDropBonusText(dropBonus);
+            detail.SetSkillSettingsButton(InventoryUiFactory.Button(skillArea,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f)));
             detail.SetSkillPointsText(skillPoints);
             detail.SetLearnedSkillsText(learned);
             detail.SetEquipmentText(equipment);

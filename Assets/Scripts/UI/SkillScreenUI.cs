@@ -19,9 +19,21 @@ namespace MixMaster.UI
         [SerializeField] private Button openButton,closeButton,learnButton,saveButton,clearButton;
         [SerializeField] private Button[] assignButtons,castButtons;
         [SerializeField] private TMP_Text[] assignLabels,castLabels;
-        private readonly List<SkillActor> actors=new List<SkillActor>();
+        [Header("選択・習得済みの表示色")]
+        [SerializeField] private Color selectedSlotColor = new Color(.15f,.48f,.66f,1f);
+        [SerializeField] private Color learnedSkillColor = new Color(.45f,1f,.65f,1f);
+        private sealed class SkillOwner
+        {
+            public string OwnerId, Name;
+            public bool IsPlayer => OwnerId == "player";
+        }
+        private readonly List<SkillOwner> actors=new List<SkillOwner>();
         private readonly List<SkillSO> options=new List<SkillSO>();
         private SkillProgressionManager manager;
+        private MonsterManager monsters;
+        private Color[] originalSlotColors;
+        private bool initialized;
+        private string selectedOwnerId = "player";
         private int slotIndex;
         private float refreshAt;
         private static readonly string[] Triggers={"手動のみ／追加条件なし","使用可能になったら","自分の体力％以下","自分のMP％以上","対象の体力％以下","攻撃範囲内の敵の数以上","通常攻撃が指定回数命中","指定回数ダメージを受けたら","指定秒数ごと","指定数の敵を倒したら"};
@@ -31,35 +43,65 @@ namespace MixMaster.UI
             SceneManager.sceneLoaded-=SceneLoaded;SceneManager.sceneLoaded+=SceneLoaded;EnsureScreen();
         }
         private static void SceneLoaded(Scene scene,LoadSceneMode mode)=>EnsureScreen();
-        private static void EnsureScreen()
+        private static SkillScreenUI EnsureScreen()
         {
-            if(FindFirstObjectByType<SkillScreenUI>()!=null)return;
-            Canvas canvas=null;foreach(var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))if(c.isRootCanvas&&c.renderMode!=RenderMode.WorldSpace){canvas=c;break;}if(canvas==null)return;
+            var existing=FindFirstObjectByType<SkillScreenUI>(FindObjectsInactive.Include);
+            if(existing!=null)return existing;
+            Canvas canvas=null;foreach(var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))if(c.isRootCanvas&&c.renderMode!=RenderMode.WorldSpace){canvas=c;break;}if(canvas==null)return null;
             var prefab=Resources.Load<GameObject>("Skills/SkillHUD");
-            if(prefab!=null)Instantiate(prefab,canvas.transform,false);else Build(canvas.transform);
+            return prefab!=null?Instantiate(prefab,canvas.transform,false).GetComponent<SkillScreenUI>():Build(canvas.transform);
         }
-        private void Start()
+        // Detailed views use the owned ID, independent of a spawned combat actor.
+        public static bool OpenForOwner(string ownerId)
         {
-            openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){panel.transform.SetAsLastSibling();Refresh();}});
+            var ui=EnsureScreen();if(ui==null)return false;
+            ui.Initialize();if(!ui.BindManager())return false;
+            if(ownerId!="player"&&(string.IsNullOrEmpty(ownerId)||ui.monsters?.FindOwnedMonster(ownerId)==null))return false;
+            ui.gameObject.SetActive(true);ui.selectedOwnerId=ownerId;ui.slotIndex=0;
+            ui.Refresh();ui.transform.SetAsLastSibling();ui.panel.SetActive(true);ui.panel.transform.SetAsLastSibling();
+            return true;
+        }
+        private void Awake()=>Initialize();
+        private void Start()=>Initialize();
+        private void Initialize()
+        {
+            // Build() adds this component before assigning its UI references.
+            if(initialized||panel==null)return;initialized=true;
+            openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
             closeButton.onClick.AddListener(()=>panel.SetActive(false));
-            actorDropdown.onValueChanged.AddListener(_=>{slotIndex=0;RefreshSkills();});
+            actorDropdown.onValueChanged.AddListener(_=>{selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
             skillDropdown.onValueChanged.AddListener(_=>RefreshDetails());
-            learnButton.onClick.AddListener(()=>{if(Owner==null||Selected==null)return;manager.Learn(Owner.OwnerId,Selected.skillId,out string text);message.text=text;RefreshDetails();});
+            learnButton.onClick.AddListener(()=>{if(Owner==null||Selected==null)return;manager.Learn(Owner.OwnerId,Selected.skillId,out string text);message.text=text;RefreshSkills();});
             for(int i=0;i<assignButtons.Length;i++){int index=i;assignButtons[i].onClick.AddListener(()=>SelectSlot(index));}
             for(int i=0;i<castButtons.Length;i++){int index=i;castButtons[i].onClick.AddListener(()=>Cast(index));}
             saveButton.onClick.AddListener(SaveRule);clearButton.onClick.AddListener(()=>{if(Owner!=null)manager.SetSlot(Owner.OwnerId,slotIndex,new SkillSlot());Refresh();});
+            originalSlotColors=new Color[assignButtons.Length];
+            for(int i=0;i<assignButtons.Length;i++)originalSlotColors[i]=assignButtons[i].targetGraphic!=null?assignButtons[i].targetGraphic.color:Color.white;
+            if(skillDropdown.captionText!=null)skillDropdown.captionText.richText=true;
+            if(skillDropdown.itemText!=null)skillDropdown.itemText.richText=true;
             panel.SetActive(false);
         }
+        private bool BindManager()
+        {
+            var current=SkillProgressionManager.Instance;
+            if(current!=manager)
+            {
+                if(manager!=null)manager.Changed-=Refresh;
+                manager=current;if(manager!=null)manager.Changed+=Refresh;
+            }
+            if(manager==null)return false;
+            monsters=manager.GetComponent<MonsterManager>();return true;
+        }
         private void OnDestroy(){if(manager!=null)manager.Changed-=Refresh;}
-        private SkillActor Owner=>actorDropdown.value<actors.Count?actors[actorDropdown.value]:null;
-        private SkillSO Selected=>skillDropdown.value<options.Count?options[skillDropdown.value]:null;
+        private SkillOwner Owner=>actorDropdown.value>=0&&actorDropdown.value<actors.Count?actors[actorDropdown.value]:null;
+        private SkillSO Selected=>skillDropdown.value>=0&&skillDropdown.value<options.Count?options[skillDropdown.value]:null;
         private void Update()
         {
-            if(manager==null){manager=SkillProgressionManager.Instance;if(manager!=null){manager.Changed+=Refresh;Refresh();}}
-            if(Time.unscaledTime<refreshAt||manager==null)return;refreshAt=Time.unscaledTime+0.2f;
-            if(panel.activeSelf)RefreshDetails();
-            int count=0;foreach(var a in SkillActor.Active)if(!a.IsEnemy&&!string.IsNullOrEmpty(a.OwnerId))count++;
+            if(!initialized)Initialize();if(!initialized||!BindManager())return;
+            if(Time.unscaledTime<refreshAt)return;refreshAt=Time.unscaledTime+0.2f;
+            int count=1+(monsters!=null?monsters.OwnedMonsters.Count:0);
             if(count!=actors.Count)Refresh();
+            if(panel.activeSelf)RefreshDetails();
             var player=SkillActor.PlayerActor;
             for(int i=0;i<castButtons.Length;i++)
             {
@@ -77,31 +119,49 @@ namespace MixMaster.UI
         }
         public void Refresh()
         {
-            if(manager==null)return;
-            string old=Owner!=null?Owner.OwnerId:"player";actors.Clear();var names=new List<string>();
-            foreach(var a in SkillActor.Active)if(a!=null&&!a.IsEnemy&&!string.IsNullOrEmpty(a.OwnerId)){actors.Add(a);names.Add(a.IsPlayer?"主人公":"仲間："+a.gameObject.name);}
+            if(!BindManager())return;
+            actors.Clear();actors.Add(new SkillOwner{OwnerId="player",Name="主人公"});
+            var catalog=MonsterCatalogSO.Load();
+            if(monsters!=null)foreach(var record in monsters.OwnedMonsters)
+            {
+                if(record==null||string.IsNullOrEmpty(record.uniqueId))continue;
+                var species=catalog!=null?catalog.GetMonster(record.monsterId):null;
+                actors.Add(new SkillOwner{OwnerId=record.uniqueId,Name="仲間："+(species!=null?species.displayName:record.monsterId)+" Lv."+record.level});
+            }
+            var names=new List<string>();foreach(var a in actors)names.Add(a.Name);
             actorDropdown.ClearOptions();actorDropdown.AddOptions(names);
-            int index=actors.FindIndex(a=>a.OwnerId==old);actorDropdown.SetValueWithoutNotify(Mathf.Max(0,index));RefreshSkills();
+            int index=actors.FindIndex(a=>a.OwnerId==selectedOwnerId);index=Mathf.Max(0,index);
+            actorDropdown.SetValueWithoutNotify(index);selectedOwnerId=actors[index].OwnerId;RefreshSkills();
+        }
+        private string SkillLabel(SkillSO skill)
+        {
+            return Owner!=null&&manager.Learned(Owner.OwnerId,skill.skillId)
+                ? "<color=#"+ColorUtility.ToHtmlStringRGB(learnedSkillColor)+">"+skill.displayName+"（習得済み）</color>" : skill.displayName;
         }
         private void RefreshSkills()
         {
             string id=Selected!=null?Selected.skillId:null;options.Clear();var names=new List<string>();
-            if(Owner!=null)foreach(var s in manager.Available(Owner.OwnerId))if(s!=null&&s.executable){options.Add(s);names.Add(s.displayName);}
+            if(Owner!=null)foreach(var s in manager.Available(Owner.OwnerId))if(s!=null&&s.executable){options.Add(s);names.Add(SkillLabel(s));}
             skillDropdown.ClearOptions();skillDropdown.AddOptions(names);int index=options.FindIndex(s=>s.skillId==id);skillDropdown.SetValueWithoutNotify(Mathf.Max(0,index));
             SelectSlot(slotIndex);RefreshDetails();
         }
         private void SelectSlot(int i)
         {
-            slotIndex=i;if(Owner==null)return;var slots=manager.Loadout(Owner.OwnerId).slots;
-            for(int n=0;n<5;n++){var skill=manager.Catalog?.Get(slots[n].skillId);assignLabels[n].text=(n==i?"選択中 ":"")+(n+1)+"\n"+(skill!=null?skill.displayName:"未登録");}
+            slotIndex=Mathf.Clamp(i,0,SkillProgressionManager.SlotCount-1);if(Owner==null)return;var slots=manager.Loadout(Owner.OwnerId).slots;
+            for(int n=0;n<assignButtons.Length;n++)
+            {
+                var skill=manager.Catalog?.Get(slots[n].skillId);assignLabels[n].text=(n==slotIndex?"選択中 ":"")+(n+1)+"\n"+(skill!=null?skill.displayName:"未登録");
+                if(assignButtons[n].targetGraphic!=null&&originalSlotColors!=null)
+                    assignButtons[n].targetGraphic.color=n==slotIndex?selectedSlotColor:originalSlotColors[n];
+            }
             var choices=new List<string>(Triggers);int offset=Owner.IsPlayer?0:1;
             if(offset==1)choices.RemoveAt(0);triggerDropdown.ClearOptions();triggerDropdown.AddOptions(choices);
-            var slot=slots[i];triggerDropdown.SetValueWithoutNotify(Mathf.Max(0,(int)slot.trigger-offset));andDropdown.SetValueWithoutNotify((int)slot.andCondition);
+            var slot=slots[slotIndex];triggerDropdown.SetValueWithoutNotify(Mathf.Max(0,(int)slot.trigger-offset));andDropdown.SetValueWithoutNotify((int)slot.andCondition);
             threshold.text=slot.threshold.ToString(CultureInfo.InvariantCulture);andThreshold.text=slot.andThreshold.ToString(CultureInfo.InvariantCulture);priority.text=slot.priority.ToString(CultureInfo.InvariantCulture);
         }
         private void RefreshDetails()
         {
-            if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=false;return;}
+            if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=saveButton.interactable=false;return;}
             var s=Selected;bool learned=manager.Learned(Owner.OwnerId,s.skillId);
             details.text=s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
             bool active=s.category==SkillCategory.Active;
@@ -150,3 +210,4 @@ namespace MixMaster.UI
         }
     }
 }
+
