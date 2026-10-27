@@ -71,7 +71,7 @@ namespace MixMaster.EditorTools
                 }
                 if(catalog.humanSkills.Count==0)catalog.humanSkills.AddRange(catalog.skills.Where(s=>s!=null&&s.executable));
                 EditorUtility.SetDirty(catalog);AssetDatabase.SaveAssets();AssetDatabase.Refresh();
-                Debug.Log("[SkillExcelImporter] スキル "+temporary.Count+"件、番号付き発射物Prefab "+projectiles.Count+"件を更新しました。");
+                Debug.Log("[SkillExcelImporter] スキル "+temporary.Count+"件、発射物Prefab "+projectiles.Count+"件の素材・色・動作を更新しました。");
                 if(dialog)EditorUtility.DisplayDialog("スキル取り込み",temporary.Count+"件を取り込みました。\n発射物Prefab "+projectiles.Count+"件を生成・更新し、自動で紐付けました。","OK");
             }
             catch(Exception e){Debug.LogError("[SkillExcelImporter] "+e.Message);if(dialog)EditorUtility.DisplayDialog("スキル取り込み失敗",e.Message,"OK");else throw;}
@@ -261,4 +261,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 

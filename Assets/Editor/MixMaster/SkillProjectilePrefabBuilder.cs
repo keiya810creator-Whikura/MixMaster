@@ -16,6 +16,7 @@ namespace MixMaster.EditorTools
     {
         public const string OutputFolder = "Assets/Resources/Skills/Projectile";
         public static readonly string[] SpriteFolders = { "Assets/素材/Profectile", "Assets/素材/Projectile" };
+        public static readonly string[] CommonSprites = { "光の弾", "衝撃波", "魔方陣", "斬撃", "光の柱", "煙と粒子" };
         public sealed class Plan
         {
             public SkillSO skill;
@@ -50,7 +51,7 @@ namespace MixMaster.EditorTools
 
         private static Dictionary<string,List<Sprite>> IndexSprites()
         {
-            var result = new Dictionary<string,List<Sprite>>();
+            var result = new Dictionary<string,List<Sprite>>(StringComparer.Ordinal);
             var folders = SpriteFolders.Where(AssetDatabase.IsValidFolder).ToArray();
             if (folders.Length == 0) return result;
             foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", folders))
@@ -60,13 +61,68 @@ namespace MixMaster.EditorTools
                 string fileId = NormalizeId(System.IO.Path.GetFileNameWithoutExtension(path));
                 foreach (var sprite in sprites)
                 {
-                    string id = NormalizeId(sprite.name) ?? (sprites.Length == 1 ? fileId : null);
-                    if (id == null) continue;
-                    if (!result.TryGetValue(id, out var list)) result[id] = list = new List<Sprite>();
-                    if (!list.Contains(sprite)) list.Add(sprite);
+                    AddSprite(result, sprite.name, sprite);
+                    AddSprite(result, path + "#" + sprite.name, sprite);
+                    if (sprites.Length == 1)
+                    {
+                        AddSprite(result, path, sprite);
+                        AddSprite(result, System.IO.Path.GetFileNameWithoutExtension(path), sprite);
+                        AddSprite(result, fileId, sprite);
+                    }
+                    AddSprite(result, NormalizeId(sprite.name), sprite);
+                    AddSprite(result, CommonName(sprite.name), sprite);
+                    if (sprites.Length == 1) AddSprite(result, CommonName(System.IO.Path.GetFileNameWithoutExtension(path)), sprite);
                 }
             }
             return result;
+        }
+
+        private static void AddSprite(Dictionary<string,List<Sprite>> index, string key, Sprite sprite)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            if (!index.TryGetValue(key, out var list)) index[key] = list = new List<Sprite>();
+            if (!list.Contains(sprite)) list.Add(sprite);
+        }
+
+        // Accept 光の弾.png and 1.光の弾.png (also underscore/space separators).
+        private static string CommonName(string name)
+        {
+            name = System.Text.RegularExpressions.Regex.Replace(name, @"^\d+[.．、_\-\s]*", "");
+            if (name == "魔法陣") name = "魔方陣";
+            return Array.IndexOf(CommonSprites, name) >= 0 ? name : null;
+        }
+
+        public static Sprite ResolveSprite(SkillSO skill, Dictionary<string,string> row, Dictionary<string,List<Sprite>> sprites)
+        {
+            string selection = Cell(row, "発射物_素材");
+            string key;
+            if (selection == "")
+            {
+                // Old tables retain their numeric image override / skill ID behavior.
+                key = Cell(row, "発射物_画像番号");
+                if (key == "") key = skill.skillId;
+                key = NormalizeId(key);
+                if (key == null) throw new InvalidDataException("発射物_画像番号は正の整数で指定してください。");
+            }
+            else if (selection == "固有スプライト")
+            {
+                key = Cell(row, "発射物_固有スプライト");
+                if (key == "") throw new InvalidDataException("固有スプライトを選んだ場合は発射物_固有スプライトに画像名またはアセットパスを指定してください。");
+            }
+            else
+            {
+                if (selection == "魔法陣") selection = "魔方陣";
+                int common = Array.IndexOf(CommonSprites, selection);
+                if (common < 0) throw new InvalidDataException("発射物_素材は光の弾／衝撃波／魔方陣／斬撃／光の柱／煙と粒子／固有スプライトから選択してください。");
+                key = selection;
+                // Number-only files 1.png ... 6.png remain usable; named files take priority.
+                if (!sprites.ContainsKey(key)) key = (common + 1).ToString(CultureInfo.InvariantCulture);
+            }
+            if (!sprites.TryGetValue(key, out var matches) || matches.Count == 0)
+                throw new InvalidDataException("Spriteがありません: " + key + "。Assets/素材/Projectile 内に配置し、Texture TypeをSprite (2D and UI)にしてください。");
+            if (matches.Count != 1)
+                throw new InvalidDataException("Spriteが複数あります: " + key + "。固有スプライトはアセットパス（複数Sprite画像はパス#Sprite名）で一意に指定してください。");
+            return matches[0];
         }
 
         public static string NormalizeId(string value)
@@ -78,21 +134,14 @@ namespace MixMaster.EditorTools
 
         public static Plan CreatePlan(SkillSO skill, Dictionary<string,string> row, Dictionary<string,List<Sprite>> sprites)
         {
-            string imageNumber=Cell(row,"発射物_画像番号");
-            if(imageNumber=="")imageNumber=skill.skillId;
-            imageNumber=NormalizeId(imageNumber);
-            if(imageNumber==null)throw new InvalidDataException("発射物_画像番号は正の整数で指定してください。");
-            if (!sprites.TryGetValue(imageNumber, out var matches) || matches.Count == 0)
-                throw new InvalidDataException("スキル " + skill.skillId + " の画像番号 " + imageNumber + " のSpriteがありません。素材/Profectile または 素材/Projectile に " + imageNumber + ".png を配置し、Texture TypeをSprite (2D and UI)にしてください。");
-            if (matches.Count != 1)
-                throw new InvalidDataException("画像番号 " + imageNumber + " のSpriteが複数あります。両素材フォルダ・サブスプライトの番号を一意にしてください。");
+            Sprite sprite = ResolveSprite(skill, row, sprites);
             // Always rebuild defaults from the template, never from a previous generated prefab.
             var template = skill.projectilePrefab;
             if (template != null && AssetDatabase.GetAssetPath(template) == OutputFolder + "/" + skill.skillId + ".prefab") template = null;
             var motion = template != null ? template.GetComponent<SkillProjectile>().Defaults.Copy() : new ProjectileMotion();
             if (skill.projectileMotionOverrides != null)
                 foreach (var item in skill.projectileMotionOverrides) motion.Apply(item);
-            var plan = new Plan { skill = skill, sprite = matches[0], template = template, motion = motion,
+            var plan = new Plan { skill = skill, sprite = sprite, template = template, motion = motion,
                 scale = Number(row, "発射物_表示倍率", .3f), angle = Number(row, "発射物_画像角度", 0), sortingOrder = 60, color = Color.white };
             if (plan.scale <= 0 || plan.scale > 1000) throw new InvalidDataException("発射物_表示倍率は0より大きく1000以下です。");
             string order = Cell(row, "発射物_描画順");
@@ -165,4 +214,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 
