@@ -50,7 +50,8 @@ namespace MixMaster.Combat
         }
         public static void Launch(SkillActor owner, SkillActor target, SkillSO skill, CharacterStats power, MaterialDropSourceInfo source)
         {
-            Spawn(owner,target,skill,power,source,skill.spawnPosition==SkillSpawnPosition.Target?target.transform.position:owner.transform.position,(target.transform.position-owner.transform.position).normalized,0,1,new SpawnBudget(),null);
+            Vector3 origin=owner.SkillEffectPosition(skill),destination=target.SkillEffectPosition(skill);
+            Spawn(owner,target,skill,power,source,skill.spawnPosition==SkillSpawnPosition.Target?destination:origin,(destination-origin).normalized,0,1,new SpawnBudget(),null);
         }
         private static SkillProjectile Spawn(SkillActor owner,SkillActor target,SkillSO skill,CharacterStats power,MaterialDropSourceInfo source,Vector3 position,Vector3 direction,int generation,float scale,SpawnBudget budget,SkillActor exclude)
         {
@@ -115,7 +116,8 @@ namespace MixMaster.Combat
             }
             else burstWasActive=false;
         }
-        private Vector3 FollowPosition() => skill.followTarget==SkillFollowTarget.Target&&target!=null?target.transform.position:owner.transform.position;
+        private Vector3 AimPosition(SkillActor actor) => actor.SkillEffectPosition(skill);
+        private Vector3 FollowPosition() => skill.followTarget==SkillFollowTarget.Target&&target!=null?AimPosition(target):AimPosition(owner);
         private void ApplyTimedEffect()
         {
             if(owner!=null)owner.Execute(skill,target,transform.position,power,source,null,powerScale);
@@ -135,7 +137,7 @@ namespace MixMaster.Combat
             if(skill.followTarget==SkillFollowTarget.Target&&(target==null||!target.Alive)){Destroy(gameObject);return;}
             bool targetValid=target!=null&&target.Alive&&target.gameObject.scene==gameObject.scene;
             if(skill.followTarget!=SkillFollowTarget.Target&&(!targetValid||collided.Contains(target))){target=Nearest(transform.position,float.MaxValue);targetValid=target!=null;}
-            path.Step(motion,Time.deltaTime,owner.transform.position,targetValid?target.transform.position:transform.position,targetValid,forcedHoming);
+            path.Step(motion,Time.deltaTime,AimPosition(owner),targetValid?AimPosition(target):transform.position,targetValid,forcedHoming);
             if(path.CurrentMode==SkillProjectileMoveType.Burst)motion.piercing=true;
             Vector3 next=path.Position;
             if(skill.followTarget!=SkillFollowTarget.None)
@@ -149,12 +151,13 @@ namespace MixMaster.Combat
             {
                 if(!owner.ProjectileTargetAllowed(skill,candidate))continue;
                 if(lastHits.TryGetValue(candidate,out float last)&&(!motion.repeatHits||Time.time-last<Mathf.Max(.02f,motion.repeatInterval)))continue;
-                Vector3 delta=candidate.transform.position-transform.position;
+                Vector3 point=AimPosition(candidate);
+                Vector3 delta=point-transform.position;
                 float t=segment.sqrMagnitude>0?Mathf.Clamp01(Vector3.Dot(delta,segment)/segment.sqrMagnitude):0;
                 float radius=motion.hitRadius*path.Scale;
-                if((transform.position+segment*t-candidate.transform.position).sqrMagnitude<=radius*radius)hits.Add(candidate);
+                if((transform.position+segment*t-point).sqrMagnitude<=radius*radius)hits.Add(candidate);
             }
-            if(hits.Count>1){Vector3 hitSegment=segment;hits.Sort((a,b)=>Vector3.Dot(a.transform.position-transform.position,hitSegment).CompareTo(Vector3.Dot(b.transform.position-transform.position,hitSegment)));}
+            if(hits.Count>1){Vector3 hitSegment=segment;hits.Sort((a,b)=>Vector3.Dot(AimPosition(a)-transform.position,hitSegment).CompareTo(Vector3.Dot(AimPosition(b)-transform.position,hitSegment)));}
             foreach(var hit in hits)
             {
                 if(hit==null||!hit.Alive)continue;
@@ -173,7 +176,7 @@ namespace MixMaster.Combat
                 if(motion.chain&&jumps<Mathf.Max(0,motion.chainCount))
                 {
                     var following=Nearest(hit.transform.position,motion.chainRadius);
-                    if(following!=null){jumps++;powerScale*=Mathf.Max(0,motion.chainPower);target=following;forcedHoming=true;Vector3 dir=(following.transform.position-hit.transform.position).normalized;path.Redirect(hit.transform.position+dir*.25f,dir);transform.position=path.Position;return;}
+                    if(following!=null){jumps++;powerScale*=Mathf.Max(0,motion.chainPower);target=following;forcedHoming=true;Vector3 point=AimPosition(hit);Vector3 dir=(AimPosition(following)-point).normalized;path.Redirect(point+dir*.25f,dir);transform.position=path.Position;return;}
                 }
                 if(!motion.piercing&&!motion.repeatHits){Destroy(gameObject);return;}
             }
@@ -208,7 +211,7 @@ namespace MixMaster.Combat
             {
                 float angle=(count==1?0:-motion.splitAngle*.5f+motion.splitAngle*i/(count-1))*Mathf.Deg2Rad;
                 Vector3 forward=path.Direction;var dir=new Vector3(forward.x*Mathf.Cos(angle)-forward.y*Mathf.Sin(angle),forward.x*Mathf.Sin(angle)+forward.y*Mathf.Cos(angle),0);
-                Spawn(owner,target,skill,power,source,hit.transform.position+dir*.35f,dir,generation+1,powerScale*Mathf.Max(0,motion.splitPower),budget,hit);
+                Spawn(owner,target,skill,power,source,AimPosition(hit)+dir*.35f,dir,generation+1,powerScale*Mathf.Max(0,motion.splitPower),budget,hit);
             }
         }
         private void Explode()
@@ -219,4 +222,5 @@ namespace MixMaster.Combat
         }
     }
 }
+
 

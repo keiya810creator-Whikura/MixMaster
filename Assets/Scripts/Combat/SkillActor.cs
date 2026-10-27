@@ -40,11 +40,26 @@ namespace MixMaster.Combat
         private float nextCheck, globalUntil, finishAt, confusedAttackAt;
         private SkillSO casting;
         private SkillActor castTarget;
+        private SpriteRenderer bodySprite;
         private int cachedFrame = -1;
         private CharacterStats cachedStats, cachedBase;
         public string OwnerId => ownerId;
         public bool IsEnemy => enemy != null;
         public bool IsPlayer => playerCombat != null;
+        // Aim at the upper body for single-ally support. Area centers stay on the ground.
+        public Vector3 SkillEffectPosition(SkillSO skill)
+        {
+            if (skill == null ||
+                (skill.targetType != SkillTargetType.SingleAlly && skill.targetType != SkillTargetType.Self) ||
+                (skill.application != SkillApplication.SelectedTarget && skill.application != SkillApplication.Self))
+                return transform.position;
+            if (bodySprite == null)
+                bodySprite = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
+            if (bodySprite == null || bodySprite.sprite == null || !bodySprite.enabled)
+                return transform.position + Vector3.up * .5f;
+            Bounds bounds = bodySprite.bounds;
+            return new Vector3(bounds.center.x, bounds.min.y + bounds.size.y * .8f, transform.position.z);
+        }
         public bool Alive => isActiveAndEnabled && (enemy != null ? enemy.IsAlive : party != null ? party.IsAlive : player != null && player.CurrentHp > 0);
         public long Hp => enemy != null ? enemy.CurrentHp : party != null ? party.CurrentHp : player != null ? player.CurrentHp : 0;
         public long Mp => enemy != null ? enemy.CurrentMp : party != null ? party.CurrentMp : player != null ? player.CurrentMp : 0;
@@ -309,7 +324,7 @@ namespace MixMaster.Combat
                 else if (s.effect == SkillBaseEffect.Heal) target.Heal(amount);
                 if (target.Alive)
                     for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],source);
-                if (s.effectPrefab != null) Destroy(Instantiate(s.effectPrefab,target.transform.position,Quaternion.identity),5f);
+                if (s.effectPrefab != null) Destroy(Instantiate(s.effectPrefab,target.SkillEffectPosition(s),Quaternion.identity),5f);
             }
         }
         public void AddStatus(string key, SkillAffix e, MaterialDropSourceInfo source)
@@ -341,4 +356,5 @@ namespace MixMaster.Combat
         }
     }
 }
+
 
