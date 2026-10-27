@@ -178,6 +178,8 @@ namespace MixMaster.Core
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
             data.skills = GetComponent<SkillProgressionManager>()?.Capture();
+            data.defeatedMonsterIds = GetComponent<EncyclopediaManager>()?.Capture()
+                ?? new List<string>();
 
             GameManager game = GetComponent<GameManager>();
             MapManager map = GetComponent<MapManager>();
@@ -393,6 +395,7 @@ namespace MixMaster.Core
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) consumables.Restore(data.consumables);
             GetComponent<SkillProgressionManager>()?.Restore(data.skills);
+            GetComponent<EncyclopediaManager>()?.Restore(data.defeatedMonsterIds);
 
             // Saved coordinates are retained in the file for compatibility,
             // but a new application session always starts in the village.

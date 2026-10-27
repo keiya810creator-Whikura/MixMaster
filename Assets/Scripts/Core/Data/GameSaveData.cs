@@ -7,7 +7,10 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 14;
+        public const int CurrentVersion = 15;
+        // Older saves have no per-species defeat history. Start empty rather
+        // than treating bred/obtained monsters as proof of a battle victory.
+        public List<string> defeatedMonsterIds = new List<string>();
         public SkillSaveData skills;
         public int version = CurrentVersion;
         public string savedUtc = string.Empty;
