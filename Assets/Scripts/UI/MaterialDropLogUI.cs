@@ -36,7 +36,8 @@ namespace MixMaster.UI
         public void AddMaterialLog(
             MaterialSO material,
             long quantity,
-            MaterialDropSourceType sourceType)
+            MaterialDropSourceType sourceType,
+            long totalOwned)
         {
             if (material == null || quantity <= 0L)
                 return;
@@ -59,7 +60,8 @@ namespace MixMaster.UI
             entry.gameObject.name = "MaterialLog_" + material.materialId;
             entry.gameObject.SetActive(true);
             entry.gameObject.transform.SetAsLastSibling();
-            entry.text.text = materialName + "×" + quantity;
+            entry.text.text = materialName + "×" + quantity +
+                " (" + System.Math.Max(0L, totalOwned) + ")";
             entry.text.color = GetSourceColor(sourceType);
             entry.text.fontSize = fontSize;
             ((RectTransform)entry.gameObject.transform).sizeDelta = new Vector2(520f, fontSize + 12f);

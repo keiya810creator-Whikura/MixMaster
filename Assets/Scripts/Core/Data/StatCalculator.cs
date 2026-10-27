@@ -33,8 +33,32 @@ namespace MixMaster.Core
         }
 
         /// <summary>
+        /// Wild enemies gain an extra level multiplier on their six core
+        /// stats after the existing level/IV/title calculation. Owned monsters
+        /// keep the shared growth formula; criticals, speeds and range do not
+        /// receive this extra multiplier.
+        /// </summary>
+        public static CharacterStats CalculateEnemyStats(
+            MonsterSO monster,
+            int level,
+            MonsterIndividualValues individualValues,
+            TitleSO title = null)
+        {
+            CharacterStats stats = CalculateMonsterStats(
+                monster, level, individualValues, title);
+            long multiplier = Mathf.Max(1, level);
+            stats.maxHp = LongMath.SaturatingMultiply(stats.maxHp, multiplier);
+            stats.maxMp = LongMath.SaturatingMultiply(stats.maxMp, multiplier);
+            stats.attack = LongMath.SaturatingMultiply(stats.attack, multiplier);
+            stats.magic = LongMath.SaturatingMultiply(stats.magic, multiplier);
+            stats.defense = LongMath.SaturatingMultiply(stats.defense, multiplier);
+            stats.magicDefense = LongMath.SaturatingMultiply(stats.magicDefense, multiplier);
+            return stats;
+        }
+
+        /// <summary>
         /// Owned monsters alone receive intimacy scaling. Enemy monsters
-        /// continue to use CalculateMonsterStats and keep their wild strength.
+        /// use CalculateEnemyStats for their additional wild level multiplier.
         /// We scale HP, MP, physical/magical attack and defenses; attack
         /// speed, range, criticals and resistances keep
         /// their personality and are not reduced to unusable values.
