@@ -64,6 +64,22 @@ namespace MixMaster.UI
                 Instance.RegisterParty(member);
         }
 
+        public static void ShowSkillName(Component owner, string skillName)
+        {
+            if (Instance == null || owner == null || string.IsNullOrWhiteSpace(skillName)) return;
+            CharacterWorldBar bar;
+            if (owner is PartyMemberCombat party)
+            {
+                Instance.RegisterParty(party);
+                if (Instance.partyBars.TryGetValue(party, out bar)) bar.ShowSkillName(skillName);
+            }
+            else if (owner is EnemyHealth enemy)
+            {
+                Instance.RegisterEnemy(enemy);
+                if (Instance.enemyBars.TryGetValue(enemy, out bar)) bar.ShowSkillName(skillName);
+            }
+        }
+
         public static void TryUnregisterParty(PartyMemberCombat member)
         {
             if (Instance != null)
@@ -228,3 +244,4 @@ namespace MixMaster.UI
 #endif
     }
 }
+

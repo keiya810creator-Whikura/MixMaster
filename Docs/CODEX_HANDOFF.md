@@ -170,3 +170,6 @@
 
 
 2026年10月27日：DamagePopupTextの既存プール・上昇フェードを共用し、HP回復量は黄緑（#B4FF46）の+実回復量、バフはオレンジ（#FFA537）、デバフは青（#64AFFF）で能力名＋値＋UP/Downを表示。Percentは％、Flatは数値のみ。PlayerManager/PartyMemberCombat/EnemyHealthのHealと、主人公・仲間の全回復、仲間蘇生を対象。初期の仲間個体設定の全回復表示は抑制。AddStatusの成功・更新時に表示し、Ignore・確率失敗は表示しない。Stackは同じ効果の合計倍率。表示にダメージ粒子は追加しない。実DamagePopupTextと実メソッド抽出をUnity代替アダプターで37項目検証、構文エラーなし。Unity Editorの全体コンパイル・画面・実機確認は未実施。白色透過の十字回復画像をチャットで生成提供、ゲーム素材への配置・Excel登録は未実施。
+
+
+2026年10月27日：SkillActor.Commitの発動成功時、仲間・敵のCharacterWorldBarにスキル名を表示する。MP支払い失敗・詠唱中・発動失敗では表示せず、投射物の命中や陣の周期効果ごとにも再表示しない。HP/攻撃SliderとルートRectの最下部より4px下へTMP欄を自動生成し、1.4秒表示（末尾0.3秒フェード）。最新の名前へ置換・タイマー更新。表示中は満HPの敵バーも一時表示し、死亡・Unbindでクリア。新規Prefab設定やExcel列は不要。実CharacterWorldBarをUnity代替アダプターで16項目検証（位置・追従・フェード・更新・死亡・再利用・満HP敵等）、変更範囲の構文エラーなし。Unity Editorの全体コンパイル・画面確認は未実施。
