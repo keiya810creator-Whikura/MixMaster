@@ -46,7 +46,10 @@ namespace MixMaster.Combat
         public long MagicDefense => GetComponent<SkillActor>()?.Stats.magicDefense ?? magicDefense;
         public void Heal(long amount)
         {
-            if (IsAlive && amount > 0) CurrentHp = Math.Min(maxHp, LongMath.SaturatingAdd(CurrentHp, amount));
+            if (!IsAlive || amount <= 0) return;
+            long before = CurrentHp;
+            CurrentHp = Math.Min(maxHp, LongMath.SaturatingAdd(CurrentHp, amount));
+            DamagePopupText.ShowHealing(transform.position, CurrentHp - before);
         }
         public bool IsAlive { get; private set; }
         public MaterialDropSourceInfo LastHitSource =>
@@ -352,3 +355,4 @@ namespace MixMaster.Combat
 #endif
     }
 }
+
