@@ -27,10 +27,11 @@ namespace MixMaster.UI
         private PartyMemberCombat partyTarget;
         private EnemyHealth enemyTarget;
         private Action<CharacterWorldBar> releaseCallback;
-        private TMP_Text skillNameLabel;
+        [Header("Skill name (edit the prefab child for layout)")]
+        [SerializeField] private TMP_Text skillNameLabel;
+        private Color skillNameColor = Color.white;
         private float skillNameRemaining;
         private const float SkillNameDuration = 1.4f;
-        private readonly Vector3[] barCorners = new Vector3[4];
 
         public Component Owner => partyTarget != null ? (Component)partyTarget : enemyTarget;
         public bool IsBound => targetTransform != null;
@@ -45,6 +46,14 @@ namespace MixMaster.UI
 
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
+
+            if (skillNameLabel == null)
+            {
+                Transform child = transform.Find("SkillName");
+                if (child != null) skillNameLabel = child.GetComponent<TMP_Text>();
+            }
+            if (skillNameLabel != null) skillNameColor = skillNameLabel.color;
+            ClearSkillName();
 
             ConfigureSlider(hpSlider);
             ConfigureSlider(attackSlider);
@@ -228,56 +237,11 @@ namespace MixMaster.UI
         public void ShowSkillName(string skillName)
         {
             if (!IsBound || string.IsNullOrWhiteSpace(skillName)) return;
-            if (skillNameLabel == null)
-            {
-                var go = new GameObject("SkillName", typeof(RectTransform));
-                go.transform.SetParent(transform, false);
-                skillNameLabel = go.AddComponent<TextMeshProUGUI>();
-                if (TMP_Settings.defaultFontAsset != null) skillNameLabel.font = TMP_Settings.defaultFontAsset;
-                skillNameLabel.fontSize = 32f;
-                skillNameLabel.enableAutoSizing = true;
-                skillNameLabel.fontSizeMin = 24f;
-                skillNameLabel.fontSizeMax = 32f;
-                skillNameLabel.alignment = TextAlignmentOptions.Top;
-                skillNameLabel.enableWordWrapping = false;
-                skillNameLabel.richText = false;
-                skillNameLabel.raycastTarget = false;
-                skillNameLabel.outlineColor = Color.black;
-                skillNameLabel.outlineWidth = .2f;
-                var rect = (RectTransform)go.transform;
-                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-                rect.pivot = new Vector2(.5f, 1f);
-                rect.sizeDelta = new Vector2(440f, 56f);
-            }
+            if (skillNameLabel == null) return;
             skillNameLabel.text = skillName;
-            skillNameLabel.color = Color.white;
+            skillNameLabel.color = skillNameColor;
             skillNameLabel.gameObject.SetActive(true);
             skillNameRemaining = SkillNameDuration;
-            PositionSkillName();
-        }
-
-        private void PositionSkillName()
-        {
-            float bottom = rectTransform.rect.yMin;
-            float left = float.PositiveInfinity, right = float.NegativeInfinity;
-            IncludeSliderBounds(hpSlider, ref bottom, ref left, ref right);
-            IncludeSliderBounds(attackSlider, ref bottom, ref left, ref right);
-            float center = float.IsInfinity(left) ? rectTransform.rect.center.x : (left + right) * .5f;
-            skillNameLabel.rectTransform.anchoredPosition = new Vector2(
-                center - rectTransform.rect.center.x, bottom - rectTransform.rect.center.y - 8f);
-        }
-
-        private void IncludeSliderBounds(Slider slider, ref float bottom, ref float left, ref float right)
-        {
-            if (slider == null || !slider.gameObject.activeInHierarchy) return;
-            ((RectTransform)slider.transform).GetWorldCorners(barCorners);
-            foreach (var corner in barCorners)
-            {
-                Vector3 local = rectTransform.InverseTransformPoint(corner);
-                bottom = Mathf.Min(bottom, local.y);
-                left = Mathf.Min(left, local.x);
-                right = Mathf.Max(right, local.x);
-            }
         }
 
         private void UpdateSkillName()
@@ -286,9 +250,8 @@ namespace MixMaster.UI
             skillNameRemaining = Mathf.Max(0f, skillNameRemaining - Time.deltaTime);
             if (skillNameLabel == null) return;
             if (skillNameRemaining <= 0f) { ClearSkillName(); return; }
-            PositionSkillName();
-            var color = Color.white;
-            color.a = Mathf.Clamp01(skillNameRemaining / .3f);
+            var color = skillNameColor;
+            color.a *= Mathf.Clamp01(skillNameRemaining / .3f);
             skillNameLabel.color = color;
         }
 
@@ -310,5 +273,6 @@ namespace MixMaster.UI
         }
     }
 }
+
 
 
