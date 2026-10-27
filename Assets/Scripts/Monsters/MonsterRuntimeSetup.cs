@@ -81,6 +81,7 @@ namespace MixMaster.Monsters
         private void HandleDefeated(EnemyHealth defeatedEnemy)
         {
             if (monsterDefinition == null) return;
+            EncyclopediaManager.Instance?.RecordDefeat(monsterDefinition.monsterId);
 
             // Award exactly once from the enemy death event, regardless of
             // the killing attacker. The reward follows monster sale pricing:
