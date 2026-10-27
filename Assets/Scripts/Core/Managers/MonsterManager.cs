@@ -60,6 +60,8 @@ namespace MixMaster.Core
         }
 
         private readonly List<OwnedMonsterRecord> ownedMonsters = new List<OwnedMonsterRecord>();
+        private readonly Dictionary<string, OwnedMonsterRecord> ownedById =
+            new Dictionary<string, OwnedMonsterRecord>(StringComparer.Ordinal);
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
 
         public IReadOnlyList<OwnedMonsterRecord> OwnedMonsters => ownedMonsters;
@@ -225,7 +227,7 @@ namespace MixMaster.Core
             foreach (OwnedMonsterRecord record in toSell)
             {
                 record.equippedItemUniqueIds?.Clear();
-                ownedMonsters.Remove(record);
+                RemoveOwnedMonster(record);
             }
 
             game.AddGold(earnedGold);
@@ -250,7 +252,7 @@ namespace MixMaster.Core
                 equipment.UnequipAllFromMonster(record);
 
             goldGained = GetMonsterSaleGold(record);
-            ownedMonsters.Remove(record);
+            RemoveOwnedMonster(record);
             game.AddGold(goldGained);
             MonsterSold?.Invoke(uniqueId);
             return true;
@@ -303,7 +305,7 @@ namespace MixMaster.Core
 
             monster.individualValues.ClampAll();
 
-            ownedMonsters.Add(monster);
+            AddOwnedMonster(monster);
 
             // Newly obtained monsters are not in a party, but use the
             // existing validated sale operation to preserve the same rules
@@ -372,8 +374,8 @@ namespace MixMaster.Core
                     equipment.UnequipAllFromMonster(parentB);
                 }
 
-                ownedMonsters.Remove(parentA);
-                ownedMonsters.Remove(parentB);
+                RemoveOwnedMonster(parentA);
+                RemoveOwnedMonster(parentB);
             }
 
             if (succeeded)
@@ -431,6 +433,7 @@ namespace MixMaster.Core
             IReadOnlyList<string> savedPartyIds)
         {
             ownedMonsters.Clear();
+            ownedById.Clear();
             partyMonsterUniqueIds.Clear();
 
             HashSet<string> uniqueIds =
@@ -476,7 +479,7 @@ namespace MixMaster.Core
                             (long)Math.Max(0, record.skillPoints) + restoredLevels);
                     record.learnedSkillIds ??= new List<string>();
                     record.equippedItemUniqueIds ??= new List<string>();
-                    ownedMonsters.Add(record);
+                    AddOwnedMonster(record);
                 }
             }
 
@@ -521,7 +524,20 @@ namespace MixMaster.Core
 
         public OwnedMonsterRecord FindOwnedMonster(string monsterUniqueId)
         {
-            return ownedMonsters.Find(x => x.uniqueId == monsterUniqueId);
+            if (string.IsNullOrEmpty(monsterUniqueId)) return null;
+            return ownedById.TryGetValue(monsterUniqueId, out var record) ? record : null;
+        }
+
+        private void AddOwnedMonster(OwnedMonsterRecord record)
+        {
+            ownedMonsters.Add(record);
+            ownedById.Add(record.uniqueId, record);
+        }
+
+        private void RemoveOwnedMonster(OwnedMonsterRecord record)
+        {
+            ownedMonsters.Remove(record);
+            ownedById.Remove(record.uniqueId);
         }
 
         public bool SetMonsterCombatBehavior(

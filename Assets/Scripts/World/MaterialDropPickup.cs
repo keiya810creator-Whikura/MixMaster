@@ -42,6 +42,14 @@ namespace MixMaster.World
         private float currentSpeed;
         private bool initialized;
         private bool collected;
+        private DropManager poolOwner;
+        internal void SetPoolOwner(DropManager owner) => poolOwner = owner;
+        internal void ClearForPool()
+        {
+            initialized = false; collected = true; age = 0f; currentSpeed = 0f;
+            material = null; quantity = 0; sourceInfo = null;
+        }
+
 
         public void Initialize(
             MaterialSO newMaterial,
@@ -272,7 +280,8 @@ namespace MixMaster.World
                         : MaterialDropSourceType.Unknown);
             }
 
-            Destroy(gameObject);
+            if (poolOwner != null) poolOwner.RecycleMaterial(this);
+            else Destroy(gameObject);
         }
 
 #if UNITY_EDITOR
