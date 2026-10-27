@@ -53,11 +53,20 @@ namespace MixMaster.Combat
             Vector3 origin=owner.SkillEffectPosition(skill),destination=target.SkillEffectPosition(skill);
             Spawn(owner,target,skill,power,source,skill.spawnPosition==SkillSpawnPosition.Target?destination:origin,(destination-origin).normalized,0,1,new SpawnBudget(),null);
         }
+        private static bool PreserveSpriteOrientation(SkillSO definition)
+        {
+            if (definition.effect == SkillBaseEffect.Heal) return true;
+            if (definition.effect == SkillBaseEffect.Damage || definition.affixes == null) return false;
+            foreach (var affix in definition.affixes)
+                if (affix != null && (affix.type == SkillAffixType.Buff || affix.type == SkillAffixType.Debuff)) return true;
+            return false;
+        }
         private static SkillProjectile Spawn(SkillActor owner,SkillActor target,SkillSO skill,CharacterStats power,MaterialDropSourceInfo source,Vector3 position,Vector3 direction,int generation,float scale,SpawnBudget budget,SkillActor exclude)
         {
             if(budget.remaining--<=0)return null;
             var prefab=skill.projectilePrefab!=null?skill.projectilePrefab:Resources.Load<GameObject>("Skills/CommonSkillProjectile");
-            var go=prefab!=null?Instantiate(prefab,position,Quaternion.identity):new GameObject("SkillProjectile_"+skill.skillId);
+            var rotation=PreserveSpriteOrientation(skill)&&prefab!=null?prefab.transform.rotation:Quaternion.identity;
+            var go=prefab!=null?Instantiate(prefab,position,rotation):new GameObject("SkillProjectile_"+skill.skillId);
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(go,owner.gameObject.scene);
             go.transform.position=position;
             var renderer=go.GetComponentInChildren<SpriteRenderer>();
@@ -187,6 +196,8 @@ namespace MixMaster.Combat
             UpdateSkillVisual();
             if(path.StoppedNow&&motion.explodeOnStop){Explode();return;}
             if(path.Finished){Destroy(gameObject);return;}
+            // Support sprites retain their authored orientation, including the child image angle.
+            if(PreserveSpriteOrientation(skill))return;
             Transform rotating=rotatingVisual!=null?rotatingVisual:visual!=null?visual.transform:transform;
             if(!motion.spin||rotating!=transform)
             {var facing=segment.sqrMagnitude>.000001f?segment.normalized:path.Direction;transform.rotation=Quaternion.Euler(0,0,Mathf.Atan2(facing.y,facing.x)*Mathf.Rad2Deg-90);}
@@ -222,5 +233,6 @@ namespace MixMaster.Combat
         }
     }
 }
+
 
 
