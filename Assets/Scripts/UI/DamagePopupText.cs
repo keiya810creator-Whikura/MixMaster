@@ -24,6 +24,9 @@ namespace MixMaster.UI
 
         // Damage dealt BY enemies to the player or party uses black.
         private static readonly Color EnemyDamageColor = Color.black;
+        private static readonly Color HealingColor = new Color32(180, 255, 70, 255);
+        private static readonly Color BuffColor = new Color32(255, 165, 55, 255);
+        private static readonly Color DebuffColor = new Color32(100, 175, 255, 255);
 
         private TextMeshPro label;
         private Vector3 startPosition;
@@ -60,6 +63,48 @@ namespace MixMaster.UI
                 : MaterialDropLogUI.GetSourceColor(attackSource);
             DamageHitParticles.Show(worldPosition, damageColor);
 
+            ShowText(worldPosition, damage.ToString("N0", CultureInfo.InvariantCulture), damageColor, takenByAlly);
+        }
+
+        public static void ShowHealing(Vector3 worldPosition, long recovered)
+        {
+            if (recovered > 0)
+                ShowText(worldPosition, "+" + recovered.ToString("N0", CultureInfo.InvariantCulture), HealingColor);
+        }
+
+        public static string StatusText(SkillAffix effect, int stacks = 1)
+        {
+            if (effect == null || (effect.type != SkillAffixType.Buff && effect.type != SkillAffixType.Debuff) ||
+                effect.duration <= 0 || effect.amount <= 0 || double.IsNaN(effect.amount) || double.IsInfinity(effect.amount) ||
+                (effect.change != SkillChange.Percent && effect.change != SkillChange.Flat)) return null;
+            string stat;
+            switch (effect.stat)
+            {
+                case SkillStat.Attack: stat = "攻撃力"; break;
+                case SkillStat.Magic: stat = "魔法攻撃力"; break;
+                case SkillStat.Defense: stat = "防御力"; break;
+                case SkillStat.MagicDefense: stat = "魔法防御力"; break;
+                case SkillStat.MoveSpeed: stat = "移動速度"; break;
+                case SkillStat.AttackSpeed: stat = "攻撃速度"; break;
+                case SkillStat.AttackRange: stat = "攻撃範囲"; break;
+                default: return null;
+            }
+            double amount = effect.amount * System.Math.Max(1, stacks);
+            return stat + amount.ToString("0.##", CultureInfo.InvariantCulture) +
+                (effect.change == SkillChange.Percent ? "％" : "") +
+                (effect.type == SkillAffixType.Buff ? "UP" : "Down");
+        }
+
+        public static void ShowStatus(Vector3 worldPosition, SkillAffix effect, int stacks = 1)
+        {
+            string text = StatusText(effect, stacks);
+            if (text != null) ShowText(worldPosition, text, effect.type == SkillAffixType.Buff ? BuffColor : DebuffColor);
+        }
+
+        private static void ShowText(Vector3 worldPosition, string text, Color color, bool takenByAlly = false)
+        {
+            if (!Application.isPlaying) return;
+
             // Particle feedback remains available when the text pool is full.
             if (activeCount >= MaxActive)
                 return;
@@ -77,7 +122,7 @@ namespace MixMaster.UI
             }
 
             popup.gameObject.SetActive(true);
-            popup.Begin(worldPosition, damage, damageColor, takenByAlly);
+            popup.Begin(worldPosition, text, color, takenByAlly);
         }
 
         private void Awake()
@@ -103,7 +148,7 @@ namespace MixMaster.UI
                 renderer.sortingOrder = 3000;
         }
 
-        private void Begin(Vector3 position, long damage, Color damageColor, bool takenByAlly)
+        private void Begin(Vector3 position, string text, Color damageColor, bool takenByAlly)
         {
             startPosition = position +
                 new Vector3(Random.Range(-0.15f, 0.15f), 0.72f, -0.2f);
@@ -116,7 +161,7 @@ namespace MixMaster.UI
             // party-colored damage retains its original dark outline.
             label.outlineColor = takenByAlly
                 ? Color.white : new Color32(23, 18, 27, 255);
-            label.text = damage.ToString("N0", CultureInfo.InvariantCulture);
+            label.text = text;
             label.color = baseColor;
 
             if (!showing)
@@ -162,3 +207,4 @@ namespace MixMaster.UI
         }
     }
 }
+

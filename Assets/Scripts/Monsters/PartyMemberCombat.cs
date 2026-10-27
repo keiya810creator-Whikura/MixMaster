@@ -728,7 +728,8 @@ namespace MixMaster.Monsters
             SetCurrentTarget(null);
             targetRefreshTimer = 0f;
             attackGauge = 0f;
-            RestoreFullResources();
+            RestoreFullHp(false);
+            RestoreFullMp();
             SetAttackGauge(0f);
 
             if (follower == null)
@@ -885,18 +886,27 @@ namespace MixMaster.Monsters
             if (!isAlive || amount <= 0)
                 return;
 
+            long before = currentHp;
             currentHp = Math.Min(
                 Math.Max(1L, Stats.maxHp),
                 LongMath.SaturatingAdd(currentHp, amount));
 
+            DamagePopupText.ShowHealing(transform.position, currentHp - before);
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
         }
 
         public void RestoreFullHp()
         {
+            RestoreFullHp(true);
+        }
+
+        private void RestoreFullHp(bool showFeedback)
+        {
+            long before = currentHp;
             currentHp = Math.Max(1L, Stats.maxHp);
             isAlive = true;
+            if (showFeedback) DamagePopupText.ShowHealing(transform.position, currentHp - before);
 
             if (spriteRenderer != null)
                 spriteRenderer.color = originalColor;
@@ -923,6 +933,7 @@ namespace MixMaster.Monsters
                 : Math.Max(1L, (long)desired);
             currentHp = Math.Min(maximum, currentHp);
             isAlive = true;
+            DamagePopupText.ShowHealing(transform.position, currentHp);
 
             if (hitFlashRoutine != null)
             {
@@ -1169,4 +1180,5 @@ namespace MixMaster.Monsters
 #endif
     }
 }
+
 

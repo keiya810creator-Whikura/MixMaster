@@ -335,11 +335,13 @@ namespace MixMaster.Combat
             {
                 if (e.stacking == SkillStacking.Ignore) return;
                 if (e.stacking == SkillStacking.Stack) active.stacks = Math.Min(e.stackLimit,active.stacks+1);
-                active.until = Time.time + e.duration; cachedFrame=-1; return;
+                active.until = Time.time + e.duration; cachedFrame=-1;
+                DamagePopupText.ShowStatus(transform.position,e,active.stacks); return;
             }
             statuses.RemoveAll(x=>x.key==key);
             statuses.Add(new Status { key=key,effect=e,until=Time.time+e.duration,next=Time.time+e.interval,
                 tickDamage=SkillMath.Amount(e.change==SkillChange.MaxHpPercent?Stats.maxHp*e.amount/100:e.amount),source=source?.Clone() }); cachedFrame=-1;
+            DamagePopupText.ShowStatus(transform.position,e);
         }
         private void Heal(long amount) { if (enemy != null) enemy.Heal(amount); else if (party != null) party.Heal(amount); else player?.Heal(amount); }
         public void DealRaw(long amount, MaterialDropSourceInfo source)
@@ -356,5 +358,6 @@ namespace MixMaster.Combat
         }
     }
 }
+
 
 

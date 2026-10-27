@@ -262,7 +262,9 @@ namespace MixMaster.Core
 
         public void RestoreFullHp()
         {
+            long before = CurrentHp;
             CurrentHp = Math.Max(1L, Stats.maxHp);
+            ShowHealingPopup(CurrentHp - before);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
         }
 
@@ -292,11 +294,21 @@ namespace MixMaster.Core
         {
             if (amount <= 0 || CurrentHp >= Stats.maxHp) return;
 
+            long before = CurrentHp;
             CurrentHp = Math.Min(
                 Stats.maxHp,
                 LongMath.SaturatingAdd(CurrentHp, amount));
 
+            ShowHealingPopup(CurrentHp - before);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
+        }
+
+        private void ShowHealingPopup(long recovered)
+        {
+            if (recovered <= 0 || !Application.isPlaying) return;
+            var actor = MixMaster.Combat.SkillActor.PlayerActor;
+            var body = actor != null ? actor.transform : FindFirstObjectByType<MixMaster.Combat.PlayerAutoAttack>()?.transform;
+            if (body != null) MixMaster.UI.DamagePopupText.ShowHealing(body.position, recovered);
         }
 
         public bool TrySpendMp(long amount)
@@ -331,4 +343,5 @@ namespace MixMaster.Core
         }
     }
 }
+
 
