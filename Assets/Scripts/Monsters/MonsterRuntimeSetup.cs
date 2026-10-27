@@ -194,7 +194,7 @@ namespace MixMaster.Monsters
                 new MonsterIndividualValues();
 
             CurrentStats =
-                StatCalculator.CalculateMonsterStats(
+                StatCalculator.CalculateEnemyStats(
                     monsterDefinition,
                     Mathf.Max(1, level),
                     individualValues,

@@ -49,6 +49,8 @@ namespace MixMaster.Combat
             if (!IsAlive || amount <= 0) return;
             long before = CurrentHp;
             CurrentHp = Math.Min(maxHp, LongMath.SaturatingAdd(CurrentHp, amount));
+            if (CurrentHp != before)
+                HpChanged?.Invoke(CurrentHp, maxHp);
             DamagePopupText.ShowHealing(transform.position, CurrentHp - before);
         }
         public bool IsAlive { get; private set; }
@@ -58,6 +60,7 @@ namespace MixMaster.Combat
                 : MaterialDropSourceInfo.Unknown();
 
         public event Action<EnemyHealth, long> Damaged;
+        public event Action<long, long> HpChanged;
         public event Action<long, long> MpChanged;
         public event Action<EnemyHealth> Died;
 
@@ -168,6 +171,7 @@ namespace MixMaster.Combat
 
             long actualDamage = Math.Min(CurrentHp, damage);
             CurrentHp -= actualDamage;
+            HpChanged?.Invoke(CurrentHp, maxHp);
             GetComponent<SkillActor>()?.NotifyDamage(SkillActor.ApplyingSkill || sourceInfo?.isSkill == true);
             SkillActor.FromSource(sourceInfo)?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);
 
@@ -228,6 +232,7 @@ namespace MixMaster.Combat
                 CurrentMp = Math.Min(CurrentMp, maxMp);
             }
 
+            HpChanged?.Invoke(CurrentHp, maxHp);
             MpChanged?.Invoke(CurrentMp, maxMp);
         }
 

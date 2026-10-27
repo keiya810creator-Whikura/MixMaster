@@ -277,7 +277,8 @@ namespace MixMaster.World
                     actualAdded,
                     sourceInfo != null
                         ? sourceInfo.sourceType
-                        : MaterialDropSourceType.Unknown);
+                        : MaterialDropSourceType.Unknown,
+                    inventory.GetAmount(material));
             }
 
             if (poolOwner != null) poolOwner.RecycleMaterial(this);
