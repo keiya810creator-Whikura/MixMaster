@@ -26,6 +26,24 @@ namespace MixMaster.Monsters
         private EnemyMaterialDropController materialDropController;
         private EnemyMonsterDropController monsterDropController;
         private bool initialized;
+        private static PlayerManager rewardPlayer;
+        private static MonsterManager rewardMonsters;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRewardReferences() { rewardPlayer = null; rewardMonsters = null; }
+        private static MonsterManager RewardMonsters()
+        {
+            if (rewardMonsters == null)
+                rewardMonsters = GameManager.Instance != null ? GameManager.Instance.GetComponent<MonsterManager>() : null;
+            if (rewardMonsters == null) rewardMonsters = FindFirstObjectByType<MonsterManager>();
+            return rewardMonsters;
+        }
+        private static PlayerManager RewardPlayer()
+        {
+            if (rewardPlayer == null)
+                rewardPlayer = GameManager.Instance != null ? GameManager.Instance.GetComponent<PlayerManager>() : null;
+            if (rewardPlayer == null) rewardPlayer = FindFirstObjectByType<PlayerManager>();
+            return rewardPlayer;
+        }
 
         public MonsterSO Definition => monsterDefinition;
         public int Level => level;
@@ -94,7 +112,7 @@ namespace MixMaster.Monsters
             MaterialDropSourceInfo killer = defeatedEnemy != null
                 ? defeatedEnemy.LastHitSource
                 : MaterialDropSourceInfo.Unknown();
-            MonsterManager killerMonsters = FindFirstObjectByType<MonsterManager>();
+            MonsterManager killerMonsters = RewardMonsters();
             if (killerMonsters != null &&
                 killer != null &&
                 killer.sourceType >= MaterialDropSourceType.Party1 &&
@@ -112,11 +130,11 @@ namespace MixMaster.Monsters
             long reward = LongMath.SaturatingMultiply(
                 monsterDefinition.experienceReward, Mathf.Max(1, level));
 
-            PlayerManager player = FindFirstObjectByType<PlayerManager>();
+            PlayerManager player = RewardPlayer();
             if (player != null)
                 player.AddExperience(reward);
 
-            MonsterManager monsters = FindFirstObjectByType<MonsterManager>();
+            MonsterManager monsters = RewardMonsters();
             if (monsters == null)
                 return;
 

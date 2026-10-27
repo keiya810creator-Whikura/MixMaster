@@ -32,8 +32,17 @@ namespace MixMaster.World
 
         private float age;
         private float currentSpeed;
+        [SerializeField] private bool logIndividualValues;
         private bool initialized;
         private bool collected;
+        private DropManager poolOwner;
+        internal void SetPoolOwner(DropManager owner) => poolOwner = owner;
+        internal void ClearForPool()
+        {
+            initialized = false; collected = true; age = 0f; currentSpeed = 0f;
+            rollData = null;
+        }
+
 
         public MonsterDropRollData RollData => rollData;
 
@@ -172,14 +181,15 @@ namespace MixMaster.World
                         rollData.individualValues,
                         rollData.title);
 
-                Debug.Log(
+                if (logIndividualValues) Debug.Log(
                     BuildObtainedLog(
                         rollData,
                         obtained),
                     this);
             }
 
-            Destroy(gameObject);
+            if (poolOwner != null) poolOwner.RecycleMonster(this);
+            else Destroy(gameObject);
         }
 
         private static string BuildObtainedLog(

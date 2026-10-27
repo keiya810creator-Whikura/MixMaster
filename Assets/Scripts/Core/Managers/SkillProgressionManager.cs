@@ -20,6 +20,15 @@ namespace MixMaster.Core
         public event Action Changed;
         private bool pending;
         private float saveAt;
+        public int Revision { get; private set; }
+        private sealed class PassiveSummary
+        {
+            public int frame = -1, revision = -1, attackStyle = -1;
+            public bool affectsStats;
+            public readonly double[] values = new double[(int)SkillPassiveType.RespawnSpeed + 1];
+            public readonly HashSet<string> seen = new HashSet<string>();
+        }
+        private readonly Dictionary<string, PassiveSummary> passiveSummaries = new Dictionary<string, PassiveSummary>();
         private void Awake() { Instance = this; Catalog = SkillCatalogSO.Load(); }
         private void OnDestroy() { if (Instance == this) Instance = null; }
         private void Update()
@@ -28,7 +37,7 @@ namespace MixMaster.Core
             var save = GetComponent<SaveManager>();
             pending = save != null && !save.SaveGame(); saveAt = Time.unscaledTime + 1;
         }
-        public void NotifyChanged() { pending = true; saveAt = Time.unscaledTime + 0.35f; Changed?.Invoke(); }
+        public void NotifyChanged() { Revision++; pending = true; saveAt = Time.unscaledTime + 0.35f; Changed?.Invoke(); }
         private OwnedMonsterRecord Record(string owner) => GetComponent<MonsterManager>()?.FindOwnedMonster(owner);
         public IReadOnlyList<SkillSO> Available(string owner)
         {
@@ -80,15 +89,37 @@ namespace MixMaster.Core
         public double PassiveValue(string owner, SkillPassiveType type)
         {
             if(string.IsNullOrEmpty(owner))return 0;
-            double total=0;var seen=new HashSet<string>();
+            int index = (int)type;
+            var summary = GetPassiveSummary(owner);
+            return index >= 0 && index < summary.values.Length ? summary.values[index] : 0;
+        }
+        public bool HasStatPassives(string owner) => !string.IsNullOrEmpty(owner) && GetPassiveSummary(owner).affectsStats;
+        private PassiveSummary GetPassiveSummary(string owner)
+        {
+            if (!passiveSummaries.TryGetValue(owner, out var result))
+                passiveSummaries[owner] = result = new PassiveSummary();
+            if (result.frame == Time.frameCount && result.revision == Revision) return result;
+            result.frame = Time.frameCount; result.revision = Revision;
+            result.attackStyle = -1; result.affectsStats = false;
+            Array.Clear(result.values, 0, result.values.Length); result.seen.Clear();
             foreach(var slot in Loadout(owner).slots)
             {
-                if(slot==null||string.IsNullOrEmpty(slot.skillId)||!seen.Add(slot.skillId)||!Learned(owner,slot.skillId))continue;
+                if(slot==null||string.IsNullOrEmpty(slot.skillId)||!Learned(owner,slot.skillId))continue;
                 var skill=Catalog?.Get(slot.skillId);
                 if(skill==null||skill.category!=SkillCategory.Passive||skill.passives==null)continue;
-                foreach(var p in skill.passives)if(p!=null&&p.type==type)total+=p.amount;
+                bool first = result.seen.Add(slot.skillId);
+                foreach(var p in skill.passives)
+                {
+                    if (p == null) continue;
+                    int index = (int)p.type;
+                    if (first && index >= 0 && index < result.values.Length) result.values[index] += p.amount;
+                    if (p.type == SkillPassiveType.Melee) result.attackStyle = 0;
+                    if (p.type == SkillPassiveType.Ranged) result.attackStyle = 1;
+                }
             }
-            return total;
+            for (int i = (int)SkillPassiveType.MaxHp; i <= (int)SkillPassiveType.AllResistance; i++)
+                if (i != (int)SkillPassiveType.EquipmentDrop && result.values[i] != 0) result.affectsStats = true;
+            return result;
         }
         public static double PartyBonus(SkillPassiveType type)
         {
@@ -102,13 +133,8 @@ namespace MixMaster.Core
         public bool Ranged(string owner,bool fallback)
         {
             if(string.IsNullOrEmpty(owner))return fallback;
-            foreach(var slot in Loadout(owner).slots)
-            {
-                if(slot==null||!Learned(owner,slot.skillId))continue;
-                var s=Catalog?.Get(slot.skillId);if(s==null||s.category!=SkillCategory.Passive||s.passives==null)continue;
-                foreach(var p in s.passives)if(p!=null){if(p.type==SkillPassiveType.Melee)fallback=false;if(p.type==SkillPassiveType.Ranged)fallback=true;}
-            }
-            return fallback;
+            int style = GetPassiveSummary(owner).attackStyle;
+            return style < 0 ? fallback : style == 1;
         }
         public List<string> InheritanceCandidates(string a,string b)
         {
@@ -131,6 +157,7 @@ namespace MixMaster.Core
         public SkillSaveData Capture() => JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));
         public void Restore(SkillSaveData saved)
         {
+            Revision++; passiveSummaries.Clear();
             foreach(var actor in MixMaster.Combat.SkillActor.Active)if(actor!=null)actor.ResetTransient();
             data = saved == null ? new SkillSaveData() : JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(saved));
             data.playerLearned ??= new List<string>(); data.loadouts ??= new List<SkillLoadout>();

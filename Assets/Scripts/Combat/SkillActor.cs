@@ -23,6 +23,14 @@ namespace MixMaster.Combat
         public static SkillActor PlayerActor { get; private set; }
         public static bool ApplyingSkill { get; private set; }
         private readonly List<Status> statuses = new List<Status>();
+        private readonly List<Status> statusSnapshot = new List<Status>();
+        private readonly List<int> castOrder = new List<int>();
+        private readonly double[] statusPercent = new double[8], statusFlat = new double[8];
+        private Func<SkillPassiveType, double> passiveAmount;
+        private SkillProgressionManager cachedPassiveManager;
+        private int cachedPassiveRevision;
+        private float cachedStatsTime;
+        private StatsInput cachedInput;
         private readonly Dictionary<string, float> readyAt = new Dictionary<string, float>();
         private Dictionary<string,float> Cooldowns => !IsEnemy && !string.IsNullOrEmpty(ownerId) && SkillProgressionManager.Instance!=null ? SkillProgressionManager.Instance.Cooldowns(ownerId) : readyAt;
         private readonly Dictionary<int, float> intervals = new Dictionary<int, float>();
@@ -43,6 +51,73 @@ namespace MixMaster.Combat
         private SpriteRenderer bodySprite;
         private int cachedFrame = -1;
         private CharacterStats cachedStats, cachedBase;
+        private readonly struct StatsInput : IEquatable<StatsInput>
+        {
+            private readonly long maxHp;
+            private readonly long maxMp;
+            private readonly long attack;
+            private readonly long magic;
+            private readonly long defense;
+            private readonly long magicDefense;
+            private readonly float moveSpeed;
+            private readonly float attackSpeed;
+            private readonly float attackRange;
+            private readonly float criticalRate;
+            private readonly float criticalMultiplier;
+            private readonly float dropRateBonus;
+            private readonly ElementType element;
+            private readonly float fire;
+            private readonly float water;
+            private readonly float wind;
+            private readonly float lightning;
+            private readonly float light;
+            private readonly float dark;
+            private readonly bool hasResistances;
+            public StatsInput(CharacterStats stats)
+            {
+                maxHp = stats.maxHp;
+                maxMp = stats.maxMp;
+                attack = stats.attack;
+                magic = stats.magic;
+                defense = stats.defense;
+                magicDefense = stats.magicDefense;
+                moveSpeed = stats.moveSpeed;
+                attackSpeed = stats.attackSpeed;
+                attackRange = stats.attackRange;
+                criticalRate = stats.criticalRate;
+                criticalMultiplier = stats.criticalMultiplier;
+                dropRateBonus = stats.dropRateBonus;
+                element = stats.element;
+                fire = stats.resistances?.fire ?? 0f;
+                water = stats.resistances?.water ?? 0f;
+                wind = stats.resistances?.wind ?? 0f;
+                lightning = stats.resistances?.lightning ?? 0f;
+                light = stats.resistances?.light ?? 0f;
+                dark = stats.resistances?.dark ?? 0f;
+                hasResistances = stats.resistances != null;
+            }
+            public bool Equals(StatsInput other) =>
+                maxHp == other.maxHp &&
+                maxMp == other.maxMp &&
+                attack == other.attack &&
+                magic == other.magic &&
+                defense == other.defense &&
+                magicDefense == other.magicDefense &&
+                moveSpeed == other.moveSpeed &&
+                attackSpeed == other.attackSpeed &&
+                attackRange == other.attackRange &&
+                criticalRate == other.criticalRate &&
+                criticalMultiplier == other.criticalMultiplier &&
+                dropRateBonus == other.dropRateBonus &&
+                element == other.element &&
+                fire == other.fire &&
+                water == other.water &&
+                wind == other.wind &&
+                lightning == other.lightning &&
+                light == other.light &&
+                dark == other.dark &&
+                hasResistances == other.hasResistances;
+        }
         public string OwnerId => ownerId;
         public bool IsEnemy => enemy != null;
         public bool IsPlayer => playerCombat != null;
@@ -90,7 +165,7 @@ namespace MixMaster.Combat
             ResolveReferences();
         }
         private void OnEnable() { if (!Active.Contains(this)) Active.Add(this); if(IsPlayer)PlayerActor=this; }
-        public void ResetTransient() { statuses.Clear(); casting=null; pendingSlot=-1; cachedFrame=-1; }
+        public void ResetTransient() { statuses.Clear(); casting=null; pendingSlot=-1; cachedFrame=-1; ruleRevision=-1; }
         private void OnDisable() { Active.Remove(this); ResetTransient(); if (PlayerActor == this) PlayerActor = null; }
         public void Configure(MonsterSO monster, string individualId, CharacterStats enemyStats = null)
         {
@@ -101,15 +176,35 @@ namespace MixMaster.Combat
             if (IsEnemy && species != null)
                 foreach (var s in species.enemySkills) if (s != null) readyAt[s.skillId] = Time.time + s.cooldown;
         }
-        public bool Has(SkillAilment ailment) => statuses.Exists(s => s.effect.ailment == ailment && s.until > Time.time);
+        public bool Has(SkillAilment ailment)
+        {
+            foreach (var status in statuses)
+                if (status.effect.ailment == ailment && status.until > Time.time) return true;
+            return false;
+        }
+        private double PassiveAmount(SkillPassiveType type) => SkillProgressionManager.Instance?.PassiveValue(ownerId, type) ?? 0;
+
         public CharacterStats Effective(CharacterStats original)
         {
-            if(!IsEnemy&&SkillProgressionManager.Instance!=null)
-                original=SkillPassiveRules.Apply(original,t=>SkillProgressionManager.Instance.PassiveValue(ownerId,t));
-            if (statuses.Count == 0) return original;
-            if (cachedFrame == Time.frameCount && cachedBase == original) return cachedStats;
-            cachedFrame = Time.frameCount; cachedBase = original; cachedStats = ReincarnationRules.CopyStats(original);
-            var percent = new double[8]; var flat = new double[8];
+            var manager = !IsEnemy ? SkillProgressionManager.Instance : null;
+            bool hasPassives = manager != null && manager.HasStatPassives(ownerId);
+            if (!hasPassives && statuses.Count == 0) return original;
+            var input = new StatsInput(original);
+            int revision = manager != null ? manager.Revision : 0;
+            if (cachedFrame == Time.frameCount && cachedStatsTime == Time.time && cachedBase == original && cachedInput.Equals(input) &&
+                cachedPassiveManager == manager && cachedPassiveRevision == revision) return cachedStats;
+            cachedFrame = Time.frameCount; cachedBase = original; cachedInput = input;
+            cachedStatsTime = Time.time;
+            cachedPassiveManager = manager; cachedPassiveRevision = revision;
+            if (hasPassives)
+            {
+                passiveAmount ??= PassiveAmount;
+                original = SkillPassiveRules.Apply(original, passiveAmount);
+            }
+            if (statuses.Count == 0) return cachedStats = original;
+            cachedStats = ReincarnationRules.CopyStats(original);
+            var percent = statusPercent; var flat = statusFlat;
+            Array.Clear(percent, 0, percent.Length); Array.Clear(flat, 0, flat.Length);
             foreach (var s in statuses)
             {
                 var e = s.effect;
@@ -160,7 +255,8 @@ namespace MixMaster.Combat
             player?.ClampSkillResources();party?.ClampSkillResources();
             if (Time.timeScale <= 0) return;
             if (!Alive) { statuses.Clear(); casting = null; return; }
-            foreach (var s in statuses.ToArray())
+            statusSnapshot.Clear(); statusSnapshot.AddRange(statuses);
+            foreach (var s in statusSnapshot)
             {
                 if (!statuses.Contains(s)) continue;
                 if (s.effect.interval > 0 && s.next <= Time.time && s.next <= s.until)
@@ -172,6 +268,7 @@ namespace MixMaster.Combat
                 }
                 if (Time.time >= s.until && (s.effect.interval <= 0 || s.next > s.until)) { statuses.Remove(s); cachedFrame = -1; }
             }
+            statusSnapshot.Clear();
             if (!Alive) return;
             if (casting != null)
             {
@@ -199,11 +296,13 @@ namespace MixMaster.Combat
             if(ruleRevision!=loadout.revision)
             {
                 ruleRevision=loadout.revision;normalHits=damageEvents=kills=0;hitsAt.Clear();damageAt.Clear();killsAt.Clear();intervals.Clear();
+                castOrder.Clear();
+                for (int i = 0; i < loadout.slots.Count; i++) castOrder.Add(i);
+                castOrder.Sort((a,b) => loadout.slots[a].priority != loadout.slots[b].priority
+                    ? loadout.slots[b].priority.CompareTo(loadout.slots[a].priority) : a.CompareTo(b));
             }
             var slots = loadout.slots;
-            var order = new List<int>(); for (int i = 0; i < slots.Count; i++) order.Add(i);
-            order.Sort((a,b) => slots[a].priority != slots[b].priority ? slots[b].priority.CompareTo(slots[a].priority) : a.CompareTo(b));
-            foreach (int i in order)
+            foreach (int i in castOrder)
             {
                 var slot = slots[i];
                 if (slot.trigger == SkillTrigger.Manual) continue;
