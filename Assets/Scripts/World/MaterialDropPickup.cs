@@ -23,6 +23,17 @@ namespace MixMaster.World
         private long quantity;
         private MaterialDropSourceInfo sourceInfo;
 
+        private static PlayerController sharedPlayer;
+        private static MaterialInventoryManager sharedInventory;
+        private static MaterialDropLogUI sharedLog;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedReferences()
+        {
+            sharedPlayer = null;
+            sharedInventory = null;
+            sharedLog = null;
+        }
+
         private Transform playerTarget;
         private MaterialInventoryManager inventory;
         private MaterialDropLogUI logUi;
@@ -125,7 +136,7 @@ namespace MixMaster.World
             if (playerTarget == null)
             {
                 PlayerController player =
-                    FindFirstObjectByType<PlayerController>();
+                    (sharedPlayer != null ? sharedPlayer : (sharedPlayer = FindFirstObjectByType<PlayerController>()));
 
                 if (player != null)
                     playerTarget = player.transform;
@@ -134,13 +145,13 @@ namespace MixMaster.World
             if (inventory == null)
             {
                 inventory =
-                    FindFirstObjectByType<MaterialInventoryManager>();
+                    (sharedInventory != null ? sharedInventory : (sharedInventory = FindFirstObjectByType<MaterialInventoryManager>()));
             }
 
             if (logUi == null)
             {
                 logUi =
-                    FindFirstObjectByType<MaterialDropLogUI>();
+                    (sharedLog != null ? sharedLog : (sharedLog = FindFirstObjectByType<MaterialDropLogUI>()));
             }
         }
 

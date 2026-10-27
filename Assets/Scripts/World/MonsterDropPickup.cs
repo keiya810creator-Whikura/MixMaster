@@ -18,6 +18,15 @@ namespace MixMaster.World
         [SerializeField, Min(0.01f)] private float collectDistance = 0.15f;
 
         private MonsterDropRollData rollData;
+        private static PlayerController sharedPlayer;
+        private static MonsterManager sharedMonsters;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedReferences()
+        {
+            sharedPlayer = null;
+            sharedMonsters = null;
+        }
+
         private Transform playerTarget;
         private MonsterManager monsterManager;
 
@@ -109,7 +118,7 @@ namespace MixMaster.World
             if (playerTarget == null)
             {
                 PlayerController player =
-                    FindFirstObjectByType<PlayerController>();
+                    (sharedPlayer != null ? sharedPlayer : (sharedPlayer = FindFirstObjectByType<PlayerController>()));
 
                 if (player != null)
                     playerTarget = player.transform;
@@ -118,7 +127,7 @@ namespace MixMaster.World
             if (monsterManager == null)
             {
                 monsterManager =
-                    FindFirstObjectByType<MonsterManager>();
+                    (sharedMonsters != null ? sharedMonsters : (sharedMonsters = FindFirstObjectByType<MonsterManager>()));
             }
         }
 

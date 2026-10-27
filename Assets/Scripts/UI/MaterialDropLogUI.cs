@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -14,6 +13,7 @@ namespace MixMaster.UI
         {
             public GameObject gameObject;
             public TMP_Text text;
+            public float expiresAt;
         }
 
         [Header("Log")]
@@ -24,6 +24,7 @@ namespace MixMaster.UI
 
         private readonly List<LogEntry> entries =
             new List<LogEntry>();
+        private readonly Queue<LogEntry> available = new Queue<LogEntry>();
 
         private RectTransform contentRoot;
 
@@ -47,9 +48,31 @@ namespace MixMaster.UI
                     ? material.displayName
                     : material.materialId;
 
+            LogEntry entry;
+            if (entries.Count >= Mathf.Max(1, maxLines))
+            {
+                entry = entries[0];
+                entries.RemoveAt(0);
+            }
+            else if (available.Count > 0) entry = available.Dequeue();
+            else entry = CreateEntry();
+            entry.gameObject.name = "MaterialLog_" + material.materialId;
+            entry.gameObject.SetActive(true);
+            entry.gameObject.transform.SetAsLastSibling();
+            entry.text.text = materialName + "×" + quantity;
+            entry.text.color = GetSourceColor(sourceType);
+            entry.text.fontSize = fontSize;
+            ((RectTransform)entry.gameObject.transform).sizeDelta = new Vector2(520f, fontSize + 12f);
+            entry.expiresAt = Time.time + visibleSeconds;
+            entries.Add(entry);
+            while (entries.Count > Mathf.Max(1, maxLines)) RemoveEntry(entries[0]);
+        }
+
+        private LogEntry CreateEntry()
+        {
             GameObject lineObject =
                 new GameObject(
-                    "MaterialLog_" + material.materialId,
+                    "MaterialLog",
                     typeof(RectTransform));
 
             lineObject.transform.SetParent(
@@ -59,11 +82,6 @@ namespace MixMaster.UI
             TextMeshProUGUI text =
                 lineObject.AddComponent<TextMeshProUGUI>();
 
-            text.text =
-                materialName +
-                "×" +
-                quantity;
-
             text.fontSize = fontSize;
             text.fontStyle = FontStyles.Bold;
             text.alignment =
@@ -71,7 +89,6 @@ namespace MixMaster.UI
 
             text.enableWordWrapping = false;
             text.raycastTarget = false;
-            text.color = GetSourceColor(sourceType);
 
             RectTransform rect =
                 lineObject.GetComponent<RectTransform>();
@@ -79,56 +96,28 @@ namespace MixMaster.UI
             rect.sizeDelta =
                 new Vector2(520f, fontSize + 12f);
 
-            LogEntry entry =
+            return
                 new LogEntry
                 {
                     gameObject = lineObject,
                     text = text
                 };
 
-            entries.Add(entry);
-
-            while (entries.Count > maxLines)
-            {
-                RemoveEntry(entries[0]);
-            }
-
-            StartCoroutine(
-                FadeAndRemove(entry));
         }
 
-        private IEnumerator FadeAndRemove(
-            LogEntry entry)
+        private void Update()
         {
-            yield return
-                new WaitForSeconds(visibleSeconds);
-
-            if (entry == null ||
-                entry.text == null)
+            for (int i = entries.Count - 1; i >= 0; i--)
             {
-                yield break;
-            }
-
-            float elapsed = 0f;
-            Color startColor = entry.text.color;
-
-            while (elapsed < fadeSeconds &&
-                   entry.text != null)
-            {
-                elapsed += Time.deltaTime;
-
-                float t =
-                    Mathf.Clamp01(
-                        elapsed / fadeSeconds);
-
-                Color color = startColor;
-                color.a = 1f - t;
+                var entry = entries[i];
+                float elapsed = Time.time - entry.expiresAt;
+                if (elapsed < 0f) continue;
+                if (entry.text == null || elapsed >= Mathf.Max(.1f, fadeSeconds))
+                { RemoveEntry(entry); continue; }
+                Color color = entry.text.color;
+                color.a = 1f - Mathf.Clamp01(elapsed / Mathf.Max(.1f, fadeSeconds));
                 entry.text.color = color;
-
-                yield return null;
             }
-
-            RemoveEntry(entry);
         }
 
         private void RemoveEntry(LogEntry entry)
@@ -139,7 +128,11 @@ namespace MixMaster.UI
             entries.Remove(entry);
 
             if (entry.gameObject != null)
-                Destroy(entry.gameObject);
+            {
+                entry.gameObject.SetActive(false);
+                if (available.Count < Mathf.Max(1, maxLines)) available.Enqueue(entry);
+                else Destroy(entry.gameObject);
+            }
         }
 
         private void BuildUiIfNeeded()
