@@ -234,10 +234,10 @@ namespace MixMaster.UI
                 go.transform.SetParent(transform, false);
                 skillNameLabel = go.AddComponent<TextMeshProUGUI>();
                 if (TMP_Settings.defaultFontAsset != null) skillNameLabel.font = TMP_Settings.defaultFontAsset;
-                skillNameLabel.fontSize = 16f;
+                skillNameLabel.fontSize = 32f;
                 skillNameLabel.enableAutoSizing = true;
-                skillNameLabel.fontSizeMin = 12f;
-                skillNameLabel.fontSizeMax = 16f;
+                skillNameLabel.fontSizeMin = 24f;
+                skillNameLabel.fontSizeMax = 32f;
                 skillNameLabel.alignment = TextAlignmentOptions.Top;
                 skillNameLabel.enableWordWrapping = false;
                 skillNameLabel.richText = false;
@@ -247,7 +247,7 @@ namespace MixMaster.UI
                 var rect = (RectTransform)go.transform;
                 rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
                 rect.pivot = new Vector2(.5f, 1f);
-                rect.sizeDelta = new Vector2(220f, 28f);
+                rect.sizeDelta = new Vector2(440f, 56f);
             }
             skillNameLabel.text = skillName;
             skillNameLabel.color = Color.white;
@@ -259,17 +259,25 @@ namespace MixMaster.UI
         private void PositionSkillName()
         {
             float bottom = rectTransform.rect.yMin;
-            IncludeSliderBottom(hpSlider, ref bottom);
-            IncludeSliderBottom(attackSlider, ref bottom);
-            skillNameLabel.rectTransform.anchoredPosition = new Vector2(0f, bottom - rectTransform.rect.center.y - 4f);
+            float left = float.PositiveInfinity, right = float.NegativeInfinity;
+            IncludeSliderBounds(hpSlider, ref bottom, ref left, ref right);
+            IncludeSliderBounds(attackSlider, ref bottom, ref left, ref right);
+            float center = float.IsInfinity(left) ? rectTransform.rect.center.x : (left + right) * .5f;
+            skillNameLabel.rectTransform.anchoredPosition = new Vector2(
+                center - rectTransform.rect.center.x, bottom - rectTransform.rect.center.y - 8f);
         }
 
-        private void IncludeSliderBottom(Slider slider, ref float bottom)
+        private void IncludeSliderBounds(Slider slider, ref float bottom, ref float left, ref float right)
         {
             if (slider == null || !slider.gameObject.activeInHierarchy) return;
             ((RectTransform)slider.transform).GetWorldCorners(barCorners);
             foreach (var corner in barCorners)
-                bottom = Mathf.Min(bottom, rectTransform.InverseTransformPoint(corner).y);
+            {
+                Vector3 local = rectTransform.InverseTransformPoint(corner);
+                bottom = Mathf.Min(bottom, local.y);
+                left = Mathf.Min(left, local.x);
+                right = Mathf.Max(right, local.x);
+            }
         }
 
         private void UpdateSkillName()
@@ -302,4 +310,5 @@ namespace MixMaster.UI
         }
     }
 }
+
 
