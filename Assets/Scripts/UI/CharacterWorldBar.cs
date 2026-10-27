@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using MixMaster.Combat;
 using MixMaster.Monsters;
 
@@ -26,6 +27,10 @@ namespace MixMaster.UI
         private PartyMemberCombat partyTarget;
         private EnemyHealth enemyTarget;
         private Action<CharacterWorldBar> releaseCallback;
+        private TMP_Text skillNameLabel;
+        private float skillNameRemaining;
+        private const float SkillNameDuration = 1.4f;
+        private readonly Vector3[] barCorners = new Vector3[4];
 
         public Component Owner => partyTarget != null ? (Component)partyTarget : enemyTarget;
         public bool IsBound => targetTransform != null;
@@ -47,6 +52,7 @@ namespace MixMaster.UI
 
         private void LateUpdate()
         {
+            UpdateSkillName();
             if (targetTransform == null)
             {
                 RequestRelease();
@@ -66,7 +72,7 @@ namespace MixMaster.UI
                 partyTarget != null ||
                 (enemyTarget != null &&
                  enemyTarget.IsAlive &&
-                 enemyTarget.CurrentHp < enemyTarget.MaxHp);
+                 (enemyTarget.CurrentHp < enemyTarget.MaxHp || skillNameRemaining > 0f));
 
             bool visible = screenPosition.z > 0f && targetWantsBar;
 
@@ -138,6 +144,7 @@ namespace MixMaster.UI
 
         public void Unbind()
         {
+            ClearSkillName();
             if (partyTarget != null)
             {
                 partyTarget.HpChanged -= HandlePartyHpChanged;
@@ -167,6 +174,7 @@ namespace MixMaster.UI
 
         private void HandlePartyDied()
         {
+            ClearSkillName();
             SetHp(0L, 1L);
         }
 
@@ -217,6 +225,71 @@ namespace MixMaster.UI
                 callback(this);
         }
 
+        public void ShowSkillName(string skillName)
+        {
+            if (!IsBound || string.IsNullOrWhiteSpace(skillName)) return;
+            if (skillNameLabel == null)
+            {
+                var go = new GameObject("SkillName", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                skillNameLabel = go.AddComponent<TextMeshProUGUI>();
+                if (TMP_Settings.defaultFontAsset != null) skillNameLabel.font = TMP_Settings.defaultFontAsset;
+                skillNameLabel.fontSize = 16f;
+                skillNameLabel.enableAutoSizing = true;
+                skillNameLabel.fontSizeMin = 12f;
+                skillNameLabel.fontSizeMax = 16f;
+                skillNameLabel.alignment = TextAlignmentOptions.Top;
+                skillNameLabel.enableWordWrapping = false;
+                skillNameLabel.richText = false;
+                skillNameLabel.raycastTarget = false;
+                skillNameLabel.outlineColor = Color.black;
+                skillNameLabel.outlineWidth = .2f;
+                var rect = (RectTransform)go.transform;
+                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+                rect.pivot = new Vector2(.5f, 1f);
+                rect.sizeDelta = new Vector2(220f, 28f);
+            }
+            skillNameLabel.text = skillName;
+            skillNameLabel.color = Color.white;
+            skillNameLabel.gameObject.SetActive(true);
+            skillNameRemaining = SkillNameDuration;
+            PositionSkillName();
+        }
+
+        private void PositionSkillName()
+        {
+            float bottom = rectTransform.rect.yMin;
+            IncludeSliderBottom(hpSlider, ref bottom);
+            IncludeSliderBottom(attackSlider, ref bottom);
+            skillNameLabel.rectTransform.anchoredPosition = new Vector2(0f, bottom - rectTransform.rect.center.y - 4f);
+        }
+
+        private void IncludeSliderBottom(Slider slider, ref float bottom)
+        {
+            if (slider == null || !slider.gameObject.activeInHierarchy) return;
+            ((RectTransform)slider.transform).GetWorldCorners(barCorners);
+            foreach (var corner in barCorners)
+                bottom = Mathf.Min(bottom, rectTransform.InverseTransformPoint(corner).y);
+        }
+
+        private void UpdateSkillName()
+        {
+            if (skillNameRemaining <= 0f) return;
+            skillNameRemaining = Mathf.Max(0f, skillNameRemaining - Time.deltaTime);
+            if (skillNameLabel == null) return;
+            if (skillNameRemaining <= 0f) { ClearSkillName(); return; }
+            PositionSkillName();
+            var color = Color.white;
+            color.a = Mathf.Clamp01(skillNameRemaining / .3f);
+            skillNameLabel.color = color;
+        }
+
+        private void ClearSkillName()
+        {
+            skillNameRemaining = 0f;
+            if (skillNameLabel != null) skillNameLabel.gameObject.SetActive(false);
+        }
+
         private static void ConfigureSlider(Slider slider)
         {
             if (slider == null)
@@ -229,3 +302,4 @@ namespace MixMaster.UI
         }
     }
 }
+

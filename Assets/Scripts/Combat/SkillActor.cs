@@ -266,6 +266,7 @@ namespace MixMaster.Combat
             if (!paid) { Cooldowns.Remove(s.skillId); globalUntil = Time.time; return false; }
             if (s.projectile) SkillProjectile.Launch(this, target, s, Stats, Source());
             else Execute(s, target, target.transform.position, ReincarnationRules.CopyStats(Stats), Source());
+            WorldUIManager.ShowSkillName(party != null ? (Component)party : enemy, s.displayName);
             return true;
         }
         private List<SkillActor> Candidates(bool allies, float range, bool everyone)
@@ -358,6 +359,7 @@ namespace MixMaster.Combat
         }
     }
 }
+
 
 
 
