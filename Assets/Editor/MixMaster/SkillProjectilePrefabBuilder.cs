@@ -70,8 +70,6 @@ namespace MixMaster.EditorTools
                         AddSprite(result, fileId, sprite);
                     }
                     AddSprite(result, NormalizeId(sprite.name), sprite);
-                    AddSprite(result, CommonName(sprite.name), sprite);
-                    if (sprites.Length == 1) AddSprite(result, CommonName(System.IO.Path.GetFileNameWithoutExtension(path)), sprite);
                 }
             }
             return result;
@@ -84,20 +82,15 @@ namespace MixMaster.EditorTools
             if (!list.Contains(sprite)) list.Add(sprite);
         }
 
-        // Accept 光の弾.png and 1.光の弾.png (also underscore/space separators).
-        private static string CommonName(string name)
-        {
-            name = System.Text.RegularExpressions.Regex.Replace(name, @"^\d+[.．、_\-\s]*", "");
-            if (name == "魔法陣") name = "魔方陣";
-            return Array.IndexOf(CommonSprites, name) >= 0 ? name : null;
-        }
-
         public static Sprite ResolveSprite(SkillSO skill, Dictionary<string,string> row, Dictionary<string,List<Sprite>> sprites)
         {
             string selection = Cell(row, "発射物_素材");
+            if (selection == "") selection = Cell(row, "発射物＿素材");
             string key;
             if (selection == "")
             {
+                if (row.ContainsKey("発射物_素材") || row.ContainsKey("発射物＿素材"))
+                    throw new InvalidDataException("発射物_素材にフォルダ内のSprite名を指定してください。");
                 // Old tables retain their numeric image override / skill ID behavior.
                 key = Cell(row, "発射物_画像番号");
                 if (key == "") key = skill.skillId;
@@ -111,12 +104,8 @@ namespace MixMaster.EditorTools
             }
             else
             {
-                if (selection == "魔法陣") selection = "魔方陣";
-                int common = Array.IndexOf(CommonSprites, selection);
-                if (common < 0) throw new InvalidDataException("発射物_素材は光の弾／衝撃波／魔方陣／斬撃／光の柱／煙と粒子／固有スプライトから選択してください。");
+                // Match the table's name directly, including newly added custom sprites.
                 key = selection;
-                // Number-only files 1.png ... 6.png remain usable; named files take priority.
-                if (!sprites.ContainsKey(key)) key = (common + 1).ToString(CultureInfo.InvariantCulture);
             }
             if (!sprites.TryGetValue(key, out var matches) || matches.Count == 0)
                 throw new InvalidDataException("Spriteがありません: " + key + "。Assets/素材/Projectile 内に配置し、Texture TypeをSprite (2D and UI)にしてください。");
@@ -214,5 +203,6 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 
 
