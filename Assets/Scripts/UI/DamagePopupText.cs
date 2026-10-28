@@ -81,7 +81,7 @@ namespace MixMaster.UI
             {
                 string prefix = feedback.IsWeakness ? "弱点\n" : string.Empty;
                 string suffix = feedback.IsCritical ? "‼" : string.Empty;
-                float size = feedback.IsCritical ? 1.3f : 1f;
+                float size = feedback.IsCritical ? 0.65f : 0.5f;
                 ShowText(worldPosition, prefix + damage.ToString("N0", CultureInfo.InvariantCulture) + suffix, damageColor,
                     DisplayOption.DamageText, takenByAlly, size);
             }

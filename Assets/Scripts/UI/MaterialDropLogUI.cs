@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -81,7 +82,7 @@ namespace MixMaster.UI
             entry.gameObject.SetActive(true);
             entry.gameObject.transform.SetAsLastSibling();
             entry.text.text = materialName + "×" + quantity +
-                " (" + System.Math.Max(0L, totalOwned) + ")";
+                " (" + System.Math.Max(0L, totalOwned).ToString("N0", CultureInfo.InvariantCulture) + ")";
             entry.text.color = GetSourceColor(sourceType);
             entry.text.fontSize = fontSize;
             ((RectTransform)entry.gameObject.transform).sizeDelta = new Vector2(520f, fontSize + 12f);

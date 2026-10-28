@@ -34,7 +34,15 @@ namespace MixMaster.UI
         [SerializeField] private GridLayoutGroup grid;
         [SerializeField] private ReincarnationBookEntryUI entryPrefab;
         [SerializeField] private Sprite humanSprite;
+        [Header("習得できるスキル")]
+        [SerializeField] private TMP_Text skillsHeading;
+        [SerializeField] private RectTransform skillsRoot;
+        [SerializeField] private EncyclopediaLinkUI skillLinkPrefab;
         private readonly List<ReincarnationBookEntryUI> entries = new List<ReincarnationBookEntryUI>();
+        private readonly List<EncyclopediaLinkUI> skillLinks = new List<EncyclopediaLinkUI>();
+        private SkillDetailsPopupUI skillPopup;
+        private int skillCount;
+        private float detailWidth = -1f, detailHeight = -1f;
         private ReincarnationManager manager;
         private PlayerManager player;
         private bool subscribed;
@@ -61,6 +69,7 @@ namespace MixMaster.UI
             if (reincarnateButton != null) reincarnateButton.onClick.AddListener(RequestReincarnation);
             if (confirmButton != null) confirmButton.onClick.AddListener(ConfirmReincarnation);
             if (cancelButton != null) cancelButton.onClick.AddListener(CancelConfirmation);
+            EnsureSkillsUI();
         }
         private void OnEnable()
         {
@@ -76,6 +85,7 @@ namespace MixMaster.UI
                 if (player != null) player.StatsChanged -= RefreshDetails;
             }
             subscribed = false;
+            if (skillPopup != null) skillPopup.Hide();
             CancelConfirmation();
             Closed?.Invoke();
         }
@@ -88,6 +98,9 @@ namespace MixMaster.UI
                 Refresh();
             }
             UpdateGridSize();
+            if (detailsScroll != null && detailsScroll.viewport != null &&
+                (detailsScroll.viewport.rect.width != detailWidth || detailsScroll.viewport.rect.height != detailHeight))
+                UpdateDetailHeight();
         }
         private void EnsureBindings()
         {
@@ -128,6 +141,7 @@ namespace MixMaster.UI
         private void Refresh()
         {
             CancelConfirmation();
+            if (skillPopup != null) skillPopup.Hide();
             if (manager == null || player == null) return;
             if (manager.FindBook(selectedId) == null)
                 selectedId = manager.FindBook(player.ReincarnationBookId) != null
@@ -216,8 +230,67 @@ namespace MixMaster.UI
                     detailText.text = text.ToString();
                 }
             }
+            RefreshSkills(stats != null);
             UpdateDetailHeight();
             if (reincarnateButton != null) reincarnateButton.interactable = !executing && stats != null;
+        }
+
+        private void EnsureSkillsUI()
+        {
+            if (detailsScroll == null || detailsScroll.content == null) return;
+            RectTransform parent = detailsScroll.content;
+            if (skillsHeading == null)
+            {
+                Transform existing = parent.Find("LearnableSkillsHeading");
+                skillsHeading = existing != null ? existing.GetComponent<TMP_Text>() :
+                    InventoryUiFactory.Text(parent, "LearnableSkillsHeading", "習得できるスキル", Vector2.zero, new Vector2(0f, 40f), 24f);
+            }
+            if (skillsRoot == null)
+            {
+                Transform existing = parent.Find("LearnableSkills");
+                if (existing != null) skillsRoot = existing as RectTransform;
+                else
+                {
+                    var go = new GameObject("LearnableSkills", typeof(RectTransform));
+                    go.transform.SetParent(parent, false);
+                    skillsRoot = go.GetComponent<RectTransform>();
+                }
+            }
+            if (skillLinkPrefab == null)
+            {
+                var prefab = Resources.Load<GameObject>("UI/Encyclopedia/EncyclopediaLink");
+                if (prefab != null) skillLinkPrefab = prefab.GetComponent<EncyclopediaLinkUI>();
+            }
+        }
+
+        private void RefreshSkills(bool validBook)
+        {
+            EnsureSkillsUI();
+            foreach (EncyclopediaLinkUI link in skillLinks) if (link != null) link.Clear();
+            skillCount = 0;
+            SkillCatalogSO catalog = SkillProgressionManager.Instance != null ? SkillProgressionManager.Instance.Catalog : SkillCatalogSO.Load();
+            if (validBook && manager != null && catalog != null)
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                foreach (SkillSO skill in SkillProgressionManager.ReincarnationSkills(manager.GetSpecies(selectedId), catalog))
+                {
+                    // Learn() also requires the executable definition in the catalog.
+                    if (skill == null || !skill.executable || string.IsNullOrWhiteSpace(skill.skillId) ||
+                        catalog.Get(skill.skillId) != skill || !seen.Add(skill.skillId)) continue;
+                    if (skillsRoot == null || skillLinkPrefab == null) continue;
+                    while (skillLinks.Count <= skillCount) skillLinks.Add(Instantiate(skillLinkPrefab, skillsRoot, false));
+                    skillLinks[skillCount].Bind(EncyclopediaContent.Name(skill.displayName, skill.skillId), skill.icon, () => ShowSkill(skill));
+                    skillCount++;
+                }
+            }
+            if (skillsHeading != null) skillsHeading.text = catalog == null ? "スキルデータがありません" :
+                skillCount == 0 ? "習得できるスキル：なし" : "習得できるスキル（タップで詳細）";
+        }
+
+        private void ShowSkill(SkillSO skill)
+        {
+            if (skillPopup == null) skillPopup = SkillDetailsPopupUI.Create(transform);
+            if (skillPopup != null) skillPopup.Show(skill);
         }
 
         private void UpdateDetailHeight()
@@ -225,8 +298,24 @@ namespace MixMaster.UI
             if (detailsScroll == null || detailsScroll.content == null ||
                 detailsScroll.viewport == null || detailText == null) return;
             RectTransform detailContent = detailsScroll.content;
-            detailContent.sizeDelta = new Vector2(detailContent.sizeDelta.x,
-                Mathf.Max(detailsScroll.viewport.rect.height, detailText.preferredHeight + 24f));
+            detailWidth = detailsScroll.viewport.rect.width;
+            detailHeight = detailsScroll.viewport.rect.height;
+            float statsHeight = Mathf.Max(40f, detailText.preferredHeight);
+            PlaceDetailRect(detailText.rectTransform, 12f, statsHeight, -28f);
+            float headingTop = statsHeight + 30f;
+            if (skillsHeading != null) PlaceDetailRect(skillsHeading.rectTransform, headingTop, 40f, -28f);
+            float linksTop = headingTop + 48f;
+            float linksHeight = skillCount == 0 ? 0f : skillCount * 72f - 8f;
+            if (skillsRoot != null) PlaceDetailRect(skillsRoot, linksTop, linksHeight, -28f);
+            for (int i = 0; i < skillCount; i++) PlaceDetailRect((RectTransform)skillLinks[i].transform, i * 72f, 64f, 0f);
+            detailContent.sizeDelta = new Vector2(detailContent.sizeDelta.x, Mathf.Max(detailHeight, linksTop + linksHeight + 12f));
+        }
+
+        private static void PlaceDetailRect(RectTransform rect, float top, float height, float width)
+        {
+            rect.anchorMin = new Vector2(0f, 1f); rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -top); rect.sizeDelta = new Vector2(width, height);
         }
 
         private static string Percent(float value) => (value * 100f).ToString("0.##") + "%";

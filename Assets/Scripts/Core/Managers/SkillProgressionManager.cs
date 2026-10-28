@@ -45,13 +45,21 @@ namespace MixMaster.Core
             if (owner == "player")
             {
                 var p = GetComponent<PlayerManager>();
-                return p.ReincarnationSpecies != null ? p.AvailableReincarnationSkills : Catalog.humanSkills;
+                return p != null ? ReincarnationSkills(p.ReincarnationSpecies, Catalog) : Array.Empty<SkillSO>();
             }
             var record = Record(owner);
             var monster = record != null ? MonsterCatalogSO.Load()?.GetMonster(record.monsterId) : null;
             var available=new List<SkillSO>();if(monster!=null)available.AddRange(monster.availableSkills);
             if(record?.learnedSkillIds!=null)foreach(var id in record.learnedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
             return available;
+        }
+        // Previewing a book and learning after reincarnation share the same pool.
+        // Enemy-only skills are intentionally outside this list.
+        public static IReadOnlyList<SkillSO> ReincarnationSkills(MonsterSO species, SkillCatalogSO catalog)
+        {
+            if (catalog == null) return Array.Empty<SkillSO>();
+            return (IReadOnlyList<SkillSO>)(species != null ? species.availableSkills : catalog.humanSkills)
+                ?? Array.Empty<SkillSO>();
         }
         public bool Learned(string owner, string id) => owner == "player" ? data.playerLearned.Contains(id) : Record(owner)?.learnedSkillIds?.Contains(id) == true;
         public int Points(string owner) => owner == "player" ? GetComponent<PlayerManager>().SkillPoints : Record(owner)?.skillPoints ?? 0;
