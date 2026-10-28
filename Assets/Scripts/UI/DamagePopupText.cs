@@ -28,9 +28,6 @@ namespace MixMaster.UI
         private static readonly Color HealingColor = new Color32(180, 255, 70, 255);
         private static readonly Color BuffColor = new Color32(255, 165, 55, 255);
         private static readonly Color DebuffColor = new Color32(100, 175, 255, 255);
-        private static readonly Color CriticalColor = new Color32(255, 215, 75, 255);
-        private static readonly Color WeaknessColor = new Color32(255, 120, 160, 255);
-        private static readonly Color CriticalWeaknessColor = new Color32(255, 150, 65, 255);
 
         private TextMeshPro label;
         private Vector3 startPosition;
@@ -78,17 +75,14 @@ namespace MixMaster.UI
             Color damageColor = takenByAlly
                 ? EnemyDamageColor
                 : MaterialDropLogUI.GetSourceColor(attackSource);
-            if (feedback.IsCritical && feedback.IsWeakness) damageColor = CriticalWeaknessColor;
-            else if (feedback.IsCritical) damageColor = CriticalColor;
-            else if (feedback.IsWeakness) damageColor = WeaknessColor;
             DamageHitParticles.Show(worldPosition, damageColor);
 
             if (!DisplaySettingsManager.IsDisabled(DisplayOption.DamageText) && activeCount < MaxActive)
             {
-                string prefix = feedback.IsCritical ? feedback.IsWeakness ? "クリティカル！ 弱点！\n" : "クリティカル！\n"
-                    : feedback.IsWeakness ? "弱点！\n" : string.Empty;
-                float size = feedback.IsCritical ? feedback.IsWeakness ? 1.45f : 1.3f : feedback.IsWeakness ? 1.2f : 1f;
-                ShowText(worldPosition, prefix + damage.ToString("N0", CultureInfo.InvariantCulture), damageColor,
+                string prefix = feedback.IsWeakness ? "弱点\n" : string.Empty;
+                string suffix = feedback.IsCritical ? "‼" : string.Empty;
+                float size = feedback.IsCritical ? 1.3f : 1f;
+                ShowText(worldPosition, prefix + damage.ToString("N0", CultureInfo.InvariantCulture) + suffix, damageColor,
                     DisplayOption.DamageText, takenByAlly, size);
             }
         }
@@ -190,7 +184,7 @@ namespace MixMaster.UI
             baseColor = damageColor;
             // White outline improves contrast for black enemy-origin damage;
             // party-colored damage retains its original dark outline.
-            label.outlineColor = takenByAlly && fontScale <= 1f
+            label.outlineColor = takenByAlly
                 ? Color.white : new Color32(23, 18, 27, 255);
             // Every pool reuse resets emphasis, including healing/status text.
             label.fontSize = BaseFontSize * fontScale;
