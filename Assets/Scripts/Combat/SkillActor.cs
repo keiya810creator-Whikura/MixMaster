@@ -433,7 +433,12 @@ namespace MixMaster.Combat
                 else if (s.effect == SkillBaseEffect.Heal) target.Heal(amount);
                 if (target.Alive)
                     for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],source);
-                if (s.effectPrefab != null) Destroy(Instantiate(s.effectPrefab,target.SkillEffectPosition(s),Quaternion.identity),5f);
+                if (s.effectPrefab != null)
+                {
+                    var effect = Instantiate(s.effectPrefab, target.SkillEffectPosition(s), Quaternion.identity);
+                    SkillEffectVisibility.Track(effect);
+                    Destroy(effect, 5f);
+                }
             }
         }
         public void AddStatus(string key, SkillAffix e, MaterialDropSourceInfo source)

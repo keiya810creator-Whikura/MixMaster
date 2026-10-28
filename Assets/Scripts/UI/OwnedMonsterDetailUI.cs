@@ -450,6 +450,13 @@ namespace MixMaster.UI
         private void RefreshAttackRangeToggle()
         {
             if (attackRangeToggle == null) return;
+            // Global display settings supersede the old individual switch.
+            // Keep the serialized control/record for older scenes and saves.
+            if (DisplaySettingsManager.Instance != null)
+            {
+                attackRangeToggle.gameObject.SetActive(false);
+                return;
+            }
             attackRangeToggle.interactable = !readOnlyMode && selectedRecord != null &&
                 monsterManager != null && monsterManager.FindOwnedMonster(selectedRecord.uniqueId) != null;
             attackRangeToggle.SetIsOnWithoutNotify(selectedRecord != null && !selectedRecord.hideAttackRange);

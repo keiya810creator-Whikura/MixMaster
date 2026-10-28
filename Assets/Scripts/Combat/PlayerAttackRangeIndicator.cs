@@ -50,7 +50,7 @@ namespace MixMaster.Combat
                 ConfigureRenderer();
 
             circleRenderer.enabled =
-                visible &&
+                IsVisible &&
                 (partyMember != null ? partyMember.IsAlive : playerAutoAttack != null) &&
                 circleRenderer.sprite != null;
 
@@ -65,9 +65,14 @@ namespace MixMaster.Combat
             visible = value;
 
             if (circleRenderer != null)
-                circleRenderer.enabled = value && circleRenderer.sprite != null &&
+                circleRenderer.enabled = IsVisible && circleRenderer.sprite != null &&
                     (partyMember != null ? partyMember.IsAlive : playerAutoAttack != null);
         }
+
+        // The settings screen controls every player/party circle, regardless
+        // of the legacy per-monster/Inspector value. Keep that value serialized.
+        private bool IsVisible => DisplaySettingsManager.Instance != null
+            ? !DisplaySettingsManager.IsDisabled(DisplayOption.AttackRange) : visible;
 
         public void SetPartyMember(PartyMemberCombat member)
         {

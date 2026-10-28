@@ -27,10 +27,30 @@ namespace MixMaster.UI
         private readonly Queue<LogEntry> available = new Queue<LogEntry>();
 
         private RectTransform contentRoot;
+        private DisplaySettingsManager displaySettings;
 
         private void Awake()
         {
             BuildUiIfNeeded();
+        }
+
+        private void OnEnable()
+        {
+            displaySettings = DisplaySettingsManager.Instance;
+            if (displaySettings != null) displaySettings.Changed += HandleDisplaySettingsChanged;
+            HandleDisplaySettingsChanged();
+        }
+
+        private void OnDisable()
+        {
+            if (displaySettings != null) displaySettings.Changed -= HandleDisplaySettingsChanged;
+            displaySettings = null;
+        }
+
+        private void HandleDisplaySettingsChanged()
+        {
+            if (!DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog)) return;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
         }
 
         public void AddMaterialLog(
@@ -39,7 +59,7 @@ namespace MixMaster.UI
             MaterialDropSourceType sourceType,
             long totalOwned)
         {
-            if (material == null || quantity <= 0L)
+            if (material == null || quantity <= 0L || DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog))
                 return;
 
             BuildUiIfNeeded();
@@ -109,6 +129,8 @@ namespace MixMaster.UI
 
         private void Update()
         {
+            if (DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog))
+            { HandleDisplaySettingsChanged(); return; }
             for (int i = entries.Count - 1; i >= 0; i--)
             {
                 var entry = entries[i];
