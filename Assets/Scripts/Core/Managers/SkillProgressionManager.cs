@@ -86,6 +86,60 @@ namespace MixMaster.Core
             for (int i = 0; i < l.slots.Count; i++) if (i != index && l.slots[i].skillId == slot.skillId) l.slots[i] = new SkillSlot();
             l.slots[index] = slot; l.revision++; NotifyChanged();
         }
+
+        internal bool ValidatePresetSkills(string owner, IReadOnlyList<SkillSlot> slots, out string error)
+        {
+            error = "スキル設定が不正です。";
+            if (slots == null || slots.Count != SlotCount) return false;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (SkillSlot slot in slots)
+            {
+                if (slot == null) return false;
+                if (!Enum.IsDefined(typeof(SkillTrigger), slot.trigger) ||
+                    !Enum.IsDefined(typeof(SkillTrigger), slot.andCondition) ||
+                    float.IsNaN(slot.threshold) || float.IsInfinity(slot.threshold) || slot.threshold < 0f ||
+                    float.IsNaN(slot.andThreshold) || float.IsInfinity(slot.andThreshold) || slot.andThreshold < 0f) return false;
+                if (string.IsNullOrWhiteSpace(slot.skillId)) continue;
+                SkillSO skill = Catalog != null ? Catalog.Get(slot.skillId) : null;
+                if (skill == null || !skill.executable) { error = "スキルが見つかりません：" + slot.skillId; return false; }
+                if (!Learned(owner, slot.skillId)) { error = "未習得のスキル：" + skill.displayName; return false; }
+                if (!seen.Add(slot.skillId)) { error = "同じスキルが複数の枠に設定されています。"; return false; }
+            }
+            error = string.Empty;
+            return true;
+        }
+
+        // Caller validates every owner before any of these silent mutations.
+        // Keep learned skills, points and all runtime cooldown timestamps.
+        internal bool ApplyPresetSkills(IReadOnlyList<PartyPresetActor> actors)
+        {
+            var changedOwners = new HashSet<string>(StringComparer.Ordinal);
+            foreach (PartyPresetActor actor in actors)
+            {
+                SkillLoadout loadout = Loadout(actor.ownerId);
+                var slots = new List<SkillSlot>(SlotCount);
+                foreach (SkillSlot saved in actor.skills)
+                {
+                    SkillSlot slot = PartyPresetData.CopySkill(saved);
+                    if (actor.ownerId != "player" && slot.trigger == SkillTrigger.Manual) slot.trigger = SkillTrigger.Ready;
+                    slots.Add(slot);
+                }
+                bool changed = loadout.slots.Count != slots.Count;
+                for (int i = 0; !changed && i < slots.Count; i++)
+                {
+                    SkillSlot a = loadout.slots[i], b = slots[i];
+                    changed = a == null || a.skillId != b.skillId || a.trigger != b.trigger || a.threshold != b.threshold ||
+                        a.andCondition != b.andCondition || a.andThreshold != b.andThreshold || a.priority != b.priority;
+                }
+                if (!changed) continue;
+                loadout.slots = slots;
+                loadout.revision++;
+                changedOwners.Add(actor.ownerId);
+            }
+            foreach (var actor in MixMaster.Combat.SkillActor.Active)
+                if (actor != null && changedOwners.Contains(actor.OwnerId)) actor.CancelPresetCast();
+            return changedOwners.Count > 0;
+        }
         public double PassiveValue(string owner, SkillPassiveType type)
         {
             if(string.IsNullOrEmpty(owner))return 0;

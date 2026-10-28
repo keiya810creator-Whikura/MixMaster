@@ -121,6 +121,32 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action<OwnedMonsterRecord> MonsterAttackRangeDisplayChanged;
         public event Action PartyChanged;
+        internal bool IsApplyingPartyPreset { get; private set; }
+
+        internal void ApplyPresetParty(PartyPresetRecord preset)
+        {
+            partyMonsterUniqueIds.Clear();
+            foreach (PartyPresetActor actor in preset.members)
+            {
+                partyMonsterUniqueIds.Add(actor.ownerId);
+                FindOwnedMonster(actor.ownerId).combatBehavior = actor.combatBehavior;
+            }
+            partyCombatOrder = preset.combatOrder;
+        }
+
+        internal void NotifyPartyPresetChanged()
+        {
+            // All configuration has already committed when observers run.
+            // Let the field spawner preserve matching live/dead members.
+            IsApplyingPartyPreset = true;
+            try
+            {
+                PartyCombatOrderChanged?.Invoke(partyCombatOrder);
+                foreach (string id in partyMonsterUniqueIds) MonsterBehaviorChanged?.Invoke(FindOwnedMonster(id));
+                PartyChanged?.Invoke();
+            }
+            finally { IsApplyingPartyPreset = false; }
+        }
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
         public event Action<string> MonsterSold;
         public event Action MonstersBulkSold;

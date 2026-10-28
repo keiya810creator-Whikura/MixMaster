@@ -166,6 +166,15 @@ namespace MixMaster.Combat
         }
         private void OnEnable() { if (!Active.Contains(this)) Active.Add(this); if(IsPlayer)PlayerActor=this; }
         public void ResetTransient() { statuses.Clear(); casting=null; pendingSlot=-1; cachedFrame=-1; ruleRevision=-1; }
+        // A loadout replacement cancels its old pending cast/trigger counters,
+        // while existing buffs, debuffs and cooldowns remain in force.
+        internal void CancelPresetCast()
+        {
+            casting = null; castTarget = null; pendingSlot = -1;
+            intervals.Clear(); hitsAt.Clear(); damageAt.Clear(); killsAt.Clear();
+            normalHits = 0; damageEvents = 0; kills = 0;
+            cachedFrame = -1; ruleRevision = -1;
+        }
         private void OnDisable() { Active.Remove(this); ResetTransient(); if (PlayerActor == this) PlayerActor = null; }
         public void Configure(MonsterSO monster, string individualId, CharacterStats enemyStats = null)
         {

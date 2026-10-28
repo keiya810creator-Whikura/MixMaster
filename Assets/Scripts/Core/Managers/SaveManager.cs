@@ -178,6 +178,7 @@ namespace MixMaster.Core
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
             data.skills = GetComponent<SkillProgressionManager>()?.Capture();
+            data.partyPresets = GetComponent<PartyPresetManager>()?.Capture() ?? new List<PartyPresetRecord>();
             data.defeatedMonsterIds = GetComponent<EncyclopediaManager>()?.Capture()
                 ?? new List<string>();
 
@@ -395,6 +396,7 @@ namespace MixMaster.Core
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) consumables.Restore(data.consumables);
             GetComponent<SkillProgressionManager>()?.Restore(data.skills);
+            GetComponent<PartyPresetManager>()?.Restore(data.partyPresets);
             GetComponent<EncyclopediaManager>()?.Restore(data.defeatedMonsterIds);
 
             // Saved coordinates are retained in the file for compatibility,

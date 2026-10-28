@@ -172,7 +172,50 @@ namespace MixMaster.Monsters
         {
             dirty = true;
             nextRetryTime = 0f;
-            RefreshParty();
+            if (monsterManager != null && monsterManager.IsApplyingPartyPreset)
+                RefreshPresetParty();
+            else RefreshParty();
+        }
+
+        private void RefreshPresetParty()
+        {
+            EnsureEquipmentSubscription();
+            PlayerController player = FindFirstObjectByType<PlayerController>();
+            if (monsterManager == null || player == null) { RefreshParty(); return; }
+            catalog = MonsterCatalogSO.Load();
+            var wanted = new HashSet<string>(monsterManager.PartyMonsterUniqueIds);
+            var removed = new List<string>();
+            foreach (var pair in activeByMonsterId)
+            {
+                if (pair.Value != null && wanted.Contains(pair.Key)) continue;
+                if (pair.Value != null)
+                {
+                    GameObject actor = pair.Value.gameObject;
+                    activeActors.Remove(actor);
+                    actor.SetActive(false);
+                    Destroy(actor);
+                }
+                removed.Add(pair.Key);
+            }
+            foreach (string id in removed) activeByMonsterId.Remove(id);
+            PlayerTrailRecorder trail = player.GetComponent<PlayerTrailRecorder>() ?? player.gameObject.AddComponent<PlayerTrailRecorder>();
+            for (int i = 0; i < monsterManager.PartyMonsterUniqueIds.Count; i++)
+            {
+                string id = monsterManager.PartyMonsterUniqueIds[i];
+                OwnedMonsterRecord record = monsterManager.FindOwnedMonster(id);
+                MonsterSO definition = record != null && catalog != null ? catalog.GetMonster(record.monsterId) : null;
+                if (definition == null) continue;
+                if (activeByMonsterId.TryGetValue(id, out PartyMemberCombat combat) && combat != null)
+                {
+                    // Reordering or loading the same party must not restore
+                    // HP/MP, resurrect a corpse or discard active statuses.
+                    combat.SetCombatMode((PartyCombatMode)monsterManager.GetEffectiveCombatBehavior(record));
+                    var follower = combat.GetComponent<MonsterTrailFollower>();
+                    if (follower != null) follower.SetFollowOrder(i);
+                }
+                else SpawnMember(record, definition, trail, i);
+            }
+            dirty = false;
         }
 
         private void HandleMonsterLeveledUp(OwnedMonsterRecord record)
