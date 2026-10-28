@@ -75,6 +75,7 @@ namespace MixMaster.Combat
         public float AttackRange => skills != null ? skills.Stats.attackRange : attackRange;
         public bool HasTarget => targetTransform != null;
         private SkillActor skills;
+        private ElementType baseElement;
 
         public void ApplyMonsterData(
             MonsterSO monster,
@@ -95,6 +96,7 @@ namespace MixMaster.Combat
             attackSpeed = Mathf.Max(0.1f, stats.attackSpeed);
             criticalRate = Mathf.Clamp01(stats.criticalRate);
             criticalMultiplier = Mathf.Max(1f, stats.criticalMultiplier);
+            baseElement = stats.element;
 
             attackType = monster.attackType;
             projectilePrefab = monster.projectilePrefab;
@@ -319,28 +321,27 @@ namespace MixMaster.Combat
 
         private void AttackTarget(Vector2 direction)
         {
+            if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
+            bool critical = UnityEngine.Random.value < Mathf.Clamp01(criticalRate);
+            ElementType element = skills != null ? skills.Stats.element : baseElement;
             if (attackType == MonsterAttackType.Ranged)
             {
-                if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
                 long magicPower = Math.Max(1L, skills != null ? skills.Stats.magic : magic);
 
-                if (UnityEngine.Random.value <
-                    Mathf.Clamp01(criticalRate))
+                if (critical)
                 {
                     magicPower = MultiplyLong(
                         magicPower,
                         Mathf.Max(1f, criticalMultiplier));
                 }
 
-                FireMagicProjectile(magicPower);
+                FireMagicProjectile(magicPower, element, critical);
                 return;
             }
 
-            if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
             long attackPower = Math.Max(1L, skills != null ? skills.Stats.attack : attack);
 
-            if (UnityEngine.Random.value <
-                Mathf.Clamp01(criticalRate))
+            if (critical)
             {
                 attackPower = MultiplyLong(
                     attackPower,
@@ -348,9 +349,9 @@ namespace MixMaster.Combat
             }
 
             if (playerTarget != null)
-                playerTarget.TakePhysicalHit(attackPower);
+                playerTarget.TakePhysicalHit(attackPower, element, critical);
             else if (partyTarget != null)
-                partyTarget.TakePhysicalHit(attackPower);
+                partyTarget.TakePhysicalHit(attackPower, element, critical);
             else
                 return;
 
@@ -361,7 +362,7 @@ namespace MixMaster.Combat
             StartAttackLunge(direction);
         }
 
-        private void FireMagicProjectile(long magicPower)
+        private void FireMagicProjectile(long magicPower, ElementType element, bool critical)
         {
             if (playerTarget == null && partyTarget == null)
                 return;
@@ -369,9 +370,9 @@ namespace MixMaster.Combat
             if (projectilePrefab == null)
             {
                 if (playerTarget != null)
-                    playerTarget.TakeMagicHit(magicPower);
+                    playerTarget.TakeMagicHit(magicPower, element, critical);
                 else if (partyTarget != null)
-                    partyTarget.TakeMagicHit(magicPower);
+                    partyTarget.TakeMagicHit(magicPower, element, critical);
 
                 return;
             }
@@ -413,7 +414,7 @@ namespace MixMaster.Combat
                 magicPower,
                 projectileSpeed,
                 projectileLifetime,
-                projectileHoming);
+                projectileHoming, element, critical);
         }
 
         private void ClearTarget()

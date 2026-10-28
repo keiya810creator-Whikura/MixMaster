@@ -120,10 +120,10 @@ namespace MixMaster.Combat
                 return 0;
 
             long damage = DamageCalculator.Calculate(attackPower, Defense);
-
+            float resistance = HitResistance(sourceInfo);
             return TakeDamage(
-                damage,
-                sourceInfo);
+                DamageCalculator.ApplyResistance(damage, resistance),
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
         }
 
         public long TakeMagicHit(long magicPower)
@@ -141,10 +141,17 @@ namespace MixMaster.Combat
                 return 0;
 
             long damage = DamageCalculator.Calculate(magicPower, MagicDefense);
-
+            float resistance = HitResistance(sourceInfo);
             return TakeDamage(
-                damage,
-                sourceInfo);
+                DamageCalculator.ApplyResistance(damage, resistance),
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
+        }
+
+        private float HitResistance(MaterialDropSourceInfo source)
+        {
+            ElementResistanceSet values = GetComponent<SkillActor>()?.Stats.resistances
+                ?? GetComponent<MonsterRuntimeSetup>()?.CurrentStats?.resistances;
+            return DamageCalculator.Resistance(values, source != null ? source.attackElement : ElementType.None);
         }
 
         public long TakeDamage(long damage)
@@ -158,10 +165,17 @@ namespace MixMaster.Combat
             long damage,
             MaterialDropSourceInfo sourceInfo)
         {
+            return TakeDamage(damage, sourceInfo, default);
+        }
+
+        public long TakeDamage(long damage, MaterialDropSourceInfo sourceInfo, DamageFeedback feedback)
+        {
             if (!IsAlive || damage <= 0)
                 return 0;
 
             if (!SkillActor.AllowNormalHit(sourceInfo)) return 0;
+
+            damage = DamageCalculator.Randomize(damage);
 
             // The killing blow must identify its own attacker.
             // A hit without attribution must never inherit a prior killer.
@@ -183,7 +197,7 @@ namespace MixMaster.Combat
                 damage,
                 sourceInfo != null
                     ? sourceInfo.sourceType
-                    : MaterialDropSourceType.Unknown);
+                    : MaterialDropSourceType.Unknown, false, feedback);
             Damaged?.Invoke(this, actualDamage);
 
             if (spriteRenderer != null)

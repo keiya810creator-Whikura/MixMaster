@@ -17,6 +17,7 @@ namespace MixMaster.UI
         private const int MaxPooled = 64;
         private const float Duration = 0.72f;
         private const float RiseDistance = 0.75f;
+        private const float BaseFontSize = 4.2f;
 
         private static readonly Stack<DamagePopupText> pooled =
             new Stack<DamagePopupText>();
@@ -27,6 +28,9 @@ namespace MixMaster.UI
         private static readonly Color HealingColor = new Color32(180, 255, 70, 255);
         private static readonly Color BuffColor = new Color32(255, 165, 55, 255);
         private static readonly Color DebuffColor = new Color32(100, 175, 255, 255);
+        private static readonly Color CriticalColor = new Color32(255, 215, 75, 255);
+        private static readonly Color WeaknessColor = new Color32(255, 120, 160, 255);
+        private static readonly Color CriticalWeaknessColor = new Color32(255, 150, 65, 255);
 
         private TextMeshPro label;
         private Vector3 startPosition;
@@ -50,6 +54,11 @@ namespace MixMaster.UI
             Show(worldPosition, damage, MaterialDropSourceType.Unknown, takenByAlly);
         }
 
+        public static void Show(Vector3 worldPosition, long damage, bool takenByAlly, DamageFeedback feedback)
+        {
+            Show(worldPosition, damage, MaterialDropSourceType.Unknown, takenByAlly, feedback);
+        }
+
         // The attacker's material-log color is also the damage-number color.
         public static void Show(
             Vector3 worldPosition,
@@ -57,16 +66,31 @@ namespace MixMaster.UI
             MaterialDropSourceType attackSource,
             bool takenByAlly = false)
         {
+            Show(worldPosition, damage, attackSource, takenByAlly, default);
+        }
+
+        public static void Show(Vector3 worldPosition, long damage, MaterialDropSourceType attackSource,
+            bool takenByAlly, DamageFeedback feedback)
+        {
             if (!Application.isPlaying || damage <= 0L)
                 return;
 
             Color damageColor = takenByAlly
                 ? EnemyDamageColor
                 : MaterialDropLogUI.GetSourceColor(attackSource);
+            if (feedback.IsCritical && feedback.IsWeakness) damageColor = CriticalWeaknessColor;
+            else if (feedback.IsCritical) damageColor = CriticalColor;
+            else if (feedback.IsWeakness) damageColor = WeaknessColor;
             DamageHitParticles.Show(worldPosition, damageColor);
 
-            if (!DisplaySettingsManager.IsDisabled(DisplayOption.DamageText))
-                ShowText(worldPosition, damage.ToString("N0", CultureInfo.InvariantCulture), damageColor, DisplayOption.DamageText, takenByAlly);
+            if (!DisplaySettingsManager.IsDisabled(DisplayOption.DamageText) && activeCount < MaxActive)
+            {
+                string prefix = feedback.IsCritical ? feedback.IsWeakness ? "クリティカル！ 弱点！\n" : "クリティカル！\n"
+                    : feedback.IsWeakness ? "弱点！\n" : string.Empty;
+                float size = feedback.IsCritical ? feedback.IsWeakness ? 1.45f : 1.3f : feedback.IsWeakness ? 1.2f : 1f;
+                ShowText(worldPosition, prefix + damage.ToString("N0", CultureInfo.InvariantCulture), damageColor,
+                    DisplayOption.DamageText, takenByAlly, size);
+            }
         }
 
         public static void ShowHealing(Vector3 worldPosition, long recovered)
@@ -107,7 +131,7 @@ namespace MixMaster.UI
             if (text != null) ShowText(worldPosition, text, effect.type == SkillAffixType.Buff ? BuffColor : DebuffColor, option);
         }
 
-        private static void ShowText(Vector3 worldPosition, string text, Color color, DisplayOption option, bool takenByAlly = false)
+        private static void ShowText(Vector3 worldPosition, string text, Color color, DisplayOption option, bool takenByAlly = false, float fontScale = 1f)
         {
             if (!Application.isPlaying || DisplaySettingsManager.IsDisabled(option)) return;
 
@@ -128,7 +152,7 @@ namespace MixMaster.UI
             }
 
             popup.gameObject.SetActive(true);
-            popup.Begin(worldPosition, text, color, option, takenByAlly);
+            popup.Begin(worldPosition, text, color, option, takenByAlly, fontScale);
         }
 
         private void Awake()
@@ -141,7 +165,7 @@ namespace MixMaster.UI
                 label.font = TMP_Settings.defaultFontAsset;
 
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 4.2f;
+            label.fontSize = BaseFontSize;
             label.fontStyle = FontStyles.Bold;
             label.enableWordWrapping = false;
             label.outlineColor = Color.white;
@@ -154,7 +178,7 @@ namespace MixMaster.UI
                 renderer.sortingOrder = 3000;
         }
 
-        private void Begin(Vector3 position, string text, Color damageColor, DisplayOption option, bool takenByAlly)
+        private void Begin(Vector3 position, string text, Color damageColor, DisplayOption option, bool takenByAlly, float fontScale)
         {
             displayOption = option;
             startPosition = position +
@@ -166,8 +190,10 @@ namespace MixMaster.UI
             baseColor = damageColor;
             // White outline improves contrast for black enemy-origin damage;
             // party-colored damage retains its original dark outline.
-            label.outlineColor = takenByAlly
+            label.outlineColor = takenByAlly && fontScale <= 1f
                 ? Color.white : new Color32(23, 18, 27, 255);
+            // Every pool reuse resets emphasis, including healing/status text.
+            label.fontSize = BaseFontSize * fontScale;
             label.text = text;
             label.color = baseColor;
 

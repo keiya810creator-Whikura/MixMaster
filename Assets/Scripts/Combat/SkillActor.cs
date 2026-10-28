@@ -289,7 +289,13 @@ namespace MixMaster.Combat
             {
                 confusedAttackAt = Time.time + 1f / Mathf.Max(0.1f, Stats.attackSpeed);
                 var targets = Candidates(false, Stats.attackRange, true);
-                if (targets.Count > 0) { var target=targets[UnityEngine.Random.Range(0, targets.Count)];target.DealRaw(DamageCalculator.Calculate(Stats.attack, target.Stats.defense), Source()); }
+                if (targets.Count > 0)
+                {
+                    var target = targets[UnityEngine.Random.Range(0, targets.Count)];
+                    float resistance = DamageCalculator.Resistance(target.Stats.resistances, Stats.element);
+                    target.DealRaw(DamageCalculator.ApplyResistance(DamageCalculator.Calculate(Stats.attack, target.Stats.defense), resistance),
+                        Source(), new DamageFeedback(false, resistance < 0f));
+                }
             }
             if (Time.time < nextCheck || SkillBlocked) return;
             nextCheck = Time.time + 0.2f;
@@ -426,9 +432,11 @@ namespace MixMaster.Combat
                 {
                     amount = DamageCalculator.Calculate(amount, s.powerSource == SkillPowerSource.Attack ? target.Stats.defense : target.Stats.magicDefense);
                     var element = s.useOwnerElement ? powerStats.element : s.overrideElement;
-                    amount = SkillMath.Amount(amount * (1d - (target.Stats.resistances?.Get(element) ?? 0)));
-                    if (s.canCritical && UnityEngine.Random.value < powerStats.criticalRate) amount = SkillMath.Amount(amount * (double)Mathf.Max(1,powerStats.criticalMultiplier));
-                    target.DealRaw(amount, source);
+                    float resistance = DamageCalculator.Resistance(target.Stats.resistances, element);
+                    amount = DamageCalculator.ApplyResistance(amount, resistance);
+                    bool critical = s.canCritical && UnityEngine.Random.value < powerStats.criticalRate;
+                    if (critical) amount = SkillMath.Amount(amount * (double)Mathf.Max(1,powerStats.criticalMultiplier));
+                    target.DealRaw(amount, source, new DamageFeedback(critical, resistance < 0f));
                 }
                 else if (s.effect == SkillBaseEffect.Heal) target.Heal(amount);
                 if (target.Alive)
@@ -460,13 +468,22 @@ namespace MixMaster.Combat
         private void Heal(long amount) { if (enemy != null) enemy.Heal(amount); else if (party != null) party.Heal(amount); else player?.Heal(amount); }
         public void DealRaw(long amount, MaterialDropSourceInfo source)
         {
+            DealRaw(amount, source, default);
+        }
+
+        public void DealRaw(long amount, MaterialDropSourceInfo source, DamageFeedback feedback)
+        {
             if (!Alive || amount <= 0) return;
             bool previous = ApplyingSkill; ApplyingSkill = true;
             try
             {
-                if (enemy != null) enemy.TakeDamage(amount,source);
-                else if (party != null) party.TakeDamage(amount);
-                else { player.TakeDamage(amount); DamagePopupText.Show(transform.position,amount,true); }
+                if (enemy != null) enemy.TakeDamage(amount, source, feedback);
+                else if (party != null) party.TakeDamage(amount, feedback);
+                else
+                {
+                    player.TakeDamage(amount, out long finalDamage);
+                    DamagePopupText.Show(transform.position, finalDamage, true, feedback);
+                }
             }
             finally { ApplyingSkill = previous; }
         }

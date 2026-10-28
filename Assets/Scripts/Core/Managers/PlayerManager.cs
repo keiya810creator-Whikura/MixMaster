@@ -282,11 +282,18 @@ namespace MixMaster.Core
 
         public void TakeDamage(long amount)
         {
-            if (amount <= 0) return;
+            TakeDamage(amount, out _);
+        }
+
+        public void TakeDamage(long amount, out long finalDamage)
+        {
+            finalDamage = 0;
+            if (amount <= 0 || CurrentHp <= 0) return;
+            finalDamage = DamageCalculator.Randomize(amount);
 
             MixMaster.Combat.SkillActor.PlayerActor?.NotifyDamage(MixMaster.Combat.SkillActor.ApplyingSkill);
 
-            CurrentHp = Math.Max(0L, CurrentHp - amount);
+            CurrentHp = Math.Max(0L, CurrentHp - finalDamage);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
         }
 

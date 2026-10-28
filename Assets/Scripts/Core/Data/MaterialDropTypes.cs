@@ -21,6 +21,8 @@ namespace MixMaster.Core
         public float dropRateBonus;
         public bool isSkill;
         public int attackSequence;
+        public ElementType attackElement;
+        public bool isCritical;
         private static int nextAttackSequence;
 
         // Exact owned-individual identity is carried through projectiles.
@@ -81,9 +83,18 @@ namespace MixMaster.Core
                 sourceType = sourceType,
                 isSkill = isSkill,
                 attackSequence = attackSequence,
+                attackElement = attackElement,
+                isCritical = isCritical,
                 dropRateBonus = dropRateBonus,
                 ownedMonsterUniqueId = ownedMonsterUniqueId
             };
+        }
+
+        public MaterialDropSourceInfo WithAttack(ElementType element, bool critical)
+        {
+            attackElement = element;
+            isCritical = critical;
+            return this;
         }
     }
 

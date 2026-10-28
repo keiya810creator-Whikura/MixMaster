@@ -1,5 +1,6 @@
 using UnityEngine;
 using MixMaster.Monsters;
+using MixMaster.Core;
 
 namespace MixMaster.Combat
 {
@@ -18,6 +19,8 @@ namespace MixMaster.Combat
         private Transform targetTransform;
 
         private long magicPower;
+        private ElementType attackElement;
+        private bool isCritical;
         private float speed;
         private float remainingLifetime;
         private Vector2 travelDirection;
@@ -31,6 +34,12 @@ namespace MixMaster.Combat
             float lifetime,
             bool useHoming = true)
         {
+            Initialize(newPlayerTarget, newPartyTarget, newMagicPower, newSpeed, lifetime, useHoming, ElementType.None, false);
+        }
+
+        public void Initialize(PlayerAutoAttack newPlayerTarget, PartyMemberCombat newPartyTarget,
+            long newMagicPower, float newSpeed, float lifetime, bool useHoming, ElementType element, bool critical)
+        {
             playerTarget = newPlayerTarget;
             partyTarget = newPartyTarget;
 
@@ -42,6 +51,8 @@ namespace MixMaster.Combat
                         : null;
 
             magicPower = System.Math.Max(1L, newMagicPower);
+            attackElement = element;
+            isCritical = critical;
             speed = Mathf.Max(0.1f, newSpeed);
             remainingLifetime = Mathf.Max(0.1f, lifetime);
             homing = useHoming;
@@ -124,12 +135,12 @@ namespace MixMaster.Combat
         {
             if (playerTarget != null)
             {
-                playerTarget.TakeMagicHit(magicPower);
+                playerTarget.TakeMagicHit(magicPower, attackElement, isCritical);
                 return;
             }
 
             if (partyTarget != null)
-                partyTarget.TakeMagicHit(magicPower);
+                partyTarget.TakeMagicHit(magicPower, attackElement, isCritical);
         }
 
         private void UpdateTravelDirection()
