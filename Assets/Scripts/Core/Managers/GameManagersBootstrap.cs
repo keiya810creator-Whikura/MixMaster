@@ -43,6 +43,7 @@ namespace MixMaster.Core
             if (root == null) return;
 
             Ensure<GameManager>(root);
+            Ensure<DisplaySettingsManager>(root);
             Ensure<EncyclopediaManager>(root);
             Ensure<SaveManager>(root);
             Ensure<MapManager>(root);

@@ -34,6 +34,8 @@ namespace MixMaster.UI
         private float horizontalDrift;
         private float elapsed;
         private bool showing;
+        private DisplayOption displayOption;
+        private DisplaySettingsManager displaySettings;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -63,13 +65,14 @@ namespace MixMaster.UI
                 : MaterialDropLogUI.GetSourceColor(attackSource);
             DamageHitParticles.Show(worldPosition, damageColor);
 
-            ShowText(worldPosition, damage.ToString("N0", CultureInfo.InvariantCulture), damageColor, takenByAlly);
+            if (!DisplaySettingsManager.IsDisabled(DisplayOption.DamageText))
+                ShowText(worldPosition, damage.ToString("N0", CultureInfo.InvariantCulture), damageColor, DisplayOption.DamageText, takenByAlly);
         }
 
         public static void ShowHealing(Vector3 worldPosition, long recovered)
         {
-            if (recovered > 0)
-                ShowText(worldPosition, "+" + recovered.ToString("N0", CultureInfo.InvariantCulture), HealingColor);
+            if (recovered > 0 && !DisplaySettingsManager.IsDisabled(DisplayOption.HealingText))
+                ShowText(worldPosition, "+" + recovered.ToString("N0", CultureInfo.InvariantCulture), HealingColor, DisplayOption.HealingText);
         }
 
         public static string StatusText(SkillAffix effect, int stacks = 1)
@@ -97,13 +100,16 @@ namespace MixMaster.UI
 
         public static void ShowStatus(Vector3 worldPosition, SkillAffix effect, int stacks = 1)
         {
+            if (effect == null) return;
+            DisplayOption option = effect.type == SkillAffixType.Buff ? DisplayOption.BuffText : DisplayOption.DebuffText;
+            if (DisplaySettingsManager.IsDisabled(option)) return;
             string text = StatusText(effect, stacks);
-            if (text != null) ShowText(worldPosition, text, effect.type == SkillAffixType.Buff ? BuffColor : DebuffColor);
+            if (text != null) ShowText(worldPosition, text, effect.type == SkillAffixType.Buff ? BuffColor : DebuffColor, option);
         }
 
-        private static void ShowText(Vector3 worldPosition, string text, Color color, bool takenByAlly = false)
+        private static void ShowText(Vector3 worldPosition, string text, Color color, DisplayOption option, bool takenByAlly = false)
         {
-            if (!Application.isPlaying) return;
+            if (!Application.isPlaying || DisplaySettingsManager.IsDisabled(option)) return;
 
             // Particle feedback remains available when the text pool is full.
             if (activeCount >= MaxActive)
@@ -122,7 +128,7 @@ namespace MixMaster.UI
             }
 
             popup.gameObject.SetActive(true);
-            popup.Begin(worldPosition, text, color, takenByAlly);
+            popup.Begin(worldPosition, text, color, option, takenByAlly);
         }
 
         private void Awake()
@@ -148,8 +154,9 @@ namespace MixMaster.UI
                 renderer.sortingOrder = 3000;
         }
 
-        private void Begin(Vector3 position, string text, Color damageColor, bool takenByAlly)
+        private void Begin(Vector3 position, string text, Color damageColor, DisplayOption option, bool takenByAlly)
         {
+            displayOption = option;
             startPosition = position +
                 new Vector3(Random.Range(-0.15f, 0.15f), 0.72f, -0.2f);
             horizontalDrift = Random.Range(-0.18f, 0.18f);
@@ -171,10 +178,24 @@ namespace MixMaster.UI
             }
         }
 
+        private void OnEnable()
+        {
+            displaySettings = DisplaySettingsManager.Instance;
+            if (displaySettings != null) displaySettings.Changed += HandleDisplaySettingsChanged;
+        }
+
+        private void HandleDisplaySettingsChanged()
+        {
+            if (showing && DisplaySettingsManager.IsDisabled(displayOption)) gameObject.SetActive(false);
+        }
+
         private void Update()
         {
             if (!showing)
                 return;
+
+            if (DisplaySettingsManager.IsDisabled(displayOption))
+            { gameObject.SetActive(false); return; }
 
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / Duration);
@@ -194,6 +215,8 @@ namespace MixMaster.UI
 
         private void OnDisable()
         {
+            if (displaySettings != null) displaySettings.Changed -= HandleDisplaySettingsChanged;
+            displaySettings = null;
             if (!showing)
                 return;
 

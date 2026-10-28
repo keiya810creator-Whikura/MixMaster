@@ -94,6 +94,7 @@ namespace MixMaster.Combat
             p.nextEffect=Time.time+Mathf.Max(.02f,skill.effectInterval);
             p.lastFollowPosition=p.FollowPosition();p.burstWasActive=false;p.baseVisualScale=renderer.transform.localScale;
             p.UpdateSkillVisual();
+            SkillEffectVisibility.Track(go);
             if(skill.effectTiming==SkillEffectTiming.Spawn)p.ApplyTimedEffect();
             return p;
         }

@@ -175,6 +175,7 @@ namespace MixMaster.Core
         {
             GameSaveData data = new GameSaveData();
             data.savedUtc = DateTime.UtcNow.ToString("o");
+            data.displaySettings = GetComponent<DisplaySettingsManager>()?.Capture();
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
             data.skills = GetComponent<SkillProgressionManager>()?.Capture();
@@ -299,6 +300,8 @@ namespace MixMaster.Core
 
         private void Apply(GameSaveData data)
         {
+            // Apply display preferences before restoring combat/party actors.
+            GetComponent<DisplaySettingsManager>()?.Restore(data.displaySettings);
             GameManager game = GetComponent<GameManager>();
             MapManager map = GetComponent<MapManager>();
             PlayerManager player = GetComponent<PlayerManager>();

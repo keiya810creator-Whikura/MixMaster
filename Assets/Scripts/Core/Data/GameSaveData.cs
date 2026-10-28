@@ -7,7 +7,8 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 16;
+        public const int CurrentVersion = 17;
+        public DisplaySettingsData displaySettings;
         public List<PartyPresetRecord> partyPresets = new List<PartyPresetRecord>();
         // Older saves have no per-species defeat history. Start empty rather
         // than treating bred/obtained monsters as proof of a battle victory.
