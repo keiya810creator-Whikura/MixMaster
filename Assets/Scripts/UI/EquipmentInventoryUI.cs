@@ -11,6 +11,7 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class EquipmentInventoryUI : MonoBehaviour
     {
+        public const string ResourcePath = "UI/EquipmentInventory/EquipmentInventoryPanel";
         [Header("Inventory")]
         [SerializeField] private RectTransform contentRoot;
         [SerializeField] private TMP_Text countText;
@@ -132,6 +133,31 @@ namespace MixMaster.UI
         public void Open()
         {
             OpenInventory(false, null);
+        }
+
+        public static EquipmentInventoryUI OpenDefault(Transform parent)
+        {
+            if (parent == null) return null;
+            var inventory = parent.GetComponentInChildren<EquipmentInventoryUI>(true);
+            if (inventory == null)
+                inventory = FindFirstObjectByType<EquipmentInventoryUI>(FindObjectsInactive.Include);
+            if (inventory == null)
+            {
+                var prefab = Resources.Load<GameObject>(ResourcePath);
+                if (prefab == null) { Debug.LogWarning("[EquipmentInventory] 装備インベントリPrefabが見つかりません。"); return null; }
+                var instance = Instantiate(prefab, parent, false);
+                var rect = instance.GetComponent<RectTransform>();
+                if (rect != null)
+                {
+                    rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+                    rect.offsetMin = Vector2.zero; rect.offsetMax = Vector2.zero;
+                }
+                inventory = instance.GetComponent<EquipmentInventoryUI>();
+            }
+            // A HUD button opens the player's ordinary inventory, including
+            // when a reused screen last displayed a monster or blacksmith.
+            if (inventory != null) inventory.Open();
+            return inventory;
         }
 
         public void OpenForMonster(OwnedMonsterRecord monster)

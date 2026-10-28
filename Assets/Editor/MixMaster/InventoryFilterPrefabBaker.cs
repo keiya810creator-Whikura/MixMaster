@@ -70,7 +70,7 @@ namespace MixMaster.EditorTools
                 Debug.LogWarning("[MixMaster] 仲間一覧Prefabがありません。" +
                     " MixMaster/UI/仲間一覧UI Prefabを作成・更新 から生成してください。");
 
-            PartyCircularHudPrefabCreator.EnsureFolder("Assets/Prefab/UI");
+            PartyCircularHudPrefabCreator.EnsureFolder("Assets/Resources/UI/EquipmentInventory");
             if (AssetDatabase.LoadAssetAtPath<GameObject>(
                 EquipmentInventoryPrefabCreator.PrefabPath) == null)
             {

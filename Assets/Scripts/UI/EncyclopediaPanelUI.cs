@@ -15,6 +15,10 @@ namespace MixMaster.UI
         [SerializeField] private GameObject listRoot, detailRoot, popupRoot;
         [SerializeField] private Button backButton, popupCloseButton;
         [SerializeField] private TMP_Text backLabel, heading, progressText, emptyText;
+        [Header("Sort")]
+        [SerializeField] private TMP_Dropdown sortDropdown;
+        [SerializeField] private Button directionButton;
+        [SerializeField] private TMP_Text directionText;
         [Header("Detail")]
         [SerializeField] private ScrollRect detailScroll;
         [SerializeField] private Image detailIcon, materialIcon;
@@ -36,11 +40,21 @@ namespace MixMaster.UI
         private MapCatalogSO maps;
         private MonsterSO selectedMonster;
         private Action returnToMenu;
+        private int sortIndex;
+        private bool ascending = true;
 
         private void Awake()
         {
             if (backButton != null) backButton.onClick.AddListener(Back);
             if (popupCloseButton != null) popupCloseButton.onClick.AddListener(ClosePopup);
+            if (sortDropdown != null)
+            {
+                sortDropdown.ClearOptions();
+                sortDropdown.AddOptions(new List<string>(EncyclopediaSort.Choices));
+                sortDropdown.SetValueWithoutNotify(sortIndex);
+                sortDropdown.onValueChanged.AddListener(SortChanged);
+            }
+            if (directionButton != null) directionButton.onClick.AddListener(ToggleDirection);
         }
 
         private void OnDisable()
@@ -53,6 +67,8 @@ namespace MixMaster.UI
         {
             if (backButton != null) backButton.onClick.RemoveListener(Back);
             if (popupCloseButton != null) popupCloseButton.onClick.RemoveListener(ClosePopup);
+            if (sortDropdown != null) sortDropdown.onValueChanged.RemoveListener(SortChanged);
+            if (directionButton != null) directionButton.onClick.RemoveListener(ToggleDirection);
         }
 
         public void Open(Action onBack)
@@ -69,7 +85,7 @@ namespace MixMaster.UI
             else equipment = EncyclopediaContent.Equipment(EquipmentCatalogSO.Load());
             if (heading != null) heading.text = kind == EncyclopediaKind.Monster ? "モンスター図鑑" : "装備図鑑";
             ShowList();
-            if (grid != null) grid.SetData(Count, BindCell);
+            ApplySort();
             if (emptyText != null)
             {
                 emptyText.text = kind == EncyclopediaKind.Monster ? "モンスターデータがありません" : "装備データがありません";
@@ -79,6 +95,30 @@ namespace MixMaster.UI
 
         private int Count => kind == EncyclopediaKind.Monster ? monsters.Count : equipment.Count;
         private bool Unlocked(MonsterSO monster) => monster != null && progress != null && progress.IsUnlocked(monster.monsterId);
+
+        private void SortChanged(int option)
+        {
+            sortIndex = EncyclopediaSort.Normalize(option);
+            ApplySort();
+        }
+
+        private void ToggleDirection() { ascending = !ascending; ApplySort(); }
+
+        private void ApplySort()
+        {
+            if (kind == EncyclopediaKind.Monster) EncyclopediaSort.Monsters(monsters, sortIndex, ascending);
+            else EncyclopediaSort.Equipment(equipment, sortIndex, ascending);
+            if (sortDropdown != null)
+            {
+                sortDropdown.SetValueWithoutNotify(sortIndex);
+                sortDropdown.interactable = Count > 0;
+            }
+            if (directionButton != null) directionButton.interactable = Count > 1;
+            SetText(directionText, ascending ? "昇順 ▲" : "降順 ▼");
+            // Rebind even when indices are unchanged; they now refer to new definitions.
+            // SetData also stops scrolling and returns the list to its first row.
+            if (grid != null) grid.SetData(Count, BindCell);
+        }
 
         private void BindCell(EncyclopediaCellUI cell, int index)
         {
@@ -123,7 +163,7 @@ namespace MixMaster.UI
                 selectedMonster = monster;
                 SetIdentity(monster.icon != null ? monster.icon : monster.sprite,
                     EncyclopediaContent.Name(monster.displayName, monster.monsterId), monster.description);
-                SetText(statsHeading, "基礎ステータス（Lv.1・補正前）");
+                SetText(statsHeading, "基礎ステータス（Lv.1・補正前）\n(個体値50の値)");
                 SetText(statsText, EncyclopediaContent.BaseStats(monster.baseStats));
                 if (materialSection != null) materialSection.SetActive(true);
                 MaterialSO material = monster.uniqueMaterial;
