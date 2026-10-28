@@ -245,18 +245,19 @@ namespace MixMaster.Combat
             if (!playerController.IsMoving)
                 playerController.FaceDirection(direction);
 
+            bool critical = UnityEngine.Random.value < GetCriticalRate();
             if(SkillProgressionManager.Instance!=null&&SkillProgressionManager.Instance.Ranged("player",false))
             {
                 long magic=playerManager!=null?playerManager.Stats.magic:fallbackAttack;
-                if(UnityEngine.Random.value<GetCriticalRate())magic=MultiplyLong(magic,GetCriticalMultiplier());
+                if(critical)magic=MultiplyLong(magic,GetCriticalMultiplier());
                 var go=new GameObject("PlayerPassiveProjectile");go.transform.position=transform.position;
                 var renderer=go.AddComponent<SpriteRenderer>();renderer.sprite=swordSprite!=null?swordSprite:generatedSwordSprite;renderer.sortingOrder=60;go.transform.localScale=Vector3.one*.2f;
-                go.AddComponent<PartyMagicProjectile>().Initialize(target,magic,8f,5f,true,MaterialDropSourceInfo.Player(playerManager!=null?playerManager.DropRateBonus:0));
+                go.AddComponent<PartyMagicProjectile>().Initialize(target,magic,8f,5f,true,CreateAttackSource(critical));
                 return;
             }
             long attackPower = GetAttackPower();
 
-            if (UnityEngine.Random.value < GetCriticalRate())
+            if (critical)
                 attackPower = MultiplyLong(attackPower, GetCriticalMultiplier());
 
             if (swingRoutine != null)
@@ -265,11 +266,12 @@ namespace MixMaster.Combat
             swingRoutine = StartCoroutine(SwingSword(
                 direction,
                 attackPower,
-                MaterialDropSourceInfo.Player(
-                    playerManager != null
-                        ? playerManager.DropRateBonus
-                        : 0f)));
+                CreateAttackSource(critical)));
         }
+
+        private MaterialDropSourceInfo CreateAttackSource(bool critical) =>
+            MaterialDropSourceInfo.Player(playerManager != null ? playerManager.DropRateBonus : 0f)
+                .WithAttack(playerManager != null ? playerManager.Stats.element : ElementType.None, critical);
 
         private EnemyHealth FindNearestTarget()
         {
@@ -317,16 +319,23 @@ namespace MixMaster.Combat
 
         public long TakePhysicalHit(long attackPower)
         {
+            return TakePhysicalHit(attackPower, ElementType.None, false);
+        }
+
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        {
             if (playerManager == null || playerManager.CurrentHp <= 0L || attackPower <= 0L)
                 return 0L;
 
             long defense = Math.Max(0L, playerManager.Stats.defense);
             long damage = DamageCalculator.Calculate(attackPower, defense);
+            float resistance = DamageCalculator.Resistance(playerManager.Stats.resistances, element);
+            damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
             long actualDamage = Math.Max(0L, before - playerManager.CurrentHp);
-            DamagePopupText.Show(transform.position, actualDamage, true);
+            DamagePopupText.Show(transform.position, actualDamage, true, new DamageFeedback(isCritical, resistance < 0f));
 
             if (playerSpriteRenderer != null)
             {
@@ -341,6 +350,11 @@ namespace MixMaster.Combat
 
         public long TakeMagicHit(long magicPower)
         {
+            return TakeMagicHit(magicPower, ElementType.None, false);
+        }
+
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
+        {
             if (playerManager == null ||
                 playerManager.CurrentHp <= 0L ||
                 magicPower <= 0L)
@@ -353,13 +367,15 @@ namespace MixMaster.Combat
 
             long damage = DamageCalculator.Calculate(
                 magicPower, magicDefense);
+            float resistance = DamageCalculator.Resistance(playerManager.Stats.resistances, element);
+            damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
 
             long actualDamage =
                 Math.Max(0L, before - playerManager.CurrentHp);
-            DamagePopupText.Show(transform.position, actualDamage, true);
+            DamagePopupText.Show(transform.position, actualDamage, true, new DamageFeedback(isCritical, resistance < 0f));
 
             if (playerSpriteRenderer != null)
             {

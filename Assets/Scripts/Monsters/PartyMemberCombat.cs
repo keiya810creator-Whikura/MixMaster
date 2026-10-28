@@ -428,39 +428,39 @@ namespace MixMaster.Monsters
 
             follower.FaceDirection(direction);
 
+            bool critical = UnityEngine.Random.value < Mathf.Clamp01((float)Stats.criticalRate);
             if (EffectiveAttackStyle == PartyAttackStyle.Ranged)
             {
                 long magicPower = Math.Max(1L, Stats.magic);
 
-                if (UnityEngine.Random.value <
-                    Mathf.Clamp01((float)Stats.criticalRate))
+                if (critical)
                 {
                     magicPower = MultiplyLong(
                         magicPower,
                         Mathf.Max(1f, (float)Stats.criticalMultiplier));
                 }
 
-                FireProjectile(target, magicPower);
+                FireProjectile(target, magicPower, critical);
                 return;
             }
 
             long attackPower = Math.Max(1L, Stats.attack);
 
-            if (UnityEngine.Random.value <
-                Mathf.Clamp01((float)Stats.criticalRate))
+            if (critical)
             {
                 attackPower = MultiplyLong(
                     attackPower,
                     Mathf.Max(1f, (float)Stats.criticalMultiplier));
             }
 
-            meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(), spriteRenderer);
+            meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(critical), spriteRenderer);
             StartAttackLunge(direction);
         }
 
         private void FireProjectile(
             EnemyHealth target,
-            long magicPower)
+            long magicPower,
+            bool critical)
         {
             if (target == null || !target.IsAlive)
                 return;
@@ -474,7 +474,7 @@ namespace MixMaster.Monsters
 
                 target.TakeMagicHit(
                     magicPower,
-                    CreateDropSourceInfo());
+                    CreateDropSourceInfo(critical));
 
                 return;
             }
@@ -517,10 +517,10 @@ namespace MixMaster.Monsters
                 projectileSpeed,
                 projectileLifetime,
                 projectileHoming,
-                CreateDropSourceInfo());
+                CreateDropSourceInfo(critical));
         }
 
-        private MaterialDropSourceInfo CreateDropSourceInfo()
+        private MaterialDropSourceInfo CreateDropSourceInfo(bool critical)
         {
             int followOrder =
                 follower != null
@@ -530,7 +530,7 @@ namespace MixMaster.Monsters
             return MaterialDropSourceInfo.Party(
                 followOrder,
                 DropRateBonus,
-                ownedMonsterUniqueId);
+                ownedMonsterUniqueId).WithAttack(Stats.element, critical);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -829,16 +829,27 @@ namespace MixMaster.Monsters
 
         public long TakePhysicalHit(long attackPower)
         {
+            return TakePhysicalHit(attackPower, ElementType.None, false);
+        }
+
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        {
             if (!isAlive || attackPower <= 0)
                 return 0;
 
             long damage = DamageCalculator.Calculate(
                 attackPower, Stats.defense);
 
-            return TakeDamage(damage);
+            float resistance = DamageCalculator.Resistance(Stats.resistances, element);
+            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
         }
 
         public long TakeMagicHit(long magicPower)
+        {
+            return TakeMagicHit(magicPower, ElementType.None, false);
+        }
+
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
         {
             if (!isAlive || magicPower <= 0L)
                 return 0L;
@@ -846,7 +857,8 @@ namespace MixMaster.Monsters
             long damage = DamageCalculator.Calculate(
                 magicPower, Stats.magicDefense);
 
-            return TakeDamage(damage);
+            float resistance = DamageCalculator.Resistance(Stats.resistances, element);
+            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
         }
 
         public void ClampSkillResources()
@@ -855,14 +867,20 @@ namespace MixMaster.Monsters
         }
         public long TakeDamage(long damage)
         {
+            return TakeDamage(damage, default);
+        }
+
+        public long TakeDamage(long damage, DamageFeedback feedback)
+        {
             if (!isAlive || damage <= 0)
                 return 0;
 
+            damage = DamageCalculator.Randomize(damage);
             long actual = Math.Min(currentHp, damage);
             skills?.NotifyDamage(SkillActor.ApplyingSkill);
             currentHp -= actual;
 
-            DamagePopupText.Show(transform.position, actual, true);
+            DamagePopupText.Show(transform.position, actual, true, feedback);
 
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
