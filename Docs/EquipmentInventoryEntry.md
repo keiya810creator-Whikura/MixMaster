@@ -1,0 +1,15 @@
+# 専用ボタンから装備インベントリを開く
+
+設置したUI Buttonに `EquipmentInventoryButton` を追加する。OnClickの手動登録は不要。図鑑・プリセット・設定のボタンと同じように、タップで画面を開き「閉じる」で閉じる。HUDボタンやインベントリ項目は自動で追加しない。
+
+ボタンの `Inventory` は空欄で利用できる。必要なら配置済みのEquipmentInventoryUIを明示指定してもよい。空欄の場合は同じCanvas内の配置済み画面、他のCanvas内の配置済み画面の順に検索し、見つからなければResourcesから初回だけ生成する。閉じて開き直しても同じ画面を再利用する。
+
+自動生成するPrefabは `Assets/Resources/UI/EquipmentInventory/EquipmentInventoryPanel.prefab`。旧 `Assets/Prefab/UI/EquipmentInventoryPanel.prefab` をmetaごと移動し、アセット本体・内部ID・GUID・既存のInspector参照を保持している。Prefabの複製は作らない。Editorの作成/接続ツールとフィルター自動反映も新しい保存先を使う。
+
+新規生成した画面はボタンのルートCanvasに合わせて全画面へ配置する。配置済みの画面のRect設定は変更しない。既存のSafeArea・装備3枠・比較・売却・お気に入り/ロック・ソート/フィルター・ページ切り替えを利用する。
+
+専用ボタンではプレイヤー用の通常インベントリを開く。以前に仲間の詳細から開いていても対象をプレイヤーへ戻し、古い選択をクリアする。鍛冶屋用に開いていた場合はそのセッションを終了してから通常モードへ戻す。鍛冶屋以外で強化ができるようにはしない。従来のステータス画面、仲間詳細、鍛冶屋からの入口は維持する。
+
+Unity API代替環境で実EquipmentInventoryButtonと実EquipmentInventoryUIのOpenDefault/開閉/モード変更メソッドを抽出して検証した。初回自動生成、再利用、配置済み画面優先、Inspector参照、通常/仲間/鍛冶屋の切り替え、閉じる通知、Canvas/Prefabがない場合、ボタンの購読解除を含む。Prefab/metaの移動前後がバイト単位で一致し、GUIDが重複しないことも確認した。代替実装はネイティブの描画や既存画面全体の動作を再現するものではない。
+
+Unity Editor全体コンパイル・Prefabインポート・Play Mode・実機表示は未実施。UnityではボタンにEquipmentInventoryButtonを追加し、初回/繰り返し開閉、プレイヤーの装備変更、仲間用画面から戻した後の対象、鍛冶屋の強化画面を閉じた後の通常表示、狭い画面のSafeAreaを確認する。シーンの既存Prefab参照が移動後も維持されていることも確認する。
