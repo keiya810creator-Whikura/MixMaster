@@ -502,6 +502,54 @@ namespace MixMaster.Core
             return true;
         }
 
+        internal bool ApplyPresetEquipment(IReadOnlyList<PartyPresetActor> actors)
+        {
+            var taken = new HashSet<string>(StringComparer.Ordinal);
+            var targets = new HashSet<string>(StringComparer.Ordinal);
+            bool changed = false;
+            foreach (PartyPresetActor actor in actors)
+            {
+                targets.Add(actor.ownerId);
+                IReadOnlyList<string> current = actor.ownerId == "player"
+                    ? playerEquipmentUniqueIds : Monsters.FindOwnedMonster(actor.ownerId).equippedItemUniqueIds;
+                for (int i = 0; i < MaxEquipmentSlots; i++)
+                {
+                    string a = current != null && i < current.Count ? current[i] : string.Empty;
+                    if ((a ?? string.Empty) != (actor.equipmentIds[i] ?? string.Empty)) changed = true;
+                }
+                foreach (string id in actor.equipmentIds)
+                    if (!string.IsNullOrWhiteSpace(id)) taken.Add(id);
+            }
+            for (int i = 0; i < playerEquipmentUniqueIds.Count; i++)
+                if (targets.Contains("player") || taken.Contains(playerEquipmentUniqueIds[i])) playerEquipmentUniqueIds[i] = string.Empty;
+            if (Monsters != null) foreach (OwnedMonsterRecord record in Monsters.OwnedMonsters)
+            {
+                if (record?.equippedItemUniqueIds == null) continue;
+                for (int i = 0; i < record.equippedItemUniqueIds.Count; i++)
+                    if (targets.Contains(record.uniqueId) || taken.Contains(record.equippedItemUniqueIds[i]))
+                    {
+                        if (!targets.Contains(record.uniqueId) && !string.IsNullOrWhiteSpace(record.equippedItemUniqueIds[i])) changed = true;
+                        record.equippedItemUniqueIds[i] = string.Empty;
+                    }
+            }
+            foreach (PartyPresetActor actor in actors)
+            {
+                if (actor.ownerId == "player")
+                {
+                    playerEquipmentUniqueIds.Clear();
+                    playerEquipmentUniqueIds.AddRange(actor.equipmentIds);
+                }
+                else Monsters.FindOwnedMonster(actor.ownerId).equippedItemUniqueIds = new List<string>(actor.equipmentIds);
+            }
+            return changed;
+        }
+
+        internal void NotifyPresetEquipmentChanged()
+        {
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
+        }
+
         private static bool ClearEquippedSlots(List<string> slots)
         {
             if (slots == null) return false;
