@@ -504,6 +504,7 @@ namespace MixMaster.Core
                             int.MaxValue,
                             (long)Math.Max(0, record.skillPoints) + restoredLevels);
                     record.learnedSkillIds ??= new List<string>();
+                    record.inheritedSkillIds = SkillProgressionManager.CopyInheritedSkills(record.inheritedSkillIds);
                     record.equippedItemUniqueIds ??= new List<string>();
                     AddOwnedMonster(record);
                 }

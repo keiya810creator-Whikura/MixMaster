@@ -117,7 +117,7 @@ namespace MixMaster.UI
             if (countText != null) countText.text = "保存済み " + (ready ? manager.Count : 0) + " / " + PartyPresetData.MaxPresets;
             if (selectedText != null) selectedText.text = "選択中：" + (selectedSlot + 1).ToString("00") + "  " + (preset != null ? preset.name : "未保存");
             if (nameInput != null && resetName) nameInput.SetTextWithoutNotify(preset != null ? preset.name : PartyPresetData.DefaultName(selectedSlot));
-            if (summaryText != null) summaryText.text = PartyPresetContent.Summary(preset, monsters, equipment, skills);
+            if (summaryText != null) { summaryText.richText = true; summaryText.text = PartyPresetContent.Summary(preset, monsters, equipment, skills); }
             if (saveLabel != null) saveLabel.text = preset == null ? "保存" : "上書き保存";
             if (saveButton != null) saveButton.interactable = ready;
             if (renameButton != null) renameButton.interactable = ready && preset != null;

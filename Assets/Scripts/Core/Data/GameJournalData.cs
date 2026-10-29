@@ -28,6 +28,7 @@ namespace MixMaster.Core
         public string goalId, definitionId, name;
         public GoalKind kind;
         public long targetCount = 1;
+        public bool showOnHud;
     }
 
     [Serializable]

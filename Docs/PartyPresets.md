@@ -48,3 +48,6 @@ Bootstrapが既存の設定PrefabにもPartyPresetManagerを補うため、Manag
 Unity API代替環境で、実PartyPresetManager・MonsterManager・EquipmentManager・SkillProgressionManager・PlayerManager・SaveManager・PartyFieldSpawnerとUIクラスをコンパイルし、20枠、保存/上書き/名称/削除、深いコピー、一括切り替え、欠品時の中止、既存Actorの保持、CD、旧セーブ、JSONファイル、バックアップ、専用ボタンと確認操作を98項目検証した。実キャンセル処理を抽出した検証と、ファイル書き込み失敗からの再試行も含む。
 
 Unity Editorの全体コンパイル、Prefabインポート、Play Mode、実機表示は未実施。Unityでは専用ボタンにPartyPresetButtonを追加し、2種類の構成を保存→切り替え→再起動後に呼び出すこと、上書き/削除のキャンセル、売却済み個体/装備がある場合の中止、確認画面と名前入力、SafeArea内の表示を確認する。
+
+
+2026年10月29日：詳細の仲間見出しと名前を、保存したパーティ順にスロットと同じ色（1=赤、2=青、3=緑）で表示する。PartyFormationBarUIと同じMaterialDropLogUI.GetSourceColorを参照する。summaryTextのみrichTextを有効化し、名前/装備名/スキル名に含まれるタグ文字を無効化する。プレイヤーや装備・スキル本文の色、保存/呼出し処理は維持。追加Inspector設定なし。Unityでは3体入りの保存詳細を開いてスロット色と照合する。
