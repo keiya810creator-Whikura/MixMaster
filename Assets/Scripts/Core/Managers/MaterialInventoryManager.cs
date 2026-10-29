@@ -16,6 +16,7 @@ namespace MixMaster.Core
             records;
 
         public event Action<string, long, long> MaterialChanged;
+        public event Action MaterialsRestored;
 
         public void RestoreMaterials(
             IReadOnlyList<MaterialInventoryRecord> savedRecords)
@@ -23,7 +24,10 @@ namespace MixMaster.Core
             records.Clear();
 
             if (savedRecords == null)
+            {
+                MaterialsRestored?.Invoke();
                 return;
+            }
 
             for (int i = 0; i < savedRecords.Count; i++)
             {
@@ -53,6 +57,7 @@ namespace MixMaster.Core
                 MaterialChanged?.Invoke(
                     record.materialId, 0L, record.amount);
             }
+            MaterialsRestored?.Invoke();
         }
 
         public long GetAmount(string materialId)
