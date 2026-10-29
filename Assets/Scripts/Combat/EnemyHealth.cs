@@ -176,6 +176,7 @@ namespace MixMaster.Combat
             if (!SkillActor.AllowNormalHit(sourceInfo)) return 0;
 
             damage = DamageCalculator.Randomize(damage);
+            GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
 
             // The killing blow must identify its own attacker.
             // A hit without attribution must never inherit a prior killer.
@@ -313,6 +314,7 @@ namespace MixMaster.Combat
 
             IsAlive = false;
             activeEnemies.Remove(this);
+            GameJournalManager.Instance?.RecordDefeat();
 
             Collider2D[] colliders = GetComponentsInChildren<Collider2D>();
             foreach (Collider2D col in colliders)

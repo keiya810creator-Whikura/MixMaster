@@ -332,6 +332,9 @@ namespace MixMaster.Core
                     out BreedingMaterialOffer offer, out error))
                 return false;
 
+            var journal = GetComponent<GameJournalManager>() ?? GameJournalManager.Instance;
+            var snapshotA = journal != null ? GameJournalManager.Snapshot(monsterManager.FindOwnedMonster(parentUniqueIdA), monsterCatalog) : null;
+            var snapshotB = journal != null ? GameJournalManager.Snapshot(monsterManager.FindOwnedMonster(parentUniqueIdB), monsterCatalog) : null;
             string idA = offer.materialA != null ? offer.materialA.materialId : null;
             string idB = offer.materialB != null ? offer.materialB.materialId : null;
             if (offer.requiredA > 0L || offer.requiredB > 0L)
@@ -362,6 +365,8 @@ namespace MixMaster.Core
             }
 
             succeeded = successRoll;
+            if (journal != null) journal.RecordBreeding(snapshotA, snapshotB, newborn, offer, succeeded,
+                protectParentsOnFailure, monsterCatalog, SkillProgressionManager.Instance?.Catalog);
             if (succeeded)
                 MonsterBred?.Invoke(newborn);
             BreedingAttemptCompleted?.Invoke(succeeded, newborn);
