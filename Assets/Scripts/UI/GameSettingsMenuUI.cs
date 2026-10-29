@@ -15,10 +15,16 @@ namespace MixMaster.UI
         [SerializeField] private Toggle materialLogToggle, damageTextToggle, healingTextToggle, buffTextToggle,
             debuffTextToggle, skillEffectsToggle, attackRangeToggle;
         private DisplaySettingsManager settings;
+        [SerializeField] private Button recordsButton, goalsButton, helpButton;
+        private GameGuidePanelUI guide;
         private bool opened;
 
         private void Awake()
         {
+            EnsureGuideButtons();
+            if (recordsButton != null) recordsButton.onClick.AddListener(ShowRecords);
+            if (goalsButton != null) goalsButton.onClick.AddListener(ShowGoals);
+            if (helpButton != null) helpButton.onClick.AddListener(ShowHelp);
             if (volumeButton != null) volumeButton.onClick.AddListener(ShowVolume);
             if (otherButton != null) otherButton.onClick.AddListener(ShowOther);
             if (creditsButton != null) creditsButton.onClick.AddListener(ShowCredits);
@@ -35,11 +41,14 @@ namespace MixMaster.UI
         }
 
         private void Start() { if (!opened) gameObject.SetActive(false); }
-        private void OnDisable() { Unsubscribe(); opened = false; }
+        private void OnDisable() { Unsubscribe(); opened = false; if (guide != null) guide.gameObject.SetActive(false); }
 
         private void OnDestroy()
         {
             Unsubscribe();
+            if (recordsButton != null) recordsButton.onClick.RemoveListener(ShowRecords);
+            if (goalsButton != null) goalsButton.onClick.RemoveListener(ShowGoals);
+            if (helpButton != null) helpButton.onClick.RemoveListener(ShowHelp);
             if (volumeButton != null) volumeButton.onClick.RemoveListener(ShowVolume);
             if (otherButton != null) otherButton.onClick.RemoveListener(ShowOther);
             if (creditsButton != null) creditsButton.onClick.RemoveListener(ShowCredits);
@@ -83,7 +92,38 @@ namespace MixMaster.UI
             settings = null;
         }
 
-        public void ShowSelection() => ShowPage("設定", selectionRoot);
+        public void ShowSelection() { if (guide != null) guide.gameObject.SetActive(false); ShowPage("設定", selectionRoot); }
+        private void ShowRecords() => ShowGuide(GameGuidePage.Records);
+        private void ShowGoals() => ShowGuide(GameGuidePage.Goals);
+        private void ShowHelp() => ShowGuide(GameGuidePage.Help);
+        private void ShowGuide(GameGuidePage page)
+        {
+            guide = GameGuidePanelUI.OpenDefault(transform, page, ShowSelection);
+        }
+        private void EnsureGuideButtons()
+        {
+            if (selectionRoot == null || volumeButton == null || recordsButton != null && goalsButton != null && helpButton != null) return;
+            Button Create(string name, string caption)
+            {
+                var existing = selectionRoot.transform.Find(name);
+                var button = existing != null ? existing.GetComponent<Button>() : null;
+                if (button == null)
+                {
+                    button = Instantiate(volumeButton, selectionRoot.transform, false); button.name = name;
+                    button.onClick = new Button.ButtonClickedEvent();
+                }
+                var label = button.GetComponentInChildren<TMP_Text>(true); if (label != null) label.text = caption;
+                return button;
+            }
+            if (recordsButton == null) recordsButton = Create("Records", "プレイ記録・配合履歴");
+            if (goalsButton == null) goalsButton = Create("Goals", "目標リスト");
+            if (helpButton == null) helpButton = Create("Help", "ヘルプ");
+            var buttons = new[] { volumeButton, otherButton, recordsButton, goalsButton, helpButton, creditsButton, contactButton };
+            for (int i = 0; i < buttons.Length; i++) if (buttons[i] != null)
+                InventoryUiFactory.TopLeft((RectTransform)buttons[i].transform, new Vector2(28, -232 - i * 150), new Vector2(944, 112));
+            foreach (var label in selectionRoot.GetComponentsInChildren<TMP_Text>(true))
+                if (label.transform.parent == selectionRoot.transform && label.rectTransform.anchoredPosition.y < -1000) InventoryUiFactory.TopLeft(label.rectTransform, new Vector2(28, -1320), new Vector2(944, 80));
+        }
         public void ShowOther() { ShowPage("その他設定", otherSettingsRoot); Refresh(); }
         public void ShowVolume() => ShowPage("音量設定（未実装）", placeholderRoot);
         public void ShowCredits() => ShowPage("クレジット（未実装）", placeholderRoot);

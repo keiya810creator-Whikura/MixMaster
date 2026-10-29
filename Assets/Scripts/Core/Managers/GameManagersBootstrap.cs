@@ -45,6 +45,7 @@ namespace MixMaster.Core
             Ensure<GameManager>(root);
             Ensure<DisplaySettingsManager>(root);
             Ensure<EncyclopediaManager>(root);
+            Ensure<GameJournalManager>(root);
             Ensure<SaveManager>(root);
             Ensure<MapManager>(root);
             Ensure<PlayerManager>(root);

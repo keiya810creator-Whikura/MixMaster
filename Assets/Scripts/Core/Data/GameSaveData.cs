@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 17;
+        public const int CurrentVersion = 18;
         public DisplaySettingsData displaySettings;
         public List<PartyPresetRecord> partyPresets = new List<PartyPresetRecord>();
         // Older saves have no per-species defeat history. Start empty rather
@@ -15,6 +15,7 @@ namespace MixMaster.Core
         public List<string> defeatedMonsterIds = new List<string>();
         public SkillSaveData skills;
         public int version = CurrentVersion;
+        public GameJournalData journal;
         public string savedUtc = string.Empty;
 
         public string mapId = string.Empty;
