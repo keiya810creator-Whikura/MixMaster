@@ -27,7 +27,11 @@ namespace MixMaster.UI
             new List<LogEntry>();
         private readonly Queue<LogEntry> available = new Queue<LogEntry>();
 
+        [Header("Position (from safe-area bottom-left)")]
+        [SerializeField] private Vector2 logPosition = new Vector2(24f, 24f);
+
         private RectTransform contentRoot;
+        private bool usingSceneContent;
         private DisplaySettingsManager displaySettings;
 
         private void Awake()
@@ -160,6 +164,32 @@ namespace MixMaster.UI
             }
         }
 
+        public void UseSceneContent(RectTransform root)
+        {
+            if (root == null || contentRoot == root) return;
+            Canvas oldCanvas = contentRoot != null ? contentRoot.GetComponentInParent<Canvas>() : null;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
+            while (available.Count > 0)
+            {
+                var entry = available.Dequeue();
+                if (entry.gameObject != null) Destroy(entry.gameObject);
+            }
+            contentRoot = root; usingSceneContent = true;
+            RuntimeUiLayoutSettings.Queue(root);
+            if (oldCanvas != null && oldCanvas.transform.IsChildOf(transform)) Destroy(oldCanvas.gameObject);
+        }
+        public void ReleaseSceneContent(RectTransform root)
+        {
+            if (contentRoot != root) return;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
+            while (available.Count > 0)
+            {
+                var entry = available.Dequeue();
+                if (entry.gameObject != null) Destroy(entry.gameObject);
+            }
+            contentRoot = null; usingSceneContent = false;
+        }
+
         private void BuildUiIfNeeded()
         {
             if (contentRoot != null)
@@ -219,7 +249,7 @@ namespace MixMaster.UI
                 new Vector2(0f, 0f);
 
             contentRoot.anchoredPosition =
-                new Vector2(24f, 24f);
+                logPosition;
 
             contentRoot.sizeDelta =
                 new Vector2(540f, 300f);
@@ -277,6 +307,7 @@ namespace MixMaster.UI
             visibleSeconds = Mathf.Max(0.5f, visibleSeconds);
             fadeSeconds = Mathf.Max(0.1f, fadeSeconds);
             fontSize = Mathf.Max(10f, fontSize);
+            if (contentRoot != null && !usingSceneContent) contentRoot.anchoredPosition = logPosition;
         }
 #endif
     }

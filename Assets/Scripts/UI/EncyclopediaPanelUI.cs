@@ -11,6 +11,7 @@ namespace MixMaster.UI
     public sealed class EncyclopediaPanelUI : MonoBehaviour
     {
         [SerializeField] private EncyclopediaKind kind;
+        public EncyclopediaKind Kind => kind;
         [SerializeField] private EncyclopediaGridUI grid;
         [SerializeField] private GameObject listRoot, detailRoot, popupRoot;
         [SerializeField] private Button backButton, popupCloseButton;

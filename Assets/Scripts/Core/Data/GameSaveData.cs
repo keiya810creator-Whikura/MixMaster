@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 19;
+        public const int CurrentVersion = 20;
         public DisplaySettingsData displaySettings;
         public List<PartyPresetRecord> partyPresets = new List<PartyPresetRecord>();
         // Older saves have no per-species defeat history. Start empty rather
@@ -69,6 +69,7 @@ namespace MixMaster.Core
 
         public OfflineRecordProfile offlineProfile;
         public OfflineRecordProfile offlinePendingProfile;
+        public bool hasOfflinePendingProfile;
         public string offlineCheckpointUtc = string.Empty;
     }
 }

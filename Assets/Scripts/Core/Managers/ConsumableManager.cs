@@ -9,6 +9,15 @@ namespace MixMaster.Core
     public sealed class ConsumableManager : MonoBehaviour
     {
         public const int ShortcutCount = 5;
+        public const float RecoveryCooldownSeconds = 5f;
+        private float recoveryReadyAt;
+        public float RecoveryCooldownRemaining => Mathf.Max(0f, recoveryReadyAt - Time.time);
+        public float CooldownRemaining(string id)
+        {
+            var item = Catalog != null ? Catalog.Get(id) : null;
+            return item != null && (item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp)
+                ? RecoveryCooldownRemaining : 0f;
+        }
         public static ConsumableManager Instance { get; private set; }
         [SerializeField] private ConsumableCatalogSO catalog;
         [SerializeField, Min(0.1f)] private float autoUseInterval = 1f;
@@ -104,6 +113,8 @@ namespace MixMaster.Core
             Resolve();
             ConsumableDefinition item = Catalog != null ? Catalog.Get(id) : null;
             if (busy || item == null || player == null || player.CurrentHp <= 0) return false;
+            if ((item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp) && RecoveryCooldownRemaining > 0f)
+            { message = "回復アイテムはあと" + Mathf.CeilToInt(RecoveryCooldownRemaining) + "秒で使用できます。"; return false; }
             if (Quantity(id) <= 0) { message = "アイテムを所持していません。"; return false; }
             if (item.effect == ConsumableEffect.RestoreHp && (item.recoveryAmount <= 0 || player.CurrentHp >= player.Stats.maxHp))
             { message = "HPは満タンです。"; return false; }
@@ -119,6 +130,8 @@ namespace MixMaster.Core
             try
             {
                 inventory[id] = Quantity(id) - 1;
+                if (item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp)
+                    recoveryReadyAt = Time.time + RecoveryCooldownSeconds;
                 if (item.effect == ConsumableEffect.RestoreHp) player.Heal(item.recoveryAmount);
                 else if (item.effect == ConsumableEffect.RestoreMp) player.RecoverMp(item.recoveryAmount);
                 else lureUntil = Time.realtimeSinceStartupAsDouble + item.durationSeconds;
@@ -175,7 +188,7 @@ namespace MixMaster.Core
                 }
             hpAutoUse = NormalizeRule(data?.hpAutoUse, ConsumableEffect.RestoreHp, "hp_low");
             mpAutoUse = NormalizeRule(data?.mpAutoUse, ConsumableEffect.RestoreMp, "mp_low");
-            lureUntil = 0; savePending = false;
+            lureUntil = 0; recoveryReadyAt = 0; savePending = false;
             Changed?.Invoke();
         }
         private ConsumableAutoUseRule NormalizeRule(ConsumableAutoUseRule saved, ConsumableEffect effect, string fallback)

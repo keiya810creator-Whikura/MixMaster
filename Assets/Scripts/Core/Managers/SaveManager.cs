@@ -263,6 +263,7 @@ namespace MixMaster.Core
             {
                 data.offlineProfile = OfflineRewardRules.CopyProfile(offline.LastCompletedProfile);
                 data.offlinePendingProfile = OfflineRewardRules.CopyProfile(offline.PendingProfile);
+                data.hasOfflinePendingProfile = offline.PendingProfile != null;
                 data.offlineCheckpointUtc = offline.CheckpointUtcForSave;
             }
 
@@ -365,7 +366,8 @@ namespace MixMaster.Core
                 offline.RestoreProgress(data.offlineProfile,
                     data.version >= 11 ? data.offlinePendingProfile : null,
                     data.version >= 11 && !string.IsNullOrWhiteSpace(data.offlineCheckpointUtc)
-                        ? data.offlineCheckpointUtc : data.savedUtc);
+                        ? data.offlineCheckpointUtc : data.savedUtc,
+                    data.version >= 20 ? (bool?)data.hasOfflinePendingProfile : null);
 
             if (monster != null)
             {

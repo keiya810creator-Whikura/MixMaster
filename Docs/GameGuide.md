@@ -34,7 +34,7 @@
 
 ## 保存・負荷
 
-GameSaveData v19の`journal`を既存SaveManagerのCapture/Applyに接続する。旧セーブの欠落/nullは空の履歴/目標から開始し、他の保存項目を維持する。既存JSONファイル/バックアップ処理を利用する。Capture/Restoreは深くコピーし、不正な件数・負値・非有限時間・重複目標ID等を補正する。Bootstrapで旧Manager PrefabにもGameJournalManagerを追加する。
+GameSaveData v20の`journal`を既存SaveManagerのCapture/Applyに接続する。旧セーブの欠落/nullは空の履歴/目標から開始し、他の保存項目を維持する。既存JSONファイル/バックアップ処理を利用する。Capture/Restoreは深くコピーし、不正な件数・負値・非有限時間・重複目標ID等を補正する。Bootstrapで旧Manager PrefabにもGameJournalManagerを追加する。
 
 戦闘時は数値だけ更新し、シーン検索・イベントUI構築・全体セーブを行わない。時間/討伐/最大ダメージは既存の30秒自動保存・離脱/終了時保存に従う。目標/履歴編集は1秒後に保存し、失敗時は再試行する。配合は既存の結果保存にも同じ履歴を含める。画面を開いている間だけ1秒間隔で進捗表示を更新する。
 
@@ -72,3 +72,5 @@ Unityで確認する操作：
 今回の代替検証は83項目成功。実SkillProgressionManager・MonsterManagerの配合/復元・GameJournalManager・PartyPresetContent・GameGuidePanelUI・GoalTrackerHUDと関連データをクラス全体でコンパイル。実HUD Prefabのフィールド/階層を読み込み、表示上限/サイズ/数量追従/消去と再表示/再利用、目標トグル、保存DTO往復、継承候補3個・未習得・SP/レベル制限・習得後の設定/パッシブ・旧個体の習得状態維持を確認した。Native HUDの92文書の一意ID・内部参照・7行/各ラベル/ScrollRect/Mask/フォント参照を静的確認した。SaveManager・Equipment/Materialの所持管理・SkillActor・入手先/色取得など一部協力クラスとUnity APIは代替であり、Unityの実セーブ・Play・描画・Prefabインポート・全体コンパイル・実機Profilerは未確認。
 
 Unityでは、設定→目標リストで7件オン/8件目拒否、左上の所持数、素材消費後の更新、全オフ、再起動復元、シーン移動時の重複がないことを確認する。配合した子のスキル詳細を開き、候補が未習得であること、SPを消費して習得/枠設定できることも確認する。
+
+2026年10月29日：目標リスト上部に「常時表示を一括解除」を追加。全ページの表示フラグのみ解除し、目標/必要数/進捗は保持する。変更通知と保存予約は1回にまとめ、全解除済みならボタンを無効化する。左上HUDは既存の変更通知で追従する。UIのシーン配置と座標調整は[UiLayout.md](UiLayout.md)を参照。
