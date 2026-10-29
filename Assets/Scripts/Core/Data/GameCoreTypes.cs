@@ -54,6 +54,9 @@ namespace MixMaster.Core
         public List<string> learnedSkillIds =
             new List<string>();
 
+        // Breeding grants learning options, not free learned skills.
+        public List<string> inheritedSkillIds = new List<string>();
+
         // Legacy float is kept so older save data can still be loaded.
         public float intimacy;
 

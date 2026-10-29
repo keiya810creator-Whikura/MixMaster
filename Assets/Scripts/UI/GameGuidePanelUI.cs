@@ -22,6 +22,9 @@ namespace MixMaster.UI
         private TMP_InputField amountInput;
         private Button previous, next, deleteButton, addButton;
         private readonly Button[] rows = new Button[PageSize];
+        private readonly Toggle[] goalToggles = new Toggle[PageSize];
+        private string notice;
+        private float noticeUntil;
         private readonly TMP_Text[] rowLabels = new TMP_Text[PageSize];
         private List<GameGuideContent.Target> choices = new List<GameGuideContent.Target>();
         private GameGuideContent content;
@@ -59,7 +62,7 @@ namespace MixMaster.UI
             materials = journal != null ? journal.GetComponent<MaterialInventoryManager>() : null;
             player = journal != null ? journal.GetComponent<PlayerManager>() : null;
             content = content ?? new GameGuideContent(MonsterCatalogSO.Load(), EquipmentCatalogSO.Load(), MapCatalogSO.Load());
-            page = requested; back = onBack; offset = 0; history = false; selectedGoal = null;
+            page = requested; back = onBack; offset = 0; history = false; selectedGoal = null; noticeUntil = 0;
             detailRoot.SetActive(false);
             recordsRoot.SetActive(page == GameGuidePage.Records);
             goalsRoot.SetActive(page == GameGuidePage.Goals);
@@ -145,6 +148,7 @@ namespace MixMaster.UI
                 int index = i;
                 rows[i] = Button(card, "Row" + i, "", 28, -490 - i * 92, 944, 82, () => SelectRow(index));
                 rowLabels[i] = rows[i].GetComponentInChildren<TMP_Text>(); rowLabels[i].alignment = TextAlignmentOptions.MidlineLeft;
+                goalToggles[i] = GoalToggle(rows[i].transform, index);
             }
             previous = Button(card, "Previous", "前へ", 28, -1240, 220, 80, () => { offset = Math.Max(0, offset - PageSize); Refresh(); });
             next = Button(card, "Next", "次へ", 752, -1240, 220, 80, () => { offset += PageSize; Refresh(); });
@@ -163,6 +167,33 @@ namespace MixMaster.UI
             var parentLabel = transform.parent.GetComponentInChildren<TMP_Text>(true);
             if (parentLabel != null && parentLabel.font != null)
                 foreach (var label in GetComponentsInChildren<TMP_Text>(true)) label.font = parentLabel.font;
+        }
+        private Toggle GoalToggle(Transform parent, int row)
+        {
+            var root = Root(parent, "GoalDisplay");
+            InventoryUiFactory.TopLeft(root, new Vector2(700, -12), new Vector2(232, 58));
+            root.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, 0);
+            var toggle = root.gameObject.AddComponent<Toggle>();
+            var box = Root(root, "Box");
+            InventoryUiFactory.TopLeft(box, new Vector2(0, -11), new Vector2(36, 36));
+            var background = box.gameObject.AddComponent<Image>(); background.color = new Color(.35f, .42f, .5f, 1);
+            var tick = Root(box, "Check"); tick.offsetMin = new Vector2(6, 6); tick.offsetMax = new Vector2(-6, -6);
+            var graphic = tick.gameObject.AddComponent<Image>(); graphic.color = new Color(.35f, 1f, .65f, 1); graphic.raycastTarget = false;
+            toggle.targetGraphic = background; toggle.graphic = graphic;
+            var caption = Text(root, "Label", "目標表示", 50, 0, 182, 58, 26); caption.alignment = TextAlignmentOptions.MidlineLeft;
+            toggle.onValueChanged.AddListener(value => TrackRow(row, value));
+            return toggle;
+        }
+        private void TrackRow(int row, bool value)
+        {
+            int index = offset + row;
+            if (page != GameGuidePage.Goals || journal == null || index < 0 || index >= journal.Goals.Count) return;
+            if (!journal.SetGoalTracked(journal.Goals[index].goalId, value))
+            {
+                notice = "常時表示は最大7件です。ほかの目標の表示をオフにしてください。";
+                noticeUntil = Time.unscaledTime + 4f;
+            }
+            Refresh();
         }
         private void UpdateChoices()
         {
@@ -211,10 +242,12 @@ namespace MixMaster.UI
             for (int i = 0; i < PageSize; i++)
             {
                 bool visible = list && offset + i < count; rows[i].gameObject.SetActive(visible);
+                goalToggles[i].gameObject.SetActive(visible && page == GameGuidePage.Goals);
+                rowLabels[i].rectTransform.offsetMax = new Vector2(page == GameGuidePage.Goals ? -264 : 0, 0);
                 if (!visible) continue;
                 if (page == GameGuidePage.Goals)
                 {
-                    var goal = journal.Goals[offset + i]; long owned = GameGuideContent.Owned(goal, monsters, equipment, materials);
+                    var goal = journal.Goals[offset + i]; goalToggles[i].SetIsOnWithoutNotify(goal.showOnHud); long owned = GameGuideContent.Owned(goal, monsters, equipment, materials);
                     rowLabels[i].text = (owned >= goal.targetCount ? "達成　" : "未達成　") + content.Resolve(goal).name + "\n" + GameGuideContent.Number(owned) + " / " + GameGuideContent.Number(goal.targetCount);
                 }
                 else
@@ -226,7 +259,8 @@ namespace MixMaster.UI
             previous.gameObject.SetActive(list); next.gameObject.SetActive(list); pageLabel.gameObject.SetActive(list);
             previous.interactable = offset > 0; next.interactable = offset + PageSize < count;
             pageLabel.text = count == 0 ? "まだ登録がありません" : (offset / PageSize + 1) + " / " + ((count - 1) / PageSize + 1) + "　（" + count + "件）";
-            status.text = journal == null ? "記録を読み込めません。" : journal.SavePending ? "変更は反映済みです。保存を待機・再試行しています。" : page == GameGuidePage.Goals ? "現在の所持数で判定 ／ 最大50件" : page == GameGuidePage.Records && history ? "成功・失敗の最新200件 ／ タップで詳細" : "";
+            status.text = journal == null ? "記録を読み込めません。" : journal.SavePending ? "変更は反映済みです。保存を待機・再試行しています。" : page == GameGuidePage.Goals ? "現在の所持数で判定 ／ 登録50件・常時表示7件まで" : page == GameGuidePage.Records && history ? "成功・失敗の最新200件 ／ タップで詳細" : "";
+            if (Time.unscaledTime < noticeUntil) status.text = notice;
             if (detailRoot.activeSelf && selectedGoal != null) ShowGoalDetail(false);
         }
         private void SelectRow(int row)

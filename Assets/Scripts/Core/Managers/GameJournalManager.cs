@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class GameJournalManager : MonoBehaviour
     {
-        public const int HistoryLimit = 200, GoalLimit = 50;
+        public const int HistoryLimit = 200, GoalLimit = 50, TrackedGoalLimit = 7;
         public const long MaximumTarget = 999999;
         public static GameJournalManager Instance { get; private set; }
         private GameJournalData data = NewData();
@@ -78,7 +78,7 @@ namespace MixMaster.Core
             var entry = new BreedingHistoryRecord { utc = DateTime.UtcNow.ToString("o"), parentA = a, parentB = b,
                 child = Snapshot(child, catalog), succeeded = succeeded, successPercent = offer.successPercent,
                 specialRecipe = offer.isSpecial, parentsProtected = !succeeded && protectedParents };
-            if (child?.learnedSkillIds != null) foreach (string id in child.learnedSkillIds)
+            if (child?.inheritedSkillIds != null) foreach (string id in child.inheritedSkillIds)
             {
                 if (entry.inheritedSkills.Count >= 3) break;
                 SkillSO skill = skills != null ? skills.Get(id) : null;
@@ -103,6 +103,16 @@ namespace MixMaster.Core
             }
             goal.name = string.IsNullOrWhiteSpace(name) ? id : name;
             goal.targetCount = count; QueueSave(); return true;
+        }
+        public bool SetGoalTracked(string goalId, bool visible)
+        {
+            GoalRecord goal = data.goals.Find(x => x.goalId == goalId);
+            if (goal == null) return false;
+            if (goal.showOnHud == visible) return true;
+            int tracked = 0;
+            for (int i = 0; i < data.goals.Count; i++) if (data.goals[i].showOnHud) tracked++;
+            if (visible && tracked >= TrackedGoalLimit) return false;
+            goal.showOnHud = visible; QueueSave(); return true;
         }
         public bool DeleteGoal(string goalId)
         {
@@ -138,13 +148,16 @@ namespace MixMaster.Core
             }
             var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var ids = new HashSet<string>();
+            int tracked = 0;
             if (source.goals != null) foreach (var x in source.goals)
             {
                 if (result.goals.Count >= GoalLimit) break;
                 if (x == null || !Enum.IsDefined(typeof(GoalKind), x.kind) || string.IsNullOrWhiteSpace(x.definitionId) || !targets.Add(x.kind + ":" + x.definitionId)) continue;
                 string id = x.goalId;
                 if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) { id = Guid.NewGuid().ToString("N"); ids.Add(id); }
-                result.goals.Add(new GoalRecord { goalId = id, kind = x.kind, definitionId = x.definitionId, name = x.name, targetCount = Math.Max(1, Math.Min(MaximumTarget, x.targetCount)) });
+                bool showOnHud = x.showOnHud && tracked < TrackedGoalLimit;
+                if (showOnHud) tracked++;
+                result.goals.Add(new GoalRecord { goalId = id, kind = x.kind, definitionId = x.definitionId, name = x.name, showOnHud = showOnHud, targetCount = Math.Max(1, Math.Min(MaximumTarget, x.targetCount)) });
             }
             return result;
         }

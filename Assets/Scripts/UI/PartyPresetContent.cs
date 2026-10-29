@@ -17,24 +17,30 @@ namespace MixMaster.UI
             Actor(text, preset.player, "プレイヤー", monsters, equipment, skills);
             if (preset.members != null)
                 for (int i = 0; i < preset.members.Count; i++)
-                    Actor(text, preset.members[i], "仲間" + (i + 1), monsters, equipment, skills);
+                    Actor(text, preset.members[i], "仲間" + (i + 1), monsters, equipment, skills, i);
             if (preset.members != null && preset.members.Count == 0) text.Append("\n仲間：未編成\n");
             return text.ToString().TrimEnd();
         }
 
         private static void Actor(StringBuilder text, PartyPresetActor actor, string label,
-            MonsterManager monsters, EquipmentManager equipment, SkillProgressionManager skills)
+            MonsterManager monsters, EquipmentManager equipment, SkillProgressionManager skills, int partySlot = -1)
         {
             if (actor == null) { text.Append("\n").Append(label).Append("：データがありません\n"); return; }
-            text.Append("\n【").Append(label).Append("】");
+            text.Append('\n');
+            bool colored = partySlot >= 0 && partySlot < 3;
+            if (colored) text.Append("<color=#").Append(UnityEngine.ColorUtility.ToHtmlStringRGB(
+                MaterialDropLogUI.GetSourceColor((MaterialDropSourceType)((int)MaterialDropSourceType.Party1 + partySlot)))).Append('>');
+            text.Append("【").Append(label).Append("】");
             if (actor.ownerId != "player")
             {
                 OwnedMonsterRecord owned = monsters != null ? monsters.FindOwnedMonster(actor.ownerId) : null;
-                text.Append(actor.displayName);
+                text.Append(Safe(actor.displayName));
                 if (owned != null) text.Append(" Lv.").Append(owned.level);
                 else text.Append("（未所持）");
+                if (colored) text.Append("</color>");
                 text.Append("\n行動：").Append(Behavior(actor.combatBehavior));
             }
+            else if (colored) text.Append("</color>");
             text.Append("\n装備\n");
             for (int i = 0; i < EquipmentManager.MaxEquipmentSlots; i++)
             {
@@ -47,7 +53,7 @@ namespace MixMaster.UI
                     EquipmentSO data = item != null ? equipment.GetEquipmentDefinition(item.equipmentId) : null;
                     string name = !string.IsNullOrWhiteSpace(data?.displayName) ? data.displayName :
                         actor.equipmentNames != null && i < actor.equipmentNames.Count && !string.IsNullOrWhiteSpace(actor.equipmentNames[i]) ? actor.equipmentNames[i] : id;
-                    text.Append(name);
+                    text.Append(Safe(name));
                     if (item != null) text.Append(" Lv.").Append(item.level);
                     else text.Append("（未所持）");
                 }
@@ -62,7 +68,7 @@ namespace MixMaster.UI
                 else
                 {
                     SkillSO skill = skills?.Catalog != null ? skills.Catalog.Get(slot.skillId) : null;
-                    text.Append(!string.IsNullOrWhiteSpace(skill?.displayName) ? skill.displayName : slot.skillId);
+                    text.Append(Safe(!string.IsNullOrWhiteSpace(skill?.displayName) ? skill.displayName : slot.skillId));
                     if (skill != null && skill.category == SkillCategory.Passive) text.Append("（パッシブ）");
                     else
                     {
@@ -74,6 +80,8 @@ namespace MixMaster.UI
                 text.Append('\n');
             }
         }
+
+        private static string Safe(string value) => (value ?? string.Empty).Replace("<", "<\u200B");
 
         private static string Trigger(SkillTrigger trigger, float value)
         {

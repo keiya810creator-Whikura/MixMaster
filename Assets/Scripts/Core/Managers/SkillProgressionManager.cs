@@ -50,6 +50,7 @@ namespace MixMaster.Core
             var record = Record(owner);
             var monster = record != null ? MonsterCatalogSO.Load()?.GetMonster(record.monsterId) : null;
             var available=new List<SkillSO>();if(monster!=null)available.AddRange(monster.availableSkills);
+            if(record?.inheritedSkillIds!=null)foreach(var id in record.inheritedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
             if(record?.learnedSkillIds!=null)foreach(var id in record.learnedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
             return available;
         }
@@ -207,13 +208,30 @@ namespace MixMaster.Core
         }
         public void Inherit(OwnedMonsterRecord child,List<string> candidates)
         {
-            if(child==null)return;child.learnedSkillIds ??= new List<string>();
-            for(int i=0;i<3&&candidates.Count>0;i++)
+            if (child == null || candidates == null || Catalog == null) return;
+            child.inheritedSkillIds = CopyInheritedSkills(child.inheritedSkillIds);
+            var pool = new List<string>();
+            foreach (string id in candidates)
             {
-                int n=UnityEngine.Random.Range(0,candidates.Count);string id=candidates[n];candidates.RemoveAt(n);
-                if(!child.learnedSkillIds.Contains(id))child.learnedSkillIds.Add(id);
+                var skill = string.IsNullOrWhiteSpace(id) ? null : Catalog.Get(id);
+                if (skill != null && skill.executable && !pool.Contains(id) && !child.inheritedSkillIds.Contains(id)) pool.Add(id);
+            }
+            while (child.inheritedSkillIds.Count < 3 && pool.Count > 0)
+            {
+                int index = UnityEngine.Random.Range(0, pool.Count);
+                child.inheritedSkillIds.Add(pool[index]); pool.RemoveAt(index);
             }
             NotifyChanged();
+        }
+        internal static List<string> CopyInheritedSkills(IReadOnlyList<string> source)
+        {
+            var result = new List<string>();
+            if (source != null) foreach (string id in source)
+            {
+                if (!string.IsNullOrWhiteSpace(id) && !result.Contains(id)) result.Add(id);
+                if (result.Count == 3) break;
+            }
+            return result;
         }
         public void ResetPlayer() { data.playerLearned.Clear(); data.loadouts.RemoveAll(l => l.ownerId == "player"); runtimeCooldowns.Remove("player"); MixMaster.Combat.SkillActor.PlayerActor?.ResetTransient(); NotifyChanged(); }
         public SkillSaveData Capture() => JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));
