@@ -20,7 +20,7 @@ namespace MixMaster.UI
         private ScrollRect helpScroll, detailScroll;
         private TMP_Dropdown kindPicker, targetPicker, helpPicker;
         private TMP_InputField amountInput;
-        private Button previous, next, deleteButton, addButton;
+        private Button previous, next, deleteButton, addButton, clearTrackedButton;
         private readonly Button[] rows = new Button[PageSize];
         private readonly Toggle[] goalToggles = new Toggle[PageSize];
         private string notice;
@@ -141,7 +141,8 @@ namespace MixMaster.UI
             var inputText = Text(area, "Text", "1", 0, 0, 430, 64, 32); InventoryUiFactory.Stretch(inputText.rectTransform);
             amountInput.textViewport = area; amountInput.textComponent = inputText; amountInput.contentType = TMP_InputField.ContentType.IntegerNumber; amountInput.characterLimit = 6; amountInput.text = "1";
             addButton = Button(goalsRoot.transform, "AddGoal", "登録・必要数を更新", 512, -320, 460, 80, AddGoal);
-            Text(goalsRoot.transform, "GoalHint", "必要数 1～999,999 ／ 同じ対象は更新 ／ タップで入手先・削除", 28, -410, 944, 64, 26);
+            Text(goalsRoot.transform, "GoalHint", "必要数 1～999,999 ／ 同じ対象は更新", 28, -410, 644, 64, 26);
+            clearTrackedButton = Button(goalsRoot.transform, "ClearTrackedGoals", "常時表示を一括解除", 700, -410, 272, 64, ClearTrackedGoals);
             // One row pool shared by records and goals. Only rebind visible eight.
             for (int i = 0; i < PageSize; i++)
             {
@@ -183,6 +184,13 @@ namespace MixMaster.UI
             var caption = Text(root, "Label", "目標表示", 50, 0, 182, 58, 26); caption.alignment = TextAlignmentOptions.MidlineLeft;
             toggle.onValueChanged.AddListener(value => TrackRow(row, value));
             return toggle;
+        }
+        private void ClearTrackedGoals()
+        {
+            if (journal == null || !journal.ClearTrackedGoals()) return;
+            notice = "常時表示をすべて解除しました。目標の登録は残っています。";
+            noticeUntil = Time.unscaledTime + 4f;
+            Refresh();
         }
         private void TrackRow(int row, bool value)
         {
@@ -226,6 +234,9 @@ namespace MixMaster.UI
         private void Refresh()
         {
             if (card == null) return;
+            bool anyTracked = false;
+            if (journal != null) for (int i = 0; i < journal.Goals.Count; i++) if (journal.Goals[i].showOnHud) { anyTracked = true; break; }
+            clearTrackedButton.interactable = anyTracked;
             bool list = page == GameGuidePage.Goals || page == GameGuidePage.Records && history;
             int count = journal == null ? 0 : page == GameGuidePage.Goals ? journal.Goals.Count : journal.History.Count;
             offset = Math.Min(offset, Math.Max(0, (count - 1) / PageSize * PageSize));

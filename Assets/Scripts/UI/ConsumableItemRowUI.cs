@@ -24,7 +24,7 @@ namespace MixMaster.UI
         }
         private void Act() => action?.Invoke();
         private void Select() => select?.Invoke();
-        public void Bind(ConsumableDefinition item, long owned, bool shop, int amount, bool canBuy, Action onAction, Action onSelect)
+        public void Bind(ConsumableDefinition item, long owned, bool shop, int amount, bool canBuy, Action onAction, Action onSelect, float cooldownRemaining = 0f)
         {
             action = onAction; select = onSelect;
             if (icon != null) { icon.sprite = item.icon; icon.enabled = item.icon != null; }
@@ -33,8 +33,8 @@ namespace MixMaster.UI
             if (quantityText != null) quantityText.text = "所持 " + owned.ToString("N0") + "個";
             if (priceText != null) priceText.text = shop
                 ? item.purchasePrice < 0 ? "価格未設定" : item.purchasePrice.ToString("N0") + " G / 個" : "";
-            if (actionText != null) actionText.text = shop ? amount + "個購入" : "使用";
-            if (actionButton != null) actionButton.interactable = shop ? canBuy : owned > 0;
+            if (actionText != null) actionText.text = shop ? amount + "個購入" : cooldownRemaining > 0f ? "あと" + Mathf.CeilToInt(cooldownRemaining) + "秒" : "使用";
+            if (actionButton != null) actionButton.interactable = shop ? canBuy : owned > 0 && cooldownRemaining <= 0f;
             if (shortcutButton != null) shortcutButton.gameObject.SetActive(!shop);
         }
     }

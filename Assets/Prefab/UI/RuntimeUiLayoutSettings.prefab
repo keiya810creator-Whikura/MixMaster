@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &100000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 224000}
+  - component: {fileID: 114009}
+  m_Layer: 5
+  m_Name: RuntimeUiLayoutSettings
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &224000
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &114009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b5ecf1be6955eb3809b3a143d9ef561, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  placements:
+  - label: "記録・目標・ヘルプ"
+    pathSuffix: GameGuidePanel/SafeArea/Card
+    positionOffset: {x: 0, y: 0}
+  - label: "スキルボタン"
+    pathSuffix: SkillHUD/SafeArea/SkillButtons
+    positionOffset: {x: 0, y: 0}
+  - label: "スキル習得画面"
+    pathSuffix: SkillHUD/SafeArea/SkillPanel
+    positionOffset: {x: 0, y: 0}
+  - label: "装備比較"
+    pathSuffix: EquipmentComparisonOverlay/ComparisonCard
+    positionOffset: {x: 0, y: 0}
+  - label: "装備強化"
+    pathSuffix: EquipmentEnhancementOverlay/EnhancementCard
+    positionOffset: {x: 0, y: 0}
+  - label: "ダンジョン装備詳細"
+    pathSuffix: DungeonEquipmentDetailOverlay/StatsCard
+    positionOffset: {x: 0, y: 0}
+  - label: "自動売却設定"
+    pathSuffix: AutoSellSettingsOverlay/SettingsCard
+    positionOffset: {x: 0, y: 0}
+  - label: "一括売却確認"
+    pathSuffix: BulkSaleConfirmation/ConfirmBox
+    positionOffset: {x: 0, y: 0}
+  - label: "パーティ行動指示"
+    pathSuffix: PartyCombatOrdersHUD
+    positionOffset: {x: 0, y: 0}

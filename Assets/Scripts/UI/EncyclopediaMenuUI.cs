@@ -69,6 +69,7 @@ namespace MixMaster.UI
 
         public void ShowMonsters()
         {
+            if (monsters == null) monsters = FindPlacedPanel(EncyclopediaKind.Monster);
             if (monsters == null && monsterPrefab != null)
                 monsters = Instantiate(monsterPrefab, panelRoot != null ? panelRoot : transform, false);
             ShowPanel(monsters);
@@ -76,9 +77,17 @@ namespace MixMaster.UI
 
         public void ShowEquipment()
         {
+            if (equipment == null) equipment = FindPlacedPanel(EncyclopediaKind.Equipment);
             if (equipment == null && equipmentPrefab != null)
                 equipment = Instantiate(equipmentPrefab, panelRoot != null ? panelRoot : transform, false);
             ShowPanel(equipment);
+        }
+
+        private static EncyclopediaPanelUI FindPlacedPanel(EncyclopediaKind kind)
+        {
+            foreach (var panel in FindObjectsByType<EncyclopediaPanelUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (panel.Kind == kind) return panel;
+            return null;
         }
 
         private void ShowPanel(EncyclopediaPanelUI panel)

@@ -84,10 +84,15 @@ namespace MixMaster.Core
             RestoreProgress(profile, null, string.Empty);
         }
 
-        public void RestoreProgress(OfflineRecordProfile profile, OfflineRecordProfile pending, string utc)
+        public void RestoreProgress(OfflineRecordProfile profile, OfflineRecordProfile pending, string utc, bool? hasPending = null)
         {
             LastCompletedProfile = OfflineRewardRules.CopyProfile(profile);
-            PendingProfile = OfflineRewardRules.CopyProfile(pending);
+            PendingProfile = hasPending == false ? null : OfflineRewardRules.CopyProfile(pending);
+            // Unity inline serialization can materialize an absent null profile
+            // as an empty object. Pre-v20 saves have no explicit presence flag.
+            if (!hasPending.HasValue && PendingProfile != null &&
+                string.IsNullOrWhiteSpace(PendingProfile.mapId) && PendingProfile.gains.Count == 0)
+                PendingProfile = null;
             recordingProfile = null;
             IsRecording = false;
             LatestReport = null;

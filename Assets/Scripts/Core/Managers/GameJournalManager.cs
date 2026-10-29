@@ -114,6 +114,14 @@ namespace MixMaster.Core
             if (visible && tracked >= TrackedGoalLimit) return false;
             goal.showOnHud = visible; QueueSave(); return true;
         }
+        public bool ClearTrackedGoals()
+        {
+            bool changed = false;
+            for (int i = 0; i < data.goals.Count; i++)
+                if (data.goals[i].showOnHud) { data.goals[i].showOnHud = false; changed = true; }
+            if (changed) QueueSave();
+            return changed;
+        }
         public bool DeleteGoal(string goalId)
         {
             int index = data.goals.FindIndex(x => x.goalId == goalId);
