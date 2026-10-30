@@ -119,8 +119,7 @@ namespace MixMaster.UI
         }
         private void Build()
         {
-            var safe = Root(transform, "SafeArea"); safe.gameObject.AddComponent<SafeAreaLayout>();
-            card = Root(safe, "Card"); card.anchorMin = card.anchorMax = new Vector2(.5f, .5f); card.pivot = new Vector2(.5f, .5f); card.sizeDelta = new Vector2(1000, 1560);
+            card = Root(transform, "Card"); card.anchorMin = card.anchorMax = new Vector2(.5f, .5f); card.pivot = new Vector2(.5f, .5f); card.sizeDelta = new Vector2(1000, 1560);
             card.gameObject.AddComponent<Image>().color = new Color(.08f, .12f, .18f, 1);
             title = Text(card, "Title", "", 28, -24, 944, 72, 42);
             Button(card, "Back", "設定メニューへ戻る", 28, -1410, 944, 100, Back);

@@ -12,7 +12,7 @@ namespace MixMaster.UI
         public sealed class Placement
         {
             public string label;
-            [Tooltip("End of the UI hierarchy path, e.g. GameGuidePanel/SafeArea/Card")]
+            [Tooltip("End of the UI hierarchy path, e.g. GameGuidePanel/Card")]
             public string pathSuffix;
             public Vector2 positionOffset;
             [NonSerialized] internal string[] parts;
