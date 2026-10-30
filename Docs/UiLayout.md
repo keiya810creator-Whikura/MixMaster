@@ -4,8 +4,8 @@
 
 MainSceneに`AcquisitionLogsCanvas`を配置した。Prefabは`Assets/Prefab/UI/AcquisitionLogs.prefab`。
 
-- 素材ログ：`AcquisitionLogsCanvas / SafeArea / MaterialDropLog`
-- モンスター獲得ログ：`AcquisitionLogsCanvas / SafeArea / MonsterObtainLog`
+- 素材ログ：`AcquisitionLogsCanvas / MaterialDropLog`
+- モンスター獲得ログ：`AcquisitionLogsCanvas / MonsterObtainLog`
 
 Hierarchyで対象を選び、InspectorのRect Transformの**Pos X / Pos Y**を変更する。セーフエリアの左下が基準で、Xを増やすと右、Yを増やすと上へ移動する。1080×1920を基準に画面へ拡縮する。現在値は素材(24,24)、モンスター(24,350)。Sceneを保存すれば再生終了後も残る。Prefab側を編集すれば他の配置先にも反映できる。
 
@@ -19,7 +19,7 @@ Hierarchyで対象を選び、InspectorのRect Transformの**Pos X / Pos Y**を�
 
 共通のInventoryUiFactoryで生成されるUIは生成後に位置を反映する。シーンロード時には既存CanvasのRectTransformも一度登録するため、配置済みスキルUIにも適用できる。毎フレームのシーン検索は行わず、新しく生成されたUIとInspectorの変更時にだけ処理する。再登録してもオフセットを重ね掛けしない。
 
-追加の対象はPlacementsへ要素を追加し、Labelに説明、Path SuffixにHierarchyの末尾のパスを記載する。例：`GameGuidePanel/SafeArea/Card/Goals/ClearTrackedGoals`。Position Offsetで移動できる。自動レイアウト対象の一覧行は親コンテナで調整する。画面全体を動かす場合はカード/パネルを対象にする。
+追加の対象はPlacementsへ要素を追加し、Labelに説明、Path SuffixにHierarchyの末尾のパスを記載する。例：`GameGuidePanel/Card/Goals/ClearTrackedGoals`。Position Offsetで移動できる。自動レイアウト対象の一覧行は親コンテナで調整する。画面全体を動かす場合はカード/パネルを対象にする。
 
 既にPrefabで位置を編集できるUIは、シーンのRect Transformでも直接変更できる。レイアウト設定のオフセットを併用した場合は、その位置へ加算する。
 
@@ -34,3 +34,10 @@ Hierarchyで対象を選び、InspectorのRect Transformの**Pos X / Pos Y**を�
 Unity本体でのPrefabインポート・Play・実機描画は未確認。MainSceneを開いてMissing参照がないこと、起動時にメニューが勝手に開かないこと、各入口から配置済み画面を再利用すること、ログ座標と配置オフセットが画面サイズ/セーフエリアに追従することを確認する。
 
 代替API環境では実管理・UI・ログ・配置クラスを全体コンパイルし60項目成功。UI座標の反映/再反映、ログ表示先の切替と解除、既存のコンマ表示、5秒クールタイム、記録結果の復元、一括解除を確認した。Sceneの9インスタンス/一意ID/親子参照/メニュー閉状態と新Prefab14・3文書の内部参照も静的検査した。SaveManager等の協力クラスとUnity APIは代替で、実Unityの保存・レイアウト/描画検証ではない。
+
+
+## 2026年10月30日：共通SafeArea配下への配置用に整理
+
+各UI Prefab内のSafeAreaを取り除いた。共通の`Canvas / SafeArea / Header・Body・Bottom`へ配置する。今回の変更ではMainScene内の配置・階層は変更せず、振り分けは利用者が行う。獲得ログの位置も、移動したAcquisitionLogsCanvas配下のMaterialDropLog/MonsterObtainLogで指定する。
+
+RuntimeUiLayoutSettingsの既定パスはGameGuidePanel/Card、SkillHUD/SkillButtons、SkillHUD/SkillPanelへ更新。独自の古いパスは削除したPrefab内のSafeArea部分を取り除く。詳細は[MobileSafeArea.md](MobileSafeArea.md)。

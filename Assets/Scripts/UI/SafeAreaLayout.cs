@@ -109,19 +109,13 @@ namespace MixMaster.UI
             return content != null && content.GetComponent<SafeAreaLayout>() != null ? content : parent;
         }
 
-        /// <summary>For the existing code-built logs and equipment detail.</summary>
+        /// <summary>
+        /// Compatibility entry for code-built UI. SafeArea belongs to the
+        /// shared Canvas, so each panel uses its own root without a wrapper.
+        /// </summary>
         public static RectTransform CreateContent(Transform parent)
         {
-            GameObject content = new GameObject("SafeArea", typeof(RectTransform));
-            RectTransform rect = content.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = Vector2.zero;
-            rect.anchoredPosition = Vector2.zero;
-            content.AddComponent<SafeAreaLayout>();
-            return rect;
+            return parent as RectTransform;
         }
     }
 }

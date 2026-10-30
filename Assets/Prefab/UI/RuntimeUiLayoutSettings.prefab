@@ -50,13 +50,13 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   placements:
   - label: "記録・目標・ヘルプ"
-    pathSuffix: GameGuidePanel/SafeArea/Card
+    pathSuffix: GameGuidePanel/Card
     positionOffset: {x: 0, y: 0}
   - label: "スキルボタン"
-    pathSuffix: SkillHUD/SafeArea/SkillButtons
+    pathSuffix: SkillHUD/SkillButtons
     positionOffset: {x: 0, y: 0}
   - label: "スキル習得画面"
-    pathSuffix: SkillHUD/SafeArea/SkillPanel
+    pathSuffix: SkillHUD/SkillPanel
     positionOffset: {x: 0, y: 0}
   - label: "装備比較"
     pathSuffix: EquipmentComparisonOverlay/ComparisonCard

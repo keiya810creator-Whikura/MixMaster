@@ -201,12 +201,12 @@ namespace MixMaster.UI
         {
             var go=new GameObject("SkillHUD",typeof(RectTransform));go.transform.SetParent(parent,false);InventoryUiFactory.Stretch((RectTransform)go.transform);
             var ui=go.AddComponent<SkillScreenUI>();
-            var safe=new GameObject("SafeArea",typeof(RectTransform),typeof(SafeAreaLayout));safe.transform.SetParent(go.transform,false);InventoryUiFactory.Stretch((RectTransform)safe.transform);
-            var dock=new GameObject("SkillButtons",typeof(RectTransform));dock.transform.SetParent(safe.transform,false);var dockRect=(RectTransform)dock.transform;dockRect.anchorMin=dockRect.anchorMax=new Vector2(1,0);dockRect.pivot=new Vector2(1,0);dockRect.anchoredPosition=new Vector2(-20,420);dockRect.sizeDelta=new Vector2(550,150);
+            Transform content=go.transform;
+            var dock=new GameObject("SkillButtons",typeof(RectTransform));dock.transform.SetParent(content,false);var dockRect=(RectTransform)dock.transform;dockRect.anchorMin=dockRect.anchorMax=new Vector2(1,0);dockRect.pivot=new Vector2(1,0);dockRect.anchoredPosition=new Vector2(-20,420);dockRect.sizeDelta=new Vector2(550,150);
             ui.castButtons=new Button[5];ui.castLabels=new TMP_Text[5];
             for(int i=0;i<5;i++){ui.castButtons[i]=InventoryUiFactory.Button(dock.transform,"Cast"+i,"未登録",new Vector2(i*110,0),new Vector2(104,80));ui.castLabels[i]=ui.castButtons[i].GetComponentInChildren<TMP_Text>();}
             ui.openButton=InventoryUiFactory.Button(dock.transform,"OpenSkills","スキル設定",new Vector2(360,-88),new Vector2(190,52));
-            var panel=new GameObject("SkillPanel",typeof(RectTransform),typeof(Image));panel.transform.SetParent(safe.transform,false);var rect=(RectTransform)panel.transform;rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.pivot=new Vector2(.5f,.5f);rect.sizeDelta=new Vector2(940,1480);panel.GetComponent<Image>().color=new Color(.07f,.1f,.15f,.98f);ui.panel=panel;
+            var panel=new GameObject("SkillPanel",typeof(RectTransform),typeof(Image));panel.transform.SetParent(content,false);var rect=(RectTransform)panel.transform;rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.pivot=new Vector2(.5f,.5f);rect.sizeDelta=new Vector2(940,1480);panel.GetComponent<Image>().color=new Color(.07f,.1f,.15f,.98f);ui.panel=panel;
             InventoryUiFactory.Text(rect,"Title","スキル習得・発動条件",new Vector2(24,-20),new Vector2(700,60),32);
             ui.closeButton=InventoryUiFactory.Button(rect,"Close","閉じる",new Vector2(750,-24),new Vector2(160,52));
             ui.actorDropdown=InventoryUiFactory.Dropdown(rect,"Actor",new Vector2(24,-100),new Vector2(880,58),new[]{"主人公"});
