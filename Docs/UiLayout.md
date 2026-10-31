@@ -41,3 +41,13 @@ Unity本体でのPrefabインポート・Play・実機描画は未確認。MainS
 各UI Prefab内のSafeAreaを取り除いた。共通の`Canvas / SafeArea / Header・Body・Bottom`へ配置する。今回の変更ではMainScene内の配置・階層は変更せず、振り分けは利用者が行う。獲得ログの位置も、移動したAcquisitionLogsCanvas配下のMaterialDropLog/MonsterObtainLogで指定する。
 
 RuntimeUiLayoutSettingsの既定パスはGameGuidePanel/Card、SkillHUD/SkillButtons、SkillHUD/SkillPanelへ更新。独自の古いパスは削除したPrefab内のSafeArea部分を取り除く。詳細は[MobileSafeArea.md](MobileSafeArea.md)。
+
+## 2026年11月1日：配置後の入力エラー・HPバー警告への対応
+
+FloatingJoystickのOnDisableはOnScreenControlの仮想メソッドをoverrideし、スティックをゼロへ戻した後、finallyでbase.OnDisableを呼ぶ。従来は同名のprivateメソッドで基底の登録解除を隠しており、UIの非表示/再表示やシーン終了時に仮想デバイス・入力イベントバッファの後処理が行われなかった。Input System 1.14.0の実OnScreenControlソースで登録解除の流れを確認した。ログの「Control count per binding cannot exceed byte.MaxValue=255」との関連は考えられるが、添付環境そのものの再現・解消確認はUnity上で行う必要がある。
+
+CharacterWorldBar.prefabのSkillNameとHPSlider/LevelLabelにあるLayoutElementのm_Script GUIDを、uGUIの正しい306cc8c2b49d7114eaa3623786fc2126へ修正した。既存の部品ID、Ignore Layout、文字設定、座標、レベル/スキル名の参照は保持。TMP_Textやバーのプールを削除して警告を抑える対応は行わない。MainSceneおよび利用者が配置したHeader/Body/Bottomは変更しない。
+
+更新後はPlayを停止しUnity Editorを一度終了・再起動して、以前の実行中に残った入力状態をリセットする。ConsoleをClearし、移動スティックを操作、親UIの非表示/再表示、Playの停止/再開、敵の出現/スキル発動を確認する。255件エラーやSkillName/LevelLabelのMissing Script警告が再発しないこと、移動が停止/再開できること、HP/Lv/スキル名が従来の位置に表示されることを確認する。
+
+実FloatingJoystickとInput System 1.14.0の実OnScreenControlを代替プラットフォームAPIでコンパイルし、1000回の有効/無効、共有仮想デバイス、押下中の無効化、異なる指の解放、操作禁止/再開を8011項目で検査した。変更前はデバイスの解放検査で失敗し、変更後は成功。InputSystem/Unity/NativeArray等は代替であり、ネイティブ入力処理・255件エラーそのもの・Unityインポート/Play/実機描画の検証ではない。
