@@ -149,4 +149,7 @@ MonoBehaviour:
   effectTiming: 0
   effectInterval: 1
   passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
   affixes: []

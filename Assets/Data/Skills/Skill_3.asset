@@ -67,7 +67,7 @@ MonoBehaviour:
   - option: 10
     value: 0.3
   - option: 11
-    value: 3
+    value: 14
   - option: 12
     value: 8
   - option: 13
@@ -149,4 +149,7 @@ MonoBehaviour:
   effectTiming: 1
   effectInterval: 1
   passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
   affixes: []
