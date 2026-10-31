@@ -73,9 +73,18 @@ namespace MixMaster.UI
                 joystickRoot.gameObject.SetActive(false);
         }
 
-        private void OnDisable()
+        protected override void OnDisable()
         {
-            ReleaseControl();
+            // Reset the stick before the base class releases its virtual device.
+            // Hiding OnDisable skips OnScreenControl's registration/buffer cleanup.
+            try
+            {
+                ReleaseControl();
+            }
+            finally
+            {
+                base.OnDisable();
+            }
         }
 
         public void OnPointerDown(PointerEventData eventData)
