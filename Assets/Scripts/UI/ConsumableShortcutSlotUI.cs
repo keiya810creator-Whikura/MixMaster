@@ -34,7 +34,7 @@ namespace MixMaster.UI
             lastCooldown = Mathf.CeilToInt(cooldown);
             if (icon != null) { icon.sprite = item != null ? item.icon : null; icon.enabled = icon.sprite != null; }
             if (quantityText != null) quantityText.text = item != null ? count.ToString("N0") : "";
-            if (nameText != null) nameText.text = item == null ? "未登録" : item.displayName.Replace("回復ポーション", "") + (lastCooldown > 0 ? "\nあと" + lastCooldown + "秒" : "");
+            if (nameText != null) nameText.text = item == null ? "未登録" : item.displayName.Replace("回復ポーション", "") + (lastCooldown > 0 ? "\n" + lastCooldown : "");
             if (useButton != null) useButton.interactable = item != null && count > 0 && cooldown <= 0f;
         }
     }

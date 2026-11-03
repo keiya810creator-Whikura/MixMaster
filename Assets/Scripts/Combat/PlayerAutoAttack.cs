@@ -696,7 +696,6 @@ namespace MixMaster.Combat
                 : Quaternion.identity;
             swordRenderer.transform.localPosition =
                 Vector3.up * (-nearEdge * scale);
-            swordRenderer.color = swordTint;
         }
 
         private IEnumerator SwingSword(
@@ -708,6 +707,9 @@ namespace MixMaster.Combat
                 yield break;
 
             ResizeSwordToAttackRange();
+            // Match the element captured for this attack, including reincarnation.
+            swordRenderer.color = PartyMeleeSwordSwing.ElementColor(
+                hitSource != null ? hitSource.attackElement : ElementType.None) * swordTint;
 
             float targetAngle = Mathf.Atan2(direction.y, direction.x) *
                 Mathf.Rad2Deg - 90f;
