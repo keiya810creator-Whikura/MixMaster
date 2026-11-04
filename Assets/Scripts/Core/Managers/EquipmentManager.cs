@@ -228,6 +228,15 @@ namespace MixMaster.Core
             return true;
         }
 
+        public int GetReforgeMinimumPercent(EquipmentRecord record)
+        {
+            MapSO map = ResolveEnhancementMap(record);
+            if (map == null) return 1;
+            AltarManager altar = GetComponent<AltarManager>() ?? FindFirstObjectByType<AltarManager>();
+            return altar == null ? 1 : 1 + altar.GetDungeonAppliedLevel(
+                map.mapId, DungeonUpgradeType.ReforgeResearch);
+        }
+
         public bool TryReforgeEquipment(string uniqueId, out string error)
         {
             error = string.Empty;
@@ -238,7 +247,7 @@ namespace MixMaster.Core
                 FindFirstObjectByType<MaterialInventoryManager>();
             int nextOriginalLevel = UnityEngine.Random.Range(
                 EquipmentReforging.MinimumLevel(record), EquipmentReforging.MaximumLevel(record) + 1);
-            int nextDropRatePercent = UnityEngine.Random.Range(1, 101);
+            int nextDropRatePercent = UnityEngine.Random.Range(GetReforgeMinimumPercent(record), 101);
             enhancing = true;
             try
             {

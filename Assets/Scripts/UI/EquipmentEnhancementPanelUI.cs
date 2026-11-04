@@ -109,7 +109,7 @@ namespace MixMaster.UI
                 reforgeConfirmation = InventoryBulkSaleDialog.Ensure(transform);
             reforgeConfirmation.Show("強化と同じ素材6種を各50,000個\n（合計300,000個）消費します。\n強化前Lv." +
                 previousLevel + " → " + EquipmentReforging.MinimumLevel(record) + "〜" +
-                EquipmentReforging.MaximumLevel(record) + "\nドロップ率＋1〜100％を再抽選。\n" +
+                EquipmentReforging.MaximumLevel(record) + "\nドロップ率＋" + equipment.GetReforgeMinimumPercent(record) + "〜100％を再抽選。\n" +
                 "強化＋" + EquipmentEnhancement.Count(record) + "は維持します。\n" +
                 "現在の再錬成補正は上書きされ、元に戻せません。", () =>
             {
@@ -191,7 +191,7 @@ namespace MixMaster.UI
                 ? "再錬成：6種を各50,000個\n強化前Lv." +
                     EquipmentReforging.MinimumLevel(record) + "〜" +
                     EquipmentReforging.MaximumLevel(record) +
-                    " ／ ドロップ率＋1〜100％（上書き）"
+                    " ／ ドロップ率＋" + equipment.GetReforgeMinimumPercent(record) + "〜100％（上書き）"
                 : reforgeError;
             for (int i = 0; i < reforgeMaterialTexts.Length; i++)
             {
