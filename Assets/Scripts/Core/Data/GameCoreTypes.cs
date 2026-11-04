@@ -109,6 +109,7 @@ namespace MixMaster.Core
         public int roomReductionLevel;
         public int noBranchesLevel;
         public int minimumEquipmentLevelBonusLevel;
+        public int reforgeResearchLevel;
 
         // Runtime-applied dungeon levels, separate from purchased levels.
         // Old save files have configured=false and use purchased levels.
@@ -120,6 +121,7 @@ namespace MixMaster.Core
         public int appliedRoomReductionLevel;
         public int appliedNoBranchesLevel;
         public int appliedMinimumEquipmentLevelBonusLevel;
+        public int appliedReforgeResearchLevel;
     }
 
     [Serializable]

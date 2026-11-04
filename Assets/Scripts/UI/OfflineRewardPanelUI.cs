@@ -59,7 +59,8 @@ namespace MixMaster.UI
         private void Accept() => Accepted?.Invoke();
         private void Dismiss() => Dismissed?.Invoke();
 
-        public void Show(string summary, IReadOnlyList<OfflineGainRecord> gains, OfflineRecordProfile profile)
+        public void Show(string summary, IReadOnlyList<OfflineGainRecord> gains, OfflineRecordProfile profile,
+            OfflineRecordProfile previous = null)
         {
             bool opening = !gameObject.activeSelf;
             gameObject.SetActive(true);
@@ -70,7 +71,10 @@ namespace MixMaster.UI
                 if (pausedByPanel) Time.timeScale = 0f;
                 transform.SetAsLastSibling();
             }
-            if (summaryText != null) summaryText.text = summary;
+            if (summaryText != null) summaryText.text = summary +
+                (profile == null ? "" : previous == null ? "（初回記録）" :
+                    string.Equals(profile.mapId, previous.mapId, StringComparison.Ordinal)
+                        ? "（前回比／分）" : "（前回と異なるマップとの比較／分）");
             if (questionText != null) questionText.text = originalQuestion;
             OfflineGainRecord gold = null, exp = null;
             var materialGains = new List<OfflineGainRecord>();
@@ -82,19 +86,36 @@ namespace MixMaster.UI
                     else if (gain.kind == OfflineGainKind.Experience) exp = gain;
                     else if (gain.kind == OfflineGainKind.Material) materialGains.Add(gain);
                 }
+            // Union includes materials that disappeared in the latest sample.
+            if (profile != null && previous != null && previous.gains != null)
+                foreach (OfflineGainRecord old in previous.gains)
+                    if (old != null && old.kind == OfflineGainKind.Material &&
+                        !string.IsNullOrWhiteSpace(old.itemId) &&
+                        !materialGains.Exists(x => x.itemId == old.itemId))
+                        materialGains.Add(new OfflineGainRecord
+                            { kind = OfflineGainKind.Material, itemId = old.itemId });
             materialGains.Sort((a, b) => string.Compare(MaterialName(a.itemId), MaterialName(b.itemId), StringComparison.CurrentCulture));
             int index = 0;
-            AddRow(index++, null, "ゴールド", Amount(gold, profile) + " G" + Unit(profile));
-            AddRow(index++, null, "経験値", Amount(exp, profile) + " EXP" + Unit(profile));
+            AddRow(index++, null, "ゴールド", Amount(gold, profile) + " G" + Unit(profile) + Difference(profile, previous, OfflineGainKind.Gold));
+            AddRow(index++, null, "経験値", Amount(exp, profile) + " EXP" + Unit(profile) + Difference(profile, previous, OfflineGainKind.Experience));
             foreach (OfflineGainRecord gain in materialGains)
             {
                 materials.TryGetValue(gain.itemId ?? string.Empty, out MaterialSO material);
-                AddRow(index++, material != null ? material.icon : null, MaterialName(gain.itemId), Amount(gain, profile) + Unit(profile));
+                AddRow(index++, material != null ? material.icon : null, MaterialName(gain.itemId), Amount(gain, profile) + Unit(profile) + Difference(profile, previous, gain.kind, gain.itemId));
             }
             for (int i = index; i < rows.Count; i++) rows[i].gameObject.SetActive(false);
             Canvas.ForceUpdateCanvases();
             if (rewardsScroll != null && opening) rewardsScroll.verticalNormalizedPosition = 1f;
         }
+        private static string Difference(OfflineRecordProfile current,
+            OfflineRecordProfile previous, OfflineGainKind kind, string id = null)
+        {
+            if (current == null || previous == null) return "";
+            decimal delta = OfflineRewardRules.PerMinuteDifference(current, previous, kind, id);
+            return "（前回比 " + delta.ToString("+#,0.###;-#,0.###;±0",
+                CultureInfo.InvariantCulture) + "）";
+        }
+
         private void AddRow(int index, Sprite sprite, string label, string amount)
         {
             if (rowPrefab == null || rewardsContent == null) return;
@@ -107,7 +128,7 @@ namespace MixMaster.UI
         private static string Unit(OfflineRecordProfile profile) => profile != null ? " / 分" : string.Empty;
         private static string Amount(OfflineGainRecord gain, OfflineRecordProfile profile) => gain == null ? "0" :
             profile == null ? gain.amount.ToString("N0", CultureInfo.InvariantCulture) :
-            OfflineRewardRules.PerMinute(profile, gain).ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
+            OfflineRewardRules.ComparisonRate(profile, gain.kind, gain.itemId).ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
         public static string Duration(double seconds)
         {
             long whole = (long)Math.Ceiling(Math.Max(0d, seconds));

@@ -11,7 +11,8 @@ namespace MixMaster.Core
         MidBossMaterial = 3,
         FewerRooms = 4,
         NoBranches = 5,
-        MinimumEquipmentLevel = 6
+        MinimumEquipmentLevel = 6,
+        ReforgeResearch = 7
     }
 
     public static class DungeonUpgradeBalance
@@ -24,7 +25,8 @@ namespace MixMaster.Core
             DungeonUpgradeType.MidBossMaterial,
             DungeonUpgradeType.FewerRooms,
             DungeonUpgradeType.NoBranches,
-            DungeonUpgradeType.MinimumEquipmentLevel
+            DungeonUpgradeType.MinimumEquipmentLevel,
+            DungeonUpgradeType.ReforgeResearch
         };
 
         public static string Name(DungeonUpgradeType type)
@@ -38,6 +40,7 @@ namespace MixMaster.Core
                 case DungeonUpgradeType.FewerRooms: return "部屋数削減";
                 case DungeonUpgradeType.NoBranches: return "一本道化";
                 case DungeonUpgradeType.MinimumEquipmentLevel: return "装備の最低レベル";
+                case DungeonUpgradeType.ReforgeResearch: return "再錬成研究";
                 default: return "ダンジョン強化";
             }
         }
@@ -53,6 +56,7 @@ namespace MixMaster.Core
                 case DungeonUpgradeType.FewerRooms: return 5;
                 case DungeonUpgradeType.NoBranches: return 1;
                 case DungeonUpgradeType.MinimumEquipmentLevel: return 20;
+                case DungeonUpgradeType.ReforgeResearch: return 49;
                 default: return 0;
             }
         }
@@ -78,6 +82,8 @@ namespace MixMaster.Core
                     value = record.noBranchesLevel; break;
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     value = record.minimumEquipmentLevelBonusLevel; break;
+                case DungeonUpgradeType.ReforgeResearch:
+                    value = record.reforgeResearchLevel; break;
                 default: return 0;
             }
             return Mathf.Clamp(value, 0, MaxLevel(type));
@@ -104,6 +110,8 @@ namespace MixMaster.Core
                     record.noBranchesLevel = level; break;
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     record.minimumEquipmentLevelBonusLevel = level; break;
+                case DungeonUpgradeType.ReforgeResearch:
+                    record.reforgeResearchLevel = level; break;
             }
         }
 
@@ -131,6 +139,8 @@ namespace MixMaster.Core
                     value = record.appliedNoBranchesLevel; break;
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     value = record.appliedMinimumEquipmentLevelBonusLevel; break;
+                case DungeonUpgradeType.ReforgeResearch:
+                    value = record.appliedReforgeResearchLevel; break;
                 default: return 0;
             }
             return Mathf.Clamp(value, 0, purchased);
@@ -172,6 +182,8 @@ namespace MixMaster.Core
                     record.appliedNoBranchesLevel = value; break;
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     record.appliedMinimumEquipmentLevelBonusLevel = value; break;
+                case DungeonUpgradeType.ReforgeResearch:
+                    record.appliedReforgeResearchLevel = value; break;
             }
         }
 
@@ -200,6 +212,8 @@ namespace MixMaster.Core
                     return 1000L;
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     return 60L * next;
+                case DungeonUpgradeType.ReforgeResearch:
+                    return 50000L;
                 default: return long.MaxValue;
             }
         }
@@ -223,6 +237,8 @@ namespace MixMaster.Core
                     return level > 0 ? "分かれ道なし（一本道）" : "通常の分岐マップ";
                 case DungeonUpgradeType.MinimumEquipmentLevel:
                     return "装備の最低Lv+" + level;
+                case DungeonUpgradeType.ReforgeResearch:
+                    return "再錬成ドロップ率の最低保証 " + (1 + level) + "%";
                 default: return "";
             }
         }
