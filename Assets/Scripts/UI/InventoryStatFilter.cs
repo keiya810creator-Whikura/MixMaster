@@ -113,6 +113,24 @@ namespace MixMaster.UI
             }
         }
 
+        public static string FormatEquipmentModifiers(EquipmentManager manager,
+            EquipmentRecord record, int effectiveLevel = -1)
+        {
+            if (manager == null || record == null ||
+                manager.GetEquipmentDefinition(record.equipmentId) == null)
+                return "装備定義が未登録です。";
+            StatPercentageModifiers stats = effectiveLevel < 0
+                ? manager.GetScaledModifiers(record)
+                : manager.GetScaledModifiers(record, effectiveLevel);
+            float reforge = EquipmentReforging.DropRateBonus(record);
+            // GetScaledModifiers returns a fresh value; show its extra portion separately.
+            stats.dropRateBonus -= reforge;
+            return FormatModifiers(stats) + (reforge > 0f
+                ? "\n<color=#66E0FF>再錬成 ドロップ率 +" +
+                    Mathf.Clamp(record.reforgeDropRatePercent, 0, 100) + "%</color>"
+                : "");
+        }
+
         public static string FormatModifiers(StatPercentageModifiers s)
         {
             if (s == null) return "ステータス補正なし";

@@ -132,6 +132,8 @@ namespace MixMaster.Core
         // Missing fields in old saves mean an unenhanced item at its saved Lv.
         public int originalLevel;
         public int enhancementCount;
+        // Flat additive bonus: 0 = never reforged, 1..100 = +1%..+100%.
+        public int reforgeDropRatePercent;
         public string sourceMapId;
         public long baseValue = 1;
         public bool isFavorite;

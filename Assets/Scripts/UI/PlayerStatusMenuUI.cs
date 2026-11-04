@@ -412,8 +412,7 @@ namespace MixMaster.UI
                             info.Append(equipmentName);
                             info.Append("  Lv.").Append(item.level);
                             info.Append("  ")
-                                .Append(InventoryStatFilter.FormatModifiers(
-                                    equipment.GetScaledModifiers(item)));
+                                .Append(InventoryStatFilter.FormatEquipmentModifiers(equipment, item));
                         }
                         else info.Append("空き");
                     }
@@ -424,6 +423,8 @@ namespace MixMaster.UI
                 }
             }
 
+            if (equipmentPreviewText != null) equipmentPreviewText.richText = true;
+            if (equipmentPageText != null) equipmentPageText.richText = true;
             SetText(equipmentPreviewText, info.ToString());
 
             SetText(equipmentPageText,

@@ -202,6 +202,55 @@ namespace MixMaster.Core
             finally { enhancing = false; }
         }
 
+        public MaterialSO ResolveReforgeMaterial(EquipmentRecord record) =>
+            ResolveEnhancementMap(record)?.dungeonMaterial;
+
+        public bool CanReforgeEquipment(string uniqueId, out MaterialSO material, out string error)
+        {
+            error = string.Empty;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            material = record != null ? ResolveReforgeMaterial(record) : null;
+            if (record == null || GetEquipmentDefinition(record.equipmentId) == null)
+            { error = "装備が見つかりません。"; return false; }
+            if (material == null || string.IsNullOrWhiteSpace(material.materialId))
+            { error = "入手元マップのダンジョン固有素材を設定してください。"; return false; }
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+            if (materials == null || materials.GetAmount(material) < EquipmentReforging.MaterialCost)
+            { error = "再錬成素材が不足しています。"; return false; }
+            return true;
+        }
+
+        public bool TryReforgeEquipment(string uniqueId, out string error)
+        {
+            error = string.Empty;
+            if (enhancing) { error = "装備の更新中です。"; return false; }
+            if (!CanReforgeEquipment(uniqueId, out MaterialSO material, out error)) return false;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+            int nextOriginalLevel = UnityEngine.Random.Range(
+                EquipmentReforging.MinimumLevel(record), EquipmentReforging.MaximumLevel(record) + 1);
+            int nextDropRatePercent = UnityEngine.Random.Range(1, 101);
+            var cost = new[] { material };
+            enhancing = true;
+            try
+            {
+                // Commit resource and equipment before any listeners can run.
+                if (!materials.TryConsumeSet(cost, EquipmentReforging.MaterialCost))
+                { error = "再錬成素材が不足しています。"; return false; }
+                EquipmentEnhancement.Normalize(record);
+                record.originalLevel = nextOriginalLevel;
+                record.level = record.originalLevel + record.enhancementCount;
+                record.reforgeDropRatePercent = nextDropRatePercent;
+                materials.NotifyConsumedSet(cost, EquipmentReforging.MaterialCost);
+                InventoryChanged?.Invoke();
+                EquipmentChanged?.Invoke();
+                return true;
+            }
+            finally { enhancing = false; }
+        }
+
         public bool SetFavorite(string uniqueId, bool favorite)
         {
             EquipmentRecord record = FindEquipment(uniqueId);
@@ -320,12 +369,12 @@ namespace MixMaster.Core
         {
             EquipmentSO def = record != null
                 ? GetEquipmentDefinition(record.equipmentId) : null;
-            if (def == null || def.modifiers == null)
+            if (def == null)
                 return StatPercentageModifiers.CreateZero();
 
             float scale = Mathf.Clamp(effectiveLevel,
                 MinEquipmentLevel, MaxEnhancedEquipmentLevel);
-            StatPercentageModifiers src = def.modifiers;
+            StatPercentageModifiers src = def.modifiers ?? StatPercentageModifiers.CreateZero();
             ElementResistanceSet r = src.resistanceBonus;
             return new StatPercentageModifiers
             {
@@ -340,7 +389,7 @@ namespace MixMaster.Core
                 moveSpeed = src.moveSpeed * scale,
                 attackSpeed = src.attackSpeed * scale,
                 attackRange = src.attackRange * scale,
-                dropRateBonus = src.dropRateBonus * scale,
+                dropRateBonus = src.dropRateBonus * scale + EquipmentReforging.DropRateBonus(record),
                 resistanceBonus = new ElementResistanceSet
                 {
                     fire = r != null ? r.fire * scale : 0f,

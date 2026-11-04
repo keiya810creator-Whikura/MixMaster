@@ -13,6 +13,23 @@ namespace MixMaster.Core
         public readonly List<MaterialSO> materials = new List<MaterialSO>(6);
     }
 
+    public static class EquipmentReforging
+    {
+        public const long MaterialCost = 50000L;
+        public const int LevelRadius = 10;
+
+        public static int MinimumLevel(EquipmentRecord record) =>
+            Math.Max(EquipmentManager.MinEquipmentLevel,
+                EquipmentEnhancement.OriginalLevel(record) - LevelRadius);
+
+        public static int MaximumLevel(EquipmentRecord record) =>
+            Math.Min(EquipmentManager.MaxEquipmentLevel,
+                EquipmentEnhancement.OriginalLevel(record) + LevelRadius);
+
+        public static float DropRateBonus(EquipmentRecord record) =>
+            record == null ? 0f : Mathf.Clamp(record.reforgeDropRatePercent, 0, 100) / 100f;
+    }
+
     public static class EquipmentEnhancement
     {
         public const int MaxEnhancements = 50;
@@ -38,6 +55,7 @@ namespace MixMaster.Core
             if (record == null) return;
             record.originalLevel = OriginalLevel(record);
             record.enhancementCount = Count(record);
+            record.reforgeDropRatePercent = Mathf.Clamp(record.reforgeDropRatePercent, 0, 100);
             record.level = record.originalLevel + record.enhancementCount;
         }
 
