@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -56,14 +57,12 @@ namespace MixMaster.Core
         public bool IsDungeonActive { get; private set; }
         public string EntranceMapId { get; private set; } = string.Empty;
 
-        private readonly int[] appliedDungeonUpgrades = new int[7];
+        private readonly Dictionary<DungeonUpgradeType, int> appliedDungeonUpgrades =
+            new Dictionary<DungeonUpgradeType, int>();
 
         public int GetAppliedDungeonUpgradeLevel(DungeonUpgradeType type)
         {
-            int index = (int)type;
-            return IsDungeonActive && index >= 0 &&
-                index < appliedDungeonUpgrades.Length
-                ? appliedDungeonUpgrades[index] : 0;
+            return IsDungeonActive ? GetRawAppliedLevel(type) : 0;
         }
         public bool IsFinalBossDefeated { get; private set; }
 
@@ -96,14 +95,13 @@ namespace MixMaster.Core
             };
 
             EntranceMapId = entranceMapId ?? string.Empty;
-            Array.Clear(appliedDungeonUpgrades, 0,
-                appliedDungeonUpgrades.Length);
+            appliedDungeonUpgrades.Clear();
 
             AltarManager altar = GetComponent<AltarManager>() ??
                 FindFirstObjectByType<AltarManager>();
             if (altar != null && !string.IsNullOrWhiteSpace(EntranceMapId))
                 foreach (DungeonUpgradeType type in DungeonUpgradeBalance.All)
-                    appliedDungeonUpgrades[(int)type] =
+                    appliedDungeonUpgrades[type] =
                         altar.GetDungeonAppliedLevel(EntranceMapId, type);
 
             CurrentSettings.roomCount = Mathf.Max(2,
@@ -135,7 +133,7 @@ namespace MixMaster.Core
 
         private int GetRawAppliedLevel(DungeonUpgradeType type)
         {
-            return appliedDungeonUpgrades[(int)type];
+            return appliedDungeonUpgrades.TryGetValue(type, out int level) ? level : 0;
         }
 
         public void RegisterSideBossDefeated()
@@ -162,8 +160,7 @@ namespace MixMaster.Core
 
             IsDungeonActive = false;
             DungeonEnded?.Invoke();
-            Array.Clear(appliedDungeonUpgrades, 0,
-                appliedDungeonUpgrades.Length);
+            appliedDungeonUpgrades.Clear();
             EntranceMapId = string.Empty;
 
             if (GameManager.Instance != null &&
