@@ -202,22 +202,29 @@ namespace MixMaster.Core
             finally { enhancing = false; }
         }
 
-        public MaterialSO ResolveReforgeMaterial(EquipmentRecord record) =>
-            ResolveEnhancementMap(record)?.dungeonMaterial;
-
-        public bool CanReforgeEquipment(string uniqueId, out MaterialSO material, out string error)
+        public bool CanReforgeEquipment(string uniqueId,
+            out EquipmentEnhancementCost cost, out string error)
         {
+            cost = null;
             error = string.Empty;
             EquipmentRecord record = FindEquipment(uniqueId);
-            material = record != null ? ResolveReforgeMaterial(record) : null;
             if (record == null || GetEquipmentDefinition(record.equipmentId) == null)
             { error = "装備が見つかりません。"; return false; }
-            if (material == null || string.IsNullOrWhiteSpace(material.materialId))
-            { error = "入手元マップのダンジョン固有素材を設定してください。"; return false; }
+            MapSO map = ResolveEnhancementMap(record);
+            if (!EquipmentEnhancement.TryGetMaterials(map, out List<MaterialSO> required,
+                out error)) return false;
+            cost = new EquipmentEnhancementCost
+            {
+                map = map, amountPerMaterial = EquipmentReforging.MaterialCost
+            };
+            cost.materials.AddRange(required);
             MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
                 FindFirstObjectByType<MaterialInventoryManager>();
-            if (materials == null || materials.GetAmount(material) < EquipmentReforging.MaterialCost)
-            { error = "再錬成素材が不足しています。"; return false; }
+            if (materials == null)
+            { error = "素材管理を確認してください。"; return false; }
+            foreach (MaterialSO material in cost.materials)
+                if (materials.GetAmount(material) < cost.amountPerMaterial)
+                { error = "再錬成素材が不足しています（6種を各50,000個）。"; return false; }
             return true;
         }
 
@@ -225,25 +232,24 @@ namespace MixMaster.Core
         {
             error = string.Empty;
             if (enhancing) { error = "装備の更新中です。"; return false; }
-            if (!CanReforgeEquipment(uniqueId, out MaterialSO material, out error)) return false;
+            if (!CanReforgeEquipment(uniqueId, out EquipmentEnhancementCost cost, out error)) return false;
             EquipmentRecord record = FindEquipment(uniqueId);
             MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
                 FindFirstObjectByType<MaterialInventoryManager>();
             int nextOriginalLevel = UnityEngine.Random.Range(
                 EquipmentReforging.MinimumLevel(record), EquipmentReforging.MaximumLevel(record) + 1);
             int nextDropRatePercent = UnityEngine.Random.Range(1, 101);
-            var cost = new[] { material };
             enhancing = true;
             try
             {
                 // Commit resource and equipment before any listeners can run.
-                if (!materials.TryConsumeSet(cost, EquipmentReforging.MaterialCost))
+                if (!materials.TryConsumeSet(cost.materials, cost.amountPerMaterial))
                 { error = "再錬成素材が不足しています。"; return false; }
                 EquipmentEnhancement.Normalize(record);
                 record.originalLevel = nextOriginalLevel;
                 record.level = record.originalLevel + record.enhancementCount;
                 record.reforgeDropRatePercent = nextDropRatePercent;
-                materials.NotifyConsumedSet(cost, EquipmentReforging.MaterialCost);
+                materials.NotifyConsumedSet(cost.materials, cost.amountPerMaterial);
                 InventoryChanged?.Invoke();
                 EquipmentChanged?.Invoke();
                 return true;
