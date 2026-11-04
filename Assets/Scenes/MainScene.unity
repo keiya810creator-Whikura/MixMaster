@@ -37995,7 +37995,7 @@ MonoBehaviour:
   playerSpriteRenderer: {fileID: 865622146}
   hitFlashColor: {r: 1, g: 0.35, b: 0.35, a: 1}
   hitFlashDuration: 0.08
-  swordSprite: {fileID: 8019849068057471754, guid: 7436068d98338794ba72ee74b5443f70, type: 3}
+  swordSprite: {fileID: 21300000, guid: 36ce9106d04c129468e4d2cfcd53acf1, type: 3}
   swordLengthMultiplier: 1
   swingDuration: 0.18
   swingArcDegrees: 115
