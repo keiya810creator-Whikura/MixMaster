@@ -455,10 +455,10 @@ namespace MixMaster.UI
                 row.transform.Find("Summary").GetComponent<TMP_Text>();
             string equippedOwner =
                 manager.GetEquippedOwner(record.uniqueId);
+            summary.richText = true;
             summary.text = EquipmentRarityUtility.FormatInventoryName(name, record) + "\n" +
                 (definition != null
-                    ? InventoryStatFilter.FormatModifiers(
-                        manager.GetScaledModifiers(record))
+                    ? InventoryStatFilter.FormatEquipmentModifiers(manager, record)
                     : "装備定義が見つかりません") +
                 (!string.IsNullOrEmpty(equippedOwner)
                     ? "  [装備中]" : "");
@@ -604,10 +604,10 @@ namespace MixMaster.UI
             if (detailText != null)
             {
                 string owner = manager.GetEquippedOwner(record.uniqueId);
+                detailText.richText = true;
                 detailText.text = EquipmentRarityUtility.FormatInventoryName(name, record) +
                     "\n" + (definition != null
-                        ? InventoryStatFilter.FormatModifiers(
-                            manager.GetScaledModifiers(record)) +
+                        ? InventoryStatFilter.FormatEquipmentModifiers(manager, record) +
                             "\n" + definition.description
                         : "装備定義が未登録です。") +
                     (string.IsNullOrEmpty(owner) ? "" :

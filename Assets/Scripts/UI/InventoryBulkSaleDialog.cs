@@ -64,9 +64,11 @@ namespace MixMaster.UI
             return view;
         }
 
-        public void Show(string messageText, Action action)
+        public void Show(string messageText, Action action, string confirmLabel = "まとめて売却")
         {
             onConfirmed = action;
+            if (confirmButton != null)
+                confirmButton.GetComponentInChildren<TMP_Text>(true).text = confirmLabel;
             if (message != null) message.text = messageText;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
