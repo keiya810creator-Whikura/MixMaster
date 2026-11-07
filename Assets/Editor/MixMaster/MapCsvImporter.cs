@@ -232,7 +232,7 @@ namespace MixMaster.EditorTools
                 map.displayName = displayName;
                 map.description = C(2);
                 map.thumbnailKey = C(3);
-                map.layoutJsonName = Path.GetFileNameWithoutExtension(C(4));
+                map.layoutJsonName = NormalizeLayoutName(C(4));
 
                 // Optional CSV connection columns. If absent, preserve manual settings.
                 if (TryReadDirectionColumn(csvHeader, row,
@@ -280,7 +280,10 @@ namespace MixMaster.EditorTools
                 if (boss != null && !map.monsters.Contains(boss))
                     map.monsters.Add(boss);
 
-                map.layoutJson = FindLayoutJson(map.layoutJsonName);
+                map.layoutJson = ResolveLayoutJson(map.layoutJsonName, map.displayName);
+                if (map.layoutJson != null)
+                    map.layoutJsonName = Path.GetFileNameWithoutExtension(
+                        AssetDatabase.GetAssetPath(map.layoutJson));
                 if (map.layoutJson == null)
                 {
                     Debug.LogWarning("[MapCsvImporter] " + id +
@@ -437,24 +440,53 @@ namespace MixMaster.EditorTools
             return fallback;
         }
 
-        private static TextAsset FindLayoutJson(string name)
+        // Only remove the actual extension: "1.始まりの平野" is a valid name.
+        internal static string NormalizeLayoutName(string value)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                return null;
+            string name = Path.GetFileName((value ?? "").Trim().Replace('\\', '/'));
+            return name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(0, name.Length - 5) : name;
+        }
 
-            TextAsset asset = AssetDatabase.LoadAssetAtPath<TextAsset>(
-                LayoutFolder + "/" + name + ".json");
-            if (asset != null)
-                return asset;
+        private static string WithoutNumberPrefix(string name)
+        {
+            int i = 0;
+            while (i < name.Length && char.IsDigit(name[i])) i++;
+            if (i > 0 && i < name.Length &&
+                (name[i] == '.' || name[i] == '．' || name[i] == '_' || name[i] == ' '))
+                return name.Substring(i + 1).Trim();
+            return name;
+        }
 
-            string[] guids = AssetDatabase.FindAssets(name, new[] { LayoutFolder });
-            for (int i = 0; i < guids.Length; i++)
+        internal static TextAsset ResolveLayoutJson(string key, string displayName)
+        {
+            string[] candidates = {
+                NormalizeLayoutName(key),
+                WithoutNumberPrefix(NormalizeLayoutName(key)),
+                NormalizeLayoutName(displayName),
+                WithoutNumberPrefix(NormalizeLayoutName(displayName))
+            };
+            if (!AssetDatabase.IsValidFolder(LayoutFolder)) return null;
+            string[] guids = AssetDatabase.FindAssets("t:TextAsset", new[] { LayoutFolder });
+            foreach (string candidate in candidates)
             {
-                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                if (Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase)
-                    && Path.GetFileNameWithoutExtension(path)
-                        .Equals(name, StringComparison.OrdinalIgnoreCase))
-                    return AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                if (string.IsNullOrWhiteSpace(candidate)) continue;
+                TextAsset match = null;
+                foreach (string guid in guids)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase)
+                        || !Path.GetFileNameWithoutExtension(path).Equals(candidate,
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (match != null)
+                    {
+                        Debug.LogWarning("[MapCsvImporter] JSON名が重複しています: " + candidate +
+                            "。ファイル名を一意にしてください。");
+                        return null;
+                    }
+                    match = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                }
+                if (match != null) return match;
             }
             return null;
         }

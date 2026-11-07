@@ -1104,13 +1104,14 @@ namespace MixMaster.EditorTools
             {
                 MapSO map = AssetDatabase.LoadAssetAtPath<MapSO>(
                     AssetDatabase.GUIDToAssetPath(guid));
-                if (map == null || !string.Equals(
-                    map.layoutJsonName, jsonName, StringComparison.OrdinalIgnoreCase))
+                if (map == null || MapCsvImporter.ResolveLayoutJson(
+                    map.layoutJsonName, map.displayName) != json)
                     continue;
 
                 if (map.layoutJson == json) continue;
                 Undo.RecordObject(map, "Link map layout JSON");
                 map.layoutJson = json;
+                map.layoutJsonName = jsonName;
                 EditorUtility.SetDirty(map);
             }
         }
