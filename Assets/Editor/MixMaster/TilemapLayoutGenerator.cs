@@ -94,9 +94,7 @@ namespace MixMaster.EditorTools
                 if (map != null) maps.Add(map);
             }
             maps.Sort((a,b) => EditorUtility.NaturalCompare(a.mapId, b.mapId));
-            var roots = new Dictionary<Vector2Int, TilemapMapRoot>();
-            var duplicates = new HashSet<Vector2Int>();
-            int count = 0, skipped = 0, links = 0;
+            int count = 0, skipped = 0;
             Undo.IncrementCurrentGroup();
             int group = Undo.GetCurrentGroup();
             Undo.SetCurrentGroupName("Regenerate All Maps And Connections");
@@ -125,51 +123,12 @@ namespace MixMaster.EditorTools
                     TilemapMapRoot root = FindExistingMapRoot(map, "");
                     if (root == null) { skipped++; continue; }
                     count++;
-                    string id = (map.mapId ?? "").Trim();
-                    int start = id.Length;
-                    while (start > 0 && char.IsDigit(id[start - 1])) start--;
-                    if (!int.TryParse(id.Substring(start), out int stage) || stage < 1)
-                    {
-                        Debug.LogWarning("[TilemapLayoutGenerator] 自動接続にはMapID末尾のステージ番号が必要: " + id);
-                        continue;
-                    }
-                    int row = (stage - 1) / 8, col = (stage - 1) % 8;
-                    var pos = new Vector2Int(row % 2 == 0 ? col : 7 - col, -row);
-                    if (roots.ContainsKey(pos)) duplicates.Add(pos);
-                    else roots.Add(pos, root);
                 }
-                foreach (var pos in duplicates)
-                {
-                    roots.Remove(pos);
-                    Debug.LogWarning("[TilemapLayoutGenerator] ステージ番号重複のため接続除外: " + pos);
-                }
-                var sides = new[] { MapExitDirection.Up, MapExitDirection.Down,
-                    MapExitDirection.Left, MapExitDirection.Right };
-                var offsets = new[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-                foreach (var pair in roots)
-                    for (int i = 0; i < sides.Length; i++)
-                    {
-                        Transform marker = ConnectionMarker(pair.Value, sides[i]);
-                        if (marker == null || !marker.gameObject.activeSelf) continue;
-                        var portal = marker.GetComponent<MapExitTransition>();
-                        if (portal == null) continue;
-                        TilemapMapRoot target = null;
-                        if (roots.TryGetValue(pair.Key + offsets[i], out TilemapMapRoot candidate))
-                        {
-                            Transform opposite = ConnectionMarker(candidate, MapExitTransition.Opposite(sides[i]));
-                            if (opposite != null && opposite.gameObject.activeSelf) target = candidate;
-                        }
-                        Undo.RecordObject(portal, "Set Map Destination");
-                        portal.SetDestinationMap(target);
-                        EditorUtility.SetDirty(portal);
-                        if (target != null) links++;
-                        else Debug.LogWarning("[TilemapLayoutGenerator] 接続先または反対側の出入口がありません: " +
-                            pair.Value.name + "/" + marker.name);
-                    }
+                MapExitMarkerEditorSetup.RegisterAllDestinations();
                 AssetDatabase.SaveAssets();
                 EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
                 Debug.Log("[TilemapLayoutGenerator] 一括生成 " + count +
-                    " / スキップ " + skipped + " / 移動先登録 " + links);
+                    " / スキップ " + skipped);
             }
             finally
             {
@@ -712,6 +671,7 @@ namespace MixMaster.EditorTools
 
             AssetDatabase.SaveAssets();
             EditorSceneManager.MarkSceneDirty(mapRoot.gameObject.scene);
+            if (!batchGenerating) MapExitMarkerEditorSetup.RegisterAllDestinations();
 
             Selection.activeGameObject =
                 mapRoot.gameObject;

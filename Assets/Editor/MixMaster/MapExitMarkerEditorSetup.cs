@@ -42,11 +42,107 @@ namespace MixMaster.EditorTools
                     EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
             }
 
+            RegisterAllDestinations();
             Debug.Log("[MapExitMarkerEditorSetup] 出入口設定完了: " + updated);
             EditorUtility.DisplayDialog("マップ出入口",
                 updated + "個の出入口にTriggerと矢印を設定しました。\n" +
-                "Hierarchyの各 MapConnection_方向 を選択し、" +
-                "Destination Map に接続先のTilemapMapRootを指定してください。", "OK");
+                "MapExitTransitionの移動先も自動登録しました。未接続箇所はConsoleを確認してください。", "OK");
+        }
+
+
+        [MenuItem("MixMaster/Map/全マップの移動先を自動登録・修復")]
+        public static void RegisterAllDestinations()
+        {
+            if (Application.isPlaying) return;
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var positions = new System.Collections.Generic.Dictionary<Vector2Int, TilemapMapRoot>();
+            var duplicates = new System.Collections.Generic.HashSet<Vector2Int>();
+            var all = Object.FindObjectsByType<TilemapMapRoot>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var root in all)
+            {
+                if (root.gameObject.scene != scene || root.MapDefinition == null) continue;
+                string id = (root.MapDefinition.mapId ?? "").Trim();
+                int start = id.Length;
+                while (start > 0 && char.IsDigit(id[start - 1])) start--;
+                if (!int.TryParse(id.Substring(start), out int number) || number < 1) continue;
+                int row = (number - 1) / 8, col = (number - 1) % 8;
+                var pos = new Vector2Int(row % 2 == 0 ? col : 7 - col, -row);
+                if (positions.ContainsKey(pos)) duplicates.Add(pos);
+                else positions.Add(pos, root);
+            }
+            foreach (var pos in duplicates)
+            {
+                positions.Remove(pos);
+                Debug.LogWarning("[MapExitMarkerEditorSetup] MapID番号が重複: " + pos);
+            }
+            int linked = 0;
+            var sides = new[] { MapExitDirection.Up, MapExitDirection.Down,
+                MapExitDirection.Left, MapExitDirection.Right };
+            var offsets = new[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+            foreach (var pair in positions)
+                for (int i = 0; i < sides.Length; i++)
+                {
+                    Transform marker = GetConnection(pair.Value, sides[i]);
+                    if (marker == null || !marker.gameObject.activeSelf) continue;
+                    EnsureMarker(marker, sides[i]);
+                    var portal = marker.GetComponent<MapExitTransition>();
+                    TilemapMapRoot target = null;
+                    if (positions.TryGetValue(pair.Key + offsets[i], out var neighbor))
+                    {
+                        Transform arrival = GetConnection(neighbor, MapExitTransition.Opposite(sides[i]));
+                        if (arrival != null && arrival.gameObject.activeSelf)
+                        {
+                            EnsureMarker(arrival, MapExitTransition.Opposite(sides[i]));
+                            target = neighbor;
+                        }
+                    }
+                    // Preserve valid custom/town connections outside the numbered grid.
+                    if (target == null && portal.DestinationMap != null &&
+                        portal.DestinationMap != pair.Value &&
+                        portal.DestinationMap.gameObject.scene == scene)
+                    {
+                        Transform arrival = GetConnection(portal.DestinationMap,
+                            MapExitTransition.Opposite(sides[i]));
+                        if (arrival != null && arrival.gameObject.activeSelf)
+                            target = portal.DestinationMap;
+                    }
+                    Undo.RecordObject(portal, "Register Map Destination");
+                    portal.SetDestinationMap(target);
+                    EditorUtility.SetDirty(portal);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(portal);
+                    if (target != null) linked++;
+                    else Debug.LogWarning("[MapExitMarkerEditorSetup] 有効な接続先がありません: " +
+                        pair.Value.name + "/" + marker.name, portal);
+                }
+            // Check town/custom roots too; an invalid serialized link must not remain.
+            foreach (var root in all)
+            {
+                if (root.gameObject.scene != scene) continue;
+                foreach (var portal in root.GetComponentsInChildren<MapExitTransition>(true))
+                {
+                    if (!portal.gameObject.activeSelf || portal.DestinationMap == null) continue;
+                    Transform arrival = GetConnection(portal.DestinationMap,
+                        MapExitTransition.Opposite(portal.ExitDirection));
+                    if (portal.DestinationMap != root &&
+                        portal.DestinationMap.gameObject.scene == scene &&
+                        arrival != null && arrival.gameObject.activeSelf) continue;
+                    Undo.RecordObject(portal, "Clear Invalid Map Destination");
+                    portal.SetDestinationMap(null);
+                    EditorUtility.SetDirty(portal);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(portal);
+                    Debug.LogWarning("[MapExitMarkerEditorSetup] 反対側入口のない移動先を解除: " +
+                        root.name + "/" + portal.name, portal);
+                }
+            }
+            EditorSceneManager.MarkSceneDirty(scene);
+            Debug.Log("[MapExitMarkerEditorSetup] MapExitTransition移動先自動登録: " + linked);
+        }
+
+        private static Transform GetConnection(TilemapMapRoot root, MapExitDirection side)
+        {
+            return root.transform.Find("_MapConnectionPoints/MapConnection_" +
+                MapExitTransition.JapaneseName(side));
         }
 
         private static int SetupExisting(
