@@ -379,7 +379,15 @@ namespace MixMaster.EditorTools
                 if (row != null && (row.IndexOf('A') >= 0 || row.IndexOf('D') >= 0))
                     hasDungeonContent = true;
             ConnectionDirection connections;
-            if (layout.hasExitSettings)
+            if (mapDefinition != null && mapDefinition.useExplicitDestinations)
+            {
+                connections = ConnectionDirection.None;
+                if (mapDefinition.destinationUp != null) connections |= ConnectionDirection.Up;
+                if (mapDefinition.destinationDown != null) connections |= ConnectionDirection.Down;
+                if (mapDefinition.destinationLeft != null) connections |= ConnectionDirection.Left;
+                if (mapDefinition.destinationRight != null) connections |= ConnectionDirection.Right;
+            }
+            else if (layout.hasExitSettings)
             {
                 // Terrain CSV is authoritative, including explicit FALSE.
                 connections = ConnectionDirection.None;
@@ -402,9 +410,13 @@ namespace MixMaster.EditorTools
             int originX = -(layout.width / 2);
             int originY = -(layout.height / 2);
 
-            // Current terrain JSON already contains its authoritative
-            // one-cell center roads. Never overlay a wider second network.
-            if (!layout.hasExitSettings &&
+            // Keep existing one-cell roads when the saved JSON already agrees.
+            bool exitsChanged = mapDefinition != null && mapDefinition.useExplicitDestinations &&
+                (layout.exitUp != (mapDefinition.destinationUp != null) ||
+                 layout.exitDown != (mapDefinition.destinationDown != null) ||
+                 layout.exitLeft != (mapDefinition.destinationLeft != null) ||
+                 layout.exitRight != (mapDefinition.destinationRight != null));
+            if ((!layout.hasExitSettings || exitsChanged) &&
                 connections != ConnectionDirection.None)
             {
                 roadOverlay = BuildRoadOverlay(
@@ -2053,3 +2065,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
