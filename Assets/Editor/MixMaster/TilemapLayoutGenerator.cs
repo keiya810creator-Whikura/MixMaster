@@ -77,6 +77,139 @@ namespace MixMaster.EditorTools
             public TileBase Cross;
         }
 
+
+        private static bool batchGenerating;
+        private static bool generationSucceeded;
+
+        [MenuItem("MixMaster/Map/保存済みJSONから全マップ上書き生成・移動先自動設定")]
+        public static void GenerateAllSavedLayouts()
+        {
+            if (Application.isPlaying) return;
+            const string folder = "Assets/Data/MapLayouts";
+            if (!AssetDatabase.IsValidFolder(folder)) return;
+            var maps = new List<MapSO>();
+            foreach (string guid in AssetDatabase.FindAssets("t:MapSO"))
+            {
+                var map = AssetDatabase.LoadAssetAtPath<MapSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (map != null) maps.Add(map);
+            }
+            maps.Sort((a,b) => EditorUtility.NaturalCompare(a.mapId, b.mapId));
+            var roots = new Dictionary<Vector2Int, TilemapMapRoot>();
+            var duplicates = new HashSet<Vector2Int>();
+            int count = 0, skipped = 0, links = 0;
+            Undo.IncrementCurrentGroup();
+            int group = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName("Regenerate All Maps And Connections");
+            batchGenerating = true;
+            try
+            {
+                for (int i = 0; i < maps.Count; i++)
+                {
+                    MapSO map = maps[i];
+                    EditorUtility.DisplayProgressBar("マップ一括生成", map.displayName,
+                        (float)i / Mathf.Max(1, maps.Count));
+                    TextAsset json = ResolveSavedLayout(map, folder);
+                    if (json == null)
+                    {
+                        Debug.LogWarning("[TilemapLayoutGenerator] JSON未検出または重複: " + map.mapId);
+                        skipped++; continue;
+                    }
+                    generationSucceeded = false;
+                    try { Generate(json, map); }
+                    catch (Exception ex) { Debug.LogException(ex); }
+                    if (!generationSucceeded) { skipped++; continue; }
+                    Undo.RecordObject(map, "Attach Saved Layout");
+                    map.layoutJson = json;
+                    map.layoutJsonName = Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(json));
+                    EditorUtility.SetDirty(map);
+                    TilemapMapRoot root = FindExistingMapRoot(map, "");
+                    if (root == null) { skipped++; continue; }
+                    count++;
+                    string id = (map.mapId ?? "").Trim();
+                    int start = id.Length;
+                    while (start > 0 && char.IsDigit(id[start - 1])) start--;
+                    if (!int.TryParse(id.Substring(start), out int stage) || stage < 1)
+                    {
+                        Debug.LogWarning("[TilemapLayoutGenerator] 自動接続にはMapID末尾のステージ番号が必要: " + id);
+                        continue;
+                    }
+                    int row = (stage - 1) / 8, col = (stage - 1) % 8;
+                    var pos = new Vector2Int(row % 2 == 0 ? col : 7 - col, -row);
+                    if (roots.ContainsKey(pos)) duplicates.Add(pos);
+                    else roots.Add(pos, root);
+                }
+                foreach (var pos in duplicates)
+                {
+                    roots.Remove(pos);
+                    Debug.LogWarning("[TilemapLayoutGenerator] ステージ番号重複のため接続除外: " + pos);
+                }
+                var sides = new[] { MapExitDirection.Up, MapExitDirection.Down,
+                    MapExitDirection.Left, MapExitDirection.Right };
+                var offsets = new[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                foreach (var pair in roots)
+                    for (int i = 0; i < sides.Length; i++)
+                    {
+                        Transform marker = ConnectionMarker(pair.Value, sides[i]);
+                        if (marker == null || !marker.gameObject.activeSelf) continue;
+                        var portal = marker.GetComponent<MapExitTransition>();
+                        if (portal == null) continue;
+                        TilemapMapRoot target = null;
+                        if (roots.TryGetValue(pair.Key + offsets[i], out TilemapMapRoot candidate))
+                        {
+                            Transform opposite = ConnectionMarker(candidate, MapExitTransition.Opposite(sides[i]));
+                            if (opposite != null && opposite.gameObject.activeSelf) target = candidate;
+                        }
+                        Undo.RecordObject(portal, "Set Map Destination");
+                        portal.SetDestinationMap(target);
+                        EditorUtility.SetDirty(portal);
+                        if (target != null) links++;
+                        else Debug.LogWarning("[TilemapLayoutGenerator] 接続先または反対側の出入口がありません: " +
+                            pair.Value.name + "/" + marker.name);
+                    }
+                AssetDatabase.SaveAssets();
+                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+                Debug.Log("[TilemapLayoutGenerator] 一括生成 " + count +
+                    " / スキップ " + skipped + " / 移動先登録 " + links);
+            }
+            finally
+            {
+                batchGenerating = false;
+                EditorUtility.ClearProgressBar();
+                Undo.CollapseUndoOperations(group);
+            }
+        }
+
+        private static Transform ConnectionMarker(TilemapMapRoot root, MapExitDirection side)
+        {
+            return root.transform.Find("_MapConnectionPoints/MapConnection_" +
+                MapExitTransition.JapaneseName(side));
+        }
+
+        private static TextAsset ResolveSavedLayout(MapSO map, string folder)
+        {
+            if (map.layoutJson != null && AssetDatabase.GetAssetPath(map.layoutJson)
+                .EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return map.layoutJson;
+            string key = (map.layoutJsonName ?? "").Trim();
+            if (key.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                key = key.Substring(0, key.Length - 5);
+            foreach (string name in new[] { key, map.displayName })
+            {
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                TextAsset match = null;
+                foreach (string guid in AssetDatabase.FindAssets("t:TextAsset", new[] { folder }))
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
+                        !Path.GetFileNameWithoutExtension(path).Equals(name,
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (match != null) return null;
+                    match = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                }
+                if (match != null) return match;
+            }
+            return null;
+        }
+
         private const int RoadHalfWidth = 1; // 3-tile-wide walkable roads.
 
 
@@ -152,7 +285,8 @@ namespace MixMaster.EditorTools
             MovePlayerToMapSpawn(target);
             EditorSceneManager.MarkSceneDirty(target.gameObject.scene);
             Selection.activeGameObject = target.gameObject;
-            SceneView.lastActiveSceneView?.FrameSelected();
+            generationSucceeded = true;
+            if (!batchGenerating) SceneView.lastActiveSceneView?.FrameSelected();
         }
 
         [MenuItem("MixMaster/Map/選択MapSOからTilemap生成", true)]
@@ -281,6 +415,10 @@ namespace MixMaster.EditorTools
             spritePathIndex = null; // Refresh atlas index for each generation.
 
             bool hasDungeonContent = HasDungeonContent(mapDefinition);
+            // Explicit JSON markers also work before dungeon rewards are configured.
+            foreach (string row in layout.rows)
+                if (row != null && (row.IndexOf('A') >= 0 || row.IndexOf('D') >= 0))
+                    hasDungeonContent = true;
             ConnectionDirection connections;
             if (layout.hasExitSettings)
             {
