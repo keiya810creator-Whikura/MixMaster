@@ -29,6 +29,14 @@ namespace MixMaster.Core
         [Tooltip("CSV direction(s) for leaving this map, e.g. 下, 右 or S,E.")]
         public string exitDirections;
 
+        [Header("CSV Map Destinations")]
+        [Tooltip("When enabled, these four destinations control exits instead of JSON flags.")]
+        public bool useExplicitDestinations;
+        public MapSO destinationUp;
+        public MapSO destinationDown;
+        public MapSO destinationLeft;
+        public MapSO destinationRight;
+
         [Min(1)] public int recommendedLevel = 1;
 
         [Header("Monsters")]
@@ -78,3 +86,4 @@ namespace MixMaster.Core
         }
     }
 }
+
