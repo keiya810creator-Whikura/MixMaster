@@ -574,7 +574,7 @@ namespace MixMaster.EditorTools
                 if (tile.category == Category.Road)
                     roadSymbols.Add(tile.symbol);
 
-            if (!TryPlaceBuilding(grid, 'D', middleX, 2, roadSymbols))
+            if (!TryPlaceBuilding(grid, 'D', middleX, 2, roadSymbols, random))
                 throw new InvalidOperationException(
                     "ダンジョン入口を道路から3マス離して配置できません。" +
                     " マップを広くするか配置条件を調整してください。");
