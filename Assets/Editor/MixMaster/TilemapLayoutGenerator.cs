@@ -104,6 +104,8 @@ namespace MixMaster.EditorTools
                 for (int i = 0; i < maps.Count; i++)
                 {
                     MapSO map = maps[i];
+                    // Hand-authored towns stay intact; final registration still finds their scene roots.
+                    if (map.isTown) { skipped++; continue; }
                     EditorUtility.DisplayProgressBar("マップ一括生成", map.displayName,
                         (float)i / Mathf.Max(1, maps.Count));
                     TextAsset json = ResolveSavedLayout(map, folder);

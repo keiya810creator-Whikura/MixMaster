@@ -154,8 +154,9 @@ namespace MixMaster.World
             if (manager != null)
             {
                 MapSO mapDefinition = destinationMap.MapDefinition;
-                if (mapDefinition == null)
-                    manager.EnterTown(destinationMap.name);
+                if (mapDefinition == null || mapDefinition.isTown)
+                    manager.EnterTown(mapDefinition != null
+                        ? mapDefinition.mapId : destinationMap.name);
                 else
                     manager.EnterMap(!string.IsNullOrWhiteSpace(mapDefinition.mapId)
                         ? mapDefinition.mapId : destinationMap.name);
