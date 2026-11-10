@@ -14,6 +14,10 @@ namespace MixMaster.Core
         [TextArea(2, 5)] public string description;
         public Sprite thumbnail;
 
+        [Header("Map Type")]
+        [Tooltip("Treat this map as a town, including HP/MP recovery on entry.")]
+        public bool isTown;
+
         [Header("Scene (Legacy / shared scene)")]
         public string explorationSceneName;
         public string dungeonSceneName;
