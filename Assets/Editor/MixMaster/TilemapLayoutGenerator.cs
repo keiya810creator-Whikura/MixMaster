@@ -1725,6 +1725,7 @@ namespace MixMaster.EditorTools
             ConnectionDirection connections, bool hasDungeonContent)
         {
             var result = new Dictionary<Vector3Int, int>();
+            int halfWidth = layout.hasExitSettings ? 0 : RoadHalfWidth;
             int midX = originX + layout.width / 2;
             int midY = originY + layout.height / 2;
             int maxX = originX + layout.width - 1;
@@ -1732,16 +1733,23 @@ namespace MixMaster.EditorTools
 
             if ((connections & ConnectionDirection.Up) != 0)
                 AddVerticalRoad(result, midX, midY, maxY,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Down) != 0)
                 AddVerticalRoad(result, midX, originY, midY,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Left) != 0)
                 AddHorizontalRoad(result, midY, originX, midX,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Right) != 0)
                 AddHorizontalRoad(result, midY, midX, maxX,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
+
+            if (layout.hasExitSettings)
+            {
+                // Modern layouts keep their one-cell roads and building buffers.
+                result[new Vector3Int(midX, midY, 0)] = 3;
+                return result;
+            }
 
             // Connect spawn and usable buildings to the hub, then to the
             // designated map edge(s). No dead-end random branches.
@@ -1767,9 +1775,9 @@ namespace MixMaster.EditorTools
                     int px = originX + x;
                     int py = originY + layout.height - 1 - rowIndex;
                     AddVerticalRoad(result, px, py, midY,
-                        originX, originY, layout.width, layout.height);
+                        originX, originY, layout.width, layout.height, halfWidth);
                     AddHorizontalRoad(result, midY, px, midX,
-                        originX, originY, layout.width, layout.height);
+                        originX, originY, layout.width, layout.height, halfWidth);
                 }
             }
             return result;
@@ -1777,20 +1785,20 @@ namespace MixMaster.EditorTools
 
         private static void AddVerticalRoad(
             Dictionary<Vector3Int, int> cells, int x, int y0, int y1,
-            int originX, int originY, int width, int height)
+            int originX, int originY, int width, int height, int halfWidth = RoadHalfWidth)
         {
             for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++)
-            for (int dx = -RoadHalfWidth; dx <= RoadHalfWidth; dx++)
+            for (int dx = -halfWidth; dx <= halfWidth; dx++)
                 AddRoadCell(cells, x + dx, y, 1,
                     originX, originY, width, height);
         }
 
         private static void AddHorizontalRoad(
             Dictionary<Vector3Int, int> cells, int y, int x0, int x1,
-            int originX, int originY, int width, int height)
+            int originX, int originY, int width, int height, int halfWidth = RoadHalfWidth)
         {
             for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++)
-            for (int dy = -RoadHalfWidth; dy <= RoadHalfWidth; dy++)
+            for (int dy = -halfWidth; dy <= halfWidth; dy++)
                 AddRoadCell(cells, x, y + dy, 2,
                     originX, originY, width, height);
         }
@@ -2065,4 +2073,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 

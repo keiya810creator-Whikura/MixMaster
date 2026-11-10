@@ -318,7 +318,7 @@ namespace MixMaster.EditorTools
                     continue;
                 }
 
-                if (!ValidateMap(map))
+                if (!ApplyMapDestinations(map) || !ValidateMap(map))
                 {
                     skipped++;
                     warnings++;
@@ -580,7 +580,7 @@ namespace MixMaster.EditorTools
                     " マップを広くするか配置条件を調整してください。");
 
             if (!TryPlaceBuilding(grid, 'A',
-                Mathf.Max(2, middleX - 3), middleY, roadSymbols))
+                Mathf.Max(2, middleX - 3), middleY, roadSymbols, random))
                 throw new InvalidOperationException(
                     "祭壇を道路から3マス離して配置できません。" +
                     " マップを広くするか配置条件を調整してください。");
@@ -623,18 +623,50 @@ namespace MixMaster.EditorTools
         private const int BuildingRoadClearance = 3;
         private const int BuildingAccessClearance = 2;
 
+        // Map CSV connections are authoritative after they have been imported.
+        // Generate roads first from those exits so random altars keep their buffers.
+        private static bool ApplyMapDestinations(MapSpec spec)
+        {
+            MapSO match = null;
+            foreach (string guid in AssetDatabase.FindAssets("t:MapSO"))
+            {
+                MapSO candidate = AssetDatabase.LoadAssetAtPath<MapSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (candidate == null || !candidate.useExplicitDestinations) continue;
+                string jsonName = candidate.layoutJson != null
+                    ? Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(candidate.layoutJson))
+                    : candidate.layoutJsonName;
+                if (!string.Equals(jsonName, spec.name, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(candidate.displayName, spec.name, StringComparison.OrdinalIgnoreCase)) continue;
+                if (match != null)
+                {
+                    Debug.LogError("[MapTerrainCsvGenerator] 同じ地形名のMapSOが重複しています: " + spec.name);
+                    return false;
+                }
+                match = candidate;
+            }
+            if (match == null) return true;
+            spec.hasExitSettings = true;
+            spec.exitUp = match.destinationUp != null;
+            spec.exitDown = match.destinationDown != null;
+            spec.exitLeft = match.destinationLeft != null;
+            spec.exitRight = match.destinationRight != null;
+            return true;
+        }
+
         private static bool TryPlaceBuilding(
             char[,] grid,
             char symbol,
             int preferredX,
             int preferredY,
-            HashSet<char> roadSymbols)
+            HashSet<char> roadSymbols,
+            System.Random random = null)
         {
             int height = grid.GetLength(0);
             int width = grid.GetLength(1);
             int bestX = -1;
             int bestY = -1;
             int bestDistance = int.MaxValue;
+            int candidateCount = 0;
 
             // Avoid the outer collision border when selecting a site.
             for (int y = 2; y < height - 2; y++)
@@ -644,6 +676,19 @@ namespace MixMaster.EditorTools
                     if (grid[y, x] != '.' ||
                         !IsBuildingLocationClear(grid, x, y, roadSymbols))
                         continue;
+
+                    // Reservoir sampling selects every valid altar cell equally.
+                    // The terrain Seed makes the same layout reproducible.
+                    if (random != null)
+                    {
+                        candidateCount++;
+                        if (random.Next(candidateCount) == 0)
+                        {
+                            bestX = x;
+                            bestY = y;
+                        }
+                        continue;
+                    }
 
                     int dx = x - preferredX;
                     int dy = y - preferredY;
@@ -1281,3 +1326,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+

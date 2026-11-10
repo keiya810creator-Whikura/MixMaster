@@ -161,6 +161,13 @@ namespace MixMaster.World
                         ? mapDefinition.mapId : destinationMap.name);
             }
 
+            if (manager == null)
+            {
+                var definition = destinationMap.MapDefinition;
+                MixMaster.UI.StageNameBannerUI.Show(definition != null
+                    ? definition.displayName : destinationMap.name.Replace("TilemapMap_", ""));
+            }
+
             destinationMap.gameObject.SetActive(true);
 
             Vector3 targetWorld = destinationGrid.GetCellCenterWorld(arrivalCell);
@@ -219,3 +226,4 @@ namespace MixMaster.World
         }
     }
 }
+

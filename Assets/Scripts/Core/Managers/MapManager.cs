@@ -27,6 +27,7 @@ namespace MixMaster.Core
             }
 
             MapChanged?.Invoke(CurrentMapId);
+            ShowStageName();
         }
 
         public void EnterTown(string townMapId)
@@ -41,7 +42,17 @@ namespace MixMaster.Core
 
             RestoreTownResources();
             MapChanged?.Invoke(CurrentMapId);
+            ShowStageName();
         }
+
+        private void ShowStageName()
+        {
+            MapSO map = MapCatalogSO.Load()?.GetMap(CurrentMapId);
+            string title = map != null && !string.IsNullOrWhiteSpace(map.displayName)
+                ? map.displayName : CurrentMapId.Replace("TilemapMap_", "");
+            MixMaster.UI.StageNameBannerUI.Show(title);
+        }
+
         private void RestoreTownResources()
         {
             var player=GetComponent<PlayerManager>()??FindFirstObjectByType<PlayerManager>();
