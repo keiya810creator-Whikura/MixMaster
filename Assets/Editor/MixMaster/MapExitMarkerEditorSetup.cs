@@ -55,84 +55,48 @@ namespace MixMaster.EditorTools
         {
             if (Application.isPlaying) return;
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            var positions = new System.Collections.Generic.Dictionary<Vector2Int, TilemapMapRoot>();
-            var duplicates = new System.Collections.Generic.HashSet<Vector2Int>();
-            var all = Object.FindObjectsByType<TilemapMapRoot>(
+            var roots = Object.FindObjectsByType<TilemapMapRoot>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var root in all)
+            var index = new System.Collections.Generic.Dictionary<MixMaster.Core.MapSO, TilemapMapRoot>();
+            var duplicates = new System.Collections.Generic.HashSet<MixMaster.Core.MapSO>();
+            foreach (var root in roots)
             {
                 if (root.gameObject.scene != scene || root.MapDefinition == null) continue;
-                string id = (root.MapDefinition.mapId ?? "").Trim();
-                int start = id.Length;
-                while (start > 0 && char.IsDigit(id[start - 1])) start--;
-                if (!int.TryParse(id.Substring(start), out int number) || number < 1) continue;
-                int row = (number - 1) / 8, col = (number - 1) % 8;
-                var pos = new Vector2Int(row % 2 == 0 ? col : 7 - col, -row);
-                if (positions.ContainsKey(pos)) duplicates.Add(pos);
-                else positions.Add(pos, root);
+                if (index.ContainsKey(root.MapDefinition)) duplicates.Add(root.MapDefinition);
+                else index.Add(root.MapDefinition, root);
             }
-            foreach (var pos in duplicates)
-            {
-                positions.Remove(pos);
-                Debug.LogWarning("[MapExitMarkerEditorSetup] MapID番号が重複: " + pos);
-            }
+            foreach (var map in duplicates) index.Remove(map);
             int linked = 0;
             var sides = new[] { MapExitDirection.Up, MapExitDirection.Down,
                 MapExitDirection.Left, MapExitDirection.Right };
-            var offsets = new[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-            foreach (var pair in positions)
-                for (int i = 0; i < sides.Length; i++)
+            foreach (var root in roots)
+            {
+                var map = root.MapDefinition;
+                if (root.gameObject.scene != scene || map == null || !map.useExplicitDestinations) continue;
+                var targets = new[] { map.destinationUp, map.destinationDown, map.destinationLeft, map.destinationRight };
+                for (int i = 0; i < 4; i++)
                 {
-                    Transform marker = GetConnection(pair.Value, sides[i]);
-                    if (marker == null || !marker.gameObject.activeSelf) continue;
+                    Transform marker = GetConnection(root, sides[i]);
+                    if (marker == null || !marker.gameObject.activeSelf)
+                    {
+                        if (targets[i] != null) Debug.LogWarning("[MapExitMarkerEditorSetup] 出入口未生成。MapSOから再生成してください: " + map.mapId + "/" + sides[i]);
+                        continue;
+                    }
                     EnsureMarker(marker, sides[i]);
                     var portal = marker.GetComponent<MapExitTransition>();
                     TilemapMapRoot target = null;
-                    if (positions.TryGetValue(pair.Key + offsets[i], out var neighbor))
+                    if (targets[i] != null && targets[i] != map && index.TryGetValue(targets[i], out var candidate))
                     {
-                        Transform arrival = GetConnection(neighbor, MapExitTransition.Opposite(sides[i]));
-                        if (arrival != null && arrival.gameObject.activeSelf)
-                        {
-                            EnsureMarker(arrival, MapExitTransition.Opposite(sides[i]));
-                            target = neighbor;
-                        }
+                        Transform arrival = GetConnection(candidate, MapExitTransition.Opposite(sides[i]));
+                        if (arrival != null && arrival.gameObject.activeSelf) target = candidate;
                     }
-                    // Preserve valid custom/town connections outside the numbered grid.
-                    if (target == null && portal.DestinationMap != null &&
-                        portal.DestinationMap != pair.Value &&
-                        portal.DestinationMap.gameObject.scene == scene)
-                    {
-                        Transform arrival = GetConnection(portal.DestinationMap,
-                            MapExitTransition.Opposite(sides[i]));
-                        if (arrival != null && arrival.gameObject.activeSelf)
-                            target = portal.DestinationMap;
-                    }
-                    Undo.RecordObject(portal, "Register Map Destination");
+                    Undo.RecordObject(portal, "Register MapSO Destination");
                     portal.SetDestinationMap(target);
                     EditorUtility.SetDirty(portal);
                     PrefabUtility.RecordPrefabInstancePropertyModifications(portal);
                     if (target != null) linked++;
-                    else Debug.LogWarning("[MapExitMarkerEditorSetup] 有効な接続先がありません: " +
-                        pair.Value.name + "/" + marker.name, portal);
-                }
-            // Check town/custom roots too; an invalid serialized link must not remain.
-            foreach (var root in all)
-            {
-                if (root.gameObject.scene != scene) continue;
-                foreach (var portal in root.GetComponentsInChildren<MapExitTransition>(true))
-                {
-                    if (!portal.gameObject.activeSelf || portal.DestinationMap == null) continue;
-                    Transform arrival = GetConnection(portal.DestinationMap,
-                        MapExitTransition.Opposite(portal.ExitDirection));
-                    if (portal.DestinationMap != root &&
-                        portal.DestinationMap.gameObject.scene == scene &&
-                        arrival != null && arrival.gameObject.activeSelf) continue;
-                    Undo.RecordObject(portal, "Clear Invalid Map Destination");
-                    portal.SetDestinationMap(null);
-                    EditorUtility.SetDirty(portal);
-                    PrefabUtility.RecordPrefabInstancePropertyModifications(portal);
-                    Debug.LogWarning("[MapExitMarkerEditorSetup] 反対側入口のない移動先を解除: " +
-                        root.name + "/" + portal.name, portal);
+                    else if (targets[i] != null) Debug.LogWarning("[MapExitMarkerEditorSetup] 移動先マップ未生成・重複、または反対側入口なし: " +
+                        map.mapId + " -> " + targets[i].mapId + "。全マップを上書き生成してください。", portal);
                 }
             }
             EditorSceneManager.MarkSceneDirty(scene);
@@ -288,3 +252,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+

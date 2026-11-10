@@ -97,6 +97,7 @@ namespace MixMaster.EditorTools
             Dictionary<string, EquipmentSO> equipment =
                 IndexAssets<EquipmentSO>(x => x.equipmentId);
 
+            var connectionRows = new Dictionary<MapSO, List<string>>();
             int expectedColumns = rows[0].Count;
             int levelOffset = hasEquipmentColumns ? 3 : 0;
             List<string> csvHeader = rows[0];
@@ -331,10 +332,51 @@ namespace MixMaster.EditorTools
 
                 EditorUtility.SetDirty(map);
                 maps[id] = map;
+                connectionRows[map] = row;
                 if (exists) updated++; else created++;
             }
 
+            // Second pass: every newly created MapSO exists before resolving forward IDs.
+            string[] destinationHeaders = { "上移動先MapID", "下移動先MapID", "左移動先MapID", "右移動先MapID" };
+            int[] destinationColumns = new int[4];
+            int found = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                destinationColumns[i] = csvHeader.FindIndex(h => h.Trim() == destinationHeaders[i]);
+                if (destinationColumns[i] >= 0) found++;
+            }
+            if (found != 0 && found != 4)
+            {
+                Debug.LogError("[MapCsvImporter] 移動先は上下左右の4列すべてを追加してください。既存の接続は維持します。");
+                warnings++;
+            }
+            if (found == 4)
+                foreach (var entry in connectionRows)
+                {
+                    MapSO[] targets = new MapSO[4];
+                    bool validConnections = true;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        string targetId = Cell(entry.Value, destinationColumns[i]);
+                        if (string.IsNullOrWhiteSpace(targetId)) continue;
+                        if (!maps.TryGetValue(targetId, out targets[i]) || targets[i] == null || targets[i] == entry.Key)
+                        {
+                            Debug.LogError("[MapCsvImporter] " + entry.Key.mapId + " " + destinationHeaders[i] +
+                                ": 不明または自身のMapID: " + targetId + "。この行の接続は維持します。");
+                            validConnections = false; warnings++;
+                        }
+                    }
+                    if (!validConnections) continue;
+                    Undo.RecordObject(entry.Key, "Import Map Destinations");
+                    entry.Key.useExplicitDestinations = true;
+                    entry.Key.destinationUp = targets[0];
+                    entry.Key.destinationDown = targets[1];
+                    entry.Key.destinationLeft = targets[2];
+                    entry.Key.destinationRight = targets[3];
+                    EditorUtility.SetDirty(entry.Key);
+                }
             AssetDatabase.SaveAssets();
+            MapExitMarkerEditorSetup.RegisterAllDestinations();
             MapCatalogBuilder.RebuildCatalog();
             AssetDatabase.Refresh();
 
@@ -652,4 +694,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 
