@@ -18,6 +18,11 @@ namespace MixMaster.Core
 
         public void EnterMap(string mapId)
         {
+            if (MapCatalogSO.Load()?.GetMap(mapId)?.isTown == true)
+            {
+                EnterTown(mapId);
+                return;
+            }
             CurrentMapId = mapId ?? string.Empty;
 
             if (GameManager.Instance != null)
