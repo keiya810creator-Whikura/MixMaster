@@ -11,8 +11,7 @@ using UnityEngine;
 namespace MixMaster.EditorTools
 {
     /// <summary>
-    /// Replaces the existing importer. 画像名 is deliberately ignored:
-    /// 武器/防具/アクセサリー are each assigned one shared sprite.
+    /// Assigns equipment icons by ID, with category sprites as fallback.
     /// Updates EquipmentSO by equipmentId and rebuilds EquipmentCatalogSO.
     /// </summary>
     public static class EquipmentCsvImporter
@@ -21,7 +20,6 @@ namespace MixMaster.EditorTools
         private const string EquipmentFolder = "Assets/Data/Equipment";
         private const string CatalogFolder = "Assets/Resources/Data";
         private const string CatalogPath = CatalogFolder + "/EquipmentCatalog.asset";
-        private const string SpriteFolder = "Assets/素材/装備";
 
         private static readonly string[] RequiredHeaders =
         {
@@ -88,7 +86,7 @@ namespace MixMaster.EditorTools
                 EnsureFolder(EquipmentFolder);
                 EnsureFolder(CatalogFolder);
                 var existing = ReadExistingEquipment();
-                int created = 0, updated = 0, missingSprites = 0;
+                int created = 0, updated = 0;
 
                 foreach (CsvEquipment entry in entries)
                 {
@@ -114,21 +112,6 @@ namespace MixMaster.EditorTools
                     equipment.category = entry.category;
                     equipment.modifiers = entry.modifiers;
 
-                    string spriteName = GetCommonSpriteName(entry.category);
-                    if (spriteName != null)
-                    {
-                        string expected = SpriteFolder + "/" + spriteName + ".png";
-                        Sprite sprite = LoadSprite(expected);
-                        if (sprite != null)
-                            equipment.icon = sprite;
-                        else
-                        {
-                            missingSprites++;
-                            Debug.LogWarning("[EquipmentCsvImporter] " + entry.id +
-                                ": 共通画像が見つかりません: " + expected +
-                                " (既存アイコンは維持します)", equipment);
-                        }
-                    }
                     EditorUtility.SetDirty(equipment);
                 }
 
@@ -147,14 +130,12 @@ namespace MixMaster.EditorTools
 
                 catalog.SetData(allEquipment);
                 EditorUtility.SetDirty(catalog);
-                AssetDatabase.SaveAssets();
-                // Includes older EquipmentSO assets not present in the current CSV.
-                string sharedSpriteSummary = EquipmentCommonSpriteAssigner.AssignAll();
+                string spriteSummary = EquipmentCommonSpriteAssigner.AssignAll();
 
                 summary = "新規: " + created + " / 更新: " + updated +
-                    " / 共通画像なし: " + missingSprites + "\n装備SO: " + EquipmentFolder +
+                    "\n装備SO: " + EquipmentFolder +
                     "\n装備カタログ: " + CatalogPath +
-                    "\n既存装備の共通画像: " + sharedSpriteSummary;
+                    "\n装備画像: " + spriteSummary;
                 Debug.Log("[EquipmentCsvImporter] " + summary.Replace("\n", " / "));
                 return true;
             }
@@ -164,38 +145,6 @@ namespace MixMaster.EditorTools
                 Debug.LogError("[EquipmentCsvImporter] " + summary);
                 return false;
             }
-        }
-
-        private static string GetCommonSpriteName(EquipmentCategory category)
-        {
-            switch (category)
-            {
-                case EquipmentCategory.Weapon: return "武器";
-                case EquipmentCategory.Armor: return "防具";
-                case EquipmentCategory.Accessory: return "アクセサリー";
-                default: return null;
-            }
-        }
-
-        private static Sprite LoadSprite(string path)
-        {
-            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite != null) return sprite;
-
-            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer != null && importer.textureType != TextureImporterType.Sprite)
-            {
-                importer.textureType = TextureImporterType.Sprite;
-                importer.spriteImportMode = SpriteImportMode.Single;
-                importer.SaveAndReimport();
-            }
-            sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite != null) return sprite;
-            UnityEngine.Object[] subAssets = AssetDatabase.LoadAllAssetsAtPath(path);
-            if (subAssets != null)
-                foreach (UnityEngine.Object obj in subAssets)
-                    if (obj is Sprite subSprite) return subSprite;
-            return null;
         }
 
         private static List<CsvEquipment> ParseAndValidate(string csv)
