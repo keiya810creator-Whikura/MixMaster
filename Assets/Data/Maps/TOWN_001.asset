@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdbe3b6a04e34005a8bab0479db16554, type: 3}
+  m_Name: Map_
+  m_EditorClassIdentifier: 
+  mapId: "\u6751"
+  displayName: 
+  description: 
+  thumbnail: {fileID: 0}
+  isTown: 1
+  explorationSceneName: 
+  dungeonSceneName: 
+  layoutJsonName: 
+  layoutJson: {fileID: 4900000, guid: 099e933fac322ab409da6702d4237ffd, type: 3}
+  thumbnailKey: 
+  entranceDirections: 
+  exitDirections: 
+  useExplicitDestinations: 0
+  destinationUp: {fileID: 11400000, guid: ef824f45aa3e0bb4aad9e6f1ea609e3d, type: 2}
+  destinationDown: {fileID: 0}
+  destinationLeft: {fileID: 0}
+  destinationRight: {fileID: 0}
+  recommendedLevel: 1
+  monsters: []
+  normalMonsters: []
+  bossMonster: {fileID: 0}
+  normalMonsterLevel: 1
+  strongMonsterLevel: 5
+  dungeonMaterial: {fileID: 0}
+  dungeonEquipment: []

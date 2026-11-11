@@ -22,15 +22,15 @@ MonoBehaviour:
   baseStats:
     maxHp: 92
     maxMp: 6
-    attack: 19
-    magic: 7
+    attack: 22
+    magic: 8
     defense: 7
     magicDefense: 7
     criticalRate: 0.07
     criticalMultiplier: 1.6
     moveSpeed: 2.45
     attackSpeed: 0.94
-    attackRange: 2.73
+    attackRange: 1
     element: 2
     resistances:
       fire: -0.135

@@ -135,10 +135,10 @@ TextureImporter:
       name: 4_0
       rect:
         serializedVersion: 2
-        x: 20
+        x: 21
         y: 8
-        width: 211
-        height: 241
+        width: 210
+        height: 240
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -157,10 +157,10 @@ TextureImporter:
       name: 4_1
       rect:
         serializedVersion: 2
-        x: 230
+        x: 231
         y: 125
-        width: 7
-        height: 7
+        width: 6
+        height: 6
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -179,10 +179,10 @@ TextureImporter:
       name: 4_2
       rect:
         serializedVersion: 2
-        x: 224
-        y: 100
-        width: 11
-        height: 12
+        x: 225
+        y: 101
+        width: 9
+        height: 10
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

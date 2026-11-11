@@ -13,27 +13,27 @@ MonoBehaviour:
   m_Name: "EQP_003_\u8349\u539F\u306E\u7363\u7259\u5263"
   m_EditorClassIdentifier: 
   equipmentId: EQP_003
-  displayName: "\u8349\u539F\u306E\u7363\u7259\u5263"
-  description: "\u8349\u539F\u306E\u9B54\u7363\u306E\u7259\u3092\u935B\u3048\u305F\u5263"
-  icon: {fileID: 21300000, guid: 1be3fe7765d66e94fa11e556a8265f84, type: 3}
+  displayName: "\u82E5\u8349\u306E\u5263"
+  description: "\u82E5\u8349\u306E\u9999\u308A\u3092\u5E2F\u3073\u305F\u8EFD\u3044\u5263\u3002\u5192\u967A\u8005\u306E\u624B\u306B\u3082\u306A\u3058\u307F\u3084\u3059\u3044\u3002"
+  icon: {fileID: 21300000, guid: 07b93a3dc27a1774ca2091abcece3b2b, type: 3}
   category: 1
   modifiers:
     maxHp: 0
     maxMp: 0
-    attack: 0.004
+    attack: 0.00125
     magic: 0
     defense: 0
     magicDefense: 0
-    criticalRate: 0.0004
-    criticalMultiplier: 0
+    criticalRate: 0.000035
+    criticalMultiplier: 0.00015
     moveSpeed: 0
-    attackSpeed: 0
+    attackSpeed: 0.000075
     attackRange: 0
     dropRateBonus: 0
     resistanceBonus:
       fire: 0
       water: 0
-      wind: 0
+      wind: 0.0001
       lightning: 0
       light: 0
       dark: 0

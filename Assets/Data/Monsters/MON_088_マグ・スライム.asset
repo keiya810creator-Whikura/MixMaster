@@ -22,15 +22,15 @@ MonoBehaviour:
   baseStats:
     maxHp: 220
     maxMp: 12
-    attack: 121
-    magic: 27
+    attack: 125
+    magic: 28
     defense: 17
     magicDefense: 17
     criticalRate: 0.08
     criticalMultiplier: 1.95
     moveSpeed: 2.85
     attackSpeed: 1.09
-    attackRange: 1.44
+    attackRange: 1
     element: 1
     resistances:
       fire: 0.085
@@ -47,7 +47,7 @@ MonoBehaviour:
   projectileLifetime: 0.1
   projectileHoming: 0
   baseRespawnInterval: 10
-  uniqueMaterial: {fileID: 11400000, guid: dd40a5d5a68ccc841a8f654084ce6730, type: 2}
+  uniqueMaterial: {fileID: 11400000, guid: 444ed5509affd564fa6bacd4d114870c, type: 2}
   materialBaseDropRate: 1.25
   baseMonsterDropRate: 0.0001
   experienceReward: 15

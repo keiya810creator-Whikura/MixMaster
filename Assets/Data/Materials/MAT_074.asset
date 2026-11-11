@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12cc8f90408f4ae4892dd156a32872dc, type: 3}
+  m_Name: MAT_074
+  m_EditorClassIdentifier: 
+  materialId: MAT_074
+  displayName: "\u6F15\u624B\u5C0F\u9B3C\u306E\u821F\u6750"
+  description: 
+  icon: {fileID: 21300000, guid: 5139a7f9b35ea454eb9c86fe7facd0e7, type: 3}
+  category: 0

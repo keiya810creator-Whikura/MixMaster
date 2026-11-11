@@ -14,20 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   equipmentId: EQP_001
   displayName: "\u8A13\u7DF4\u306E\u5263"
-  description: "\u5192\u967A\u8005\u306E\u305F\u3081\u306E\u521D\u6B69\u7684\u306A\u5263"
-  icon: {fileID: 21300000, guid: 1be3fe7765d66e94fa11e556a8265f84, type: 3}
+  description: "\u5192\u967A\u8005\u306E\u7DF4\u7FD2\u7528\u306B\u935B\u3048\u3089\u308C\u305F\u5263\u3002\u6271\u3044\u3084\u3059\u3055\u3092\u91CD\u8996\u3057\u305F\u7D20\u76F4\u306A\u4F5C\u308A\u3002"
+  icon: {fileID: 21300000, guid: f16ab2361f6dec14f96c968c7d64e621, type: 3}
   category: 1
   modifiers:
     maxHp: 0
     maxMp: 0
-    attack: 0.1
+    attack: 0.00065
     magic: 0
     defense: 0
     magicDefense: 0
     criticalRate: 0
     criticalMultiplier: 0
     moveSpeed: 0
-    attackSpeed: 0
+    attackSpeed: 0.00004
     attackRange: 0
     dropRateBonus: 0
     resistanceBonus:

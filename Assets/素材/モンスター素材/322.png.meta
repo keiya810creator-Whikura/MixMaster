@@ -129,10 +129,10 @@ TextureImporter:
       name: 322_0
       rect:
         serializedVersion: 2
-        x: 74
-        y: 10
-        width: 364
-        height: 493
+        x: 39
+        y: 7
+        width: 178
+        height: 242
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

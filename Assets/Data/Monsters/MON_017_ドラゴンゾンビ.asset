@@ -30,7 +30,7 @@ MonoBehaviour:
     criticalMultiplier: 1.6
     moveSpeed: 2.7
     attackSpeed: 1.05
-    attackRange: 1.2
+    attackRange: 1
     element: 2
     resistances:
       fire: -0.035
@@ -47,7 +47,7 @@ MonoBehaviour:
   projectileLifetime: 0.1
   projectileHoming: 0
   baseRespawnInterval: 11
-  uniqueMaterial: {fileID: 11400000, guid: b3ba06e2d5a632342b5f417fb93996ad, type: 2}
+  uniqueMaterial: {fileID: 11400000, guid: 9e9837138b3774948b98e7ab19890d1a, type: 2}
   materialBaseDropRate: 1.25
   baseMonsterDropRate: 0.0001
   experienceReward: 20
