@@ -27,6 +27,13 @@ namespace MixMaster.World
         private void Awake()
         {
             Grid = GetComponent<Grid>();
+
+            // The existing village scene already has this circle and its collider.
+            if (mapDefinition != null && !mapDefinition.isTown) return;
+            Transform circle = transform.Find("_MapObjects/転移魔方陣");
+            if (circle == null || circle.GetComponent<MapBuildingAccess>() != null) return;
+            if (circle.GetComponent<Collider2D>() == null) circle.gameObject.AddComponent<BoxCollider2D>();
+            circle.gameObject.AddComponent<MapBuildingAccess>().Configure(MapBuildingType.TeleportCircle);
         }
 
         public void SetMapDefinition(MapSO map)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -9,6 +10,20 @@ namespace MixMaster.Core
         public string CurrentMapId { get; private set; } = string.Empty;
 
         public event Action<string> MapChanged;
+
+        private readonly HashSet<string> visitedMaps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public bool HasVisitedMap(string mapId) => !string.IsNullOrWhiteSpace(mapId) && visitedMaps.Contains(mapId);
+
+        public List<string> CaptureVisitedMaps() => new List<string>(visitedMaps);
+
+        public void RestoreVisitedMaps(IEnumerable<string> savedIds)
+        {
+            visitedMaps.Clear();
+            if (savedIds == null) return;
+            foreach (string id in savedIds)
+                if (!string.IsNullOrWhiteSpace(id)) visitedMaps.Add(id);
+        }
 
         public void RestoreMapId(string mapId)
         {
@@ -24,6 +39,7 @@ namespace MixMaster.Core
                 return;
             }
             CurrentMapId = mapId ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(CurrentMapId)) visitedMaps.Add(CurrentMapId);
 
             if (GameManager.Instance != null)
             {

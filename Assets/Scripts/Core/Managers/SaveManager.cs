@@ -202,8 +202,12 @@ namespace MixMaster.Core
                 data.mapId = game.CurrentMapId;
             }
 
-            if (map != null && !string.IsNullOrWhiteSpace(map.CurrentMapId))
-                data.mapId = map.CurrentMapId;
+            if (map != null)
+            {
+                if (!string.IsNullOrWhiteSpace(map.CurrentMapId))
+                    data.mapId = map.CurrentMapId;
+                data.visitedMapIds = map.CaptureVisitedMaps();
+            }
 
             if (player != null)
             {
@@ -344,7 +348,15 @@ namespace MixMaster.Core
             }
 
             if (map != null)
+            {
+                var visited = data.visitedMapIds ?? new List<string>();
+                // A legacy exploration save identifies at least its last field.
+                if ((data.gameMode == GameMode.Exploration || data.gameMode == GameMode.Dungeon) &&
+                    !string.IsNullOrWhiteSpace(data.mapId))
+                    visited.Add(data.mapId);
+                map.RestoreVisitedMaps(visited);
                 map.RestoreMapId(data.mapId);
+            }
 
             if (player != null)
                 player.RestoreReincarnationProgress(
