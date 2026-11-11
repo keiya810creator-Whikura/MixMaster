@@ -34,6 +34,10 @@ namespace MixMaster.UI
         [SerializeField] private Button equipmentInventoryButton;
         [SerializeField] private Button skillSettingsButton;
         [SerializeField] private Button closeButton;
+        [SerializeField] private Button familyTreeButton;
+        private RectTransform familyTreePanel;
+        private readonly Image[] familyIcons = new Image[7];
+        private readonly TMP_Text[] familyNames = new TMP_Text[7];
 
         [Header("Party")]
         [SerializeField] private Button partyButton;
@@ -94,6 +98,8 @@ namespace MixMaster.UI
             EnsureSkillButton();
             if(skillSettingsButton!=null)skillSettingsButton.onClick.AddListener(OpenSkills);
             EnsureProtectionControls();
+            EnsureFamilyTreeButton();
+            if (familyTreeButton != null) familyTreeButton.onClick.AddListener(OpenFamilyTree);
             if (equipmentInventoryButton != null)
                 equipmentInventoryButton.onClick.AddListener(OpenEquipmentInventory);
             if (behaviorDropdown != null)
@@ -130,10 +136,12 @@ namespace MixMaster.UI
             if(skillManager!=null)skillManager.Changed-=Refresh;
             UnsubscribeParty();
             UnsubscribeEquipment();
+            CloseFamilyTree();
         }
 
         private void OnDestroy()
         {
+            if (familyTreeButton != null) familyTreeButton.onClick.RemoveListener(OpenFamilyTree);
             if(skillManager!=null)skillManager.Changed-=Refresh;
             if(skillSettingsButton!=null)skillSettingsButton.onClick.RemoveListener(OpenSkills);
             UnsubscribeParty();
@@ -166,6 +174,7 @@ namespace MixMaster.UI
             if (record == null)
                 return;
 
+            CloseFamilyTree();
             selectedRecord = record;
             SubscribeSkills();
             SubscribeParty();
@@ -396,6 +405,114 @@ namespace MixMaster.UI
             skillSettingsButton.gameObject.SetActive(!readOnlyMode);
         }
         public void SetSkillSettingsButton(Button button) => skillSettingsButton=button;
+        private void EnsureFamilyTreeButton()
+        {
+            if (familyTreeButton != null || monsterNameText == null) return;
+            Transform identity = monsterNameText.transform.parent;
+            familyTreeButton = InventoryUiFactory.Button(identity, "OpenFamilyTree", "家系図",
+                new Vector2(680f, -78f), new Vector2(170f, 46f));
+            familyTreeButton.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
+        }
+
+        public void OpenFamilyTree()
+        {
+            if (selectedRecord == null) return;
+            if (familyTreePanel == null) BuildFamilyTree();
+            SetFamilyNode(0, selectedRecord.monsterId);
+            for (int i = 0; i < 6; i++)
+                SetFamilyNode(i + 1, selectedRecord.GetAncestor(i)?.monsterId);
+            familyTreePanel.SetAsLastSibling();
+            familyTreePanel.gameObject.SetActive(true);
+        }
+
+        private void CloseFamilyTree()
+        {
+            if (familyTreePanel != null) familyTreePanel.gameObject.SetActive(false);
+        }
+
+        private void BuildFamilyTree()
+        {
+            familyTreePanel = FamilyImage(SafeAreaLayout.ContentRoot(transform), "FamilyTreePanel",
+                Vector2.zero, Vector2.one, new Color(.035f, .05f, .09f, .99f)).rectTransform;
+            familyTreePanel.GetComponent<Image>().raycastTarget = true;
+            FamilyText(familyTreePanel, "Heading", "家系図", new Vector2(.18f, .88f), new Vector2(.82f, .98f), 38f);
+            Button close = InventoryUiFactory.Button(familyTreePanel, "Close", "閉じる", Vector2.zero, Vector2.zero);
+            FamilyBounds((RectTransform)close.transform, new Vector2(.25f, .04f), new Vector2(.75f, .13f));
+            if (monsterNameText != null) close.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
+            close.onClick.AddListener(CloseFamilyTree);
+
+            FamilyBranch(.25f, .75f, .68f, .61f);
+            FamilyBranch(.14f, .36f, .41f, .34f);
+            FamilyBranch(.64f, .86f, .41f, .34f);
+            CreateFamilyNode(0, "本人", .5f, .68f, .87f);
+            CreateFamilyNode(1, "親A", .25f, .41f, .61f);
+            CreateFamilyNode(2, "親B", .75f, .41f, .61f);
+            for (int i = 0; i < 4; i++)
+                CreateFamilyNode(i + 3, i < 2 ? "親Aの親 " + (i + 1) : "親Bの親 " + (i - 1),
+                    i < 2 ? .14f + .22f * i : .64f + .22f * (i - 2), .14f, .34f);
+        }
+
+        private void FamilyBranch(float left, float right, float top, float bottom)
+        {
+            var color = new Color(.46f, .57f, .72f);
+            float middle = (left + right) / 2f;
+            float split = (top + bottom) / 2f;
+            FamilyImage(familyTreePanel, "Branch", new Vector2(left, split - .001f), new Vector2(right, split + .001f), color);
+            FamilyImage(familyTreePanel, "Stem", new Vector2(middle - .001f, split), new Vector2(middle + .001f, top), color);
+            FamilyImage(familyTreePanel, "Left", new Vector2(left - .001f, bottom), new Vector2(left + .001f, split), color);
+            FamilyImage(familyTreePanel, "Right", new Vector2(right - .001f, bottom), new Vector2(right + .001f, split), color);
+        }
+
+        private void CreateFamilyNode(int index, string relation, float x, float bottom, float top)
+        {
+            Transform node = FamilyImage(familyTreePanel, relation,
+                new Vector2(x - .103f, bottom), new Vector2(x + .103f, top),
+                new Color(.11f, .17f, .25f)).transform;
+            FamilyText(node, "Relation", relation, new Vector2(.03f, .79f), new Vector2(.97f, .98f), 23f);
+            familyIcons[index] = FamilyImage(node, "Icon", new Vector2(.12f, .28f), new Vector2(.88f, .78f), Color.white);
+            familyIcons[index].preserveAspect = true;
+            familyNames[index] = FamilyText(node, "Name", "", new Vector2(.03f, .03f), new Vector2(.97f, .28f), 24f);
+        }
+
+        private void SetFamilyNode(int index, string monsterId)
+        {
+            bool known = !string.IsNullOrWhiteSpace(monsterId);
+            MonsterSO species = known && catalog != null ? catalog.GetMonster(monsterId) : null;
+            familyIcons[index].sprite = species != null ? (species.icon != null ? species.icon : species.sprite) : null;
+            familyIcons[index].enabled = familyIcons[index].sprite != null;
+            familyNames[index].text = known ? EncyclopediaContent.Name(species?.displayName, monsterId) : "記録なし";
+        }
+
+        private TMP_Text FamilyText(Transform parent, string name, string value, Vector2 min, Vector2 max, float size)
+        {
+            TMP_Text label = InventoryUiFactory.Text(parent, name, value, Vector2.zero, Vector2.zero, size);
+            if (monsterNameText != null) label.font = monsterNameText.font;
+            label.alignment = TextAlignmentOptions.Center;
+            label.richText = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            FamilyBounds(label.rectTransform, min, max);
+            return label;
+        }
+
+        private static Image FamilyImage(Transform parent, string name, Vector2 min, Vector2 max, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            go.layer = parent.gameObject.layer;
+            Image image = go.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            FamilyBounds(image.rectTransform, min, max);
+            return image;
+        }
+
+        private static void FamilyBounds(RectTransform rect, Vector2 min, Vector2 max)
+        {
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+
         private void EnsureEquipmentButton()
         {
             if (equipmentInventoryButton != null) return;

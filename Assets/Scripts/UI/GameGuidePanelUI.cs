@@ -22,6 +22,7 @@ namespace MixMaster.UI
         private TMP_InputField amountInput;
         private Button previous, next, deleteButton, addButton, clearTrackedButton;
         private readonly Button[] rows = new Button[PageSize];
+        private readonly Button[] completedGoalRemoveButtons = new Button[PageSize];
         private readonly Toggle[] goalToggles = new Toggle[PageSize];
         private string notice;
         private float noticeUntil;
@@ -149,6 +150,8 @@ namespace MixMaster.UI
                 rows[i] = Button(card, "Row" + i, "", 28, -490 - i * 92, 944, 82, () => SelectRow(index));
                 rowLabels[i] = rows[i].GetComponentInChildren<TMP_Text>(); rowLabels[i].alignment = TextAlignmentOptions.MidlineLeft;
                 goalToggles[i] = GoalToggle(rows[i].transform, index);
+                completedGoalRemoveButtons[i] = Button(rows[i].transform, "RemoveCompletedGoal",
+                    "×", 874, -9, 62, 64, () => RemoveCompletedGoal(index));
             }
             previous = Button(card, "Previous", "前へ", 28, -1240, 220, 80, () => { offset = Math.Max(0, offset - PageSize); Refresh(); });
             next = Button(card, "Next", "次へ", 752, -1240, 220, 80, () => { offset += PageSize; Refresh(); });
@@ -220,6 +223,16 @@ namespace MixMaster.UI
             if (!journal.SetGoal(x.kind, x.id, x.name, count)) { status.text = "目標は最大50件です。不要な目標を削除してください。"; return; }
             offset = 0; Refresh(); status.text = "目標を登録・更新しました。自動保存されます。";
         }
+        private void RemoveCompletedGoal(int row)
+        {
+            int index = offset + row;
+            if (page != GameGuidePage.Goals || journal == null || index >= journal.Goals.Count) return;
+            GoalRecord goal = journal.Goals[index];
+            if (GameGuideContent.Owned(goal, monsters, equipment, materials) >= goal.targetCount &&
+                journal.DeleteGoal(goal.goalId))
+                Refresh();
+        }
+
         private void DeleteGoal()
         {
             if (journal != null && selectedGoal != null) journal.DeleteGoal(selectedGoal);
@@ -254,11 +267,16 @@ namespace MixMaster.UI
                 bool visible = list && offset + i < count; rows[i].gameObject.SetActive(visible);
                 goalToggles[i].gameObject.SetActive(visible && page == GameGuidePage.Goals);
                 rowLabels[i].rectTransform.offsetMax = new Vector2(page == GameGuidePage.Goals ? -264 : 0, 0);
+                completedGoalRemoveButtons[i].gameObject.SetActive(false);
                 if (!visible) continue;
                 if (page == GameGuidePage.Goals)
                 {
                     var goal = journal.Goals[offset + i]; goalToggles[i].SetIsOnWithoutNotify(goal.showOnHud); long owned = GameGuideContent.Owned(goal, monsters, equipment, materials);
-                    rowLabels[i].text = (owned >= goal.targetCount ? "達成　" : "未達成　") + content.Resolve(goal).name + "\n" + GameGuideContent.Number(owned) + " / " + GameGuideContent.Number(goal.targetCount);
+                    bool completed = owned >= goal.targetCount;
+                    completedGoalRemoveButtons[i].gameObject.SetActive(completed);
+                    ((RectTransform)goalToggles[i].transform).anchoredPosition = new Vector2(completed ? 630 : 700, -12);
+                    rowLabels[i].rectTransform.offsetMax = new Vector2(completed ? -324 : -264, 0);
+                    rowLabels[i].text = (completed ? "達成　" : "未達成　") + content.Resolve(goal).name + "\n" + GameGuideContent.Number(owned) + " / " + GameGuideContent.Number(goal.targetCount);
                 }
                 else
                 {

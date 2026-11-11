@@ -39,6 +39,7 @@ namespace MixMaster.UI
         private readonly List<EncyclopediaLinkUI> skillLinks = new List<EncyclopediaLinkUI>();
         private EncyclopediaManager progress;
         private EquipmentManager equipmentProgress;
+        private MonsterManager monsterAcquisitions;
         private MapCatalogSO maps;
         private MonsterSO selectedMonster;
         private EquipmentSO selectedEquipment;
@@ -64,6 +65,8 @@ namespace MixMaster.UI
         {
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = null;
+            if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged -= ProgressChanged;
+            monsterAcquisitions = null;
             if (equipmentProgress != null) equipmentProgress.InventoryChanged -= ProgressChanged;
             equipmentProgress = null;
         }
@@ -83,7 +86,13 @@ namespace MixMaster.UI
             returnToMenu = onBack;
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = EncyclopediaManager.Instance;
-            if (kind == EncyclopediaKind.Monster && progress != null) progress.Changed += ProgressChanged;
+            if (kind == EncyclopediaKind.Monster)
+            {
+                if (progress != null) progress.Changed += ProgressChanged;
+                if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged -= ProgressChanged;
+                monsterAcquisitions = FindFirstObjectByType<MonsterManager>();
+                if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged += ProgressChanged;
+            }
             if (equipmentProgress != null) equipmentProgress.InventoryChanged -= ProgressChanged;
             if (kind == EncyclopediaKind.Equipment)
             {
@@ -140,12 +149,13 @@ namespace MixMaster.UI
             {
                 MonsterSO monster = monsters[index];
                 cell.Bind(index, monster.icon != null ? monster.icon : monster.sprite,
-                    EncyclopediaContent.Name(monster.displayName, monster.monsterId), !Unlocked(monster), SelectEntry);
+                    EncyclopediaContent.Name(monster.displayName, monster.monsterId), !Unlocked(monster), SelectEntry,
+                    monsterAcquisitions != null && monsterAcquisitions.HasAcquiredMonster(monster.monsterId));
             }
             else
             {
                 EquipmentSO item = equipment[index];
-                cell.Bind(index, item.icon, EncyclopediaContent.Name(item.displayName, item.equipmentId), !Unlocked(item), SelectEntry);
+                cell.Bind(index, item.icon, EncyclopediaContent.Name(item.displayName, item.equipmentId), !Unlocked(item), SelectEntry, Unlocked(item));
             }
         }
 
