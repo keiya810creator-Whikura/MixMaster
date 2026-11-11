@@ -240,3 +240,7 @@
 2026年11月5日：利用者報告BeginDungeon:106のIndexOutOfRangeExceptionを修正。再錬成研究追加でDungeonUpgradeType.Allが8項目になった際、DungeonManagerのprivate int[7]へのID7書込みが範囲外になっていた。追加時の開始経路検証漏れ。Dictionary<DungeonUpgradeType,int>のランタイムスナップショットへ置換し、開始/終了はClear、GetRawはTryGetValueで未登録0。GetAppliedのIsDungeonActive条件と、開始時の部屋数/一本道化/再挑戦/seed/報酬/イベントの意味は維持。保存形式/Scene/Prefab/.metaは未変更。変更前の実DungeonManagerで同じ例外を再現、変更後は実クラス/Balance/進捗レコードを代替Unity/GameManager/Altarでコンパイルして57項目成功。関連のSaveManager/DungeonRewardManager/DungeonEnemySpawner/DungeonMapGeneratorを調べ、同じ7個固定アクセスなしを確認。Unity全体コンパイル/Play/実ダンジョン生成/実機確認は未実施。Play再開後に挑戦→帰還→再挑戦、研究0/購入済み双方を確認する。Docs/EquipmentEnhancement.mdに記載。
 
 装備アイコンは `Assets/素材/装備/1.png` のように配置し、装備CSVのインポートまたは「MixMaster → CSV → 全装備SOの画像を再設定」で割り当てる。EQP_001は1.pngを参照し、番号画像がない場合は種類別の共通画像を使う。
+
+## 装備図鑑の獲得履歴
+
+未獲得の装備は共通セルの「？」で覆い、名前と詳細を隠す。獲得した装備IDをセーブし、売却・自動売却後も解放を維持する。旧セーブでは現在所持している装備から解放する。

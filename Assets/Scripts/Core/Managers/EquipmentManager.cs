@@ -15,6 +15,8 @@ namespace MixMaster.Core
 
         private readonly List<EquipmentRecord> inventory = new List<EquipmentRecord>();
         private readonly List<string> playerEquipmentUniqueIds = new List<string>();
+        private readonly HashSet<string> acquiredEquipmentIds =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private MonsterManager monsterManager;
         private bool enhancing;
 
@@ -55,10 +57,25 @@ namespace MixMaster.Core
                 CreateEquipment("EQP_002", 50, 1L, false);
         }
 
+        public bool HasAcquiredEquipment(string equipmentId) => acquiredEquipmentIds.Contains(equipmentId);
+
+        public List<string> CaptureAcquiredEquipment()
+        {
+            var ids = new List<string>(acquiredEquipmentIds);
+            ids.Sort(StringComparer.OrdinalIgnoreCase);
+            return ids;
+        }
+
         public void RestoreEquipment(
             IReadOnlyList<EquipmentRecord> savedInventory,
-            IReadOnlyList<string> savedPlayerEquippedIds)
+            IReadOnlyList<string> savedPlayerEquippedIds,
+            IReadOnlyList<string> savedAcquiredEquipmentIds = null)
         {
+            acquiredEquipmentIds.Clear();
+            if (savedAcquiredEquipmentIds != null)
+                foreach (string id in savedAcquiredEquipmentIds)
+                    if (!string.IsNullOrWhiteSpace(id)) acquiredEquipmentIds.Add(id);
+
             inventory.Clear();
             playerEquipmentUniqueIds.Clear();
             var uniqueIds = new HashSet<string>(StringComparer.Ordinal);
@@ -72,6 +89,7 @@ namespace MixMaster.Core
                     EquipmentEnhancement.Normalize(item);
                     item.baseValue = Math.Max(0L, item.baseValue);
                     inventory.Add(item);
+                    if (!string.IsNullOrWhiteSpace(item.equipmentId)) acquiredEquipmentIds.Add(item.equipmentId);
                 }
 
             if (savedPlayerEquippedIds != null)
@@ -107,6 +125,7 @@ namespace MixMaster.Core
                 if (origin != null) item.sourceMapId = origin.mapId;
             }
             inventory.Add(item);
+            if (!string.IsNullOrWhiteSpace(item.equipmentId)) acquiredEquipmentIds.Add(item.equipmentId);
 
             // Reuse the ordinary validated sale path, including gold credit.
             // Starter grants bypass this to avoid immediately selling a new
