@@ -255,6 +255,7 @@ namespace MixMaster.Core
             if (equipment != null)
             {
                 data.starterEquipmentGranted = starterEquipmentGranted;
+                data.acquiredEquipmentIds = equipment.CaptureAcquiredEquipment();
                 data.equipment = new List<EquipmentRecord>(
                     equipment.Inventory);
                 data.playerEquippedIds = new List<string>(
@@ -322,7 +323,7 @@ namespace MixMaster.Core
 
             if (equipment != null)
                 equipment.RestoreEquipment(
-                    data.equipment, data.playerEquippedIds);
+                    data.equipment, data.playerEquippedIds, data.acquiredEquipmentIds);
 
             starterEquipmentGranted =
                 data.version >= 3 && data.starterEquipmentGranted;

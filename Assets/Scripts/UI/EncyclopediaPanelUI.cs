@@ -38,8 +38,10 @@ namespace MixMaster.UI
         private readonly List<EncyclopediaLinkUI> titleLinks = new List<EncyclopediaLinkUI>();
         private readonly List<EncyclopediaLinkUI> skillLinks = new List<EncyclopediaLinkUI>();
         private EncyclopediaManager progress;
+        private EquipmentManager equipmentProgress;
         private MapCatalogSO maps;
         private MonsterSO selectedMonster;
+        private EquipmentSO selectedEquipment;
         private Action returnToMenu;
         private int sortIndex;
         private bool ascending = true;
@@ -62,6 +64,8 @@ namespace MixMaster.UI
         {
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = null;
+            if (equipmentProgress != null) equipmentProgress.InventoryChanged -= ProgressChanged;
+            equipmentProgress = null;
         }
 
         private void OnDestroy()
@@ -79,7 +83,13 @@ namespace MixMaster.UI
             returnToMenu = onBack;
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = EncyclopediaManager.Instance;
-            if (progress != null) progress.Changed += ProgressChanged;
+            if (kind == EncyclopediaKind.Monster && progress != null) progress.Changed += ProgressChanged;
+            if (equipmentProgress != null) equipmentProgress.InventoryChanged -= ProgressChanged;
+            if (kind == EncyclopediaKind.Equipment)
+            {
+                equipmentProgress = FindFirstObjectByType<EquipmentManager>();
+                if (equipmentProgress != null) equipmentProgress.InventoryChanged += ProgressChanged;
+            }
             maps = MapCatalogSO.Load();
             if (kind == EncyclopediaKind.Monster)
                 monsters = EncyclopediaContent.Monsters(MonsterCatalogSO.Load());
@@ -96,6 +106,9 @@ namespace MixMaster.UI
 
         private int Count => kind == EncyclopediaKind.Monster ? monsters.Count : equipment.Count;
         private bool Unlocked(MonsterSO monster) => monster != null && progress != null && progress.IsUnlocked(monster.monsterId);
+
+        private bool Unlocked(EquipmentSO item) =>
+            item != null && equipmentProgress != null && equipmentProgress.HasAcquiredEquipment(item.equipmentId);
 
         private void SortChanged(int option)
         {
@@ -132,14 +145,14 @@ namespace MixMaster.UI
             else
             {
                 EquipmentSO item = equipment[index];
-                cell.Bind(index, item.icon, EncyclopediaContent.Name(item.displayName, item.equipmentId), false, SelectEntry);
+                cell.Bind(index, item.icon, EncyclopediaContent.Name(item.displayName, item.equipmentId), !Unlocked(item), SelectEntry);
             }
         }
 
         private void ProgressChanged()
         {
-            if (kind != EncyclopediaKind.Monster) return;
-            if (selectedMonster != null && !Unlocked(selectedMonster)) ShowList();
+            if ((selectedMonster != null && !Unlocked(selectedMonster)) ||
+                (selectedEquipment != null && !Unlocked(selectedEquipment))) ShowList();
             RefreshProgress();
             if (grid != null) grid.RefreshVisible();
         }
@@ -147,7 +160,13 @@ namespace MixMaster.UI
         private void RefreshProgress()
         {
             if (progressText == null) return;
-            if (kind == EncyclopediaKind.Equipment) { progressText.text = "登録数 " + equipment.Count; return; }
+            if (kind == EncyclopediaKind.Equipment)
+            {
+                int acquired = 0;
+                foreach (EquipmentSO item in equipment) if (Unlocked(item)) acquired++;
+                progressText.text = "獲得済み " + acquired + " / " + equipment.Count;
+                return;
+            }
             int known = 0;
             foreach (MonsterSO monster in monsters) if (Unlocked(monster)) known++;
             progressText.text = "討伐済み " + known + " / " + monsters.Count;
@@ -178,6 +197,8 @@ namespace MixMaster.UI
             {
                 selectedMonster = null;
                 EquipmentSO item = equipment[index];
+                if (!Unlocked(item)) return;
+                selectedEquipment = item;
                 SetIdentity(item.icon, EncyclopediaContent.Name(item.displayName, item.equipmentId), item.description);
                 SetText(statsHeading, "ステータス補正（装備Lv.1）");
                 SetText(statsText, EncyclopediaContent.Modifiers(item.modifiers));
@@ -247,6 +268,7 @@ namespace MixMaster.UI
         public void ShowList()
         {
             selectedMonster = null;
+            selectedEquipment = null;
             ClosePopup();
             if (detailRoot != null) detailRoot.SetActive(false);
             if (listRoot != null) listRoot.SetActive(true);
@@ -267,6 +289,7 @@ namespace MixMaster.UI
         {
             ClosePopup();
             selectedMonster = null;
+            selectedEquipment = null;
             returnToMenu = null;
             gameObject.SetActive(false);
         }

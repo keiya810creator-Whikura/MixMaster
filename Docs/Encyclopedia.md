@@ -42,7 +42,7 @@ UIは両図鑑PrefabのList直下にあるSortDropdown（選択肢テンプレ�
 | 生息地 | MapCatalogSOのnormalMonsters、bossMonster、旧monstersから該当種族を検索。複数マップ対応 |
 | 称号 | MonsterSO.titlePool。タップで説明とステータス補正 |
 | スキル | availableSkillsとenemySkillsの重複を除いた一覧。タップで説明、習得条件、MP・再使用・威力、パッシブ、追加効果 |
-| 装備一覧 | EquipmentCatalogSO.Equipment。全件閲覧可能 |
+| 装備一覧 | EquipmentCatalogSO.Equipment。未獲得の装備は「？」で覆い、詳細を開けない |
 | 装備補正 | EquipmentSO.modifiers。装備Lv.1の基礎補正 |
 | 入手ダンジョン | 各MapSO.dungeonEquipmentを検索。複数マップ対応 |
 
