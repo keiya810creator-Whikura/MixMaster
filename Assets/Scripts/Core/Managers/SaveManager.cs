@@ -229,6 +229,7 @@ namespace MixMaster.Core
 
             if (monster != null)
             {
+                data.acquiredMonsterIds = monster.CaptureAcquiredMonsters();
                 data.monsters = new List<OwnedMonsterRecord>(
                     monster.OwnedMonsters);
                 data.partyIds = new List<string>(
@@ -388,7 +389,7 @@ namespace MixMaster.Core
                     data.version >= 4
                         ? data.partyCombatOrder
                         : PartyCombatOrder.Individual);
-                monster.RestoreMonsters(data.monsters, data.partyIds);
+                monster.RestoreMonsters(data.monsters, data.partyIds, data.acquiredMonsterIds);
             }
 
             ReincarnationManager reincarnation = GetComponent<ReincarnationManager>();

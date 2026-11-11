@@ -38,6 +38,12 @@ namespace MixMaster.Core
         public string uniqueId;
         public string monsterId;
 
+        // Parent A/B, followed by A's parents and then B's parents.
+        public JournalMonster[] ancestors;
+
+        public JournalMonster GetAncestor(int index) =>
+            ancestors != null && index >= 0 && index < ancestors.Length ? ancestors[index] : null;
+
         public int level = 1;
         public long experience;
         public MonsterCombatBehavior combatBehavior = MonsterCombatBehavior.PlayerAttackRange;

@@ -445,7 +445,9 @@ namespace MixMaster.UI
             previewChild = child;
             previewIsSpecial = offer.isSpecial;
             string mode = offer.isSpecial ? "★ 特殊配合" : "通常配合";
-            previewText.text = mode + "\n" + child.displayName +
+            string newMarker = monsterManager != null && !monsterManager.HasAcquiredMonster(child.monsterId)
+                ? "NEW  " : string.Empty;
+            previewText.text = mode + "\n" + newMarker + child.displayName +
                 "   (Stage " + child.appearanceStage + ")" +
                 "\n配合値 " + child.breedingValue +
                 "  /  成功率 " + offer.successPercent + "％" +
