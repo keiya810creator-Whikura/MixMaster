@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MixMaster.Combat;
+using MixMaster.Player;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -31,6 +32,7 @@ namespace MixMaster.Core
         private bool busy, savePending;
         private float saveAt, nextAutoUse;
         private double lureUntil;
+        private int actorSearchFrame = -1;
         public event Action Changed;
 
         public ConsumableCatalogSO Catalog
@@ -47,10 +49,21 @@ namespace MixMaster.Core
             get
             {
                 if (LureSecondsRemaining <= 0f) return null;
-                if (actor == null) actor = FindFirstObjectByType<PlayerAutoAttack>();
-                return actor != null && actor.isActiveAndEnabled && actor.IsAlive ? actor : null;
+                return ResolveLureActor();
             }
         }
+        private PlayerAutoAttack ResolveLureActor()
+        {
+            if (actor != null && actor.gameObject.activeInHierarchy && actor.IsAlive) return actor;
+            // All active enemies query the bell. Search at most once per frame
+            // while the player object is being replaced or temporarily absent.
+            if (actorSearchFrame == Time.frameCount) return null;
+            actorSearchFrame = Time.frameCount;
+            PlayerController controller = FindFirstObjectByType<PlayerController>();
+            actor = controller != null ? controller.GetComponent<PlayerAutoAttack>() : null;
+            return actor != null && actor.IsAlive ? actor : null;
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -122,9 +135,8 @@ namespace MixMaster.Core
             { message = "MPは満タンです。"; return false; }
             if (item.effect == ConsumableEffect.MonsterLure)
             {
-                if (actor == null) actor = FindFirstObjectByType<PlayerAutoAttack>();
-                if (actor == null || !actor.isActiveAndEnabled || !actor.IsAlive ||
-                    item.durationSeconds <= 0 || float.IsNaN(item.durationSeconds) || float.IsInfinity(item.durationSeconds)) return false;
+                if (ResolveLureActor() == null || item.durationSeconds <= 0 || float.IsNaN(item.durationSeconds) ||
+                    float.IsInfinity(item.durationSeconds)) return false;
             }
             busy = true;
             try

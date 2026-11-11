@@ -446,7 +446,8 @@ namespace MixMaster.UI
             previewIsSpecial = offer.isSpecial;
             string mode = offer.isSpecial ? "★ 特殊配合" : "通常配合";
             string newMarker = monsterManager != null && !monsterManager.HasAcquiredMonster(child.monsterId)
-                ? "NEW  " : string.Empty;
+                ? "<color=#FFE24A>NEW</color>  " : string.Empty;
+            previewText.richText = true;
             previewText.text = mode + "\n" + newMarker + child.displayName +
                 "   (Stage " + child.appearanceStage + ")" +
                 "\n配合値 " + child.breedingValue +

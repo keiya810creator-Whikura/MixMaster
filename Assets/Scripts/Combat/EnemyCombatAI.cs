@@ -152,13 +152,16 @@ namespace MixMaster.Combat
 
         private void Update()
         {
-            if (skills != null && skills.NormalAttackBlocked) return;
             if (health == null || !health.IsAlive)
                 return;
 
+            bool attackBlocked = skills != null && skills.NormalAttackBlocked;
+            bool lured = TryApplyLureTarget();
+            if (attackBlocked && !lured) return;
+
             targetRefreshTimer -= Time.deltaTime;
 
-            if (!TryApplyLureTarget() && (targetRefreshTimer <= 0f || !IsCurrentTargetValid()))
+            if (!lured && (targetRefreshTimer <= 0f || !IsCurrentTargetValid()))
             {
                 targetRefreshTimer = targetRefreshInterval;
                 FindNearestTarget();
@@ -168,6 +171,8 @@ namespace MixMaster.Combat
 
             if (wanderAI != null)
                 wanderAI.SetCombatControlled(hasTarget || isLunging);
+
+            if (attackBlocked) return;
 
             if (!hasTarget)
             {
@@ -203,10 +208,14 @@ namespace MixMaster.Combat
         private void FixedUpdate()
         {
             if (skills != null && skills.MovementBlocked) { body.linearVelocity = Vector2.zero; return; }
-            if (health == null ||
-                !health.IsAlive ||
-                isLunging ||
-                !IsCurrentTargetValid())
+            if (health == null || !health.IsAlive || isLunging) return;
+
+            // A freshly spawned enemy can take its first physics step
+            // before Update has had a chance to acquire a target.
+            bool lured = TryApplyLureTarget();
+            if (lured && wanderAI != null)
+                wanderAI.SetCombatControlled(true);
+            if (!lured && !IsCurrentTargetValid())
             {
                 return;
             }
@@ -288,7 +297,7 @@ namespace MixMaster.Combat
         {
             ConsumableManager items = ConsumableManager.Instance;
             PlayerAutoAttack lure = items != null ? items.LureTarget : null;
-            if (lure == null || lure.gameObject.scene != gameObject.scene) return false;
+            if (lure == null || !lure.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return false;
             cachedPlayer = lure;
             playerTarget = lure;
             partyTarget = null;
@@ -309,7 +318,7 @@ namespace MixMaster.Combat
 
             ConsumableManager items = ConsumableManager.Instance;
             if (playerTarget != null && items != null && items.LureTarget == playerTarget &&
-                playerTarget.gameObject.scene == gameObject.scene) return true;
+                playerTarget.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return true;
 
             float loseRange = Mathf.Max(detectionRange, loseTargetRange);
             float distanceSqr =
