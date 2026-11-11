@@ -1,7 +1,6 @@
 using UnityEngine;
 using MixMaster.Player;
 using MixMaster.UI;
-using MixMaster.Combat;
 
 namespace MixMaster.World
 {
@@ -26,8 +25,12 @@ namespace MixMaster.World
 
         public MapBuildingType BuildingType => buildingType;
 
-        // Prevent the returned player from immediately reopening the
-        // entrance panel while still overlapping its trigger.
+        internal static bool AccessSuppressed => Time.unscaledTime < suppressOpenUntil;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSuppression() => suppressOpenUntil = 0f;
+
+        // Briefly hide the prompt while the player is being repositioned.
         public static void SuppressOpenFor(float seconds)
         {
             suppressOpenUntil = Mathf.Max(
@@ -45,63 +48,27 @@ namespace MixMaster.World
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (other == null ||
-                Time.unscaledTime < suppressOpenUntil)
-                return;
+            if (!isActiveAndEnabled || other == null) return;
+            PlayerController player = other.GetComponentInParent<PlayerController>();
+            if (player == null) return;
 
-            PlayerController player =
-                other.GetComponentInParent<PlayerController>();
-
-            if (player == null)
-                return;
-
-            PlayerAutoAttack autoAttack =
-                player.GetComponent<PlayerAutoAttack>();
-
-            // Auto attack lunges the Player forward/backward.
-            // Entering a building trigger during that temporary movement
-            // must not open the UI.
-            if (autoAttack != null &&
-                autoAttack.IsLunging)
-            {
-                return;
-            }
-
-            MapBuildingUIRouter router =
-                MapBuildingUIRouter.Instance;
-
+            MapBuildingUIRouter router = MapBuildingUIRouter.Instance;
+            if (router == null) router = FindFirstObjectByType<MapBuildingUIRouter>();
             if (router == null)
-            {
-                router =
-                    FindFirstObjectByType<MapBuildingUIRouter>();
-            }
+                router = new GameObject("MapBuildingUIRouter").AddComponent<MapBuildingUIRouter>();
+            router.EnterAccess(this, other, player);
+        }
 
-            if (router == null &&
-                (buildingType == MapBuildingType.DungeonEntrance ||
-                 buildingType == MapBuildingType.BreedingShop ||
-                 buildingType == MapBuildingType.Blacksmith ||
-                 buildingType == MapBuildingType.Reincarnation ||
-                 buildingType == MapBuildingType.ConsumableShop ||
-                 buildingType == MapBuildingType.TeleportCircle))
-            {
-                // The entrance must work in older exploration scenes that
-                // contain the map prefab but have no UI router yet.
-                GameObject routerObject = new GameObject("MapBuildingUIRouter");
-                router = routerObject.AddComponent<MapBuildingUIRouter>();
-            }
+        private void OnTriggerExit2D(Collider2D other)
+        {
+            MapBuildingUIRouter router = MapBuildingUIRouter.Instance;
+            if (router != null) router.ExitAccess(this, other);
+        }
 
-            if (router == null)
-            {
-                Debug.LogWarning(
-                    "[MapBuildingAccess] MapBuildingUIRouterがSceneにありません。",
-                    this);
-                return;
-            }
-
-            if (buildingType == MapBuildingType.TeleportCircle)
-                router.OpenTeleport(player, GetComponentInParent<TilemapMapRoot>());
-            else
-                router.Open(buildingType);
+        private void OnDisable()
+        {
+            MapBuildingUIRouter router = MapBuildingUIRouter.Instance;
+            if (router != null) router.ExitAccess(this);
         }
     }
 }

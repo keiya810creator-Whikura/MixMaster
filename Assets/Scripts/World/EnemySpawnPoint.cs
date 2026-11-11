@@ -161,6 +161,11 @@ namespace MixMaster.World
                     spawnPosition,
                     Quaternion.identity);
 
+            // Root instantiation uses the active scene, which can be a
+            // different scene from this map during additive loading.
+            if (enemyObject.scene != gameObject.scene)
+                SceneManager.MoveGameObjectToScene(enemyObject, gameObject.scene);
+
             MonsterRuntimeSetup runtimeSetup =
                 enemyObject.GetComponent<MonsterRuntimeSetup>();
 
