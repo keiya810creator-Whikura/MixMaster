@@ -20,6 +20,8 @@ namespace MixMaster.UI
         [SerializeField] private ReincarnationPanelUI reincarnationPanel;
         [SerializeField] private ConsumablePanelUI consumableShop;
 
+        private VillageTeleportPanelUI teleportPanel;
+
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
         [SerializeField] private bool disableJoystickWhileOpen = true;
@@ -92,13 +94,24 @@ namespace MixMaster.UI
                 Instance = null;
         }
 
+        public void OpenTeleport(PlayerController player, TilemapMapRoot village)
+        {
+            if (village == null || (village.MapDefinition != null && !village.MapDefinition.isTown))
+                return;
+            if (teleportPanel == null)
+                teleportPanel = VillageTeleportPanelUI.Create(transform);
+            teleportPanel.Prepare(this, player, village);
+            Open(MapBuildingType.TeleportCircle);
+        }
+
         public void Open(MapBuildingType type)
         {
             if (IsOpen && CurrentBuilding == type) return;
             // UI itself comes from the scene. Keep standalone town scenes
             // usable when no global EventSystem has been provided.
             if ((type == MapBuildingType.BreedingShop || type == MapBuildingType.Blacksmith ||
-                type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop) &&
+                type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop ||
+                 type == MapBuildingType.TeleportCircle) &&
                 EventSystem.current == null)
             {
                 new GameObject("MapBuildingEventSystem",
@@ -112,6 +125,7 @@ namespace MixMaster.UI
             if (type == MapBuildingType.ConsumableShop) ResolveConsumableShop();
 
             GameObject targetPanel =
+                type == MapBuildingType.TeleportCircle && teleportPanel != null ? teleportPanel.gameObject :
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
                 type == MapBuildingType.BreedingShop ? breedingPanel :
@@ -252,6 +266,7 @@ namespace MixMaster.UI
             IsOpen = false;
             CurrentBuilding = null;
 
+            if (teleportPanel != null) SetPanelActive(teleportPanel.gameObject, false);
             SetPanelActive(altarPanel, false);
             SetPanelActive(dungeonEntrancePanel, false);
             SetPanelActive(breedingPanel, false);

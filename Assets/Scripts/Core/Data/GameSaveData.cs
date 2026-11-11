@@ -19,6 +19,7 @@ namespace MixMaster.Core
         public string savedUtc = string.Empty;
 
         public string mapId = string.Empty;
+        public List<string> visitedMapIds = new List<string>();
         public GameMode gameMode = GameMode.Exploration;
         public string sceneName = string.Empty;
         public bool hasPlayerPosition;

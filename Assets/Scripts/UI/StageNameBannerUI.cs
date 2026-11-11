@@ -13,7 +13,9 @@ namespace MixMaster.UI
         [SerializeField, Min(0f)] private float fadeInSeconds = 0.2f;
         [SerializeField, Min(0f)] private float holdSeconds = 1.8f;
         [SerializeField, Min(0f)] private float fadeOutSeconds = 0.6f;
+        [SerializeField, Range(0f, 0.2f)] private float heightAboveCenter = 0.05f;
         private Coroutine animationRoutine;
+        private bool positionAdjusted;
 
         public static void Show(string title)
         {
@@ -80,6 +82,14 @@ namespace MixMaster.UI
                 var outline = child.AddComponent<Shadow>();
                 outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
                 outline.effectDistance = new Vector2(2f, -2f);
+            }
+            if (Application.isPlaying && !positionAdjusted)
+            {
+                RectTransform rect = stageText.rectTransform;
+                Vector2 offset = Vector2.up * heightAboveCenter;
+                rect.anchorMin += offset;
+                rect.anchorMax += offset;
+                positionAdjusted = true;
             }
             stageText.raycastTarget = false;
             if (animationRoutine == null) canvasGroup.alpha = 0f;

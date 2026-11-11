@@ -12,7 +12,8 @@ namespace MixMaster.World
         BreedingShop,
         Blacksmith,
         Reincarnation,
-        ConsumableShop
+        ConsumableShop,
+        TeleportCircle
     }
 
     [DisallowMultipleComponent]
@@ -80,7 +81,8 @@ namespace MixMaster.World
                  buildingType == MapBuildingType.BreedingShop ||
                  buildingType == MapBuildingType.Blacksmith ||
                  buildingType == MapBuildingType.Reincarnation ||
-                 buildingType == MapBuildingType.ConsumableShop))
+                 buildingType == MapBuildingType.ConsumableShop ||
+                 buildingType == MapBuildingType.TeleportCircle))
             {
                 // The entrance must work in older exploration scenes that
                 // contain the map prefab but have no UI router yet.
@@ -96,7 +98,10 @@ namespace MixMaster.World
                 return;
             }
 
-            router.Open(buildingType);
+            if (buildingType == MapBuildingType.TeleportCircle)
+                router.OpenTeleport(player, GetComponentInParent<TilemapMapRoot>());
+            else
+                router.Open(buildingType);
         }
     }
 }

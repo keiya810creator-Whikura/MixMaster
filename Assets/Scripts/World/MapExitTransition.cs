@@ -128,6 +128,24 @@ namespace MixMaster.World
                 return false;
             }
 
+            bool moved = MovePlayer(player, currentMap, destinationMap,
+                destinationGrid.GetCellCenterWorld(arrivalCell));
+            if (moved)
+                Debug.Log("[MapExitTransition] " + currentMap.name +
+                    " -> " + destinationMap.name + " (" + exitDirection + ")", this);
+            return moved;
+        }
+
+        internal static bool MovePlayer(PlayerController player, TilemapMapRoot currentMap,
+            TilemapMapRoot destinationMap, Vector3 targetWorld)
+        {
+            if (player == null || currentMap == null || destinationMap == null ||
+                currentMap == destinationMap || !currentMap.gameObject.activeInHierarchy ||
+                currentMap.gameObject.scene != destinationMap.gameObject.scene ||
+                (destinationMap.transform.parent != null &&
+                 !destinationMap.transform.parent.gameObject.activeInHierarchy))
+                return false;
+
             // Cooldown also protects against immediate reverse triggering
             // when the two maps overlap at the same world coordinates.
             nextTransitionAllowedAt = Time.time + 0.65f;
@@ -171,7 +189,6 @@ namespace MixMaster.World
 
             destinationMap.gameObject.SetActive(true);
 
-            Vector3 targetWorld = destinationGrid.GetCellCenterWorld(arrivalCell);
             Vector3 target = new Vector3(targetWorld.x, targetWorld.y,
                 player.transform.position.z);
 
@@ -188,8 +205,6 @@ namespace MixMaster.World
             if (cameraFollow != null)
                 cameraFollow.SetTarget(player.transform, true);
 
-            Debug.Log("[MapExitTransition] " + currentMap.name +
-                " -> " + destinationMap.name + " (" + exitDirection + ")", this);
             return true;
         }
 
