@@ -2,6 +2,7 @@ using MixMaster.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace MixMaster.UI
 {
@@ -21,6 +22,9 @@ namespace MixMaster.UI
         private GameGuideContent definitions;
         private readonly string[] boundIds = new string[GameJournalManager.TrackedGoalLimit];
         private readonly long[] boundCounts = new long[GameJournalManager.TrackedGoalLimit], boundTargets = new long[GameJournalManager.TrackedGoalLimit];
+        private const float DismissWidth = 40f;
+        private readonly Button[] dismissButtons = new Button[GameJournalManager.TrackedGoalLimit];
+        private readonly Vector4[] countMargins = new Vector4[GameJournalManager.TrackedGoalLimit];
         private bool dirty = true;
         private float refreshAt;
 
@@ -71,6 +75,54 @@ namespace MixMaster.UI
             Bind(); dirty = false; refreshAt = Time.unscaledTime + 1f;
             Refresh();
         }
+        private void SetDismissVisible(int row, bool visible)
+        {
+            if (visible && dismissButtons[row] == null && rows[row] != null)
+            {
+                Button button = InventoryUiFactory.Button(rows[row].transform,
+                    "RemoveCompletedGoal", "×", Vector2.zero, new Vector2(DismissWidth, 36f));
+                RectTransform rect = (RectTransform)button.transform;
+                rect.anchorMin = rect.anchorMax = new Vector2(1f, .5f);
+                rect.pivot = new Vector2(1f, .5f);
+                rect.anchoredPosition = new Vector2(-4f, 0f);
+                if (counts[row] != null)
+                {
+                    countMargins[row] = counts[row].margin;
+                    button.GetComponentInChildren<TMP_Text>().font = counts[row].font;
+                }
+                button.onClick.AddListener(() => RemoveCompletedGoal(row));
+                dismissButtons[row] = button;
+            }
+
+            Button dismiss = dismissButtons[row];
+            if (dismiss == null) return;
+
+            dismiss.gameObject.SetActive(visible);
+            if (counts[row] != null)
+            {
+                Vector4 margin = countMargins[row];
+                if (visible) margin.z += DismissWidth + 4f;
+                counts[row].margin = margin;
+            }
+        }
+
+        private void RemoveCompletedGoal(int row)
+        {
+            string goalId = boundIds[row];
+            if (journal == null || journal != GameJournalManager.Instance || string.IsNullOrEmpty(goalId))
+                return;
+
+            foreach (GoalRecord goal in journal.Goals)
+            {
+                if (goal.goalId != goalId || !goal.showOnHud) continue;
+                // The displayed count can be up to one refresh interval old.
+                if (GameGuideContent.Owned(goal, monsters, equipment, materials) >= goal.targetCount &&
+                    journal.DeleteGoal(goalId))
+                    Refresh();
+                break;
+            }
+        }
+
         private void Refresh()
         {
             if (panel == null || rows == null || names == null || counts == null) return;
@@ -90,10 +142,12 @@ namespace MixMaster.UI
                 if (boundCounts[shown] != owned || boundTargets[shown] != goal.targetCount)
                 {
                     boundCounts[shown] = owned; boundTargets[shown] = goal.targetCount;
+                    bool completed = owned >= goal.targetCount;
+                    SetDismissVisible(shown, completed);
                     if (counts[shown] != null)
                     {
                         counts[shown].text = GameGuideContent.Number(owned) + " / " + GameGuideContent.Number(goal.targetCount);
-                        counts[shown].color = owned >= goal.targetCount ? new Color(.45f, 1f, .65f, 1) : Color.white;
+                        counts[shown].color = completed ? new Color(.45f, 1f, .65f, 1) : Color.white;
                     }
                 }
                 if (rows[shown] != null) rows[shown].SetActive(true);
