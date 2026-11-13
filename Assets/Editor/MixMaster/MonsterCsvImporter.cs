@@ -99,19 +99,7 @@ namespace MixMaster.EditorTools
                 "光耐性",
                 "闇耐性",
                 "索敵範囲",
-                "リス秒",
-                "素材ID",
-                "素材名",
-                "素材ドロ率",
-                "経験値",
-                "配合用値",
-                "出現ステージ",
-                "魔弾Prefab名",
-                "魔弾速度",
-                "魔弾寿命秒数",
-                "魔弾追尾",
-                "称号ID",
-                "SkillIds"
+                "リス秒"
             };
 
             for (int i = 0; i < requiredHeaders.Length; i++)
@@ -211,8 +199,9 @@ namespace MixMaster.EditorTools
                     }
 
                     string stageText = GetCell(row, header, "出現ステージ").Trim();
-                    if (!int.TryParse(stageText, NumberStyles.Integer,
-                            CultureInfo.InvariantCulture, out int stage) || stage < 1)
+                    if (stageText.Length > 0 &&
+                        (!int.TryParse(stageText, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out int stage) || stage < 1))
                     {
                         warningCount++;
                         skippedCount++;
@@ -568,7 +557,7 @@ namespace MixMaster.EditorTools
                     0);
 
             monster.appearanceStage =
-                Math.Max(1, ReadInt(row, header, "出現ステージ", 1));
+                Math.Max(1, ReadInt(row, header, "出現ステージ", monster.appearanceStage));
 
             // Optional column; if omitted, preserve existing Inspector setting.
             if (header.ContainsKey("特殊配合限定"))

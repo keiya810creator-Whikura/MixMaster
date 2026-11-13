@@ -28,11 +28,17 @@ namespace MixMaster.EditorTools
             }
 
             string[] lines = File.ReadAllLines(sourcePath, Encoding.UTF8);
-            if (lines.Length == 0 ||
-                lines[0].TrimStart('\uFEFF').Trim() != "親A,親B,配合結果")
+            int headerIndex = 0;
+            if (lines.Length > 0 && !IsRecipeHeader(SplitFields(lines[0])))
+                headerIndex = 1; // The grouped export has one row of section titles.
+
+            string[] header = headerIndex < lines.Length
+                ? SplitFields(lines[headerIndex])
+                : Array.Empty<string>();
+            if (!IsRecipeHeader(header) || (headerIndex == 1 && header.Length == 3))
             {
                 EditorUtility.DisplayDialog("特殊配合",
-                    "ヘッダーを 親A,親B,配合結果 にしてください。", "OK");
+                    "「親A,親B,配合結果」の3列、または区分名の下に同じ3列を横に並べた形式にしてください。", "OK");
                 return;
             }
 
@@ -48,63 +54,70 @@ namespace MixMaster.EditorTools
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int skipped = 0;
 
-            for (int i = 1; i < lines.Length; i++)
+            var rows = new List<(int LineNumber, string[] Fields)>();
+            for (int i = headerIndex + 1; i < lines.Length; i++)
             {
                 string line = lines[i].Trim();
                 if (line.Length == 0 || line.StartsWith("#"))
                     continue;
 
-                string[] values = line.Split(',');
-                if (values.Length != 3)
+                string[] fields = SplitFields(line);
+                if (fields.Length != header.Length)
                 {
-                    Debug.LogWarning("[BreedingRecipeCsvImporter] " + (i + 1) +
-                        "行目: 列数が3ではありません。");
+                    Debug.LogWarning($"[BreedingRecipeCsvImporter] {i + 1}行目: 列数が{header.Length}ではありません。");
                     skipped++;
                     continue;
                 }
 
-                string parentA = values[0].Trim().Trim('"');
-                string parentB = values[1].Trim().Trim('"');
-                string child = values[2].Trim().Trim('"');
+                rows.Add((i + 1, fields));
+            }
 
-                if (monsters.GetMonster(parentA) == null ||
-                    monsters.GetMonster(parentB) == null ||
-                    monsters.GetMonster(child) == null)
+            // The catalog has one result per unordered pair. Prefer the more
+            // specific groups on the right, keeping the first recipe within a group.
+            for (int column = header.Length - 3; column >= 0; column -= 3)
+            {
+                foreach (var row in rows)
                 {
-                    Debug.LogWarning("[BreedingRecipeCsvImporter] " + (i + 1) +
-                        "行目: 存在しないMonsterIDです: " +
-                        parentA + " / " + parentB + " => " + child);
-                    skipped++;
-                    continue;
+                    string parentA = row.Fields[column];
+                    string parentB = row.Fields[column + 1];
+                    string child = row.Fields[column + 2];
+                    if (header.Length > 3 && parentA.Length == 0 && parentB.Length == 0 && child.Length == 0)
+                        continue;
+
+                    string location = $"[BreedingRecipeCsvImporter] {row.LineNumber}行目・{column + 1}列目";
+                    if (monsters.GetMonster(parentA) == null ||
+                        monsters.GetMonster(parentB) == null ||
+                        monsters.GetMonster(child) == null)
+                    {
+                        Debug.LogWarning($"{location}: 存在しないMonsterIDです: {parentA} / {parentB} => {child}");
+                        skipped++;
+                        continue;
+                    }
+
+                    if (string.Equals(parentA, parentB, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Debug.LogWarning($"{location}: 同種配合は特殊レシピに登録できません。");
+                        skipped++;
+                        continue;
+                    }
+
+                    string key = string.Compare(parentA, parentB, StringComparison.OrdinalIgnoreCase) <= 0
+                        ? parentA + "|" + parentB
+                        : parentB + "|" + parentA;
+                    if (!keys.Add(key))
+                    {
+                        Debug.LogWarning($"{location}: 登録済みの親の組み合わせをスキップしました: {key} => {child}");
+                        skipped++;
+                        continue;
+                    }
+
+                    recipes.Add(new SpecialBreedingRecipe
+                    {
+                        parentAId = parentA,
+                        parentBId = parentB,
+                        childId = child
+                    });
                 }
-
-                if (string.Equals(parentA, parentB, StringComparison.OrdinalIgnoreCase))
-                {
-                    Debug.LogWarning("[BreedingRecipeCsvImporter] " + (i + 1) +
-                        "行目: 同種配合は同種が優先されるため特殊レシピに登録できません。");
-                    skipped++;
-                    continue;
-                }
-
-                string key = string.Compare(parentA, parentB,
-                    StringComparison.OrdinalIgnoreCase) <= 0
-                    ? parentA.ToUpperInvariant() + "|" + parentB.ToUpperInvariant()
-                    : parentB.ToUpperInvariant() + "|" + parentA.ToUpperInvariant();
-
-                if (!keys.Add(key))
-                {
-                    Debug.LogWarning("[BreedingRecipeCsvImporter] " + (i + 1) +
-                        "行目: 親の組み合わせが重複しています: " + key);
-                    skipped++;
-                    continue;
-                }
-
-                recipes.Add(new SpecialBreedingRecipe
-                {
-                    parentAId = parentA,
-                    parentBId = parentB,
-                    childId = child
-                });
             }
 
             if (!AssetDatabase.IsValidFolder(Folder))
@@ -131,6 +144,28 @@ namespace MixMaster.EditorTools
                 "件 / スキップ: " + skipped + "件";
             Debug.Log("[BreedingRecipeCsvImporter] " + message);
             EditorUtility.DisplayDialog("特殊配合インポート", message, "OK");
+        }
+
+        private static string[] SplitFields(string line)
+        {
+            string[] fields = line.TrimStart('\uFEFF').Split(',');
+            for (int i = 0; i < fields.Length; i++)
+                fields[i] = fields[i].Trim().Trim('"').Trim();
+            return fields;
+        }
+
+        private static bool IsRecipeHeader(string[] fields)
+        {
+            if (fields.Length == 0 || fields.Length % 3 != 0)
+                return false;
+
+            for (int i = 0; i < fields.Length; i += 3)
+            {
+                if (fields[i] != "親A" || fields[i + 1] != "親B" || fields[i + 2] != "配合結果")
+                    return false;
+            }
+
+            return true;
         }
     }
 }
