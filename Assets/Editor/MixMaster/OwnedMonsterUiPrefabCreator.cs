@@ -253,7 +253,7 @@ namespace MixMaster.EditorTools
                 Vector2.one;
 
             viewport.offsetMin =
-                Vector2.zero;
+                new Vector2(0f, 85f);
 
             viewport.offsetMax =
                 Vector2.zero;
@@ -386,12 +386,53 @@ namespace MixMaster.EditorTools
                 modeToggle);
 
             listUi.SetCloseButton(close);
+            CreatePageControls(root.transform, listUi);
 
             PrefabUtility.SaveAsPrefabAsset(
                 root,
                 PanelPrefabPath);
 
             Object.DestroyImmediate(root);
+        }
+
+        private static void CreatePageControls(Transform parent, OwnedMonsterListUI listUi)
+        {
+            RectTransform bar = CreateRect(parent, "MonsterPageControls");
+            bar.anchorMin = Vector2.zero;
+            bar.anchorMax = Vector2.right;
+            bar.pivot = new Vector2(0.5f, 0f);
+            bar.anchoredPosition = new Vector2(0f, 12f);
+            bar.sizeDelta = new Vector2(0f, 92f);
+
+            Button previous = InventoryUiFactory.Button(bar, "PreviousPage", "◀ 前へ",
+                new Vector2(24f, -9f), new Vector2(180f, 53f));
+            Button next = InventoryUiFactory.Button(bar, "NextPage", "次へ ▶",
+                Vector2.zero, new Vector2(180f, 53f));
+            RectTransform nextRect = (RectTransform)next.transform;
+            nextRect.anchorMin = Vector2.one;
+            nextRect.anchorMax = Vector2.one;
+            nextRect.pivot = Vector2.one;
+            nextRect.anchoredPosition = new Vector2(-24f, -9f);
+            previous.interactable = false;
+            next.interactable = false;
+
+            TMP_Text number = InventoryUiFactory.Text(bar, "PageNumber", "1 / 1  (30体/ページ)",
+                Vector2.zero, new Vector2(265f, 48f), 26f);
+            number.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+            number.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            number.rectTransform.pivot = new Vector2(0.5f, 1f);
+            number.rectTransform.anchoredPosition = new Vector2(0f, -10f);
+            number.alignment = TextAlignmentOptions.Center;
+
+            TMP_Text gold = InventoryUiFactory.Text(bar, "GoldDisplay", "Gold: 0 G",
+                Vector2.zero, new Vector2(420f, 29f), 19f);
+            gold.rectTransform.anchorMin = new Vector2(0.5f, 0f);
+            gold.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+            gold.rectTransform.pivot = new Vector2(0.5f, 0f);
+            gold.rectTransform.anchoredPosition = Vector2.zero;
+            gold.alignment = TextAlignmentOptions.Center;
+            gold.color = new Color(1f, 0.83f, 0.46f);
+            listUi.SetPageControls(previous, next, number, gold);
         }
 
         private static Image CreateImage(
