@@ -76,6 +76,62 @@ namespace MixMaster.Core
             new Dictionary<string, OwnedMonsterRecord>(StringComparer.Ordinal);
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
 
+        public const int MaxFarmSize = 20;
+        private readonly List<OwnedMonsterRecord> farmMonsters =
+            new List<OwnedMonsterRecord>(MaxFarmSize);
+
+        public IReadOnlyList<OwnedMonsterRecord> FarmMonsters => farmMonsters;
+        public event Action FarmChanged;
+
+        public bool SetFarmRegistration(string uniqueId, bool registered)
+        {
+            OwnedMonsterRecord monster = FindOwnedMonster(uniqueId);
+            if (monster == null || registered == (monster.farmStartLevel > 0))
+                return false;
+
+            if (registered)
+            {
+                if (farmMonsters.Count >= MaxFarmSize) return false;
+                monster.farmStartLevel = monster.level;
+                farmMonsters.Add(monster);
+            }
+            else
+            {
+                monster.farmStartLevel = 0;
+                farmMonsters.Remove(monster);
+            }
+            monster.farmHalfExperiencePending = false;
+            FarmChanged?.Invoke();
+            return true;
+        }
+
+        public long AwardFarmExperience(long amount)
+        {
+            if (amount <= 0) return 0L;
+
+            long awarded = 0L;
+            for (int i = farmMonsters.Count - 1; i >= 0; i--)
+            {
+                OwnedMonsterRecord monster = farmMonsters[i];
+                if (monster.level >= ExperienceProgression.MaxLevel ||
+                    partyMonsterUniqueIds.Contains(monster.uniqueId))
+                    continue;
+
+                long share = amount / 2;
+                if ((amount & 1L) != 0)
+                {
+                    if (monster.farmHalfExperiencePending) share++;
+                    monster.farmHalfExperiencePending = !monster.farmHalfExperiencePending;
+                }
+                if (share > 0)
+                {
+                    AddExperience(monster.uniqueId, share);
+                    awarded = Math.Max(awarded, share);
+                }
+            }
+            return awarded;
+        }
+
         public IReadOnlyList<OwnedMonsterRecord> OwnedMonsters => ownedMonsters;
         public IReadOnlyList<string> PartyMonsterUniqueIds => partyMonsterUniqueIds;
         public int MaxPartySize => Mathf.Clamp(maxPartySize, 1, 3);
@@ -500,6 +556,7 @@ namespace MixMaster.Core
             if (savedAcquiredMonsterIds != null)
                 foreach (string id in savedAcquiredMonsterIds)
                     if (!string.IsNullOrWhiteSpace(id)) acquiredMonsterIds.Add(id);
+            farmMonsters.Clear();
             ownedMonsters.Clear();
             ownedById.Clear();
             partyMonsterUniqueIds.Clear();
@@ -548,6 +605,16 @@ namespace MixMaster.Core
                     record.learnedSkillIds ??= new List<string>();
                     record.inheritedSkillIds = SkillProgressionManager.CopyInheritedSkills(record.inheritedSkillIds);
                     record.equippedItemUniqueIds ??= new List<string>();
+                    if (record.farmStartLevel > 0 && farmMonsters.Count < MaxFarmSize)
+                    {
+                        record.farmStartLevel = Math.Min(record.farmStartLevel, record.level);
+                        farmMonsters.Add(record);
+                    }
+                    else
+                    {
+                        record.farmStartLevel = 0;
+                        record.farmHalfExperiencePending = false;
+                    }
                     AddOwnedMonster(record);
                     if (!string.IsNullOrWhiteSpace(record.monsterId)) acquiredMonsterIds.Add(record.monsterId);
                 }
@@ -571,6 +638,7 @@ namespace MixMaster.Core
             }
 
             PartyChanged?.Invoke();
+            FarmChanged?.Invoke();
         }
 
         public bool AddToParty(string monsterUniqueId)
@@ -608,6 +676,11 @@ namespace MixMaster.Core
         {
             ownedMonsters.Remove(record);
             ownedById.Remove(record.uniqueId);
+            if (farmMonsters.Remove(record))
+            {
+                record.farmStartLevel = 0;
+                record.farmHalfExperiencePending = false;
+            }
         }
 
         public bool SetMonsterCombatBehavior(

@@ -53,6 +53,8 @@ namespace MixMaster.UI
         private Button favoriteButton;
         private Button lockButton;
         private Button sellButton;
+        private Button farmButton;
+        private TMP_Text farmButtonText;
         private TMP_Text favoriteButtonText;
         private TMP_Text lockButtonText;
         private TMP_Text saleStatusText;
@@ -844,8 +846,10 @@ namespace MixMaster.UI
                 return;
 
             monsterManager.PartyChanged += HandlePartyChanged;
+            monsterManager.FarmChanged += RefreshFarmControl;
             monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
             monsterManager.MonsterSold += HandleMonsterSold;
+            monsterManager.MonstersBulkSold += HandleMonstersBulkSold;
             monsterManager.MonsterExperienceChanged += HandleExperienceChanged;
             monsterManager.MonsterIntimacyLeveledUp += HandleExperienceChanged;
             monsterManager.MonsterIntimacyChanged += HandleExperienceChanged;
@@ -862,8 +866,10 @@ namespace MixMaster.UI
             if (monsterManager != null)
             {
                 monsterManager.PartyChanged -= HandlePartyChanged;
+                monsterManager.FarmChanged -= RefreshFarmControl;
                 monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
                 monsterManager.MonsterSold -= HandleMonsterSold;
+                monsterManager.MonstersBulkSold -= HandleMonstersBulkSold;
                 monsterManager.MonsterExperienceChanged -= HandleExperienceChanged;
                 monsterManager.MonsterIntimacyLeveledUp -= HandleExperienceChanged;
                 monsterManager.MonsterIntimacyChanged -= HandleExperienceChanged;
@@ -897,6 +903,15 @@ namespace MixMaster.UI
                 RefreshProtectionControls();
         }
 
+        private void HandleMonstersBulkSold()
+        {
+            if (selectedRecord != null &&
+                monsterManager.FindOwnedMonster(selectedRecord.uniqueId) != selectedRecord)
+                HandleMonsterSold(selectedRecord.uniqueId);
+            else
+                RefreshFarmControl();
+        }
+
         private void HandleMonsterSold(string uniqueId)
         {
             if (selectedRecord != null &&
@@ -905,6 +920,8 @@ namespace MixMaster.UI
                 selectedRecord = null;
                 Hide();
             }
+            else
+                RefreshFarmControl();
         }
 
         private void HandleExperienceChanged(OwnedMonsterRecord record)
@@ -925,8 +942,8 @@ namespace MixMaster.UI
                 typeof(Image), typeof(LayoutElement));
             section.transform.SetParent(content, false);
             LayoutElement layout = section.GetComponent<LayoutElement>();
-            layout.preferredHeight = 175f;
-            layout.minHeight = 175f;
+            layout.preferredHeight = 245f;
+            layout.minHeight = 245f;
             Image image = section.GetComponent<Image>();
             image.color = new Color(0.12f, 0.17f, 0.23f, 1f);
             image.raycastTarget = false;
@@ -953,6 +970,14 @@ namespace MixMaster.UI
             favoriteButton.onClick.AddListener(ToggleFavorite);
             lockButton.onClick.AddListener(ToggleLock);
             sellButton.onClick.AddListener(OpenSellConfirmation);
+
+            farmButton = InventoryUiFactory.Button(section.transform,
+                "FarmRegistration", "ファームに送る",
+                new Vector2(15f, -166f), new Vector2(420f, 60f));
+            farmButtonText = farmButton.GetComponentInChildren<TMP_Text>();
+            if (monsterNameText != null)
+                farmButtonText.font = monsterNameText.font;
+            farmButton.onClick.AddListener(ToggleFarmRegistration);
 
             CreateSellConfirmation();
         }
@@ -1002,6 +1027,7 @@ namespace MixMaster.UI
 
         private void RefreshProtectionControls()
         {
+            RefreshFarmControl();
             if (favoriteButton == null || selectedRecord == null) return;
             bool protectedFromSale = monsterManager == null ||
                 monsterManager.IsProtectedFromConsumption(selectedRecord);
@@ -1023,6 +1049,30 @@ namespace MixMaster.UI
                             : "");
             if (sellButton != null)
                 sellButton.interactable = !readOnlyMode && !protectedFromSale;
+        }
+
+        private void RefreshFarmControl()
+        {
+            if (farmButton == null) return;
+            bool owned = monsterManager != null && selectedRecord != null &&
+                monsterManager.FindOwnedMonster(selectedRecord.uniqueId) == selectedRecord;
+            farmButton.gameObject.SetActive(!readOnlyMode && owned);
+            if (!owned) return;
+
+            bool registered = selectedRecord.farmStartLevel > 0;
+            bool full = monsterManager.FarmMonsters.Count >= MonsterManager.MaxFarmSize;
+            farmButton.interactable = registered || !full;
+            farmButtonText.text = registered ? "ファーム解除"
+                : full ? "ファーム満員（20 / 20）" : "ファームに送る";
+        }
+
+        private void ToggleFarmRegistration()
+        {
+            if (readOnlyMode || selectedRecord == null || monsterManager == null)
+                return;
+            if (monsterManager.SetFarmRegistration(selectedRecord.uniqueId,
+                    selectedRecord.farmStartLevel == 0))
+                FindFirstObjectByType<SaveManager>()?.SaveGame();
         }
 
         private void ToggleFavorite()

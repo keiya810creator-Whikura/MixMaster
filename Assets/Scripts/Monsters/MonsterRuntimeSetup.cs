@@ -142,6 +142,7 @@ namespace MixMaster.Monsters
             var party = monsters.PartyMonsterUniqueIds;
             for (int i = 0; i < party.Count; i++)
                 monsters.AddExperience(party[i], reward);
+            monsters.AwardFarmExperience(reward);
         }
 
         public void Initialize(

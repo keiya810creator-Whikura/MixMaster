@@ -313,6 +313,8 @@ namespace MixMaster.Core
                 monsters.AddExperience(id, amount);
                 awarded = amount; // One shared EXP rate, never multiplied by party size.
             }
+            if (monsters != null)
+                awarded = Math.Max(awarded, monsters.AwardFarmExperience(amount));
             return awarded;
         }
 
