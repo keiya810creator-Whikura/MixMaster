@@ -1261,6 +1261,7 @@ MonoBehaviour:
   goldText: {fileID: 882001140000000044}
   favoriteSprite: {fileID: 0}
   lockSprite: {fileID: 0}
+  farmSprite: {fileID: 0}
   lockPlayerMovementWhileOpen: 1
   disableJoystickWhileOpen: 1
 --- !u!1 &2408024409898071833

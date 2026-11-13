@@ -79,6 +79,27 @@ namespace MixMaster.UI
             padlock.enabled = locked;
         }
 
+        private static Sprite defaultFarm;
+
+        public static Image CreateFarmMark(Transform row, Sprite sprite)
+        {
+            Image mark = GetOrCreate(row, "FarmSprite", new Vector2(108f, -26f), 34f);
+            if (sprite == null)
+            {
+                if (defaultFarm == null)
+                    defaultFarm = MakeSprite((x, y) =>
+                    {
+                        bool roof = y >= 32 && y <= 58 - Mathf.Abs(x - 32);
+                        bool walls = x >= 11 && x <= 52 && y >= 8 && y <= 33;
+                        bool door = x >= 25 && x <= 38 && y <= 25;
+                        return roof || (walls && !door);
+                    }, new Color32(131, 231, 135, 255), "FarmBarn");
+                sprite = defaultFarm;
+            }
+            mark.sprite = sprite;
+            return mark;
+        }
+
         private static Image GetOrCreate(Transform row, string name,
             Vector2 position, float size)
         {

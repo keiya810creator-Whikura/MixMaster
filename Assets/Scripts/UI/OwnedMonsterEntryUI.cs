@@ -101,6 +101,16 @@ namespace MixMaster.UI
         private bool showIndividualValues;
         private int sortIndex;
         private Color defaultButtonColor = Color.white;
+        private Image farmMark;
+
+        public void RefreshFarmMark(Sprite sprite)
+        {
+            bool registered = Record != null && Record.farmStartLevel > 0;
+            if (registered && farmMark == null)
+                farmMark = InventoryProtectionIcons.CreateFarmMark(transform, sprite);
+            if (farmMark != null)
+                farmMark.enabled = registered;
+        }
 
         public OwnedMonsterRecord Record { get; private set; }
 

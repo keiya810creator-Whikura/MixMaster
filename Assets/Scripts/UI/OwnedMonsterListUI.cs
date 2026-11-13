@@ -30,6 +30,7 @@ namespace MixMaster.UI
         [Header("Protection Icons")]
         [SerializeField] private Sprite favoriteSprite;
         [SerializeField] private Sprite lockSprite;
+        [SerializeField] private Sprite farmSprite;
 
         [Header("Input")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -344,6 +345,7 @@ namespace MixMaster.UI
                     showIndividualValues ? null : GetCachedStats(record),
                     favoriteSprite, lockSprite,
                      sortDropdown != null ? sortDropdown.value : 0);
+                entry.RefreshFarmMark(farmSprite);
             }
 
             RefreshCount(filteredIndices.Count);
@@ -485,6 +487,7 @@ namespace MixMaster.UI
             monsterManager.MonsterObtained +=
                 HandleMonsterObtained;
             monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
+            monsterManager.FarmChanged += RefreshFarmMarks;
             monsterManager.MonsterSold += HandleMonsterSold;
             monsterManager.MonstersBulkSold += HandleMonstersBulkSold;
             if (gameManager != null)
@@ -515,6 +518,7 @@ namespace MixMaster.UI
             monsterManager.MonsterObtained -=
                 HandleMonsterObtained;
             monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
+            monsterManager.FarmChanged -= RefreshFarmMarks;
             monsterManager.MonsterSold -= HandleMonsterSold;
             monsterManager.MonstersBulkSold -= HandleMonstersBulkSold;
             if (gameManager != null)
@@ -612,6 +616,13 @@ namespace MixMaster.UI
             OwnedMonsterRecord record)
         {
             RequestFirstPage();
+        }
+
+        private void RefreshFarmMarks()
+        {
+            foreach (OwnedMonsterEntryUI entry in entries)
+                if (entry != null && entry.gameObject.activeSelf)
+                    entry.RefreshFarmMark(farmSprite);
         }
 
         private void HandleProtectionChanged(OwnedMonsterRecord record)
