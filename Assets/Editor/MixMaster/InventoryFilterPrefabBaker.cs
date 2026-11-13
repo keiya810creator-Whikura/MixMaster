@@ -20,11 +20,6 @@ namespace MixMaster.EditorTools
         private const string MonsterPrefab =
             "Assets/Prefab/UI/OwnedMonsterListPanel.prefab";
 
-        private static readonly string[] MonsterThreshold =
-        {
-            "上位25%", "上位50%", "上位75%", "0以外"
-        };
-
         private static readonly string[] EquipmentRarities = EquipmentRarityUtility.FilterLabels;
 
         static InventoryFilterPrefabBaker()
@@ -131,9 +126,9 @@ namespace MixMaster.EditorTools
                 new Vector2(225f, 56f), sort, ref changed);
             Dropdown(controls, "StatFilter", new Vector2(267f, -8f),
                 new Vector2(260f, 56f),
-                InventoryProtectionIcons.CombinedStatFilterLabels, ref changed);
+                OwnedMonsterListUI.MonsterFilterOptions, ref changed);
             Dropdown(controls, "ThresholdFilter", new Vector2(537f, -8f),
-                new Vector2(205f, 56f), MonsterThreshold, ref changed);
+                new Vector2(205f, 56f), OwnedMonsterListUI.ThresholdOptions, ref changed);
             Button(controls, "SortDirection", "降順",
                 new Vector2(753f, -8f), new Vector2(130f, 56f), ref changed);
 
@@ -147,6 +142,9 @@ namespace MixMaster.EditorTools
                 new Vector2(549f, -99f), new Vector2(330f, 56f), ref changed);
             Button(controls, "AutoSellMonsters", "自動売却設定",
                 new Vector2(65f, -99f), new Vector2(335f, 56f), ref changed);
+
+            Text(controls, "FarmHoldHint", "長押しでファームに送る",
+                new Vector2(32f, -155f), new Vector2(850f, 26f), ref changed);
 
             // Remove obsolete EXTRA dropdowns in older generated prefab versions.
             changed |= DeleteIfPresent(controls, "FavoriteFilter");

@@ -61,13 +61,35 @@ namespace MixMaster.UI
         private TMP_Dropdown thresholdDropdown;
         private Button sortDirectionButton;
         private TMP_Text directionText;
+        private TMP_Text farmHoldHint;
         private bool ascending;
 
         private static readonly string[] SortOptions = CreateSortOptions();
-        private static readonly string[] ThresholdOptions =
+        public static readonly string[] ThresholdOptions =
         {
-            "上位25%", "上位50%", "上位75%", "0以外"
+            "上位25%", "上位50%", "上位75%", "0以外",
+            "下位25%", "下位50%", "下位75%", "0"
         };
+
+        public static readonly string[] MonsterFilterOptions = BuildMonsterFilterOptions();
+
+        private static string[] BuildMonsterFilterOptions()
+        {
+            var options = new List<string>(InventoryProtectionIcons.CombinedStatFilterLabels)
+            {
+                "称号有り", "称号なし"
+            };
+            return options.ToArray();
+        }
+
+        private static bool MatchesMonsterFilter(int filter, OwnedMonsterRecord record)
+        {
+            bool titled = !string.IsNullOrWhiteSpace(record.titleId);
+            if (filter == MonsterFilterOptions.Length - 2) return titled;
+            if (filter == MonsterFilterOptions.Length - 1) return !titled;
+            return InventoryProtectionIcons.MatchesCombinedStatFilter(
+                filter, record.isFavorite, record.isLocked);
+        }
 
         private void Awake()
         {
@@ -199,8 +221,7 @@ namespace MixMaster.UI
             {
                 OwnedMonsterRecord record = owned[i];
                 if (record != null &&
-                    InventoryProtectionIcons.MatchesCombinedStatFilter(
-                        filterValue, record.isFavorite, record.isLocked))
+                    MatchesMonsterFilter(filterValue, record))
                     filteredIndices.Add(i);
             }
 
@@ -211,25 +232,31 @@ namespace MixMaster.UI
                 filteredIndices.Count > 0)
             {
                 InventoryStat selected = (InventoryStat)filterValue;
-                if (thresholdValue < 3)
+                bool bottom = thresholdValue >= 4 && thresholdValue <= 6;
+                if (thresholdValue < 3 || bottom)
                 {
                     var scores = new List<double>(filteredIndices.Count);
                     foreach (int index in filteredIndices)
                         scores.Add(GetValueForSorting(owned[index], selected));
 
-                    scores.Sort((x, y) => y.CompareTo(x));
-                    float fraction = thresholdValue == 0 ? 0.25f :
-                        thresholdValue == 1 ? 0.5f : 0.75f;
+                    if (bottom) scores.Sort();
+                    else scores.Sort((x, y) => y.CompareTo(x));
+                    int quartile = bottom ? thresholdValue - 3 : thresholdValue + 1;
+                    float fraction = quartile * 0.25f;
                     int cutoff = Mathf.Clamp(
                         Mathf.CeilToInt(scores.Count * fraction) - 1,
                         0, scores.Count - 1);
-                    double minimum = scores[cutoff];
-                    filteredIndices.RemoveAll(index =>
-                        GetValueForSorting(owned[index], selected) < minimum);
+                    double boundary = scores[cutoff];
+                    filteredIndices.RemoveAll(index => bottom
+                        ? GetValueForSorting(owned[index], selected) > boundary
+                        : GetValueForSorting(owned[index], selected) < boundary);
                 }
                 else
+                {
+                    bool zeroOnly = thresholdValue == 7;
                     filteredIndices.RemoveAll(index =>
-                        Math.Abs(GetValueForSorting(owned[index], selected)) < 0.000001d);
+                        (Math.Abs(GetValueForSorting(owned[index], selected)) < 0.000001d) != zeroOnly);
+                }
             }
 
             filteredIndices.Sort((a, b) =>
@@ -297,6 +324,7 @@ namespace MixMaster.UI
             {
                 OwnedMonsterEntryUI entry = Instantiate(entryPrefab, contentRoot);
                 entry.SetSelectionHandler(OpenDetail);
+                entry.SetHoldHandler(SendToFarm);
                 entries.Add(entry);
             }
 
@@ -498,6 +526,27 @@ namespace MixMaster.UI
             monsterManager.PartyChanged -= RefreshAll;
 
             subscribed = false;
+        }
+
+        private void SendToFarm(OwnedMonsterRecord record)
+        {
+            if (monsterManager == null ||
+                monsterManager.FindOwnedMonster(record.uniqueId) != record)
+                return;
+
+            string message;
+            if (record.farmStartLevel > 0)
+                message = "ファームに登録済みです";
+            else if (monsterManager.SetFarmRegistration(record.uniqueId, true))
+            {
+                FindFirstObjectByType<SaveManager>()?.SaveGame();
+                message = $"ファームに送りました（{monsterManager.FarmMonsters.Count} / {MonsterManager.MaxFarmSize}）";
+            }
+            else
+                message = "ファームは満員です";
+
+            if (farmHoldHint != null)
+                farmHoldHint.text = "長押しでファームに送る　｜　" + message;
         }
 
         public void OpenDetail(OwnedMonsterRecord record)
@@ -718,15 +767,32 @@ namespace MixMaster.UI
             }
 
             directionText = sortDirectionButton.GetComponentInChildren<TMP_Text>();
+            farmHoldHint = controls.Find("FarmHoldHint")?.GetComponent<TMP_Text>();
+            if (farmHoldHint == null)
+            {
+                farmHoldHint = InventoryUiFactory.Text(controls, "FarmHoldHint",
+                    "長押しでファームに送る", new Vector2(32f, -155f), new Vector2(850f, 26f), 19f);
+                if (countText != null) farmHoldHint.font = countText.font;
+            }
+            if (thresholdDropdown.options.Count != ThresholdOptions.Length)
+            {
+                int selected = thresholdDropdown.value;
+                thresholdDropdown.ClearOptions();
+                thresholdDropdown.AddOptions(new List<string>(ThresholdOptions));
+                thresholdDropdown.SetValueWithoutNotify(Mathf.Clamp(selected, 0, ThresholdOptions.Length - 1));
+            }
+            if (thresholdDropdown.template != null &&
+                thresholdDropdown.template.TryGetComponent(out ScrollRect thresholdScroll))
+                thresholdScroll.vertical = true;
             if (statFilterDropdown.options.Count !=
-                InventoryProtectionIcons.CombinedStatFilterLabels.Length)
+                MonsterFilterOptions.Length)
             {
                 // Existing scene overrides from old versions retain their
                 // serialized dropdown; only correct its option labels.
                 int selected = statFilterDropdown.value;
                 statFilterDropdown.ClearOptions();
                 statFilterDropdown.AddOptions(new List<string>(
-                    InventoryProtectionIcons.CombinedStatFilterLabels));
+                    MonsterFilterOptions));
                 statFilterDropdown.SetValueWithoutNotify(
                     Mathf.Clamp(selected, 0,
                         statFilterDropdown.options.Count - 1));
@@ -871,7 +937,7 @@ namespace MixMaster.UI
             if (statFilterDropdown != null)
                 statFilterDropdown.SetValueWithoutNotify(
                     Mathf.Clamp(index, 0,
-                        InventoryProtectionIcons.CombinedStatFilterLabels.Length - 1));
+                        MonsterFilterOptions.Length - 1));
             RequestFirstPage();
         }
 
