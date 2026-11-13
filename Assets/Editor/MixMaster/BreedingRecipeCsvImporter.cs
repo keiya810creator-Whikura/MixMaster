@@ -76,6 +76,9 @@ namespace MixMaster.EditorTools
             // specific groups on the right, keeping the first recipe within a group.
             for (int column = header.Length - 3; column >= 0; column -= 3)
             {
+                BreedingRecipeKind kind = header.Length == 9
+                    ? (BreedingRecipeKind)(column / 3 + 1)
+                    : BreedingRecipeKind.Unspecified;
                 foreach (var row in rows)
                 {
                     string parentA = row.Fields[column];
@@ -115,7 +118,8 @@ namespace MixMaster.EditorTools
                     {
                         parentAId = parentA,
                         parentBId = parentB,
-                        childId = child
+                        childId = child,
+                        kind = kind
                     });
                 }
             }

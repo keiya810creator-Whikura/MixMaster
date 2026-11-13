@@ -4,12 +4,40 @@ using UnityEngine;
 
 namespace MixMaster.Core
 {
+    public enum BreedingRecipeKind
+    {
+        Unspecified,
+        UpperVariant,
+        Special,
+        UltraSpecial
+    }
+
     [Serializable]
     public sealed class SpecialBreedingRecipe
     {
         public string parentAId;
         public string parentBId;
         public string childId;
+        public BreedingRecipeKind kind;
+
+        public BreedingRecipeKind Kind
+        {
+            get
+            {
+                if (kind != BreedingRecipeKind.Unspecified)
+                    return kind;
+
+                // Existing catalogs and legacy three-column CSVs use the child ID.
+                if (!string.IsNullOrEmpty(childId) &&
+                    childId.StartsWith("MON_", StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(childId.Substring(4), out int number))
+                {
+                    if (number >= 20000) return BreedingRecipeKind.UltraSpecial;
+                    if (number >= 10000) return BreedingRecipeKind.Special;
+                }
+                return BreedingRecipeKind.UpperVariant;
+            }
+        }
     }
 
     [CreateAssetMenu(fileName = "BreedingRecipes",
@@ -33,7 +61,14 @@ namespace MixMaster.Core
         public bool TryFindRecipe(string parentAId, string parentBId,
             out string childId)
         {
+            return TryFindRecipe(parentAId, parentBId, out childId, out _);
+        }
+
+        public bool TryFindRecipe(string parentAId, string parentBId,
+            out string childId, out BreedingRecipeKind kind)
+        {
             childId = null;
+            kind = BreedingRecipeKind.Unspecified;
             if (string.IsNullOrWhiteSpace(parentAId) ||
                 string.IsNullOrWhiteSpace(parentBId))
                 return false;
@@ -52,6 +87,7 @@ namespace MixMaster.Core
                 if (!direct && !reversed)
                     continue;
                 childId = recipe.childId;
+                kind = recipe.Kind;
                 return !string.IsNullOrWhiteSpace(childId);
             }
 
