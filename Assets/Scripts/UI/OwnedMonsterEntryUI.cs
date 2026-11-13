@@ -24,7 +24,8 @@ namespace MixMaster.UI
 
         private Action<OwnedMonsterRecord> onSelected;
         private Action<OwnedMonsterRecord> onHeld;
-        private PointerEventData heldPointer;
+        private int? heldPointerId;
+        private bool holdTriggered;
         private OwnedMonsterRecord heldRecord;
         private float holdDeadline;
         private int suppressClickFrame = -1;
@@ -33,52 +34,66 @@ namespace MixMaster.UI
 
         public void OnPointerDown(PointerEventData data)
         {
-            if (onHeld == null || heldPointer != null || Record == null ||
+            if (onHeld == null || heldPointerId.HasValue || Record == null ||
                 data.button != PointerEventData.InputButton.Left ||
-                !selectionButton.IsInteractable())
+                selectionButton == null || !selectionButton.IsInteractable())
                 return;
 
-            heldPointer = data;
+            heldPointerId = data.pointerId;
             heldRecord = Record;
+            holdTriggered = false;
             holdDeadline = Time.unscaledTime + 0.55f;
         }
 
-        public void OnPointerUp(PointerEventData data) => CancelHold(data);
-        public void OnPointerExit(PointerEventData data) => CancelHold(data);
-
-        private void CancelHold(PointerEventData data)
+        public void OnPointerUp(PointerEventData data)
         {
-            if (heldPointer?.pointerId == data.pointerId) ClearHold();
+            if (heldPointerId != data.pointerId ||
+                data.button != PointerEventData.InputButton.Left)
+                return;
+
+            if (holdTriggered)
+            {
+                data.eligibleForClick = false;
+                suppressClickFrame = Time.frameCount;
+            }
+            ClearHold();
+        }
+
+        public void OnPointerExit(PointerEventData data)
+        {
+            if (heldPointerId == data.pointerId && !holdTriggered)
+                ClearHold();
         }
 
         private void OnDisable() => ClearHold();
 
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) ClearHold();
+        }
+
         private void ClearHold()
         {
-            heldPointer = null;
+            heldPointerId = null;
             heldRecord = null;
+            holdTriggered = false;
         }
 
         private void Update()
         {
-            if (heldPointer == null) return;
-            int dragThreshold = EventSystem.current != null
-                ? EventSystem.current.pixelDragThreshold : 10;
-            if (heldPointer.dragging || !heldPointer.eligibleForClick ||
-                heldRecord != Record || !selectionButton.IsInteractable() ||
-                (heldPointer.position - heldPointer.pressPosition).sqrMagnitude >
-                    dragThreshold * dragThreshold)
+            if (!heldPointerId.HasValue || holdTriggered) return;
+            if (heldRecord != Record || !selectionButton.IsInteractable())
             {
                 ClearHold();
                 return;
             }
             if (Time.unscaledTime < holdDeadline) return;
 
-            OwnedMonsterRecord record = heldRecord;
-            heldPointer.eligibleForClick = false;
+            // ScrollRect owns drag handling. Once scrolling starts Unity sends
+            // PointerUp to this row and cancels the hold before releasing the finger.
+            holdTriggered = true;
             suppressClickFrame = Time.frameCount;
-            ClearHold();
-            onHeld?.Invoke(record);
+            onHeld?.Invoke(heldRecord);
         }
 
         private MonsterCatalogSO catalog;
@@ -120,7 +135,7 @@ namespace MixMaster.UI
 
         private void HandleSelected()
         {
-            if (Record != null && suppressClickFrame != Time.frameCount)
+            if (Record != null && !holdTriggered && suppressClickFrame != Time.frameCount)
                 onSelected?.Invoke(Record);
         }
 
@@ -134,6 +149,7 @@ namespace MixMaster.UI
             Sprite lockSprite = null,
             int selectedSortIndex = 0)
         {
+            if (!holdTriggered && Record != record) ClearHold();
             Record = record;
             catalog = newCatalog;
             showIndividualValues = showIvs;
