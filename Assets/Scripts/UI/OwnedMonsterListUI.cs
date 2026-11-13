@@ -21,6 +21,12 @@ namespace MixMaster.UI
         [SerializeField] private Toggle displayModeToggle;
         [SerializeField] private TMP_Text displayModeText;
         [SerializeField] private OwnedMonsterDetailUI detailPanel;
+        [Header("Page Controls")]
+        [SerializeField] private Button previousPageButton;
+        [SerializeField] private Button nextPageButton;
+        [SerializeField] private TMP_Text pageNumberText;
+        [SerializeField] private TMP_Text goldText;
+
         [Header("Protection Icons")]
         [SerializeField] private Sprite favoriteSprite;
         [SerializeField] private Sprite lockSprite;
@@ -36,10 +42,6 @@ namespace MixMaster.UI
         private readonly Dictionary<string, CharacterStats> statCache =
             new Dictionary<string, CharacterStats>(StringComparer.Ordinal);
         private int pageIndex;
-        private Button previousPageButton;
-        private Button nextPageButton;
-        private TMP_Text pageNumberText;
-        private TMP_Text goldText;
         private Button bulkSellButton;
         private Button autoSellSettingsButton;
         private InventoryBulkSaleDialog bulkSaleDialog;
@@ -97,7 +99,10 @@ namespace MixMaster.UI
 
             RefreshDisplayModeText();
             EnsureSortingControls();
-            EnsurePagingControls();
+            if (previousPageButton != null)
+                previousPageButton.onClick.AddListener(PreviousPage);
+            if (nextPageButton != null)
+                nextPageButton.onClick.AddListener(NextPage);
             EnsureBulkSaleDialog();
             autoSellDialog = InventoryAutoSellDialog.Ensure(SafeAreaLayout.ContentRoot(transform));
         }
@@ -127,6 +132,10 @@ namespace MixMaster.UI
         {
             if (closeButton != null)
                 closeButton.onClick.RemoveListener(Close);
+            if (previousPageButton != null)
+                previousPageButton.onClick.RemoveListener(PreviousPage);
+            if (nextPageButton != null)
+                nextPageButton.onClick.RemoveListener(NextPage);
 
             if (displayModeToggle != null)
             {
@@ -815,64 +824,15 @@ namespace MixMaster.UI
                 });
         }
 
-        private void EnsurePagingControls()
+#if UNITY_EDITOR
+        public void SetPageControls(Button previous, Button next, TMP_Text number, TMP_Text gold)
         {
-            if (previousPageButton != null) return;
-            GameObject area = new GameObject(
-                "MonsterPageControls", typeof(RectTransform));
-            area.transform.SetParent(SafeAreaLayout.ContentRoot(transform), false);
-            RectTransform bar = area.GetComponent<RectTransform>();
-            bar.anchorMin = new Vector2(0f, 0f);
-            bar.anchorMax = new Vector2(1f, 0f);
-            bar.pivot = new Vector2(0.5f, 0f);
-            bar.anchoredPosition = new Vector2(0f, 12f);
-            bar.sizeDelta = new Vector2(0f, 92f);
-
-            previousPageButton = InventoryUiFactory.Button(
-                bar, "PreviousPage", "◀ 前へ",
-                new Vector2(24f, -9f), new Vector2(180f, 53f));
-            nextPageButton = InventoryUiFactory.Button(
-                bar, "NextPage", "次へ ▶",
-                Vector2.zero, new Vector2(180f, 53f));
-            RectTransform next = nextPageButton.GetComponent<RectTransform>();
-            next.anchorMin = new Vector2(1f, 1f);
-            next.anchorMax = new Vector2(1f, 1f);
-            next.pivot = new Vector2(1f, 1f);
-            next.anchoredPosition = new Vector2(-24f, -9f);
-
-            pageNumberText = InventoryUiFactory.Text(
-                bar, "PageNumber", "1 / 1",
-                Vector2.zero, new Vector2(265f, 48f), 26f);
-            RectTransform pageRect = pageNumberText.rectTransform;
-            pageRect.anchorMin = new Vector2(0.5f, 1f);
-            pageRect.anchorMax = new Vector2(0.5f, 1f);
-            pageRect.pivot = new Vector2(0.5f, 1f);
-            pageRect.anchoredPosition = new Vector2(0f, -10f);
-            pageNumberText.alignment = TextAlignmentOptions.Center;
-
-            goldText = InventoryUiFactory.Text(
-                bar, "GoldDisplay", "Gold: 0 G",
-                Vector2.zero, new Vector2(420f, 29f), 19f);
-            RectTransform goldRect = goldText.rectTransform;
-            goldRect.anchorMin = new Vector2(0.5f, 0f);
-            goldRect.anchorMax = new Vector2(0.5f, 0f);
-            goldRect.pivot = new Vector2(0.5f, 0f);
-            goldRect.anchoredPosition = Vector2.zero;
-            goldText.alignment = TextAlignmentOptions.Center;
-            goldText.color = new Color(1f, 0.83f, 0.46f);
-            previousPageButton.onClick.AddListener(PreviousPage);
-            nextPageButton.onClick.AddListener(NextPage);
-
-            RectTransform scroll =
-                SafeAreaLayout.ContentRoot(transform).Find("ScrollView") as RectTransform;
-            if (scroll != null)
-            {
-                Vector2 min = scroll.offsetMin;
-                min.y = Mathf.Max(min.y, 110f);
-                scroll.offsetMin = min;
-            }
-            RefreshPageControls();
+            previousPageButton = previous;
+            nextPageButton = next;
+            pageNumberText = number;
+            goldText = gold;
         }
+#endif
 
         private void RefreshPageControls()
         {
