@@ -46,6 +46,9 @@ namespace MixMaster.Core
 
         public int level = 1;
         public long experience;
+        // Zero means this individual is not registered in the farm.
+        public int farmStartLevel;
+        public bool farmHalfExperiencePending;
         public MonsterCombatBehavior combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
         // An absent field in older saves keeps the previously visible circle.
         public bool hideAttackRange;
