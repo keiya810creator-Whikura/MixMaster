@@ -70,11 +70,11 @@ namespace MixMaster.EditorTools
                 rootRect.anchorMin = new Vector2(0f, 1f);
                 rootRect.anchorMax = new Vector2(1f, 1f);
                 rootRect.pivot = new Vector2(0.5f, 1f);
-                rootRect.sizeDelta = new Vector2(0f, 106f);
+                rootRect.sizeDelta = new Vector2(0f, 86f);
 
                 LayoutElement rootLayout = root.GetComponent<LayoutElement>();
-                rootLayout.preferredHeight = 106f;
-                rootLayout.minHeight = 100f;
+                rootLayout.preferredHeight = 86f;
+                rootLayout.minHeight = 86f;
                 VerticalLayoutGroup columns = root.GetComponent<VerticalLayoutGroup>();
                 columns.padding = new RectOffset(2, 2, 2, 2);
                 columns.spacing = 6f;
@@ -127,8 +127,8 @@ namespace MixMaster.EditorTools
                 typeof(LayoutElement));
             go.transform.SetParent(parent, false);
             LayoutElement height = go.GetComponent<LayoutElement>();
-            height.preferredHeight = 48f;
-            height.minHeight = 45f;
+            height.preferredHeight = 38f;
+            height.minHeight = 38f;
             HorizontalLayoutGroup layout = go.GetComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(0, 0, 0, 0);
             layout.spacing = 7f;

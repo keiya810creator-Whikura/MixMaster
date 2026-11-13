@@ -371,6 +371,7 @@ namespace MixMaster.Core
         /// preserveParentsOnFailure without changing the failure roll.
         /// Success inherits each of the 11 IVs independently from either
         /// parent, and randomly inherits either parent's title (including none).
+        /// A child without an inherited title has a 10% chance to roll its own.
         /// </summary>
         public bool TryCompleteBreedingAttempt(
             string parentUniqueIdA, string parentUniqueIdB, MonsterSO childSpecies,
@@ -389,7 +390,8 @@ namespace MixMaster.Core
             OwnedMonsterRecord parentB = FindOwnedMonster(parentUniqueIdB);
             if (IsProtectedFromConsumption(parentA) ||
                 IsProtectedFromConsumption(parentB) ||
-                parentA.level < 10 || parentB.level < 10)
+                parentA.level < BreedingManager.MinimumParentLevel ||
+                parentB.level < BreedingManager.MinimumParentLevel)
                 return false;
 
             var skills=GetComponent<SkillProgressionManager>() ?? SkillProgressionManager.Instance;
@@ -409,6 +411,9 @@ namespace MixMaster.Core
                 inheritedTitleId = UnityEngine.Random.Range(0, 2) == 0
                     ? (parentA.titleId ?? string.Empty)
                     : (parentB.titleId ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(inheritedTitleId))
+                    inheritedTitleId = MonsterDropRoller.RollTitle(
+                        childSpecies.titlePool, 0.10f)?.titleId ?? string.Empty;
             }
 
             JournalMonster[] ancestors = null;

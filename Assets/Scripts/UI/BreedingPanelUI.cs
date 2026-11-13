@@ -18,7 +18,7 @@ namespace MixMaster.UI
     public sealed class BreedingPanelUI : MonoBehaviour
     {
         private const int PageSize = 10;
-        private const int MinimumParentLevel = 10;
+        private const int MinimumParentLevel = BreedingManager.MinimumParentLevel;
 
         [Header("Runtime References")]
         [SerializeField] private MonsterManager monsterManager;
@@ -155,7 +155,7 @@ namespace MixMaster.UI
             if (previewText != null)
                 previewText.text = "親を2体選んで「結果をプレビュー」を押してください。";
             if (noticeText != null)
-                noticeText.text = "親はLv.10以上が必要です。編成中・お気に入り・ロック中も選択不可。";
+                noticeText.text = $"親はLv.{MinimumParentLevel}以上が必要です。編成中・お気に入り・ロック中も選択不可。";
             RefreshAll();
         }
 
@@ -380,7 +380,7 @@ namespace MixMaster.UI
                 monsterManager.IsProtectedFromConsumption(selected))
             {
                 ShowNotice(selected != null && selected.level < MinimumParentLevel
-                    ? "親として選択するにはLv.10以上が必要です。"
+                    ? $"親として選択するにはLv.{MinimumParentLevel}以上が必要です。"
                     : "このモンスターは選択できません。");
                 RefreshAll();
                 return;
@@ -444,7 +444,9 @@ namespace MixMaster.UI
             MonsterSO child = offer.child;
             previewChild = child;
             previewIsSpecial = offer.isSpecial;
-            string mode = offer.isSpecial ? "★ 特殊配合" : "通常配合";
+            string mode = offer.isSpecial
+                ? FormatRecipeKind(offer.recipeKind)
+                : "通常配合";
             string newMarker = monsterManager != null && !monsterManager.HasAcquiredMonster(child.monsterId)
                 ? "<color=#FFE24A>NEW</color>  " : string.Empty;
             previewText.richText = true;
@@ -831,8 +833,39 @@ namespace MixMaster.UI
                 Mathf.Max(0, (candidates.Count - 1) / PageSize));
         }
 
+        private static (string label, string color, Color background) GetRecipeVisuals(
+            BreedingRecipeKind kind)
+        {
+            switch (kind)
+            {
+                case BreedingRecipeKind.UpperVariant:
+                    return ("上位種変異配合", "#8BE7FF", new Color(0.16f, 0.35f, 0.43f));
+                case BreedingRecipeKind.Special:
+                    return ("特殊配合", "#E4BCFF", new Color(0.35f, 0.23f, 0.45f));
+                case BreedingRecipeKind.UltraSpecial:
+                    return ("超特殊配合", "#FFE388", new Color(0.42f, 0.32f, 0.15f));
+                default:
+                    return (string.Empty, string.Empty, new Color(0.19f, 0.27f, 0.35f));
+            }
+        }
+
+        private static string FormatRecipeKind(BreedingRecipeKind kind)
+        {
+            var visual = GetRecipeVisuals(kind);
+            return $"<color={visual.color}>★ {visual.label}</color>";
+        }
+
         private void RefreshCandidateRows()
         {
+            bool hasParentA = !string.IsNullOrEmpty(parentAUniqueId);
+            bool hasParentB = !string.IsNullOrEmpty(parentBUniqueId);
+            OwnedMonsterRecord singleParent = hasParentA != hasParentB
+                ? monsterManager?.FindOwnedMonster(hasParentA ? parentAUniqueId : parentBUniqueId)
+                : null;
+            var partyIds = monsterManager != null
+                ? new HashSet<string>(monsterManager.PartyMonsterUniqueIds)
+                : null;
+            var unavailableReasons = new List<string>(5);
             int start = page * PageSize;
             for (int i = 0; i < rows.Count; i++)
             {
@@ -855,12 +888,21 @@ namespace MixMaster.UI
                 MonsterSO species = monsterCatalog != null
                     ? monsterCatalog.GetMonster(record.monsterId) : null;
                 string name = species != null ? species.displayName : record.monsterId;
-                string status = tooLow ? " [Lv.10未満]" :
-                    protectedMonster
-                    ? (record.isLocked ? " [ロック]" :
-                       record.isFavorite ? " [お気に入り]" : " [パーティ編成中]")
-                    : sameAsOtherParent ? " [もう一方の親]" :
-                      selected ? " [選択中]" : "";
+                unavailableReasons.Clear();
+                if (partyIds != null && partyIds.Contains(record.uniqueId))
+                    unavailableReasons.Add("パーティ編成中");
+                if (record.isLocked) unavailableReasons.Add("ロック");
+                if (record.isFavorite) unavailableReasons.Add("お気に入り");
+                if (tooLow) unavailableReasons.Add($"LV.{MinimumParentLevel}未満");
+                if (sameAsOtherParent) unavailableReasons.Add("もう一方の親");
+                string status = unavailableReasons.Count > 0
+                    ? $"\n<color=#FF6B6B>[{string.Join("・", unavailableReasons)}]</color>"
+                    : selected ? " [選択中]" : string.Empty;
+                BreedingRecipeKind recipeKind = singleParent != null &&
+                    record.uniqueId != singleParent.uniqueId && breedingManager != null
+                    ? breedingManager.GetRecipeKind(singleParent.monsterId, record.monsterId)
+                    : BreedingRecipeKind.Unspecified;
+                bool hasRecipe = recipeKind != BreedingRecipeKind.Unspecified;
                 TitleSO title = monsterCatalog != null
                     ? monsterCatalog.GetTitle(record.titleId) : null;
                 string titlePrefix = title != null
@@ -874,6 +916,8 @@ namespace MixMaster.UI
                     ? InventorySortVisuals.Highlight(record.level.ToString())
                     : record.level.ToString();
                 string header = titlePrefix + name + " Lv." + levelLabel + status;
+                if (hasRecipe)
+                    header += "\n" + FormatRecipeKind(recipeKind);
                 string sortMetric = sortedStat == InventoryStat.All
                     ? string.Empty
                     : InventorySortVisuals.SortMetricLine(sortedStat,
@@ -900,6 +944,10 @@ namespace MixMaster.UI
                         !InventoryStatFilter.SupportsIndividualValues(sortedStat)
                         ? 310f : 272f)
                     : (sortMetric.Length > 0 ? 137f : 104f);
+                if (unavailableReasons.Count > 0)
+                    rowHeight += 32f;
+                if (hasRecipe)
+                    rowHeight += 32f;
                 row.button.GetComponent<LayoutElement>().preferredHeight = rowHeight;
                 row.label.GetComponent<LayoutElement>().preferredHeight =
                     rowHeight - 18f;
@@ -909,7 +957,7 @@ namespace MixMaster.UI
                     !tooLow && !protectedMonster && !sameAsOtherParent;
                 row.button.GetComponent<Image>().color = selected
                     ? new Color(0.24f, 0.47f, 0.37f, 1f)
-                    : new Color(0.19f, 0.27f, 0.35f, 1f);
+                    : GetRecipeVisuals(recipeKind).background;
                 string capturedId = record.uniqueId;
                 row.button.onClick.RemoveAllListeners();
                 row.button.onClick.AddListener(() => SelectCandidate(capturedId));
@@ -1281,16 +1329,17 @@ namespace MixMaster.UI
             Transform parent, string name, string caption,
             out TMP_Text label, out Button minus, out Button plus)
         {
-            GameObject row = LayoutRow(parent, name, 56f);
-            label = Label(row.transform, "MaterialInfo", caption, 17f, 49f);
+            GameObject row = LayoutRow(parent, name, 46f);
+            row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(9, 9, 4, 4);
+            label = Label(row.transform, "MaterialInfo", caption, 17f, 38f);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.GetComponent<LayoutElement>().flexibleWidth = 1f;
-            minus = ActionButton(row.transform, "Decrease", "－", 43f);
-            plus = ActionButton(row.transform, "Increase", "＋", 43f);
+            minus = ActionButton(row.transform, "Decrease", "－", 34f);
+            plus = ActionButton(row.transform, "Increase", "＋", 34f);
             foreach (Button button in new[] { minus, plus })
             {
                 LayoutElement element = button.GetComponent<LayoutElement>();
-                element.preferredWidth = 62f;
+                element.preferredWidth = 52f;
                 element.flexibleWidth = 0f;
             }
         }

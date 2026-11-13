@@ -12,6 +12,7 @@ namespace MixMaster.Core
     {
         public MonsterSO child;
         public bool isSpecial;
+        public BreedingRecipeKind recipeKind;
         public MaterialSO materialA;
         public MaterialSO materialB;
         public int stepsA;
@@ -39,6 +40,7 @@ namespace MixMaster.Core
         [Header("Breeding")]
         [SerializeField] private int averageCorrection;
 
+        public const int MinimumParentLevel = 20;
         public const int BaseSuccessPercent = 80;
         public const int BonusPercentPerStep = 2;
         public const int MaxMaterialStepsPerParent = 5;
@@ -105,6 +107,19 @@ namespace MixMaster.Core
                 return 0;
             return CalculateChildBreedingValue(
                 parentA.breedingValue, parentB.breedingValue, averageCorrection);
+        }
+
+        public BreedingRecipeKind GetRecipeKind(string parentAId, string parentBId)
+        {
+            EnsureDependencies();
+            if (!string.Equals(parentAId, parentBId, StringComparison.OrdinalIgnoreCase) &&
+                specialRecipes != null && monsterCatalog != null &&
+                specialRecipes.TryFindRecipe(parentAId, parentBId,
+                    out string childId, out BreedingRecipeKind kind) &&
+                monsterCatalog.GetMonster(childId) != null)
+                return kind;
+
+            return BreedingRecipeKind.Unspecified;
         }
 
         public bool TryResolveChild(
@@ -218,9 +233,9 @@ namespace MixMaster.Core
                 error = "親モンスターが所持一覧にありません。";
                 return false;
             }
-            if (ownedA.level < 10 || ownedB.level < 10)
+            if (ownedA.level < MinimumParentLevel || ownedB.level < MinimumParentLevel)
             {
-                error = "配合の親にはLv.10以上のモンスターが必要です。";
+                error = $"配合の親にはLv.{MinimumParentLevel}以上のモンスターが必要です。";
                 return false;
             }
             if (monsterManager.IsProtectedFromConsumption(ownedA) ||
@@ -304,6 +319,8 @@ namespace MixMaster.Core
             {
                 child = child,
                 isSpecial = special,
+                recipeKind = special ? GetRecipeKind(a.monsterId, b.monsterId)
+                    : BreedingRecipeKind.Unspecified,
                 materialA = materialA,
                 materialB = materialB,
                 stepsA = stepsA,
