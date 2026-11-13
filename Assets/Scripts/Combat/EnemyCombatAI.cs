@@ -72,8 +72,10 @@ namespace MixMaster.Combat
         private Coroutine slashRoutine;
 
         public float DetectionRange => detectionRange;
-        public float AttackRange => attackRange;
+        public float AttackRange => skills != null ? skills.Stats.attackRange : attackRange;
         public bool HasTarget => targetTransform != null;
+        private SkillActor skills;
+        private ElementType baseElement;
 
         public void ApplyMonsterData(
             MonsterSO monster,
@@ -94,6 +96,7 @@ namespace MixMaster.Combat
             attackSpeed = Mathf.Max(0.1f, stats.attackSpeed);
             criticalRate = Mathf.Clamp01(stats.criticalRate);
             criticalMultiplier = Mathf.Max(1f, stats.criticalMultiplier);
+            baseElement = stats.element;
 
             attackType = monster.attackType;
             projectilePrefab = monster.projectilePrefab;
@@ -104,6 +107,8 @@ namespace MixMaster.Combat
             targetRefreshTimer = 0f;
             attackGauge = 0f;
             ClearTarget();
+            skills = SkillActor.Ensure(gameObject);
+            skills.Configure(monster, null, stats);
         }
 
         private void Awake()
@@ -150,9 +155,13 @@ namespace MixMaster.Combat
             if (health == null || !health.IsAlive)
                 return;
 
+            bool attackBlocked = skills != null && skills.NormalAttackBlocked;
+            bool lured = TryApplyLureTarget();
+            if (attackBlocked && !lured) return;
+
             targetRefreshTimer -= Time.deltaTime;
 
-            if (!TryApplyLureTarget() && (targetRefreshTimer <= 0f || !IsCurrentTargetValid()))
+            if (!lured && (targetRefreshTimer <= 0f || !IsCurrentTargetValid()))
             {
                 targetRefreshTimer = targetRefreshInterval;
                 FindNearestTarget();
@@ -163,6 +172,8 @@ namespace MixMaster.Combat
             if (wanderAI != null)
                 wanderAI.SetCombatControlled(hasTarget || isLunging);
 
+            if (attackBlocked) return;
+
             if (!hasTarget)
             {
                 attackGauge = 0f;
@@ -170,7 +181,7 @@ namespace MixMaster.Combat
             }
 
             attackGauge = Mathf.Clamp01(
-                attackGauge + Mathf.Max(0.1f, attackSpeed) * Time.deltaTime);
+                attackGauge + Mathf.Max(0.1f, skills != null ? skills.Stats.attackSpeed : attackSpeed) * Time.deltaTime);
 
             Vector2 toTarget = targetTransform.position - transform.position;
 
@@ -181,7 +192,7 @@ namespace MixMaster.Combat
                 spriteRenderer.flipX = toTarget.x < 0f;
             }
 
-            float range = Mathf.Max(0.1f, attackRange);
+            float range = Mathf.Max(0.1f, AttackRange);
 
             if (toTarget.sqrMagnitude > range * range ||
                 attackGauge < 1f ||
@@ -196,10 +207,15 @@ namespace MixMaster.Combat
 
         private void FixedUpdate()
         {
-            if (health == null ||
-                !health.IsAlive ||
-                isLunging ||
-                !IsCurrentTargetValid())
+            if (skills != null && skills.MovementBlocked) { body.linearVelocity = Vector2.zero; return; }
+            if (health == null || !health.IsAlive || isLunging) return;
+
+            // A freshly spawned enemy can take its first physics step
+            // before Update has had a chance to acquire a target.
+            bool lured = TryApplyLureTarget();
+            if (lured && wanderAI != null)
+                wanderAI.SetCombatControlled(true);
+            if (!lured && !IsCurrentTargetValid())
             {
                 return;
             }
@@ -209,7 +225,7 @@ namespace MixMaster.Combat
             Vector2 delta = target - current;
 
             float stopDistance =
-                Mathf.Max(0.05f, attackRange * stopRangeRatio);
+                Mathf.Max(0.05f, AttackRange * stopRangeRatio);
 
             if (delta.sqrMagnitude <= stopDistance * stopDistance)
             {
@@ -220,7 +236,7 @@ namespace MixMaster.Combat
             Vector2 next = Vector2.MoveTowards(
                 current,
                 target,
-                Mathf.Max(0.1f, moveSpeed) * Time.fixedDeltaTime);
+                Mathf.Max(0.1f, skills != null ? skills.Stats.moveSpeed : moveSpeed) * Time.fixedDeltaTime);
 
             body.MovePosition(next);
         }
@@ -281,7 +297,7 @@ namespace MixMaster.Combat
         {
             ConsumableManager items = ConsumableManager.Instance;
             PlayerAutoAttack lure = items != null ? items.LureTarget : null;
-            if (lure == null || lure.gameObject.scene != gameObject.scene) return false;
+            if (lure == null || !lure.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return false;
             cachedPlayer = lure;
             playerTarget = lure;
             partyTarget = null;
@@ -302,7 +318,7 @@ namespace MixMaster.Combat
 
             ConsumableManager items = ConsumableManager.Instance;
             if (playerTarget != null && items != null && items.LureTarget == playerTarget &&
-                playerTarget.gameObject.scene == gameObject.scene) return true;
+                playerTarget.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return true;
 
             float loseRange = Mathf.Max(detectionRange, loseTargetRange);
             float distanceSqr =
@@ -314,26 +330,27 @@ namespace MixMaster.Combat
 
         private void AttackTarget(Vector2 direction)
         {
+            if (skills != null && skills.Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) return;
+            bool critical = UnityEngine.Random.value < Mathf.Clamp01(criticalRate);
+            ElementType element = skills != null ? skills.Stats.element : baseElement;
             if (attackType == MonsterAttackType.Ranged)
             {
-                long magicPower = Math.Max(1L, magic);
+                long magicPower = Math.Max(1L, skills != null ? skills.Stats.magic : magic);
 
-                if (UnityEngine.Random.value <
-                    Mathf.Clamp01(criticalRate))
+                if (critical)
                 {
                     magicPower = MultiplyLong(
                         magicPower,
                         Mathf.Max(1f, criticalMultiplier));
                 }
 
-                FireMagicProjectile(magicPower);
+                FireMagicProjectile(magicPower, element, critical);
                 return;
             }
 
-            long attackPower = Math.Max(1L, attack);
+            long attackPower = Math.Max(1L, skills != null ? skills.Stats.attack : attack);
 
-            if (UnityEngine.Random.value <
-                Mathf.Clamp01(criticalRate))
+            if (critical)
             {
                 attackPower = MultiplyLong(
                     attackPower,
@@ -341,9 +358,9 @@ namespace MixMaster.Combat
             }
 
             if (playerTarget != null)
-                playerTarget.TakePhysicalHit(attackPower);
+                playerTarget.TakePhysicalHit(attackPower, element, critical);
             else if (partyTarget != null)
-                partyTarget.TakePhysicalHit(attackPower);
+                partyTarget.TakePhysicalHit(attackPower, element, critical);
             else
                 return;
 
@@ -354,7 +371,7 @@ namespace MixMaster.Combat
             StartAttackLunge(direction);
         }
 
-        private void FireMagicProjectile(long magicPower)
+        private void FireMagicProjectile(long magicPower, ElementType element, bool critical)
         {
             if (playerTarget == null && partyTarget == null)
                 return;
@@ -362,9 +379,9 @@ namespace MixMaster.Combat
             if (projectilePrefab == null)
             {
                 if (playerTarget != null)
-                    playerTarget.TakeMagicHit(magicPower);
+                    playerTarget.TakeMagicHit(magicPower, element, critical);
                 else if (partyTarget != null)
-                    partyTarget.TakeMagicHit(magicPower);
+                    partyTarget.TakeMagicHit(magicPower, element, critical);
 
                 return;
             }
@@ -406,7 +423,7 @@ namespace MixMaster.Combat
                 magicPower,
                 projectileSpeed,
                 projectileLifetime,
-                projectileHoming);
+                projectileHoming, element, critical);
         }
 
         private void ClearTarget()
@@ -452,6 +469,7 @@ namespace MixMaster.Combat
 
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
@@ -469,6 +487,7 @@ namespace MixMaster.Combat
 
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = t * t;

@@ -76,7 +76,16 @@ namespace MixMaster.Core
             AutoAttackSettingChanged?.Invoke(enabled);
         }
 
-        public CharacterStats Stats => effectiveStats ?? stats;
+        public CharacterStats UnmodifiedStats => effectiveStats ?? stats;
+        public CharacterStats Stats => MixMaster.Combat.SkillActor.PlayerActor != null
+            ? MixMaster.Combat.SkillActor.PlayerActor.Effective(UnmodifiedStats) : UnmodifiedStats;
+        public bool TrySpendSkillPoints(int amount)
+        {
+            if (amount < 0 || skillPoints < amount) return false;
+            skillPoints -= amount;
+            spentSkillPoints = ReincarnationRules.TotalSkillPoints(spentSkillPoints, amount);
+            return true;
+        }
         public long CurrentHp { get; private set; }
         public long CurrentMp { get; private set; }
         public float DropRateBonus => Mathf.Max(0f, Stats.dropRateBonus);
@@ -115,6 +124,12 @@ namespace MixMaster.Core
             }
         }
 
+        public void ClampSkillResources()
+        {
+            long hp=Math.Min(CurrentHp,Stats.maxHp),mp=Math.Min(CurrentMp,Stats.maxMp);
+            if(hp!=CurrentHp){CurrentHp=hp;HpChanged?.Invoke(hp,Stats.maxHp);}
+            if(mp!=CurrentMp){CurrentMp=mp;MpChanged?.Invoke(mp,Stats.maxMp);}
+        }
         public void RecalculateEquipmentStats()
         {
             SubscribeEquipment();
@@ -186,6 +201,7 @@ namespace MixMaster.Core
 
         internal void Reincarnate(MonsterSO species)
         {
+            GetComponent<SkillProgressionManager>()?.ResetPlayer();
             skillPoints = ReincarnationRules.TotalSkillPoints(skillPoints, spentSkillPoints);
             spentSkillPoints = 0;
             reincarnationCount = ReincarnationRules.TotalSkillPoints(reincarnationCount, 1);
@@ -221,24 +237,34 @@ namespace MixMaster.Core
             ExperienceGained?.Invoke(amount);
         }
 
+        // Displayed and applied growth share the same values for every form.
+        public CharacterStats LevelUpGrowth
+        {
+            get
+            {
+                var species=ReincarnationSpecies;var g=species!=null?species.baseStats:null;
+                return new CharacterStats{maxHp=g!=null?Math.Max(1L,g.maxHp):5L,maxMp=g!=null?Math.Max(0L,g.maxMp):1L,
+                    attack=g!=null?Math.Max(0L,g.attack):1L,magic=g!=null?Math.Max(0L,g.magic):1L,
+                    defense=g!=null?Math.Max(0L,g.defense):1L,magicDefense=g!=null?Math.Max(0L,g.magicDefense):1L};
+            }
+        }
         private void ApplyLevelUpStats()
         {
-            MonsterSO species = ReincarnationSpecies;
-            CharacterStats growth = species != null ? species.baseStats : null;
-            stats.maxHp = LongMath.SaturatingAdd(Math.Max(1L, stats.maxHp),
-                growth != null ? Math.Max(1L, growth.maxHp) : 5L);
-            stats.maxMp = LongMath.SaturatingAdd(Math.Max(0L, stats.maxMp),
-                growth != null ? Math.Max(0L, growth.maxMp) : 1L);
-            stats.attack = LongMath.SaturatingAdd(stats.attack, growth != null ? Math.Max(0L, growth.attack) : 1L);
-            stats.magic = LongMath.SaturatingAdd(stats.magic, growth != null ? Math.Max(0L, growth.magic) : 1L);
-            stats.defense = LongMath.SaturatingAdd(stats.defense, growth != null ? Math.Max(0L, growth.defense) : 1L);
-            stats.magicDefense = LongMath.SaturatingAdd(stats.magicDefense, growth != null ? Math.Max(0L, growth.magicDefense) : 1L);
+            var growth=LevelUpGrowth;
+            stats.maxHp=LongMath.SaturatingAdd(Math.Max(1L,stats.maxHp),growth.maxHp);
+            stats.maxMp=LongMath.SaturatingAdd(Math.Max(0L,stats.maxMp),growth.maxMp);
+            stats.attack=LongMath.SaturatingAdd(stats.attack,growth.attack);
+            stats.magic=LongMath.SaturatingAdd(stats.magic,growth.magic);
+            stats.defense=LongMath.SaturatingAdd(stats.defense,growth.defense);
+            stats.magicDefense=LongMath.SaturatingAdd(stats.magicDefense,growth.magicDefense);
             RecalculateEquipmentStats();
         }
 
         public void RestoreFullHp()
         {
+            long before = CurrentHp;
             CurrentHp = Math.Max(1L, Stats.maxHp);
+            ShowHealingPopup(CurrentHp - before);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
         }
 
@@ -256,9 +282,18 @@ namespace MixMaster.Core
 
         public void TakeDamage(long amount)
         {
-            if (amount <= 0) return;
+            TakeDamage(amount, out _);
+        }
 
-            CurrentHp = Math.Max(0L, CurrentHp - amount);
+        public void TakeDamage(long amount, out long finalDamage)
+        {
+            finalDamage = 0;
+            if (amount <= 0 || CurrentHp <= 0) return;
+            finalDamage = DamageCalculator.Randomize(amount);
+
+            MixMaster.Combat.SkillActor.PlayerActor?.NotifyDamage(MixMaster.Combat.SkillActor.ApplyingSkill);
+
+            CurrentHp = Math.Max(0L, CurrentHp - finalDamage);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
         }
 
@@ -266,11 +301,21 @@ namespace MixMaster.Core
         {
             if (amount <= 0 || CurrentHp >= Stats.maxHp) return;
 
+            long before = CurrentHp;
             CurrentHp = Math.Min(
                 Stats.maxHp,
                 LongMath.SaturatingAdd(CurrentHp, amount));
 
+            ShowHealingPopup(CurrentHp - before);
             HpChanged?.Invoke(CurrentHp, Stats.maxHp);
+        }
+
+        private void ShowHealingPopup(long recovered)
+        {
+            if (recovered <= 0 || !Application.isPlaying) return;
+            var actor = MixMaster.Combat.SkillActor.PlayerActor;
+            var body = actor != null ? actor.transform : FindFirstObjectByType<MixMaster.Combat.PlayerAutoAttack>()?.transform;
+            if (body != null) MixMaster.UI.DamagePopupText.ShowHealing(body.position, recovered);
         }
 
         public bool TrySpendMp(long amount)
@@ -305,3 +350,5 @@ namespace MixMaster.Core
         }
     }
 }
+
+

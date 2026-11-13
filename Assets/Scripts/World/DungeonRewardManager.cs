@@ -129,7 +129,7 @@ namespace MixMaster.World
                 !dungeon.IsDungeonActive)
                 return;
 
-            if (UnityEngine.Random.value >= normalEquipmentDropChance)
+            if (UnityEngine.Random.value >= Mathf.Clamp01(normalEquipmentDropChance+(float)(SkillProgressionManager.PartyBonus(SkillPassiveType.EquipmentDrop)/100)))
                 return;
 
             EquipmentSO reward = RollEquipmentDefinition();
@@ -284,6 +284,7 @@ namespace MixMaster.World
             guaranteed += dungeon.DefeatedSideBosses *
                 dungeon.GetAppliedDungeonUpgradeLevel(
                     DungeonUpgradeType.MidBossEquipment);
+            guaranteed=(int)Math.Min(int.MaxValue,(double)guaranteed+SkillProgressionManager.PartyBonus(SkillPassiveType.WeaponCount));
             for (int i = 0; i < guaranteed; i++)
             {
                 EquipmentSO definition = RollEquipmentDefinition();

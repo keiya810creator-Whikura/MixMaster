@@ -109,6 +109,7 @@ namespace MixMaster.Combat
 
         private void Awake()
         {
+            SkillActor.Ensure(gameObject);
             playerController = GetComponent<PlayerController>();
             if (playerSpriteRenderer == null)
                 playerSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -200,6 +201,7 @@ namespace MixMaster.Combat
 
         private void Update()
         {
+            if (GetComponent<SkillActor>()?.NormalAttackBlocked == true) return;
             if (!AutoAttackEnabled)
             {
                 currentTarget = null;
@@ -243,9 +245,19 @@ namespace MixMaster.Combat
             if (!playerController.IsMoving)
                 playerController.FaceDirection(direction);
 
+            bool critical = UnityEngine.Random.value < GetCriticalRate();
+            if(SkillProgressionManager.Instance!=null&&SkillProgressionManager.Instance.Ranged("player",false))
+            {
+                long magic=playerManager!=null?playerManager.Stats.magic:fallbackAttack;
+                if(critical)magic=MultiplyLong(magic,GetCriticalMultiplier());
+                var go=new GameObject("PlayerPassiveProjectile");go.transform.position=transform.position;
+                var renderer=go.AddComponent<SpriteRenderer>();renderer.sprite=swordSprite!=null?swordSprite:generatedSwordSprite;renderer.sortingOrder=60;go.transform.localScale=Vector3.one*.2f;
+                go.AddComponent<PartyMagicProjectile>().Initialize(target,magic,8f,5f,true,CreateAttackSource(critical));
+                return;
+            }
             long attackPower = GetAttackPower();
 
-            if (UnityEngine.Random.value < GetCriticalRate())
+            if (critical)
                 attackPower = MultiplyLong(attackPower, GetCriticalMultiplier());
 
             if (swingRoutine != null)
@@ -254,11 +266,12 @@ namespace MixMaster.Combat
             swingRoutine = StartCoroutine(SwingSword(
                 direction,
                 attackPower,
-                MaterialDropSourceInfo.Player(
-                    playerManager != null
-                        ? playerManager.DropRateBonus
-                        : 0f)));
+                CreateAttackSource(critical)));
         }
+
+        private MaterialDropSourceInfo CreateAttackSource(bool critical) =>
+            MaterialDropSourceInfo.Player(playerManager != null ? playerManager.DropRateBonus : 0f)
+                .WithAttack(playerManager != null ? playerManager.Stats.element : ElementType.None, critical);
 
         private EnemyHealth FindNearestTarget()
         {
@@ -306,16 +319,23 @@ namespace MixMaster.Combat
 
         public long TakePhysicalHit(long attackPower)
         {
+            return TakePhysicalHit(attackPower, ElementType.None, false);
+        }
+
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        {
             if (playerManager == null || playerManager.CurrentHp <= 0L || attackPower <= 0L)
                 return 0L;
 
             long defense = Math.Max(0L, playerManager.Stats.defense);
             long damage = DamageCalculator.Calculate(attackPower, defense);
+            float resistance = DamageCalculator.Resistance(playerManager.Stats.resistances, element);
+            damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
             long actualDamage = Math.Max(0L, before - playerManager.CurrentHp);
-            DamagePopupText.Show(transform.position, actualDamage, true);
+            DamagePopupText.Show(transform.position, actualDamage, true, new DamageFeedback(isCritical, resistance < 0f));
 
             if (playerSpriteRenderer != null)
             {
@@ -330,6 +350,11 @@ namespace MixMaster.Combat
 
         public long TakeMagicHit(long magicPower)
         {
+            return TakeMagicHit(magicPower, ElementType.None, false);
+        }
+
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
+        {
             if (playerManager == null ||
                 playerManager.CurrentHp <= 0L ||
                 magicPower <= 0L)
@@ -342,13 +367,15 @@ namespace MixMaster.Combat
 
             long damage = DamageCalculator.Calculate(
                 magicPower, magicDefense);
+            float resistance = DamageCalculator.Resistance(playerManager.Stats.resistances, element);
+            damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
             playerManager.TakeDamage(damage);
 
             long actualDamage =
                 Math.Max(0L, before - playerManager.CurrentHp);
-            DamagePopupText.Show(transform.position, actualDamage, true);
+            DamagePopupText.Show(transform.position, actualDamage, true, new DamageFeedback(isCritical, resistance < 0f));
 
             if (playerSpriteRenderer != null)
             {
@@ -575,7 +602,7 @@ namespace MixMaster.Combat
         private float GetAttackRange()
         {
             if (usePlayerManagerStats && playerManager != null)
-                return Mathf.Max(0.1f, playerManager.Stats.attackRange);
+                return Mathf.Max(0.1f, playerManager.Stats.attackRange)*(SkillProgressionManager.Instance!=null&&SkillProgressionManager.Instance.Ranged("player",false)?2f:1f);
 
             return Mathf.Max(0.1f, fallbackAttackRange);
         }
@@ -669,7 +696,6 @@ namespace MixMaster.Combat
                 : Quaternion.identity;
             swordRenderer.transform.localPosition =
                 Vector3.up * (-nearEdge * scale);
-            swordRenderer.color = swordTint;
         }
 
         private IEnumerator SwingSword(
@@ -681,6 +707,9 @@ namespace MixMaster.Combat
                 yield break;
 
             ResizeSwordToAttackRange();
+            // Match the element captured for this attack, including reincarnation.
+            swordRenderer.color = PartyMeleeSwordSwing.ElementColor(
+                hitSource != null ? hitSource.attackElement : ElementType.None) * swordTint;
 
             float targetAngle = Mathf.Atan2(direction.y, direction.x) *
                 Mathf.Rad2Deg - 90f;

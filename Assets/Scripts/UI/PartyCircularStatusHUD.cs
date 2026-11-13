@@ -30,6 +30,7 @@ namespace MixMaster.UI
         private MonsterCatalogSO catalog;
         private float refreshTimer;
         private bool subscribed;
+        private bool experienceRefreshPending;
 
         public void SetReferences(
             Image[] health,
@@ -126,11 +127,18 @@ namespace MixMaster.UI
 
         private void HandleExperienceChanged(OwnedMonsterRecord monster)
         {
+            experienceRefreshPending = true;
+        }
+
+        private void LateUpdate()
+        {
+            if (!experienceRefreshPending) return;
             RefreshAll();
         }
 
         private void RefreshAll()
         {
+            experienceRefreshPending = false;
             IReadOnlyList<string> ids =
                 monsterManager != null ? monsterManager.PartyMonsterUniqueIds : null;
 

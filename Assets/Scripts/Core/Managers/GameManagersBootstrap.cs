@@ -43,9 +43,14 @@ namespace MixMaster.Core
             if (root == null) return;
 
             Ensure<GameManager>(root);
+            Ensure<DisplaySettingsManager>(root);
+            Ensure<EncyclopediaManager>(root);
+            Ensure<GameJournalManager>(root);
             Ensure<SaveManager>(root);
             Ensure<MapManager>(root);
             Ensure<PlayerManager>(root);
+            Ensure<SkillProgressionManager>(root);
+            Ensure<PartyPresetManager>(root);
             Ensure<ConsumableManager>(root);
             Ensure<MonsterManager>(root);
             Ensure<ReincarnationManager>(root);

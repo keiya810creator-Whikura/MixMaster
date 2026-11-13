@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98a9d53d36a732c4b8926a77136385f0, type: 3}
+  m_Name: "EQP_074_\u591C\u846C\u306E\u6307\u8F2A"
+  m_EditorClassIdentifier: 
+  equipmentId: EQP_074
+  displayName: "\u591C\u846C\u306E\u6307\u8F2A"
+  description: "\u591C\u306E\u846C\u5217\u3067\u4F7F\u308F\u308C\u305F\u6307\u8F2A\u3002\u9ED2\u3044\u5B9D\u77F3\u306B\u6DE1\u3044\u971C\u304C\u5BBF\u308B\u3002"
+  icon: {fileID: 21300000, guid: 49b257fbaec184644a759786a2eff4a6, type: 3}
+  category: 3
+  modifiers:
+    maxHp: 0.002903
+    maxMp: 0
+    attack: 0
+    magic: 0
+    defense: 0.001847
+    magicDefense: 0.002112
+    criticalRate: 0
+    criticalMultiplier: 0
+    moveSpeed: 0
+    attackSpeed: 0
+    attackRange: 0
+    dropRateBonus: 0.00027
+    resistanceBonus:
+      fire: 0.000188
+      water: 0.000374
+      wind: 0
+      lightning: 0
+      light: 0
+      dark: 0

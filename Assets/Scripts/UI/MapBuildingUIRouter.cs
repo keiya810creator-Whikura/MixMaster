@@ -1,4 +1,8 @@
 using System;
+using System.Collections.Generic;
+using MixMaster.Combat;
+using TMPro;
+using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -20,9 +24,29 @@ namespace MixMaster.UI
         [SerializeField] private ReincarnationPanelUI reincarnationPanel;
         [SerializeField] private ConsumablePanelUI consumableShop;
 
+        private VillageTeleportPanelUI teleportPanel;
+
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
         [SerializeField] private bool disableJoystickWhileOpen = true;
+
+        [Header("Access button")]
+        [SerializeField, Min(0f)] private float accessButtonHeadGap = .25f;
+        [SerializeField] private Vector2 accessButtonSize = new Vector2(190f, 66f);
+
+        private sealed class AccessContact
+        {
+            public MapBuildingAccess building;
+            public Collider2D collider;
+            public Collider2D trigger;
+            public PlayerController player;
+        }
+
+        private readonly List<AccessContact> accessContacts = new List<AccessContact>();
+        private AccessContact offeredAccess;
+        private Canvas accessCanvas;
+        private RectTransform accessAnchor;
+        private Button accessButton;
 
         public bool IsOpen { get; private set; }
         public MapBuildingType? CurrentBuilding { get; private set; }
@@ -92,13 +116,154 @@ namespace MixMaster.UI
                 Instance = null;
         }
 
+        internal void EnterAccess(MapBuildingAccess building, Collider2D collider, PlayerController player)
+        {
+            foreach (AccessContact contact in accessContacts)
+                if (contact.building == building && contact.collider == collider) return;
+
+            accessContacts.Add(new AccessContact
+            {
+                building = building, collider = collider, player = player,
+                trigger = building.GetComponent<Collider2D>()
+            });
+        }
+
+        internal void ExitAccess(MapBuildingAccess building, Collider2D collider = null)
+        {
+            for (int i = accessContacts.Count - 1; i >= 0; i--)
+            {
+                AccessContact contact = accessContacts[i];
+                if (contact.building != building || (collider != null && contact.collider != collider)) continue;
+                if (offeredAccess == contact) HideAccessButton();
+                accessContacts.RemoveAt(i);
+            }
+        }
+
+        private AccessContact FindNearestAccess()
+        {
+            if (IsOpen || MapBuildingAccess.AccessSuppressed) return null;
+
+            AccessContact nearest = null;
+            float nearestDistance = float.PositiveInfinity;
+            for (int i = accessContacts.Count - 1; i >= 0; i--)
+            {
+                AccessContact contact = accessContacts[i];
+                if (contact.building == null || !contact.building.isActiveAndEnabled ||
+                    contact.collider == null || !contact.collider.isActiveAndEnabled ||
+                    contact.trigger == null || !contact.trigger.isActiveAndEnabled ||
+                    contact.player == null || !contact.player.gameObject.activeInHierarchy)
+                {
+                    accessContacts.RemoveAt(i);
+                    continue;
+                }
+
+                PlayerAutoAttack actor = contact.player.GetComponent<PlayerAutoAttack>();
+                if (actor != null && !actor.IsAlive) continue;
+
+                float distance = ((Vector2)(contact.building.transform.position -
+                    contact.player.transform.position)).sqrMagnitude;
+                if (distance >= nearestDistance) continue;
+                nearest = contact;
+                nearestDistance = distance;
+            }
+            return nearest;
+        }
+
+        private void LateUpdate()
+        {
+            AccessContact contact = FindNearestAccess();
+            Camera camera = contact != null ? Camera.main : null;
+            if (camera == null)
+            {
+                HideAccessButton();
+                return;
+            }
+
+            Transform player = contact.player.transform;
+            SpriteRenderer sprite = contact.player.GetComponent<SpriteRenderer>();
+            Vector3 head = player.position;
+            head.y = (sprite != null && sprite.sprite != null ? sprite.bounds.max.y : head.y + .8f)
+                + accessButtonHeadGap;
+            Vector3 screen = camera.WorldToScreenPoint(head);
+            if (screen.z <= 0f || !camera.pixelRect.Contains((Vector2)screen))
+            {
+                HideAccessButton();
+                return;
+            }
+
+            if (accessButton == null) CreateAccessButton();
+            if (EventSystem.current == null)
+                new GameObject("MapBuildingEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            offeredAccess = contact;
+            accessAnchor.position = new Vector3(screen.x, screen.y, 0f);
+            accessCanvas.gameObject.SetActive(true);
+        }
+
+        private void CreateAccessButton()
+        {
+            var root = new GameObject("MapBuildingAccessCanvas", typeof(RectTransform),
+                typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            root.transform.SetParent(transform, false);
+            accessCanvas = root.GetComponent<Canvas>();
+            accessCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            accessCanvas.overrideSorting = true;
+            accessCanvas.sortingOrder = 1;
+            var scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = .5f;
+
+            var anchor = new GameObject("PlayerHead", typeof(RectTransform));
+            anchor.transform.SetParent(root.transform, false);
+            accessAnchor = (RectTransform)anchor.transform;
+            accessAnchor.sizeDelta = Vector2.zero;
+            accessButton = InventoryUiFactory.Button(accessAnchor, "AccessButton", "開く",
+                new Vector2(-accessButtonSize.x * .5f, accessButtonSize.y), accessButtonSize);
+            TMP_Text label = accessButton.GetComponentInChildren<TMP_Text>();
+            label.fontSize = label.fontSizeMax = 30f;
+            GameObject fontSource = altarPanel != null ? altarPanel : dungeonEntrancePanel;
+            TMP_Text sceneLabel = fontSource != null ? fontSource.GetComponentInChildren<TMP_Text>(true) : null;
+            if (sceneLabel != null && sceneLabel.font != null) label.font = sceneLabel.font;
+            accessButton.onClick.AddListener(OpenOfferedAccess);
+        }
+
+        private void HideAccessButton()
+        {
+            offeredAccess = null;
+            if (accessCanvas != null) accessCanvas.gameObject.SetActive(false);
+        }
+
+        private void OpenOfferedAccess()
+        {
+            AccessContact contact = offeredAccess;
+            if (contact == null || contact != FindNearestAccess()) return;
+
+            HideAccessButton();
+            cachedPlayer = contact.player;
+            if (contact.building.BuildingType == MapBuildingType.TeleportCircle)
+                OpenTeleport(contact.player, contact.building.GetComponentInParent<TilemapMapRoot>());
+            else
+                Open(contact.building.BuildingType);
+        }
+
+        public void OpenTeleport(PlayerController player, TilemapMapRoot village)
+        {
+            if (village == null || (village.MapDefinition != null && !village.MapDefinition.isTown))
+                return;
+            if (teleportPanel == null)
+                teleportPanel = VillageTeleportPanelUI.Create(transform);
+            teleportPanel.Prepare(this, player, village);
+            Open(MapBuildingType.TeleportCircle);
+        }
+
         public void Open(MapBuildingType type)
         {
             if (IsOpen && CurrentBuilding == type) return;
             // UI itself comes from the scene. Keep standalone town scenes
             // usable when no global EventSystem has been provided.
             if ((type == MapBuildingType.BreedingShop || type == MapBuildingType.Blacksmith ||
-                type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop) &&
+                type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop ||
+                 type == MapBuildingType.TeleportCircle) &&
                 EventSystem.current == null)
             {
                 new GameObject("MapBuildingEventSystem",
@@ -112,6 +277,7 @@ namespace MixMaster.UI
             if (type == MapBuildingType.ConsumableShop) ResolveConsumableShop();
 
             GameObject targetPanel =
+                type == MapBuildingType.TeleportCircle && teleportPanel != null ? teleportPanel.gameObject :
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
                 type == MapBuildingType.BreedingShop ? breedingPanel :
@@ -162,6 +328,7 @@ namespace MixMaster.UI
                 return;
             }
 
+            HideAccessButton();
             CurrentBuilding = type;
             IsOpen = true;
 
@@ -252,6 +419,7 @@ namespace MixMaster.UI
             IsOpen = false;
             CurrentBuilding = null;
 
+            if (teleportPanel != null) SetPanelActive(teleportPanel.gameObject, false);
             SetPanelActive(altarPanel, false);
             SetPanelActive(dungeonEntrancePanel, false);
             SetPanelActive(breedingPanel, false);

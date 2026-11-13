@@ -115,7 +115,7 @@ namespace MixMaster.UI
         {
             if (manager == null || !manager.IsReady || manager.IsAway || manager.PendingProfile == null) return;
             receiptPanel?.Hide();
-            recordingPanel?.Show("1分当たりの入手数", manager.PendingProfile.gains, manager.PendingProfile);
+            recordingPanel?.Show("1分当たりの入手数", manager.PendingProfile.gains, manager.PendingProfile, manager.LastCompletedProfile);
         }
         private void AcceptRecording()
         {

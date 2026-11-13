@@ -447,7 +447,10 @@ namespace MixMaster.UI
             string mode = offer.isSpecial
                 ? FormatRecipeKind(offer.recipeKind)
                 : "通常配合";
-            previewText.text = mode + "\n" + child.displayName +
+            string newMarker = monsterManager != null && !monsterManager.HasAcquiredMonster(child.monsterId)
+                ? "<color=#FFE24A>NEW</color>  " : string.Empty;
+            previewText.richText = true;
+            previewText.text = mode + "\n" + newMarker + child.displayName +
                 "   (Stage " + child.appearanceStage + ")" +
                 "\n配合値 " + child.breedingValue +
                 "  /  成功率 " + offer.successPercent + "％" +

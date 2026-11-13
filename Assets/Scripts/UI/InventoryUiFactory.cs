@@ -150,6 +150,7 @@ namespace MixMaster.UI
             rect.pivot = new Vector2(0f, 1f);
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
+            RuntimeUiLayoutSettings.Queue(rect);
         }
 
         public static void Stretch(RectTransform rect)
@@ -158,6 +159,7 @@ namespace MixMaster.UI
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+            RuntimeUiLayoutSettings.Queue(rect);
         }
     }
 }

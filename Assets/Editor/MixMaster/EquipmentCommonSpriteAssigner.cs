@@ -1,21 +1,22 @@
 #if UNITY_EDITOR
 using System;
+using System.Globalization;
 using MixMaster.Core;
 using UnityEditor;
 using UnityEngine;
 
 namespace MixMaster.EditorTools
 {
-    /// <summary>Applies the shared sprite to ALL existing equipment, not only CSV rows.</summary>
+    /// <summary>Applies numbered sprites and category fallbacks to existing equipment.</summary>
     public static class EquipmentCommonSpriteAssigner
     {
         private const string SpriteFolder = "Assets/素材/装備";
 
-        [MenuItem("MixMaster/CSV/全装備SOの共通画像を再設定")]
+        [MenuItem("MixMaster/CSV/全装備SOの画像を再設定")]
         public static void AssignFromMenu()
         {
             string summary = AssignAll();
-            EditorUtility.DisplayDialog("装備共通画像", summary, "OK");
+            EditorUtility.DisplayDialog("装備画像", summary, "OK");
         }
 
         public static string AssignAll()
@@ -24,36 +25,52 @@ namespace MixMaster.EditorTools
             Sprite armor = Load(SpriteFolder + "/防具.png");
             Sprite accessory = Load(SpriteFolder + "/アクセサリー.png");
 
-            int updated = 0, already = 0, missing = 0, skipped = 0;
+            int updated = 0, already = 0, missing = 0, numbered = 0;
             foreach (string guid in AssetDatabase.FindAssets("t:EquipmentSO", new[] { "Assets" }))
             {
                 EquipmentSO item = AssetDatabase.LoadAssetAtPath<EquipmentSO>(
                     AssetDatabase.GUIDToAssetPath(guid));
                 if (item == null) continue;
-                Sprite sprite;
-                switch (item.category)
+
+                Sprite sprite = LoadNumberedSprite(item.equipmentId);
+                if (sprite != null)
+                    numbered++;
+                else
                 {
-                    case EquipmentCategory.Weapon: sprite = weapon; break;
-                    case EquipmentCategory.Armor: sprite = armor; break;
-                    case EquipmentCategory.Accessory: sprite = accessory; break;
-                    default: skipped++; continue;
+                    switch (item.category)
+                    {
+                        case EquipmentCategory.Weapon: sprite = weapon; break;
+                        case EquipmentCategory.Armor: sprite = armor; break;
+                        case EquipmentCategory.Accessory: sprite = accessory; break;
+                    }
                 }
+
                 if (sprite == null) { missing++; continue; }
                 if (item.icon == sprite) { already++; continue; }
 
-                Undo.RecordObject(item, "Apply Equipment Category Sprite");
+                Undo.RecordObject(item, "Apply Equipment Sprite");
                 item.icon = sprite;
                 EditorUtility.SetDirty(item);
                 updated++;
             }
             AssetDatabase.SaveAssets();
-            if (weapon == null) Debug.LogWarning("[EquipmentCommonSpriteAssigner] Missing: " + SpriteFolder + "/武器.png");
-            if (armor == null) Debug.LogWarning("[EquipmentCommonSpriteAssigner] Missing: " + SpriteFolder + "/防具.png");
-            if (accessory == null) Debug.LogWarning("[EquipmentCommonSpriteAssigner] Missing: " + SpriteFolder + "/アクセサリー.png");
-            string summary = "変更: " + updated + " / 設定済み: " + already +
-                " / 画像なし: " + missing + " / 汎用等: " + skipped;
+            string summary = "番号画像: " + numbered + " / 変更: " + updated +
+                " / 設定済み: " + already + " / 画像なし: " + missing;
             Debug.Log("[EquipmentCommonSpriteAssigner] " + summary);
             return summary;
+        }
+
+        private static Sprite LoadNumberedSprite(string equipmentId)
+        {
+            if (string.IsNullOrWhiteSpace(equipmentId)) return null;
+
+            string number = equipmentId.Trim();
+            if (number.StartsWith("EQP_", StringComparison.OrdinalIgnoreCase))
+                number = number.Substring(4);
+            if (!int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out int id) || id <= 0)
+                return null;
+
+            return Load(SpriteFolder + "/" + id.ToString(CultureInfo.InvariantCulture) + ".png");
         }
 
         private static Sprite Load(string path)

@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using MixMaster.World;
 
@@ -15,6 +17,46 @@ namespace MixMaster.Core
 
         private GameObject cachedMaterialDropPrefab;
         private GameObject cachedMonsterDropPrefab;
+        [Header("Drop pool")]
+        [SerializeField, Min(0)] private int prewarmPerType = 32;
+        [SerializeField, Min(0)] private int retainedPerType = 128;
+        private readonly Stack<MaterialDropPickup> materials = new Stack<MaterialDropPickup>();
+        private readonly Stack<MonsterDropPickup> monsters = new Stack<MonsterDropPickup>();
+
+        private IEnumerator Start()
+        {
+            // Spread warmup over frames rather than moving the combat spike to scene startup.
+            int count = Mathf.Min(Mathf.Max(0, prewarmPerType), Mathf.Max(0, retainedPerType));
+            for (int i = 0; i < count; i++)
+            {
+                if ((i & 1) == 0) yield return null;
+                if (materials.Count < count) RecycleMaterial(CreateMaterialDrop(Vector3.zero));
+                if (monsters.Count < count) RecycleMonster(CreateMonsterDrop(Vector3.zero));
+            }
+        }
+
+        private void OnDestroy()
+        {
+            foreach (var drop in materials) if (drop != null) Destroy(drop.gameObject);
+            foreach (var drop in monsters) if (drop != null) Destroy(drop.gameObject);
+            materials.Clear(); monsters.Clear();
+        }
+
+        internal void RecycleMaterial(MaterialDropPickup pickup)
+        {
+            if (pickup == null) return;
+            pickup.ClearForPool(); pickup.gameObject.SetActive(false);
+            if (materials.Count < Mathf.Max(0, retainedPerType)) materials.Push(pickup);
+            else Destroy(pickup.gameObject);
+        }
+        internal void RecycleMonster(MonsterDropPickup pickup)
+        {
+            if (pickup == null) return;
+            pickup.ClearForPool(); pickup.gameObject.SetActive(false);
+            if (monsters.Count < Mathf.Max(0, retainedPerType)) monsters.Push(pickup);
+            else Destroy(pickup.gameObject);
+        }
+
 
         /// <summary>
         /// Generic 0..1 probability roll.
@@ -92,110 +134,48 @@ namespace MixMaster.Core
                    bodyDropRate;
         }
 
-        public void SpawnMaterialDrop(
-            MaterialSO material,
-            long quantity,
-            Vector3 worldPosition,
-            MaterialDropSourceInfo sourceInfo)
+        public void SpawnMaterialDrop(MaterialSO material, long quantity, Vector3 worldPosition, MaterialDropSourceInfo sourceInfo)
         {
-            if (material == null || quantity <= 0L)
-                return;
-
-            GameObject prefab =
-                GetMaterialDropPrefab();
-
-            GameObject dropObject;
-
-            if (prefab != null)
-            {
-                dropObject =
-                    Instantiate(
-                        prefab,
-                        worldPosition,
-                        Quaternion.identity);
-            }
-            else
-            {
-                dropObject =
-                    CreateRuntimeFallbackDrop(
-                        worldPosition);
-            }
-
-            if (dropObject == null)
-                return;
-
-            dropObject.name =
-                "MaterialDrop_" +
-                (!string.IsNullOrWhiteSpace(material.materialId)
-                    ? material.materialId
-                    : material.name);
-
-            MaterialDropPickup pickup =
-                dropObject.GetComponent<MaterialDropPickup>();
-
-            if (pickup == null)
-            {
-                pickup =
-                    dropObject.AddComponent<MaterialDropPickup>();
-            }
-
-            pickup.Initialize(
-                material,
-                quantity,
-                sourceInfo);
+            if (material == null || quantity <= 0L) return;
+            MaterialDropPickup pickup = null;
+            while (materials.Count > 0 && pickup == null) pickup = materials.Pop();
+            if (pickup == null) pickup = CreateMaterialDrop(worldPosition);
+            var go = pickup.gameObject;
+            go.transform.position = worldPosition; go.transform.rotation = Quaternion.identity;
+            go.name = "MaterialDrop_" + (!string.IsNullOrWhiteSpace(material.materialId) ? material.materialId : material.name);
+            pickup.Initialize(material, quantity, sourceInfo);
+            go.SetActive(true);
         }
 
-        public void SpawnMonsterDrop(
-            MonsterDropRollData rollData,
-            Vector3 worldPosition)
+        public void SpawnMonsterDrop(MonsterDropRollData rollData, Vector3 worldPosition)
         {
-            if (rollData == null ||
-                rollData.monster == null)
-            {
-                return;
-            }
+            if (rollData == null || rollData.monster == null) return;
+            MonsterDropPickup pickup = null;
+            while (monsters.Count > 0 && pickup == null) pickup = monsters.Pop();
+            if (pickup == null) pickup = CreateMonsterDrop(worldPosition);
+            var go = pickup.gameObject;
+            go.transform.position = worldPosition; go.transform.rotation = Quaternion.identity;
+            go.name = "MonsterDrop_" + (!string.IsNullOrWhiteSpace(rollData.monster.monsterId) ? rollData.monster.monsterId : rollData.monster.name);
+            pickup.Initialize(rollData);
+            go.SetActive(true);
+        }
 
-            GameObject prefab =
-                GetMonsterDropPrefab();
+        private MaterialDropPickup CreateMaterialDrop(Vector3 position)
+        {
+            var prefab = GetMaterialDropPrefab();
+            var go = prefab != null ? Instantiate(prefab, position, Quaternion.identity) : CreateRuntimeFallbackDrop(position);
+            var pickup = go.GetComponent<MaterialDropPickup>() ?? go.AddComponent<MaterialDropPickup>();
+            pickup.SetPoolOwner(this);
+            return pickup;
+        }
 
-            GameObject dropObject;
-
-            if (prefab != null)
-            {
-                dropObject =
-                    Instantiate(
-                        prefab,
-                        worldPosition,
-                        Quaternion.identity);
-            }
-            else
-            {
-                dropObject =
-                    CreateRuntimeFallbackMonsterDrop(
-                        worldPosition);
-            }
-
-            if (dropObject == null)
-                return;
-
-            dropObject.name =
-                "MonsterDrop_" +
-                (!string.IsNullOrWhiteSpace(
-                    rollData.monster.monsterId)
-                    ? rollData.monster.monsterId
-                    : rollData.monster.name);
-
-            MonsterDropPickup pickup =
-                dropObject.GetComponent<MonsterDropPickup>();
-
-            if (pickup == null)
-            {
-                pickup =
-                    dropObject.AddComponent<MonsterDropPickup>();
-            }
-
-            pickup.Initialize(
-                rollData);
+        private MonsterDropPickup CreateMonsterDrop(Vector3 position)
+        {
+            var prefab = GetMonsterDropPrefab();
+            var go = prefab != null ? Instantiate(prefab, position, Quaternion.identity) : CreateRuntimeFallbackMonsterDrop(position);
+            var pickup = go.GetComponent<MonsterDropPickup>() ?? go.AddComponent<MonsterDropPickup>();
+            pickup.SetPoolOwner(this);
+            return pickup;
         }
 
         private GameObject GetMaterialDropPrefab()

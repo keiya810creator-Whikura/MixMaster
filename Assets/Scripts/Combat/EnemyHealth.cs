@@ -40,8 +40,19 @@ namespace MixMaster.Combat
         public long MaxMp => maxMp;
         public long CurrentHp { get; private set; }
         public long CurrentMp { get; private set; }
-        public long Defense => defense;
-        public long MagicDefense => magicDefense;
+        public long BaseDefense => defense;
+        public long BaseMagicDefense => magicDefense;
+        public long Defense => GetComponent<SkillActor>()?.Stats.defense ?? defense;
+        public long MagicDefense => GetComponent<SkillActor>()?.Stats.magicDefense ?? magicDefense;
+        public void Heal(long amount)
+        {
+            if (!IsAlive || amount <= 0) return;
+            long before = CurrentHp;
+            CurrentHp = Math.Min(maxHp, LongMath.SaturatingAdd(CurrentHp, amount));
+            if (CurrentHp != before)
+                HpChanged?.Invoke(CurrentHp, maxHp);
+            DamagePopupText.ShowHealing(transform.position, CurrentHp - before);
+        }
         public bool IsAlive { get; private set; }
         public MaterialDropSourceInfo LastHitSource =>
             lastHitSource != null
@@ -49,6 +60,7 @@ namespace MixMaster.Combat
                 : MaterialDropSourceInfo.Unknown();
 
         public event Action<EnemyHealth, long> Damaged;
+        public event Action<long, long> HpChanged;
         public event Action<long, long> MpChanged;
         public event Action<EnemyHealth> Died;
 
@@ -107,11 +119,11 @@ namespace MixMaster.Combat
             if (!IsAlive || attackPower <= 0)
                 return 0;
 
-            long damage = DamageCalculator.Calculate(attackPower, defense);
-
+            long damage = DamageCalculator.Calculate(attackPower, Defense);
+            float resistance = HitResistance(sourceInfo);
             return TakeDamage(
-                damage,
-                sourceInfo);
+                DamageCalculator.ApplyResistance(damage, resistance),
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
         }
 
         public long TakeMagicHit(long magicPower)
@@ -128,11 +140,18 @@ namespace MixMaster.Combat
             if (!IsAlive || magicPower <= 0)
                 return 0;
 
-            long damage = DamageCalculator.Calculate(magicPower, magicDefense);
-
+            long damage = DamageCalculator.Calculate(magicPower, MagicDefense);
+            float resistance = HitResistance(sourceInfo);
             return TakeDamage(
-                damage,
-                sourceInfo);
+                DamageCalculator.ApplyResistance(damage, resistance),
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
+        }
+
+        private float HitResistance(MaterialDropSourceInfo source)
+        {
+            ElementResistanceSet values = GetComponent<SkillActor>()?.Stats.resistances
+                ?? GetComponent<MonsterRuntimeSetup>()?.CurrentStats?.resistances;
+            return DamageCalculator.Resistance(values, source != null ? source.attackElement : ElementType.None);
         }
 
         public long TakeDamage(long damage)
@@ -146,8 +165,18 @@ namespace MixMaster.Combat
             long damage,
             MaterialDropSourceInfo sourceInfo)
         {
+            return TakeDamage(damage, sourceInfo, default);
+        }
+
+        public long TakeDamage(long damage, MaterialDropSourceInfo sourceInfo, DamageFeedback feedback)
+        {
             if (!IsAlive || damage <= 0)
                 return 0;
+
+            if (!SkillActor.AllowNormalHit(sourceInfo)) return 0;
+
+            damage = DamageCalculator.Randomize(damage);
+            GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
 
             // The killing blow must identify its own attacker.
             // A hit without attribution must never inherit a prior killer.
@@ -157,6 +186,9 @@ namespace MixMaster.Combat
 
             long actualDamage = Math.Min(CurrentHp, damage);
             CurrentHp -= actualDamage;
+            HpChanged?.Invoke(CurrentHp, maxHp);
+            GetComponent<SkillActor>()?.NotifyDamage(SkillActor.ApplyingSkill || sourceInfo?.isSkill == true);
+            SkillActor.FromSource(sourceInfo)?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);
 
             wanderAI?.EnterCombat(1.5f);
 
@@ -166,7 +198,7 @@ namespace MixMaster.Combat
                 damage,
                 sourceInfo != null
                     ? sourceInfo.sourceType
-                    : MaterialDropSourceType.Unknown);
+                    : MaterialDropSourceType.Unknown, false, feedback);
             Damaged?.Invoke(this, actualDamage);
 
             if (spriteRenderer != null)
@@ -215,6 +247,7 @@ namespace MixMaster.Combat
                 CurrentMp = Math.Min(CurrentMp, maxMp);
             }
 
+            HpChanged?.Invoke(CurrentHp, maxHp);
             MpChanged?.Invoke(CurrentMp, maxMp);
         }
 
@@ -281,6 +314,7 @@ namespace MixMaster.Combat
 
             IsAlive = false;
             activeEnemies.Remove(this);
+            GameJournalManager.Instance?.RecordDefeat();
 
             Collider2D[] colliders = GetComponentsInChildren<Collider2D>();
             foreach (Collider2D col in colliders)
@@ -342,3 +376,4 @@ namespace MixMaster.Combat
 #endif
     }
 }
+

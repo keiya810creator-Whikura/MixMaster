@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using MixMaster.Combat;
 using MixMaster.Monsters;
 
@@ -13,6 +14,7 @@ namespace MixMaster.UI
         [Header("UI")]
         [SerializeField] private Slider hpSlider;
         [SerializeField] private Slider attackSlider;
+        [SerializeField] private TMP_Text levelLabel;
 
         [Header("Follow")]
         [SerializeField] private Vector3 defaultWorldOffset = new Vector3(0f, 1.1f, 0f);
@@ -25,7 +27,14 @@ namespace MixMaster.UI
 
         private PartyMemberCombat partyTarget;
         private EnemyHealth enemyTarget;
+        private MonsterRuntimeSetup enemySetup;
+        private int displayedEnemyLevel = -1;
         private Action<CharacterWorldBar> releaseCallback;
+        [Header("Skill name (edit the prefab child for layout)")]
+        [SerializeField] private TMP_Text skillNameLabel;
+        private Color skillNameColor = Color.white;
+        private float skillNameRemaining;
+        private const float SkillNameDuration = 1.4f;
 
         public Component Owner => partyTarget != null ? (Component)partyTarget : enemyTarget;
         public bool IsBound => targetTransform != null;
@@ -41,12 +50,28 @@ namespace MixMaster.UI
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
+            if (levelLabel == null)
+            {
+                Transform child = transform.Find("HPSlider/LevelLabel");
+                if (child != null) levelLabel = child.GetComponent<TMP_Text>();
+            }
+            if (levelLabel != null) levelLabel.gameObject.SetActive(false);
+
+            if (skillNameLabel == null)
+            {
+                Transform child = transform.Find("SkillName");
+                if (child != null) skillNameLabel = child.GetComponent<TMP_Text>();
+            }
+            if (skillNameLabel != null) skillNameColor = skillNameLabel.color;
+            ClearSkillName();
+
             ConfigureSlider(hpSlider);
             ConfigureSlider(attackSlider);
         }
 
         private void LateUpdate()
         {
+            UpdateSkillName();
             if (targetTransform == null)
             {
                 RequestRelease();
@@ -64,9 +89,7 @@ namespace MixMaster.UI
 
             bool targetWantsBar =
                 partyTarget != null ||
-                (enemyTarget != null &&
-                 enemyTarget.IsAlive &&
-                 enemyTarget.CurrentHp < enemyTarget.MaxHp);
+                (enemyTarget != null && enemyTarget.IsAlive);
 
             bool visible = screenPosition.z > 0f && targetWantsBar;
 
@@ -96,6 +119,9 @@ namespace MixMaster.UI
             worldOffset = offset == Vector3.zero ? defaultWorldOffset : offset;
             releaseCallback = onRelease;
 
+            if (hpSlider != null)
+                hpSlider.gameObject.SetActive(true);
+
             if (attackSlider != null)
                 attackSlider.gameObject.SetActive(true);
 
@@ -118,17 +144,21 @@ namespace MixMaster.UI
             Unbind();
 
             enemyTarget = target;
+            enemySetup = target != null ? target.GetComponent<MonsterRuntimeSetup>() : null;
             targetTransform = target != null ? target.transform : null;
             worldCamera = camera;
             worldOffset = offset == Vector3.zero ? defaultWorldOffset : offset;
             releaseCallback = onRelease;
+
+            if (hpSlider != null)
+                hpSlider.gameObject.SetActive(true);
 
             if (attackSlider != null)
                 attackSlider.gameObject.SetActive(false);
 
             if (enemyTarget != null)
             {
-                enemyTarget.Damaged += HandleEnemyDamaged;
+                enemyTarget.HpChanged += HandleEnemyHpChanged;
                 enemyTarget.Died += HandleEnemyDied;
                 RefreshEnemyHp();
             }
@@ -138,6 +168,7 @@ namespace MixMaster.UI
 
         public void Unbind()
         {
+            ClearSkillName();
             if (partyTarget != null)
             {
                 partyTarget.HpChanged -= HandlePartyHpChanged;
@@ -146,12 +177,15 @@ namespace MixMaster.UI
 
             if (enemyTarget != null)
             {
-                enemyTarget.Damaged -= HandleEnemyDamaged;
+                enemyTarget.HpChanged -= HandleEnemyHpChanged;
                 enemyTarget.Died -= HandleEnemyDied;
             }
 
             partyTarget = null;
             enemyTarget = null;
+            enemySetup = null;
+            displayedEnemyLevel = -1;
+            if (levelLabel != null) levelLabel.gameObject.SetActive(false);
             targetTransform = null;
             worldCamera = null;
             releaseCallback = null;
@@ -167,12 +201,14 @@ namespace MixMaster.UI
 
         private void HandlePartyDied()
         {
+            ClearSkillName();
             SetHp(0L, 1L);
         }
 
-        private void HandleEnemyDamaged(EnemyHealth enemy, long damage)
+        private void HandleEnemyHpChanged(long current, long max)
         {
-            RefreshEnemyHp();
+            SetHp(current, max);
+            RefreshEnemyLevel();
         }
 
         private void HandleEnemyDied(EnemyHealth enemy)
@@ -198,6 +234,23 @@ namespace MixMaster.UI
                 return;
 
             SetHp(enemyTarget.CurrentHp, Math.Max(1L, enemyTarget.MaxHp));
+            RefreshEnemyLevel();
+        }
+
+        private void RefreshEnemyLevel()
+        {
+            if (enemyTarget == null || levelLabel == null) return;
+            // EnemyHealth registers before a spawner may add/initialize the
+            // runtime setup. SetStats raises HpChanged after that initialization.
+            if (enemySetup == null)
+                enemySetup = enemyTarget.GetComponent<MonsterRuntimeSetup>();
+            int level = enemySetup != null ? Mathf.Max(1, enemySetup.Level) : 1;
+            if (displayedEnemyLevel != level)
+            {
+                displayedEnemyLevel = level;
+                levelLabel.text = "Lv." + level;
+            }
+            levelLabel.gameObject.SetActive(true);
         }
 
         private void SetHp(long current, long max)
@@ -217,6 +270,33 @@ namespace MixMaster.UI
                 callback(this);
         }
 
+        public void ShowSkillName(string skillName)
+        {
+            if (!IsBound || string.IsNullOrWhiteSpace(skillName)) return;
+            if (skillNameLabel == null) return;
+            skillNameLabel.text = skillName;
+            skillNameLabel.color = skillNameColor;
+            skillNameLabel.gameObject.SetActive(true);
+            skillNameRemaining = SkillNameDuration;
+        }
+
+        private void UpdateSkillName()
+        {
+            if (skillNameRemaining <= 0f) return;
+            skillNameRemaining = Mathf.Max(0f, skillNameRemaining - Time.deltaTime);
+            if (skillNameLabel == null) return;
+            if (skillNameRemaining <= 0f) { ClearSkillName(); return; }
+            var color = skillNameColor;
+            color.a *= Mathf.Clamp01(skillNameRemaining / .3f);
+            skillNameLabel.color = color;
+        }
+
+        private void ClearSkillName()
+        {
+            skillNameRemaining = 0f;
+            if (skillNameLabel != null) skillNameLabel.gameObject.SetActive(false);
+        }
+
         private static void ConfigureSlider(Slider slider)
         {
             if (slider == null)
@@ -229,3 +309,6 @@ namespace MixMaster.UI
         }
     }
 }
+
+
+

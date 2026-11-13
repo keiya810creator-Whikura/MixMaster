@@ -21,9 +21,14 @@ namespace MixMaster.UI
         private TMP_Text noticeText;
         private Button upgradeButton;
         private TMP_Text upgradeLabel;
+        private TMP_Text reforgeText;
+        private Button reforgeButton;
+        private InventoryBulkSaleDialog reforgeConfirmation;
         private EquipmentInventoryUI ownerInventory;
         private readonly TMP_Text[] materialTexts = new TMP_Text[6];
         private readonly Image[] materialIcons = new Image[6];
+        private readonly TMP_Text[] reforgeMaterialTexts = new TMP_Text[6];
+        private readonly Image[] reforgeMaterialIcons = new Image[6];
         private static readonly Color Enough = new Color32(190, 224, 209, 255);
         private static readonly Color Missing = new Color32(255, 98, 98, 255);
 
@@ -72,6 +77,7 @@ namespace MixMaster.UI
             if (equipment != null) equipment.InventoryChanged -= Refresh;
             if (game != null) game.GoldChanged -= OnGoldChanged;
             if (materials != null) materials.MaterialChanged -= OnMaterialChanged;
+            if (reforgeConfirmation != null) reforgeConfirmation.Close();
             // The child HoldToUpgradeButton flushes its dirty batch on disable.
         }
 
@@ -89,6 +95,39 @@ namespace MixMaster.UI
             return success;
         }
 
+        private void ConfirmReforge()
+        {
+            if (equipment == null || !isActiveAndEnabled || ownerInventory == null ||
+                !ownerInventory.isActiveAndEnabled || !ownerInventory.EnhancementAllowed) return;
+            if (!equipment.CanReforgeEquipment(uniqueId, out EquipmentEnhancementCost reforgeCost, out string error))
+            { Refresh(); noticeText.text = error; return; }
+            EquipmentRecord record = equipment.FindEquipment(uniqueId);
+            string selectedId = uniqueId;
+            int previousLevel = EquipmentEnhancement.OriginalLevel(record);
+            int previousBonus = record.reforgeDropRatePercent;
+            if (reforgeConfirmation == null)
+                reforgeConfirmation = InventoryBulkSaleDialog.Ensure(transform);
+            reforgeConfirmation.Show("強化と同じ素材6種を各50,000個\n（合計300,000個）消費します。\n強化前Lv." +
+                previousLevel + " → " + EquipmentReforging.MinimumLevel(record) + "〜" +
+                EquipmentReforging.MaximumLevel(record) + "\nドロップ率＋" + equipment.GetReforgeMinimumPercent(record) + "〜100％を再抽選。\n" +
+                "強化＋" + EquipmentEnhancement.Count(record) + "は維持します。\n" +
+                "現在の再錬成補正は上書きされ、元に戻せません。", () =>
+            {
+                if (!isActiveAndEnabled || ownerInventory == null ||
+                    !ownerInventory.isActiveAndEnabled || !ownerInventory.EnhancementAllowed ||
+                    uniqueId != selectedId || equipment.FindEquipment(selectedId) != record) return;
+                if (EquipmentEnhancement.OriginalLevel(record) != previousLevel ||
+                    record.reforgeDropRatePercent != previousBonus)
+                { Refresh(); noticeText.text = "装備が変更されました。もう一度確認してください。"; return; }
+                if (!equipment.TryReforgeEquipment(selectedId, out string failure))
+                { Refresh(); noticeText.text = failure; return; }
+                SaveProgress();
+                Refresh();
+                noticeText.text = "再錬成完了：強化前Lv." + record.originalLevel +
+                    " ／ ドロップ率＋" + record.reforgeDropRatePercent + "％";
+            }, "再錬成する");
+        }
+
         private void SaveProgress()
         {
             if (equipment == null) return;
@@ -104,6 +143,7 @@ namespace MixMaster.UI
             if (record == null)
             {
                 upgradeButton.interactable = false;
+                if (reforgeButton != null) reforgeButton.interactable = false;
                 noticeText.text = "装備を選択してください。";
                 return;
             }
@@ -114,7 +154,7 @@ namespace MixMaster.UI
             int level = EquipmentEnhancement.Level(record);
             bool max = count >= EquipmentEnhancement.MaxEnhancements;
             levelText.text = "Lv." + level + (max ? "　MAX" : " → Lv." + (level + 1)) +
-                "　強化 ＋" + count + "/50\n取得時 Lv." + EquipmentEnhancement.OriginalLevel(record) +
+                "　強化 ＋" + count + "/50\n強化前 Lv." + EquipmentEnhancement.OriginalLevel(record) +
                 " ／ 上限 Lv." + (EquipmentEnhancement.OriginalLevel(record) + 50);
             bool affordable = equipment.CanEnhanceEquipment(uniqueId,
                 out EquipmentEnhancementCost cost, out string error);
@@ -136,14 +176,37 @@ namespace MixMaster.UI
                 long owned = materials != null ? materials.GetAmount(material) : 0L;
                 materialIcons[i].sprite = material.icon;
                 materialIcons[i].enabled = material.icon != null;
-                materialTexts[i].text = material.displayName + "\n" + owned.ToString("N0") +
-                    " / " + cost.amountPerMaterial.ToString("N0") + " 個";
+                materialTexts[i].text = (material.icon == null ? material.displayName + "\n" : "") +
+                    "×" + cost.amountPerMaterial.ToString("N0") + "\n所持 " + owned.ToString("N0");
                 materialTexts[i].color = owned >= cost.amountPerMaterial ? Enough : Missing;
             }
-            statusText.text = "現在の補正\n" + InventoryStatFilter.FormatModifiers(
-                equipment.GetScaledModifiers(record)) + (max ? "" : "\n\n強化後の補正\n" +
-                InventoryStatFilter.FormatModifiers(equipment.GetScaledModifiers(record, level + 1)));
+            statusText.text = "現在の補正\n" + InventoryStatFilter.FormatEquipmentModifiers(
+                equipment, record) + (max ? "" : "\n\n強化後の補正\n" +
+                InventoryStatFilter.FormatEquipmentModifiers(equipment, record, level + 1));
             noticeText.text = affordable ? "タップで1回 ／ 長押しで連続強化" : error;
+            bool canReforge = equipment.CanReforgeEquipment(uniqueId,
+                out EquipmentEnhancementCost reforgeCost, out string reforgeError);
+            reforgeButton.interactable = canReforge;
+            reforgeText.text = reforgeCost != null
+                ? "再錬成：6種を各50,000個\n強化前Lv." +
+                    EquipmentReforging.MinimumLevel(record) + "〜" +
+                    EquipmentReforging.MaximumLevel(record) +
+                    " ／ ドロップ率＋" + equipment.GetReforgeMinimumPercent(record) + "〜100％（上書き）"
+                : reforgeError;
+            for (int i = 0; i < reforgeMaterialTexts.Length; i++)
+            {
+                bool show = reforgeCost != null && i < reforgeCost.materials.Count;
+                reforgeMaterialTexts[i].transform.parent.gameObject.SetActive(show);
+                if (!show) continue;
+                MaterialSO material = reforgeCost.materials[i];
+                long owned = materials != null ? materials.GetAmount(material) : 0L;
+                reforgeMaterialIcons[i].sprite = material.icon;
+                reforgeMaterialIcons[i].enabled = material.icon != null;
+                reforgeMaterialTexts[i].text = (material.icon == null ? material.displayName + "\n" : "") +
+                    "×50,000\n所持 " + owned.ToString("N0");
+                reforgeMaterialTexts[i].color = owned >= reforgeCost.amountPerMaterial ? Enough : Missing;
+            }
+            reforgeText.color = canReforge ? Enough : Missing;
         }
 
         private void Build()
@@ -220,6 +283,7 @@ namespace MixMaster.UI
             textRect.pivot = new Vector2(0.5f, 1f);
             textRect.sizeDelta = new Vector2(-24f, 0f);
             textRect.anchoredPosition = new Vector2(0f, -10f);
+            statusText.richText = true;
             statusText.enableAutoSizing = false;
             statusText.enableWordWrapping = true;
             ContentSizeFitter fitter = statusText.gameObject.AddComponent<ContentSizeFitter>();
@@ -235,13 +299,53 @@ namespace MixMaster.UI
             upgradeButton = InventoryUiFactory.Button(card.transform, "Upgrade", "Lvを1上げる",
                 Vector2.zero, new Vector2(400f, 68f));
             upgradeButton.gameObject.AddComponent<LayoutElement>().preferredHeight = 68f;
-            upgradeLabel = upgradeButton.GetComponentInChildren<TMP_Text>();
+            upgradeLabel = upgradeButton.GetComponentInChildren<TMP_Text>(true);
             upgradeButton.GetComponent<Image>().color = new Color(0.14f, 0.43f, 0.33f, 1f);
             HoldToUpgradeButton.Attach(upgradeButton, TryUpgrade, SaveProgress);
+            reforgeText = Label(card.transform, "ReforgeCost", "", 21f, 64f);
+            BuildReforgeMaterials(card.transform);
+            reforgeButton = InventoryUiFactory.Button(card.transform, "Reforge", "再錬成",
+                Vector2.zero, new Vector2(400f, 60f));
+            reforgeButton.gameObject.AddComponent<LayoutElement>().preferredHeight = 60f;
+            reforgeButton.GetComponent<Image>().color = new Color(0.12f, 0.38f, 0.50f, 1f);
+            reforgeButton.onClick.AddListener(ConfirmReforge);
             Button close = InventoryUiFactory.Button(card.transform, "Close", "装備一覧に戻る",
                 Vector2.zero, new Vector2(400f, 60f));
             close.gameObject.AddComponent<LayoutElement>().preferredHeight = 60f;
             close.onClick.AddListener(Close);
+        }
+
+        private void BuildReforgeMaterials(Transform parent)
+        {
+            var grid = new GameObject("ReforgeMaterials", typeof(RectTransform),
+                typeof(GridLayoutGroup), typeof(LayoutElement));
+            grid.transform.SetParent(parent, false);
+            var layout = grid.GetComponent<GridLayoutGroup>();
+            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            layout.constraintCount = 2;
+            layout.spacing = new Vector2(10f, 6f);
+            layout.cellSize = new Vector2(400f, 64f);
+            grid.GetComponent<LayoutElement>().preferredHeight = 204f;
+            for (int i = 0; i < reforgeMaterialTexts.Length; i++)
+            {
+                var row = new GameObject("Material" + i, typeof(RectTransform), typeof(Image));
+                row.transform.SetParent(grid.transform, false);
+                row.GetComponent<Image>().color = new Color(0.11f, 0.19f, 0.27f, 1f);
+                var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+                icon.transform.SetParent(row.transform, false);
+                InventoryUiFactory.TopLeft(icon.GetComponent<RectTransform>(),
+                    new Vector2(8f, -8f), new Vector2(48f, 48f));
+                reforgeMaterialIcons[i] = icon.GetComponent<Image>();
+                reforgeMaterialIcons[i].preserveAspect = true;
+                reforgeMaterialIcons[i].raycastTarget = false;
+                TMP_Text label = InventoryUiFactory.Text(row.transform, "Amount", "",
+                    Vector2.zero, Vector2.zero, 20f);
+                InventoryUiFactory.Stretch(label.rectTransform);
+                label.rectTransform.offsetMin = new Vector2(66f, 4f);
+                label.rectTransform.offsetMax = new Vector2(-6f, -4f);
+                label.enableWordWrapping = true;
+                reforgeMaterialTexts[i] = label;
+            }
         }
 
         private void LateUpdate()
@@ -252,6 +356,15 @@ namespace MixMaster.UI
             float width = ((RectTransform)grid.transform).rect.width;
             Vector2 size = new Vector2(Mathf.Max(1f, (width - grid.spacing.x) / 2f), 78f);
             if (grid.cellSize != size) grid.cellSize = size;
+            GridLayoutGroup reforgeGrid = reforgeMaterialTexts[0] != null
+                ? reforgeMaterialTexts[0].transform.parent.parent.GetComponent<GridLayoutGroup>() : null;
+            if (reforgeGrid != null)
+            {
+                float reforgeWidth = ((RectTransform)reforgeGrid.transform).rect.width;
+                Vector2 reforgeSize = new Vector2(Mathf.Max(1f,
+                    (reforgeWidth - reforgeGrid.spacing.x) / 2f), 64f);
+                if (reforgeGrid.cellSize != reforgeSize) reforgeGrid.cellSize = reforgeSize;
+            }
         }
 
         private static TMP_Text Label(Transform parent, string name, string value,

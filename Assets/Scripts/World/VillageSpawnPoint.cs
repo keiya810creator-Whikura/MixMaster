@@ -53,7 +53,7 @@ namespace MixMaster.World
             player.transform.position = target;
             Physics2D.SyncTransforms();
             PlayerManager playerState = FindFirstObjectByType<PlayerManager>();
-            if (playerState != null && playerState.CurrentHp <= 0L)
+            if (playerState != null && map == null)
                 playerState.RestoreFullResources();
             PlayerTrailRecorder trail = player.GetComponent<PlayerTrailRecorder>();
             if (trail != null) trail.ResetTrail();

@@ -74,6 +74,7 @@ namespace MixMaster.UI
             if (buttonsWired || upgradeButton == null ||
                 challengeButton == null || closeButton == null)
                 return;
+            EnsureResearchRow();
             HoldToUpgradeButton.Attach(
                 upgradeButton, TryUpgradeTitleRate, SaveUpgradeProgress);
             challengeButton.onClick.AddListener(Challenge);
@@ -91,6 +92,47 @@ namespace MixMaster.UI
                     altar != null ? altar.GetDungeonUpgradeLevel(currentMapId, type) : 0));
             }
             buttonsWired = true;
+        }
+
+        // Upgrade old unpacked scene panels once; authored prefab rows are preferred.
+        private void EnsureResearchRow()
+        {
+            if (Array.Exists(dungeonUpgradeRows, x => x != null &&
+                x.type == DungeonUpgradeType.ReforgeResearch)) return;
+            DungeonUpgradeRow template = Array.FindLast(dungeonUpgradeRows,
+                x => x != null && x.heading != null);
+            if (template == null) return;
+            Transform source = template.heading.transform.parent;
+            GameObject copy = Instantiate(source.gameObject, source.parent);
+            copy.name = "Upgrade_7";
+            T CopyComponent<T>(T original) where T : Component
+            {
+                if (original == null) return null;
+                var path = new System.Collections.Generic.List<string>();
+                for (Transform t = original.transform; t != source; t = t.parent)
+                    path.Insert(0, t.name);
+                return copy.transform.Find(string.Join("/", path))?.GetComponent<T>();
+            }
+            var row = new DungeonUpgradeRow
+            {
+                type = DungeonUpgradeType.ReforgeResearch,
+                heading = CopyComponent(template.heading), effect = CopyComponent(template.effect),
+                cost = CopyComponent(template.cost), applied = CopyComponent(template.applied),
+                upgradeButton = CopyComponent(template.upgradeButton), minButton = CopyComponent(template.minButton),
+                minusButton = CopyComponent(template.minusButton), plusButton = CopyComponent(template.plusButton),
+                maxButton = CopyComponent(template.maxButton)
+            };
+            Array.Resize(ref dungeonUpgradeRows, dungeonUpgradeRows.Length + 1);
+            dungeonUpgradeRows[dungeonUpgradeRows.Length - 1] = row;
+            RectTransform originalRect = source as RectTransform;
+            RectTransform rect = copy.transform as RectTransform;
+            if (originalRect != null && rect != null)
+            {
+                float step = originalRect.rect.height + 10f;
+                rect.anchoredPosition = originalRect.anchoredPosition - new Vector2(0f, step);
+                var content = source.parent as RectTransform;
+                if (content != null) content.sizeDelta += new Vector2(0f, step);
+            }
         }
 
         private void OnEnable()

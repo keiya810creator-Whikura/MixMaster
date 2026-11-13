@@ -231,8 +231,11 @@ namespace MixMaster.EditorTools
             scrollRoot.offsetMin =
                 new Vector2(30f, 30f);
 
+            // Reserve space for the filter bar at the top of the panel.
+            // If this is left too high, the list content overlaps the
+            // authored filter controls and looks duplicated.
             scrollRoot.offsetMax =
-                new Vector2(-30f, -105f);
+                new Vector2(-30f, -300f);
 
             ScrollRect scroll =
                 scrollRoot.gameObject

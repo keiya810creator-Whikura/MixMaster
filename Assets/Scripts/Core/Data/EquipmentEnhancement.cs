@@ -13,6 +13,23 @@ namespace MixMaster.Core
         public readonly List<MaterialSO> materials = new List<MaterialSO>(6);
     }
 
+    public static class EquipmentReforging
+    {
+        public const long MaterialCost = 50000L;
+        public const int LevelRadius = 10;
+
+        public static int MinimumLevel(EquipmentRecord record) =>
+            Math.Max(EquipmentManager.MinEquipmentLevel,
+                EquipmentEnhancement.OriginalLevel(record) - LevelRadius);
+
+        public static int MaximumLevel(EquipmentRecord record) =>
+            Math.Min(EquipmentManager.MaxEquipmentLevel,
+                EquipmentEnhancement.OriginalLevel(record) + LevelRadius);
+
+        public static float DropRateBonus(EquipmentRecord record) =>
+            record == null ? 0f : Mathf.Clamp(record.reforgeDropRatePercent, 0, 100) / 100f;
+    }
+
     public static class EquipmentEnhancement
     {
         public const int MaxEnhancements = 50;
@@ -38,6 +55,7 @@ namespace MixMaster.Core
             if (record == null) return;
             record.originalLevel = OriginalLevel(record);
             record.enhancementCount = Count(record);
+            record.reforgeDropRatePercent = Mathf.Clamp(record.reforgeDropRatePercent, 0, 100);
             record.level = record.originalLevel + record.enhancementCount;
         }
 
@@ -82,6 +100,24 @@ namespace MixMaster.Core
             { error = "ボスのEnemy IDから費用を取得できません。"; return false; }
 
             var result = new EquipmentEnhancementCost { map = map };
+            if (!TryGetMaterials(map, out List<MaterialSO> required, out error)) return false;
+            result.materials.AddRange(required);
+
+            // The requested MAP1 cost is 6 G, independent of enemy Lv/titles.
+            result.gold = GoldCost(number, Count(record));
+            result.amountPerMaterial = MaterialCost(result.gold);
+            cost = result;
+            return true;
+        }
+
+        // Shared by ordinary enhancement and reforging, including +50 items.
+        public static bool TryGetMaterials(MapSO map, out List<MaterialSO> materials,
+            out string error)
+        {
+            materials = new List<MaterialSO>(RequiredMaterialTypes);
+            error = string.Empty;
+            if (map == null || map.bossMonster == null)
+            { error = "装備の出身マップとボスを設定してください。"; return false; }
             var monsters = new List<MonsterSO>();
             AddMonsters(monsters, map.normalMonsters);
             AddMonsters(monsters, map.monsters);
@@ -92,15 +128,11 @@ namespace MixMaster.Core
                 MaterialSO material = monster.uniqueMaterial;
                 if (material == null || string.IsNullOrWhiteSpace(material.materialId))
                 { error = "マップの全モンスターに固有素材を設定してください。"; return false; }
-                if (unique.Add(material.materialId)) result.materials.Add(material);
+                if (unique.Add(material.materialId)) materials.Add(material);
             }
-            if (result.materials.Count != RequiredMaterialTypes)
+            if (materials.Count != RequiredMaterialTypes)
             { error = "マップに異なるモンスター素材6種を設定してください。"; return false; }
 
-            // The requested MAP1 cost is 6 G, independent of enemy Lv/titles.
-            result.gold = GoldCost(number, Count(record));
-            result.amountPerMaterial = MaterialCost(result.gold);
-            cost = result;
             return true;
         }
 

@@ -23,6 +23,17 @@ namespace MixMaster.World
         private long quantity;
         private MaterialDropSourceInfo sourceInfo;
 
+        private static PlayerController sharedPlayer;
+        private static MaterialInventoryManager sharedInventory;
+        private static MaterialDropLogUI sharedLog;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedReferences()
+        {
+            sharedPlayer = null;
+            sharedInventory = null;
+            sharedLog = null;
+        }
+
         private Transform playerTarget;
         private MaterialInventoryManager inventory;
         private MaterialDropLogUI logUi;
@@ -31,6 +42,14 @@ namespace MixMaster.World
         private float currentSpeed;
         private bool initialized;
         private bool collected;
+        private DropManager poolOwner;
+        internal void SetPoolOwner(DropManager owner) => poolOwner = owner;
+        internal void ClearForPool()
+        {
+            initialized = false; collected = true; age = 0f; currentSpeed = 0f;
+            material = null; quantity = 0; sourceInfo = null;
+        }
+
 
         public void Initialize(
             MaterialSO newMaterial,
@@ -125,7 +144,7 @@ namespace MixMaster.World
             if (playerTarget == null)
             {
                 PlayerController player =
-                    FindFirstObjectByType<PlayerController>();
+                    (sharedPlayer != null ? sharedPlayer : (sharedPlayer = FindFirstObjectByType<PlayerController>()));
 
                 if (player != null)
                     playerTarget = player.transform;
@@ -134,13 +153,13 @@ namespace MixMaster.World
             if (inventory == null)
             {
                 inventory =
-                    FindFirstObjectByType<MaterialInventoryManager>();
+                    (sharedInventory != null ? sharedInventory : (sharedInventory = FindFirstObjectByType<MaterialInventoryManager>()));
             }
 
             if (logUi == null)
             {
                 logUi =
-                    FindFirstObjectByType<MaterialDropLogUI>();
+                    (sharedLog != null ? sharedLog : (sharedLog = FindFirstObjectByType<MaterialDropLogUI>()));
             }
         }
 
@@ -258,10 +277,12 @@ namespace MixMaster.World
                     actualAdded,
                     sourceInfo != null
                         ? sourceInfo.sourceType
-                        : MaterialDropSourceType.Unknown);
+                        : MaterialDropSourceType.Unknown,
+                    inventory.GetAmount(material));
             }
 
-            Destroy(gameObject);
+            if (poolOwner != null) poolOwner.RecycleMaterial(this);
+            else Destroy(gameObject);
         }
 
 #if UNITY_EDITOR

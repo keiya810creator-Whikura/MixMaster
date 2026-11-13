@@ -42,11 +42,71 @@ namespace MixMaster.EditorTools
                     EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
             }
 
+            RegisterAllDestinations();
             Debug.Log("[MapExitMarkerEditorSetup] 出入口設定完了: " + updated);
             EditorUtility.DisplayDialog("マップ出入口",
                 updated + "個の出入口にTriggerと矢印を設定しました。\n" +
-                "Hierarchyの各 MapConnection_方向 を選択し、" +
-                "Destination Map に接続先のTilemapMapRootを指定してください。", "OK");
+                "MapExitTransitionの移動先も自動登録しました。未接続箇所はConsoleを確認してください。", "OK");
+        }
+
+
+        [MenuItem("MixMaster/Map/全マップの移動先を自動登録・修復")]
+        public static void RegisterAllDestinations()
+        {
+            if (Application.isPlaying) return;
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var roots = Object.FindObjectsByType<TilemapMapRoot>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var index = new System.Collections.Generic.Dictionary<MixMaster.Core.MapSO, TilemapMapRoot>();
+            var duplicates = new System.Collections.Generic.HashSet<MixMaster.Core.MapSO>();
+            foreach (var root in roots)
+            {
+                if (root.gameObject.scene != scene || root.MapDefinition == null) continue;
+                if (index.ContainsKey(root.MapDefinition)) duplicates.Add(root.MapDefinition);
+                else index.Add(root.MapDefinition, root);
+            }
+            foreach (var map in duplicates) index.Remove(map);
+            int linked = 0;
+            var sides = new[] { MapExitDirection.Up, MapExitDirection.Down,
+                MapExitDirection.Left, MapExitDirection.Right };
+            foreach (var root in roots)
+            {
+                var map = root.MapDefinition;
+                if (root.gameObject.scene != scene || map == null || !map.useExplicitDestinations) continue;
+                var targets = new[] { map.destinationUp, map.destinationDown, map.destinationLeft, map.destinationRight };
+                for (int i = 0; i < 4; i++)
+                {
+                    Transform marker = GetConnection(root, sides[i]);
+                    if (marker == null || !marker.gameObject.activeSelf)
+                    {
+                        if (targets[i] != null) Debug.LogWarning("[MapExitMarkerEditorSetup] 出入口未生成。MapSOから再生成してください: " + map.mapId + "/" + sides[i]);
+                        continue;
+                    }
+                    EnsureMarker(marker, sides[i]);
+                    var portal = marker.GetComponent<MapExitTransition>();
+                    TilemapMapRoot target = null;
+                    if (targets[i] != null && targets[i] != map && index.TryGetValue(targets[i], out var candidate))
+                    {
+                        Transform arrival = GetConnection(candidate, MapExitTransition.Opposite(sides[i]));
+                        if (arrival != null && arrival.gameObject.activeSelf) target = candidate;
+                    }
+                    Undo.RecordObject(portal, "Register MapSO Destination");
+                    portal.SetDestinationMap(target);
+                    EditorUtility.SetDirty(portal);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(portal);
+                    if (target != null) linked++;
+                    else if (targets[i] != null) Debug.LogWarning("[MapExitMarkerEditorSetup] 移動先マップ未生成・重複、または反対側入口なし: " +
+                        map.mapId + " -> " + targets[i].mapId + "。全マップを上書き生成してください。", portal);
+                }
+            }
+            EditorSceneManager.MarkSceneDirty(scene);
+            Debug.Log("[MapExitMarkerEditorSetup] MapExitTransition移動先自動登録: " + linked);
+        }
+
+        private static Transform GetConnection(TilemapMapRoot root, MapExitDirection side)
+        {
+            return root.transform.Find("_MapConnectionPoints/MapConnection_" +
+                MapExitTransition.JapaneseName(side));
         }
 
         private static int SetupExisting(
@@ -192,3 +252,4 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+

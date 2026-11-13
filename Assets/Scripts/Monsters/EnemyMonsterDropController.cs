@@ -18,6 +18,19 @@ namespace MixMaster.Monsters
         private DropManager dropManager;
         private AltarManager altarManager;
         private MapManager mapManager;
+        private static int titleCacheFrame = -1;
+        private static int titleCacheScene;
+        private static EnemySpawnPoint[] titleSpawnPoints;
+        private static readonly Dictionary<MonsterSO, List<TitleSO>> frameTitlePools =
+            new Dictionary<MonsterSO, List<TitleSO>>();
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetTitleCache()
+        {
+            titleCacheFrame = -1;
+            titleSpawnPoints = null;
+            frameTitlePools.Clear();
+        }
 
         private void Awake()
         {
@@ -82,6 +95,9 @@ namespace MixMaster.Monsters
                 : AltarBalance.BaseTitleRate;
             TitleSO title =
                 MonsterDropRoller.RollTitle(titlePool, titleChance);
+            int extra=(int)System.Math.Min(1000,SkillProgressionManager.PartyBonus(SkillPassiveType.TitleRolls));
+            // Additional chances apply only until a title is acquired; existing title is preserved.
+            for(int i=0;i<extra&&title==null;i++)title=MonsterDropRoller.RollTitle(titlePool,titleChance);
 
             MonsterDropRollData rollData =
                 new MonsterDropRollData
@@ -125,6 +141,16 @@ namespace MixMaster.Monsters
         private static List<TitleSO> BuildCurrentMapTitlePool(
             MonsterSO currentMonster)
         {
+            int scene = SceneManager.GetActiveScene().handle;
+            if (titleCacheFrame != Time.frameCount || titleCacheScene != scene)
+            {
+                titleCacheFrame = Time.frameCount;
+                titleCacheScene = scene;
+                frameTitlePools.Clear();
+                titleSpawnPoints = FindObjectsByType<EnemySpawnPoint>(FindObjectsSortMode.None);
+            }
+            if (currentMonster != null && frameTitlePools.TryGetValue(currentMonster, out var cached))
+                return cached;
             List<TitleSO> result =
                 new List<TitleSO>();
 
@@ -136,9 +162,7 @@ namespace MixMaster.Monsters
                 unique,
                 result);
 
-            EnemySpawnPoint[] spawnPoints =
-                FindObjectsByType<EnemySpawnPoint>(
-                    FindObjectsSortMode.None);
+            EnemySpawnPoint[] spawnPoints = titleSpawnPoints;
 
             for (int i = 0; i < spawnPoints.Length; i++)
             {
@@ -156,6 +180,7 @@ namespace MixMaster.Monsters
                     result);
             }
 
+            if (currentMonster != null) frameTitlePools[currentMonster] = result;
             return result;
         }
 

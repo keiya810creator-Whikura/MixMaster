@@ -1,5 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,6 +14,7 @@ namespace MixMaster.UI
         {
             public GameObject gameObject;
             public TMP_Text text;
+            public float expiresAt;
         }
 
         [Header("Log")]
@@ -24,20 +25,46 @@ namespace MixMaster.UI
 
         private readonly List<LogEntry> entries =
             new List<LogEntry>();
+        private readonly Queue<LogEntry> available = new Queue<LogEntry>();
+
+        [Header("Position (from safe-area bottom-left)")]
+        [SerializeField] private Vector2 logPosition = new Vector2(24f, 24f);
 
         private RectTransform contentRoot;
+        private bool usingSceneContent;
+        private DisplaySettingsManager displaySettings;
 
         private void Awake()
         {
             BuildUiIfNeeded();
         }
 
+        private void OnEnable()
+        {
+            displaySettings = DisplaySettingsManager.Instance;
+            if (displaySettings != null) displaySettings.Changed += HandleDisplaySettingsChanged;
+            HandleDisplaySettingsChanged();
+        }
+
+        private void OnDisable()
+        {
+            if (displaySettings != null) displaySettings.Changed -= HandleDisplaySettingsChanged;
+            displaySettings = null;
+        }
+
+        private void HandleDisplaySettingsChanged()
+        {
+            if (!DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog)) return;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
+        }
+
         public void AddMaterialLog(
             MaterialSO material,
             long quantity,
-            MaterialDropSourceType sourceType)
+            MaterialDropSourceType sourceType,
+            long totalOwned)
         {
-            if (material == null || quantity <= 0L)
+            if (material == null || quantity <= 0L || DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog))
                 return;
 
             BuildUiIfNeeded();
@@ -47,9 +74,32 @@ namespace MixMaster.UI
                     ? material.displayName
                     : material.materialId;
 
+            LogEntry entry;
+            if (entries.Count >= Mathf.Max(1, maxLines))
+            {
+                entry = entries[0];
+                entries.RemoveAt(0);
+            }
+            else if (available.Count > 0) entry = available.Dequeue();
+            else entry = CreateEntry();
+            entry.gameObject.name = "MaterialLog_" + material.materialId;
+            entry.gameObject.SetActive(true);
+            entry.gameObject.transform.SetAsLastSibling();
+            entry.text.text = materialName + "×" + quantity +
+                " (" + System.Math.Max(0L, totalOwned).ToString("N0", CultureInfo.InvariantCulture) + ")";
+            entry.text.color = GetSourceColor(sourceType);
+            entry.text.fontSize = fontSize;
+            ((RectTransform)entry.gameObject.transform).sizeDelta = new Vector2(520f, fontSize + 12f);
+            entry.expiresAt = Time.time + visibleSeconds;
+            entries.Add(entry);
+            while (entries.Count > Mathf.Max(1, maxLines)) RemoveEntry(entries[0]);
+        }
+
+        private LogEntry CreateEntry()
+        {
             GameObject lineObject =
                 new GameObject(
-                    "MaterialLog_" + material.materialId,
+                    "MaterialLog",
                     typeof(RectTransform));
 
             lineObject.transform.SetParent(
@@ -59,11 +109,6 @@ namespace MixMaster.UI
             TextMeshProUGUI text =
                 lineObject.AddComponent<TextMeshProUGUI>();
 
-            text.text =
-                materialName +
-                "×" +
-                quantity;
-
             text.fontSize = fontSize;
             text.fontStyle = FontStyles.Bold;
             text.alignment =
@@ -71,7 +116,6 @@ namespace MixMaster.UI
 
             text.enableWordWrapping = false;
             text.raycastTarget = false;
-            text.color = GetSourceColor(sourceType);
 
             RectTransform rect =
                 lineObject.GetComponent<RectTransform>();
@@ -79,56 +123,30 @@ namespace MixMaster.UI
             rect.sizeDelta =
                 new Vector2(520f, fontSize + 12f);
 
-            LogEntry entry =
+            return
                 new LogEntry
                 {
                     gameObject = lineObject,
                     text = text
                 };
 
-            entries.Add(entry);
-
-            while (entries.Count > maxLines)
-            {
-                RemoveEntry(entries[0]);
-            }
-
-            StartCoroutine(
-                FadeAndRemove(entry));
         }
 
-        private IEnumerator FadeAndRemove(
-            LogEntry entry)
+        private void Update()
         {
-            yield return
-                new WaitForSeconds(visibleSeconds);
-
-            if (entry == null ||
-                entry.text == null)
+            if (DisplaySettingsManager.IsDisabled(DisplayOption.MaterialLog))
+            { HandleDisplaySettingsChanged(); return; }
+            for (int i = entries.Count - 1; i >= 0; i--)
             {
-                yield break;
-            }
-
-            float elapsed = 0f;
-            Color startColor = entry.text.color;
-
-            while (elapsed < fadeSeconds &&
-                   entry.text != null)
-            {
-                elapsed += Time.deltaTime;
-
-                float t =
-                    Mathf.Clamp01(
-                        elapsed / fadeSeconds);
-
-                Color color = startColor;
-                color.a = 1f - t;
+                var entry = entries[i];
+                float elapsed = Time.time - entry.expiresAt;
+                if (elapsed < 0f) continue;
+                if (entry.text == null || elapsed >= Mathf.Max(.1f, fadeSeconds))
+                { RemoveEntry(entry); continue; }
+                Color color = entry.text.color;
+                color.a = 1f - Mathf.Clamp01(elapsed / Mathf.Max(.1f, fadeSeconds));
                 entry.text.color = color;
-
-                yield return null;
             }
-
-            RemoveEntry(entry);
         }
 
         private void RemoveEntry(LogEntry entry)
@@ -139,7 +157,37 @@ namespace MixMaster.UI
             entries.Remove(entry);
 
             if (entry.gameObject != null)
-                Destroy(entry.gameObject);
+            {
+                entry.gameObject.SetActive(false);
+                if (available.Count < Mathf.Max(1, maxLines)) available.Enqueue(entry);
+                else Destroy(entry.gameObject);
+            }
+        }
+
+        public void UseSceneContent(RectTransform root)
+        {
+            if (root == null || contentRoot == root) return;
+            Canvas oldCanvas = contentRoot != null ? contentRoot.GetComponentInParent<Canvas>() : null;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
+            while (available.Count > 0)
+            {
+                var entry = available.Dequeue();
+                if (entry.gameObject != null) Destroy(entry.gameObject);
+            }
+            contentRoot = root; usingSceneContent = true;
+            RuntimeUiLayoutSettings.Queue(root);
+            if (oldCanvas != null && oldCanvas.transform.IsChildOf(transform)) Destroy(oldCanvas.gameObject);
+        }
+        public void ReleaseSceneContent(RectTransform root)
+        {
+            if (contentRoot != root) return;
+            while (entries.Count > 0) RemoveEntry(entries[entries.Count - 1]);
+            while (available.Count > 0)
+            {
+                var entry = available.Dequeue();
+                if (entry.gameObject != null) Destroy(entry.gameObject);
+            }
+            contentRoot = null; usingSceneContent = false;
         }
 
         private void BuildUiIfNeeded()
@@ -201,7 +249,7 @@ namespace MixMaster.UI
                 new Vector2(0f, 0f);
 
             contentRoot.anchoredPosition =
-                new Vector2(24f, 24f);
+                logPosition;
 
             contentRoot.sizeDelta =
                 new Vector2(540f, 300f);
@@ -259,6 +307,7 @@ namespace MixMaster.UI
             visibleSeconds = Mathf.Max(0.5f, visibleSeconds);
             fadeSeconds = Mathf.Max(0.1f, fadeSeconds);
             fontSize = Mathf.Max(10f, fontSize);
+            if (contentRoot != null && !usingSceneContent) contentRoot.anchoredPosition = logPosition;
         }
 #endif
     }

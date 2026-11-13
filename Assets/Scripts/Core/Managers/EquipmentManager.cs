@@ -15,6 +15,8 @@ namespace MixMaster.Core
 
         private readonly List<EquipmentRecord> inventory = new List<EquipmentRecord>();
         private readonly List<string> playerEquipmentUniqueIds = new List<string>();
+        private readonly HashSet<string> acquiredEquipmentIds =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private MonsterManager monsterManager;
         private bool enhancing;
 
@@ -55,10 +57,25 @@ namespace MixMaster.Core
                 CreateEquipment("EQP_002", 50, 1L, false);
         }
 
+        public bool HasAcquiredEquipment(string equipmentId) => acquiredEquipmentIds.Contains(equipmentId);
+
+        public List<string> CaptureAcquiredEquipment()
+        {
+            var ids = new List<string>(acquiredEquipmentIds);
+            ids.Sort(StringComparer.OrdinalIgnoreCase);
+            return ids;
+        }
+
         public void RestoreEquipment(
             IReadOnlyList<EquipmentRecord> savedInventory,
-            IReadOnlyList<string> savedPlayerEquippedIds)
+            IReadOnlyList<string> savedPlayerEquippedIds,
+            IReadOnlyList<string> savedAcquiredEquipmentIds = null)
         {
+            acquiredEquipmentIds.Clear();
+            if (savedAcquiredEquipmentIds != null)
+                foreach (string id in savedAcquiredEquipmentIds)
+                    if (!string.IsNullOrWhiteSpace(id)) acquiredEquipmentIds.Add(id);
+
             inventory.Clear();
             playerEquipmentUniqueIds.Clear();
             var uniqueIds = new HashSet<string>(StringComparer.Ordinal);
@@ -72,6 +89,7 @@ namespace MixMaster.Core
                     EquipmentEnhancement.Normalize(item);
                     item.baseValue = Math.Max(0L, item.baseValue);
                     inventory.Add(item);
+                    if (!string.IsNullOrWhiteSpace(item.equipmentId)) acquiredEquipmentIds.Add(item.equipmentId);
                 }
 
             if (savedPlayerEquippedIds != null)
@@ -107,6 +125,7 @@ namespace MixMaster.Core
                 if (origin != null) item.sourceMapId = origin.mapId;
             }
             inventory.Add(item);
+            if (!string.IsNullOrWhiteSpace(item.equipmentId)) acquiredEquipmentIds.Add(item.equipmentId);
 
             // Reuse the ordinary validated sale path, including gold credit.
             // Starter grants bypass this to avoid immediately selling a new
@@ -194,6 +213,70 @@ namespace MixMaster.Core
                 record.sourceMapId = cost.map.mapId;
 
                 game.NotifyGoldChanged();
+                materials.NotifyConsumedSet(cost.materials, cost.amountPerMaterial);
+                InventoryChanged?.Invoke();
+                EquipmentChanged?.Invoke();
+                return true;
+            }
+            finally { enhancing = false; }
+        }
+
+        public bool CanReforgeEquipment(string uniqueId,
+            out EquipmentEnhancementCost cost, out string error)
+        {
+            cost = null;
+            error = string.Empty;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            if (record == null || GetEquipmentDefinition(record.equipmentId) == null)
+            { error = "装備が見つかりません。"; return false; }
+            MapSO map = ResolveEnhancementMap(record);
+            if (!EquipmentEnhancement.TryGetMaterials(map, out List<MaterialSO> required,
+                out error)) return false;
+            cost = new EquipmentEnhancementCost
+            {
+                map = map, amountPerMaterial = EquipmentReforging.MaterialCost
+            };
+            cost.materials.AddRange(required);
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+            if (materials == null)
+            { error = "素材管理を確認してください。"; return false; }
+            foreach (MaterialSO material in cost.materials)
+                if (materials.GetAmount(material) < cost.amountPerMaterial)
+                { error = "再錬成素材が不足しています（6種を各50,000個）。"; return false; }
+            return true;
+        }
+
+        public int GetReforgeMinimumPercent(EquipmentRecord record)
+        {
+            MapSO map = ResolveEnhancementMap(record);
+            if (map == null) return 1;
+            AltarManager altar = GetComponent<AltarManager>() ?? FindFirstObjectByType<AltarManager>();
+            return altar == null ? 1 : 1 + altar.GetDungeonAppliedLevel(
+                map.mapId, DungeonUpgradeType.ReforgeResearch);
+        }
+
+        public bool TryReforgeEquipment(string uniqueId, out string error)
+        {
+            error = string.Empty;
+            if (enhancing) { error = "装備の更新中です。"; return false; }
+            if (!CanReforgeEquipment(uniqueId, out EquipmentEnhancementCost cost, out error)) return false;
+            EquipmentRecord record = FindEquipment(uniqueId);
+            MaterialInventoryManager materials = GetComponent<MaterialInventoryManager>() ??
+                FindFirstObjectByType<MaterialInventoryManager>();
+            int nextOriginalLevel = UnityEngine.Random.Range(
+                EquipmentReforging.MinimumLevel(record), EquipmentReforging.MaximumLevel(record) + 1);
+            int nextDropRatePercent = UnityEngine.Random.Range(GetReforgeMinimumPercent(record), 101);
+            enhancing = true;
+            try
+            {
+                // Commit resource and equipment before any listeners can run.
+                if (!materials.TryConsumeSet(cost.materials, cost.amountPerMaterial))
+                { error = "再錬成素材が不足しています。"; return false; }
+                EquipmentEnhancement.Normalize(record);
+                record.originalLevel = nextOriginalLevel;
+                record.level = record.originalLevel + record.enhancementCount;
+                record.reforgeDropRatePercent = nextDropRatePercent;
                 materials.NotifyConsumedSet(cost.materials, cost.amountPerMaterial);
                 InventoryChanged?.Invoke();
                 EquipmentChanged?.Invoke();
@@ -320,12 +403,12 @@ namespace MixMaster.Core
         {
             EquipmentSO def = record != null
                 ? GetEquipmentDefinition(record.equipmentId) : null;
-            if (def == null || def.modifiers == null)
+            if (def == null)
                 return StatPercentageModifiers.CreateZero();
 
             float scale = Mathf.Clamp(effectiveLevel,
                 MinEquipmentLevel, MaxEnhancedEquipmentLevel);
-            StatPercentageModifiers src = def.modifiers;
+            StatPercentageModifiers src = def.modifiers ?? StatPercentageModifiers.CreateZero();
             ElementResistanceSet r = src.resistanceBonus;
             return new StatPercentageModifiers
             {
@@ -340,7 +423,7 @@ namespace MixMaster.Core
                 moveSpeed = src.moveSpeed * scale,
                 attackSpeed = src.attackSpeed * scale,
                 attackRange = src.attackRange * scale,
-                dropRateBonus = src.dropRateBonus * scale,
+                dropRateBonus = src.dropRateBonus * scale + EquipmentReforging.DropRateBonus(record),
                 resistanceBonus = new ElementResistanceSet
                 {
                     fire = r != null ? r.fire * scale : 0f,
@@ -500,6 +583,54 @@ namespace MixMaster.Core
             InventoryChanged?.Invoke();
             EquipmentChanged?.Invoke();
             return true;
+        }
+
+        internal bool ApplyPresetEquipment(IReadOnlyList<PartyPresetActor> actors)
+        {
+            var taken = new HashSet<string>(StringComparer.Ordinal);
+            var targets = new HashSet<string>(StringComparer.Ordinal);
+            bool changed = false;
+            foreach (PartyPresetActor actor in actors)
+            {
+                targets.Add(actor.ownerId);
+                IReadOnlyList<string> current = actor.ownerId == "player"
+                    ? playerEquipmentUniqueIds : Monsters.FindOwnedMonster(actor.ownerId).equippedItemUniqueIds;
+                for (int i = 0; i < MaxEquipmentSlots; i++)
+                {
+                    string a = current != null && i < current.Count ? current[i] : string.Empty;
+                    if ((a ?? string.Empty) != (actor.equipmentIds[i] ?? string.Empty)) changed = true;
+                }
+                foreach (string id in actor.equipmentIds)
+                    if (!string.IsNullOrWhiteSpace(id)) taken.Add(id);
+            }
+            for (int i = 0; i < playerEquipmentUniqueIds.Count; i++)
+                if (targets.Contains("player") || taken.Contains(playerEquipmentUniqueIds[i])) playerEquipmentUniqueIds[i] = string.Empty;
+            if (Monsters != null) foreach (OwnedMonsterRecord record in Monsters.OwnedMonsters)
+            {
+                if (record?.equippedItemUniqueIds == null) continue;
+                for (int i = 0; i < record.equippedItemUniqueIds.Count; i++)
+                    if (targets.Contains(record.uniqueId) || taken.Contains(record.equippedItemUniqueIds[i]))
+                    {
+                        if (!targets.Contains(record.uniqueId) && !string.IsNullOrWhiteSpace(record.equippedItemUniqueIds[i])) changed = true;
+                        record.equippedItemUniqueIds[i] = string.Empty;
+                    }
+            }
+            foreach (PartyPresetActor actor in actors)
+            {
+                if (actor.ownerId == "player")
+                {
+                    playerEquipmentUniqueIds.Clear();
+                    playerEquipmentUniqueIds.AddRange(actor.equipmentIds);
+                }
+                else Monsters.FindOwnedMonster(actor.ownerId).equippedItemUniqueIds = new List<string>(actor.equipmentIds);
+            }
+            return changed;
+        }
+
+        internal void NotifyPresetEquipmentChanged()
+        {
+            InventoryChanged?.Invoke();
+            EquipmentChanged?.Invoke();
         }
 
         private static bool ClearEquippedSlots(List<string> slots)

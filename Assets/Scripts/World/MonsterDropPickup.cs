@@ -18,13 +18,31 @@ namespace MixMaster.World
         [SerializeField, Min(0.01f)] private float collectDistance = 0.15f;
 
         private MonsterDropRollData rollData;
+        private static PlayerController sharedPlayer;
+        private static MonsterManager sharedMonsters;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedReferences()
+        {
+            sharedPlayer = null;
+            sharedMonsters = null;
+        }
+
         private Transform playerTarget;
         private MonsterManager monsterManager;
 
         private float age;
         private float currentSpeed;
+        [SerializeField] private bool logIndividualValues;
         private bool initialized;
         private bool collected;
+        private DropManager poolOwner;
+        internal void SetPoolOwner(DropManager owner) => poolOwner = owner;
+        internal void ClearForPool()
+        {
+            initialized = false; collected = true; age = 0f; currentSpeed = 0f;
+            rollData = null;
+        }
+
 
         public MonsterDropRollData RollData => rollData;
 
@@ -109,7 +127,7 @@ namespace MixMaster.World
             if (playerTarget == null)
             {
                 PlayerController player =
-                    FindFirstObjectByType<PlayerController>();
+                    (sharedPlayer != null ? sharedPlayer : (sharedPlayer = FindFirstObjectByType<PlayerController>()));
 
                 if (player != null)
                     playerTarget = player.transform;
@@ -118,7 +136,7 @@ namespace MixMaster.World
             if (monsterManager == null)
             {
                 monsterManager =
-                    FindFirstObjectByType<MonsterManager>();
+                    (sharedMonsters != null ? sharedMonsters : (sharedMonsters = FindFirstObjectByType<MonsterManager>()));
             }
         }
 
@@ -163,14 +181,15 @@ namespace MixMaster.World
                         rollData.individualValues,
                         rollData.title);
 
-                Debug.Log(
+                if (logIndividualValues) Debug.Log(
                     BuildObtainedLog(
                         rollData,
                         obtained),
                     this);
             }
 
-            Destroy(gameObject);
+            if (poolOwner != null) poolOwner.RecycleMonster(this);
+            else Destroy(gameObject);
         }
 
         private static string BuildObtainedLog(

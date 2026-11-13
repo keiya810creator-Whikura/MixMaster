@@ -77,6 +77,100 @@ namespace MixMaster.EditorTools
             public TileBase Cross;
         }
 
+
+        private static bool batchGenerating;
+        private static bool generationSucceeded;
+
+        [MenuItem("MixMaster/Map/保存済みJSONから全マップ上書き生成・移動先自動設定")]
+        public static void GenerateAllSavedLayouts()
+        {
+            if (Application.isPlaying) return;
+            const string folder = "Assets/Data/MapLayouts";
+            if (!AssetDatabase.IsValidFolder(folder)) return;
+            var maps = new List<MapSO>();
+            foreach (string guid in AssetDatabase.FindAssets("t:MapSO"))
+            {
+                var map = AssetDatabase.LoadAssetAtPath<MapSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (map != null) maps.Add(map);
+            }
+            maps.Sort((a,b) => EditorUtility.NaturalCompare(a.mapId, b.mapId));
+            int count = 0, skipped = 0;
+            Undo.IncrementCurrentGroup();
+            int group = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName("Regenerate All Maps And Connections");
+            batchGenerating = true;
+            try
+            {
+                for (int i = 0; i < maps.Count; i++)
+                {
+                    MapSO map = maps[i];
+                    // Hand-authored towns stay intact; final registration still finds their scene roots.
+                    if (map.isTown) { skipped++; continue; }
+                    EditorUtility.DisplayProgressBar("マップ一括生成", map.displayName,
+                        (float)i / Mathf.Max(1, maps.Count));
+                    TextAsset json = ResolveSavedLayout(map, folder);
+                    if (json == null)
+                    {
+                        Debug.LogWarning("[TilemapLayoutGenerator] JSON未検出または重複: " + map.mapId);
+                        skipped++; continue;
+                    }
+                    generationSucceeded = false;
+                    try { Generate(json, map); }
+                    catch (Exception ex) { Debug.LogException(ex); }
+                    if (!generationSucceeded) { skipped++; continue; }
+                    Undo.RecordObject(map, "Attach Saved Layout");
+                    map.layoutJson = json;
+                    map.layoutJsonName = Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(json));
+                    EditorUtility.SetDirty(map);
+                    TilemapMapRoot root = FindExistingMapRoot(map, "");
+                    if (root == null) { skipped++; continue; }
+                    count++;
+                }
+                MapExitMarkerEditorSetup.RegisterAllDestinations();
+                AssetDatabase.SaveAssets();
+                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+                Debug.Log("[TilemapLayoutGenerator] 一括生成 " + count +
+                    " / スキップ " + skipped);
+            }
+            finally
+            {
+                batchGenerating = false;
+                EditorUtility.ClearProgressBar();
+                Undo.CollapseUndoOperations(group);
+            }
+        }
+
+        private static Transform ConnectionMarker(TilemapMapRoot root, MapExitDirection side)
+        {
+            return root.transform.Find("_MapConnectionPoints/MapConnection_" +
+                MapExitTransition.JapaneseName(side));
+        }
+
+        private static TextAsset ResolveSavedLayout(MapSO map, string folder)
+        {
+            if (map.layoutJson != null && AssetDatabase.GetAssetPath(map.layoutJson)
+                .EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return map.layoutJson;
+            string key = (map.layoutJsonName ?? "").Trim();
+            if (key.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                key = key.Substring(0, key.Length - 5);
+            foreach (string name in new[] { key, map.displayName })
+            {
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                TextAsset match = null;
+                foreach (string guid in AssetDatabase.FindAssets("t:TextAsset", new[] { folder }))
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
+                        !Path.GetFileNameWithoutExtension(path).Equals(name,
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (match != null) return null;
+                    match = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                }
+                if (match != null) return match;
+            }
+            return null;
+        }
+
         private const int RoadHalfWidth = 1; // 3-tile-wide walkable roads.
 
 
@@ -152,7 +246,8 @@ namespace MixMaster.EditorTools
             MovePlayerToMapSpawn(target);
             EditorSceneManager.MarkSceneDirty(target.gameObject.scene);
             Selection.activeGameObject = target.gameObject;
-            SceneView.lastActiveSceneView?.FrameSelected();
+            generationSucceeded = true;
+            if (!batchGenerating) SceneView.lastActiveSceneView?.FrameSelected();
         }
 
         [MenuItem("MixMaster/Map/選択MapSOからTilemap生成", true)]
@@ -281,8 +376,20 @@ namespace MixMaster.EditorTools
             spritePathIndex = null; // Refresh atlas index for each generation.
 
             bool hasDungeonContent = HasDungeonContent(mapDefinition);
+            // Explicit JSON markers also work before dungeon rewards are configured.
+            foreach (string row in layout.rows)
+                if (row != null && (row.IndexOf('A') >= 0 || row.IndexOf('D') >= 0))
+                    hasDungeonContent = true;
             ConnectionDirection connections;
-            if (layout.hasExitSettings)
+            if (mapDefinition != null && mapDefinition.useExplicitDestinations)
+            {
+                connections = ConnectionDirection.None;
+                if (mapDefinition.destinationUp != null) connections |= ConnectionDirection.Up;
+                if (mapDefinition.destinationDown != null) connections |= ConnectionDirection.Down;
+                if (mapDefinition.destinationLeft != null) connections |= ConnectionDirection.Left;
+                if (mapDefinition.destinationRight != null) connections |= ConnectionDirection.Right;
+            }
+            else if (layout.hasExitSettings)
             {
                 // Terrain CSV is authoritative, including explicit FALSE.
                 connections = ConnectionDirection.None;
@@ -305,9 +412,13 @@ namespace MixMaster.EditorTools
             int originX = -(layout.width / 2);
             int originY = -(layout.height / 2);
 
-            // Current terrain JSON already contains its authoritative
-            // one-cell center roads. Never overlay a wider second network.
-            if (!layout.hasExitSettings &&
+            // Keep existing one-cell roads when the saved JSON already agrees.
+            bool exitsChanged = mapDefinition != null && mapDefinition.useExplicitDestinations &&
+                (layout.exitUp != (mapDefinition.destinationUp != null) ||
+                 layout.exitDown != (mapDefinition.destinationDown != null) ||
+                 layout.exitLeft != (mapDefinition.destinationLeft != null) ||
+                 layout.exitRight != (mapDefinition.destinationRight != null));
+            if ((!layout.hasExitSettings || exitsChanged) &&
                 connections != ConnectionDirection.None)
             {
                 roadOverlay = BuildRoadOverlay(
@@ -574,6 +685,7 @@ namespace MixMaster.EditorTools
 
             AssetDatabase.SaveAssets();
             EditorSceneManager.MarkSceneDirty(mapRoot.gameObject.scene);
+            if (!batchGenerating) MapExitMarkerEditorSetup.RegisterAllDestinations();
 
             Selection.activeGameObject =
                 mapRoot.gameObject;
@@ -1615,6 +1727,7 @@ namespace MixMaster.EditorTools
             ConnectionDirection connections, bool hasDungeonContent)
         {
             var result = new Dictionary<Vector3Int, int>();
+            int halfWidth = layout.hasExitSettings ? 0 : RoadHalfWidth;
             int midX = originX + layout.width / 2;
             int midY = originY + layout.height / 2;
             int maxX = originX + layout.width - 1;
@@ -1622,16 +1735,23 @@ namespace MixMaster.EditorTools
 
             if ((connections & ConnectionDirection.Up) != 0)
                 AddVerticalRoad(result, midX, midY, maxY,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Down) != 0)
                 AddVerticalRoad(result, midX, originY, midY,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Left) != 0)
                 AddHorizontalRoad(result, midY, originX, midX,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
             if ((connections & ConnectionDirection.Right) != 0)
                 AddHorizontalRoad(result, midY, midX, maxX,
-                    originX, originY, layout.width, layout.height);
+                    originX, originY, layout.width, layout.height, halfWidth);
+
+            if (layout.hasExitSettings)
+            {
+                // Modern layouts keep their one-cell roads and building buffers.
+                result[new Vector3Int(midX, midY, 0)] = 3;
+                return result;
+            }
 
             // Connect spawn and usable buildings to the hub, then to the
             // designated map edge(s). No dead-end random branches.
@@ -1657,9 +1777,9 @@ namespace MixMaster.EditorTools
                     int px = originX + x;
                     int py = originY + layout.height - 1 - rowIndex;
                     AddVerticalRoad(result, px, py, midY,
-                        originX, originY, layout.width, layout.height);
+                        originX, originY, layout.width, layout.height, halfWidth);
                     AddHorizontalRoad(result, midY, px, midX,
-                        originX, originY, layout.width, layout.height);
+                        originX, originY, layout.width, layout.height, halfWidth);
                 }
             }
             return result;
@@ -1667,20 +1787,20 @@ namespace MixMaster.EditorTools
 
         private static void AddVerticalRoad(
             Dictionary<Vector3Int, int> cells, int x, int y0, int y1,
-            int originX, int originY, int width, int height)
+            int originX, int originY, int width, int height, int halfWidth = RoadHalfWidth)
         {
             for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++)
-            for (int dx = -RoadHalfWidth; dx <= RoadHalfWidth; dx++)
+            for (int dx = -halfWidth; dx <= halfWidth; dx++)
                 AddRoadCell(cells, x + dx, y, 1,
                     originX, originY, width, height);
         }
 
         private static void AddHorizontalRoad(
             Dictionary<Vector3Int, int> cells, int y, int x0, int x1,
-            int originX, int originY, int width, int height)
+            int originX, int originY, int width, int height, int halfWidth = RoadHalfWidth)
         {
             for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++)
-            for (int dy = -RoadHalfWidth; dy <= RoadHalfWidth; dy++)
+            for (int dy = -halfWidth; dy <= halfWidth; dy++)
                 AddRoadCell(cells, x, y + dy, 2,
                     originX, originY, width, height);
         }
@@ -1955,3 +2075,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
+

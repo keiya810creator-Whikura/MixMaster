@@ -49,7 +49,12 @@ namespace MixMaster.UI
             }
         }
         private void OnEnable() { Connect(); Refresh(); }
-        private void Update() { if (manager == null) { Connect(); Refresh(); } }
+        private int lastCooldown = -1;
+        private void Update()
+        {
+            if (manager == null) { Connect(); Refresh(); return; }
+            if (!shopMode && Mathf.CeilToInt(manager.RecoveryCooldownRemaining) != lastCooldown) Refresh();
+        }
         private void OnDisable()
         {
             if (manager != null) manager.Changed -= Refresh;
@@ -80,6 +85,7 @@ namespace MixMaster.UI
         private void GoldChanged(long value) => Refresh();
         public void Refresh()
         {
+            lastCooldown = manager != null ? Mathf.CeilToInt(manager.RecoveryCooldownRemaining) : 0;
             if (goldText != null) goldText.text = "所持ゴールド " + (game != null ? game.Gold : 0L).ToString("N0") + " G";
             if (manager == null || manager.Catalog == null || manager.Catalog.items == null || rowsRoot == null || rowPrefab == null) return;
             int index = 0;
@@ -92,7 +98,7 @@ namespace MixMaster.UI
                 bool canBuy = game != null && item.purchasePrice >= 0 && item.purchasePrice <= long.MaxValue / amount &&
                     game.Gold >= item.purchasePrice * amount && manager.Quantity(id) <= long.MaxValue - amount;
                 row.Bind(item, manager.Quantity(id), shopMode, amount, canBuy,
-                    () => Act(id), () => Select(id));
+                    () => Act(id), () => Select(id), shopMode ? 0f : manager.CooldownRemaining(id));
             }
             for (int i = index; i < rows.Count; i++) rows[i].gameObject.SetActive(false);
             if (hpAutoUse != null) hpAutoUse.Bind(manager);

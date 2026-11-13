@@ -11,6 +11,7 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class EquipmentInventoryUI : MonoBehaviour
     {
+        public const string ResourcePath = "UI/EquipmentInventory/EquipmentInventoryPanel";
         [Header("Inventory")]
         [SerializeField] private RectTransform contentRoot;
         [SerializeField] private TMP_Text countText;
@@ -132,6 +133,31 @@ namespace MixMaster.UI
         public void Open()
         {
             OpenInventory(false, null);
+        }
+
+        public static EquipmentInventoryUI OpenDefault(Transform parent)
+        {
+            if (parent == null) return null;
+            var inventory = parent.GetComponentInChildren<EquipmentInventoryUI>(true);
+            if (inventory == null)
+                inventory = FindFirstObjectByType<EquipmentInventoryUI>(FindObjectsInactive.Include);
+            if (inventory == null)
+            {
+                var prefab = Resources.Load<GameObject>(ResourcePath);
+                if (prefab == null) { Debug.LogWarning("[EquipmentInventory] 装備インベントリPrefabが見つかりません。"); return null; }
+                var instance = Instantiate(prefab, parent, false);
+                var rect = instance.GetComponent<RectTransform>();
+                if (rect != null)
+                {
+                    rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+                    rect.offsetMin = Vector2.zero; rect.offsetMax = Vector2.zero;
+                }
+                inventory = instance.GetComponent<EquipmentInventoryUI>();
+            }
+            // A HUD button opens the player's ordinary inventory, including
+            // when a reused screen last displayed a monster or blacksmith.
+            if (inventory != null) inventory.Open();
+            return inventory;
         }
 
         public void OpenForMonster(OwnedMonsterRecord monster)
@@ -429,10 +455,10 @@ namespace MixMaster.UI
                 row.transform.Find("Summary").GetComponent<TMP_Text>();
             string equippedOwner =
                 manager.GetEquippedOwner(record.uniqueId);
+            summary.richText = true;
             summary.text = EquipmentRarityUtility.FormatInventoryName(name, record) + "\n" +
                 (definition != null
-                    ? InventoryStatFilter.FormatModifiers(
-                        manager.GetScaledModifiers(record))
+                    ? InventoryStatFilter.FormatEquipmentModifiers(manager, record)
                     : "装備定義が見つかりません") +
                 (!string.IsNullOrEmpty(equippedOwner)
                     ? "  [装備中]" : "");
@@ -578,10 +604,10 @@ namespace MixMaster.UI
             if (detailText != null)
             {
                 string owner = manager.GetEquippedOwner(record.uniqueId);
+                detailText.richText = true;
                 detailText.text = EquipmentRarityUtility.FormatInventoryName(name, record) +
                     "\n" + (definition != null
-                        ? InventoryStatFilter.FormatModifiers(
-                            manager.GetScaledModifiers(record)) +
+                        ? InventoryStatFilter.FormatEquipmentModifiers(manager, record) +
                             "\n" + definition.description
                         : "装備定義が未登録です。") +
                     (string.IsNullOrEmpty(owner) ? "" :

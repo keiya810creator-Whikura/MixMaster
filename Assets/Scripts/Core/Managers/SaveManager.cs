@@ -175,8 +175,14 @@ namespace MixMaster.Core
         {
             GameSaveData data = new GameSaveData();
             data.savedUtc = DateTime.UtcNow.ToString("o");
+            data.journal = GetComponent<GameJournalManager>()?.Capture();
+            data.displaySettings = GetComponent<DisplaySettingsManager>()?.Capture();
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
+            data.skills = GetComponent<SkillProgressionManager>()?.Capture();
+            data.partyPresets = GetComponent<PartyPresetManager>()?.Capture() ?? new List<PartyPresetRecord>();
+            data.defeatedMonsterIds = GetComponent<EncyclopediaManager>()?.Capture()
+                ?? new List<string>();
 
             GameManager game = GetComponent<GameManager>();
             MapManager map = GetComponent<MapManager>();
@@ -196,8 +202,12 @@ namespace MixMaster.Core
                 data.mapId = game.CurrentMapId;
             }
 
-            if (map != null && !string.IsNullOrWhiteSpace(map.CurrentMapId))
-                data.mapId = map.CurrentMapId;
+            if (map != null)
+            {
+                if (!string.IsNullOrWhiteSpace(map.CurrentMapId))
+                    data.mapId = map.CurrentMapId;
+                data.visitedMapIds = map.CaptureVisitedMaps();
+            }
 
             if (player != null)
             {
@@ -219,6 +229,7 @@ namespace MixMaster.Core
 
             if (monster != null)
             {
+                data.acquiredMonsterIds = monster.CaptureAcquiredMonsters();
                 data.monsters = new List<OwnedMonsterRecord>(
                     monster.OwnedMonsters);
                 data.partyIds = new List<string>(
@@ -245,6 +256,7 @@ namespace MixMaster.Core
             if (equipment != null)
             {
                 data.starterEquipmentGranted = starterEquipmentGranted;
+                data.acquiredEquipmentIds = equipment.CaptureAcquiredEquipment();
                 data.equipment = new List<EquipmentRecord>(
                     equipment.Inventory);
                 data.playerEquippedIds = new List<string>(
@@ -257,6 +269,7 @@ namespace MixMaster.Core
             {
                 data.offlineProfile = OfflineRewardRules.CopyProfile(offline.LastCompletedProfile);
                 data.offlinePendingProfile = OfflineRewardRules.CopyProfile(offline.PendingProfile);
+                data.hasOfflinePendingProfile = offline.PendingProfile != null;
                 data.offlineCheckpointUtc = offline.CheckpointUtcForSave;
             }
 
@@ -295,6 +308,9 @@ namespace MixMaster.Core
 
         private void Apply(GameSaveData data)
         {
+            GetComponent<GameJournalManager>()?.Restore(data.journal);
+            // Apply display preferences before restoring combat/party actors.
+            GetComponent<DisplaySettingsManager>()?.Restore(data.displaySettings);
             GameManager game = GetComponent<GameManager>();
             MapManager map = GetComponent<MapManager>();
             PlayerManager player = GetComponent<PlayerManager>();
@@ -308,7 +324,7 @@ namespace MixMaster.Core
 
             if (equipment != null)
                 equipment.RestoreEquipment(
-                    data.equipment, data.playerEquippedIds);
+                    data.equipment, data.playerEquippedIds, data.acquiredEquipmentIds);
 
             starterEquipmentGranted =
                 data.version >= 3 && data.starterEquipmentGranted;
@@ -334,7 +350,15 @@ namespace MixMaster.Core
             }
 
             if (map != null)
+            {
+                var visited = data.visitedMapIds ?? new List<string>();
+                // A legacy exploration save identifies at least its last field.
+                if ((data.gameMode == GameMode.Exploration || data.gameMode == GameMode.Dungeon) &&
+                    !string.IsNullOrWhiteSpace(data.mapId))
+                    visited.Add(data.mapId);
+                map.RestoreVisitedMaps(visited);
                 map.RestoreMapId(data.mapId);
+            }
 
             if (player != null)
                 player.RestoreReincarnationProgress(
@@ -356,7 +380,8 @@ namespace MixMaster.Core
                 offline.RestoreProgress(data.offlineProfile,
                     data.version >= 11 ? data.offlinePendingProfile : null,
                     data.version >= 11 && !string.IsNullOrWhiteSpace(data.offlineCheckpointUtc)
-                        ? data.offlineCheckpointUtc : data.savedUtc);
+                        ? data.offlineCheckpointUtc : data.savedUtc,
+                    data.version >= 20 ? (bool?)data.hasOfflinePendingProfile : null);
 
             if (monster != null)
             {
@@ -364,7 +389,7 @@ namespace MixMaster.Core
                     data.version >= 4
                         ? data.partyCombatOrder
                         : PartyCombatOrder.Individual);
-                monster.RestoreMonsters(data.monsters, data.partyIds);
+                monster.RestoreMonsters(data.monsters, data.partyIds, data.acquiredMonsterIds);
             }
 
             ReincarnationManager reincarnation = GetComponent<ReincarnationManager>();
@@ -391,6 +416,9 @@ namespace MixMaster.Core
 
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) consumables.Restore(data.consumables);
+            GetComponent<SkillProgressionManager>()?.Restore(data.skills);
+            GetComponent<PartyPresetManager>()?.Restore(data.partyPresets);
+            GetComponent<EncyclopediaManager>()?.Restore(data.defeatedMonsterIds);
 
             // Saved coordinates are retained in the file for compatibility,
             // but a new application session always starts in the village.

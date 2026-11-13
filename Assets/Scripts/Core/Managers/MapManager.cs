@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -10,6 +11,20 @@ namespace MixMaster.Core
 
         public event Action<string> MapChanged;
 
+        private readonly HashSet<string> visitedMaps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public bool HasVisitedMap(string mapId) => !string.IsNullOrWhiteSpace(mapId) && visitedMaps.Contains(mapId);
+
+        public List<string> CaptureVisitedMaps() => new List<string>(visitedMaps);
+
+        public void RestoreVisitedMaps(IEnumerable<string> savedIds)
+        {
+            visitedMaps.Clear();
+            if (savedIds == null) return;
+            foreach (string id in savedIds)
+                if (!string.IsNullOrWhiteSpace(id)) visitedMaps.Add(id);
+        }
+
         public void RestoreMapId(string mapId)
         {
             CurrentMapId = mapId ?? string.Empty;
@@ -18,7 +33,13 @@ namespace MixMaster.Core
 
         public void EnterMap(string mapId)
         {
+            if (MapCatalogSO.Load()?.GetMap(mapId)?.isTown == true)
+            {
+                EnterTown(mapId);
+                return;
+            }
             CurrentMapId = mapId ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(CurrentMapId)) visitedMaps.Add(CurrentMapId);
 
             if (GameManager.Instance != null)
             {
@@ -27,6 +48,7 @@ namespace MixMaster.Core
             }
 
             MapChanged?.Invoke(CurrentMapId);
+            ShowStageName();
         }
 
         public void EnterTown(string townMapId)
@@ -39,7 +61,25 @@ namespace MixMaster.Core
                 GameManager.Instance.SetMode(GameMode.Town);
             }
 
+            RestoreTownResources();
             MapChanged?.Invoke(CurrentMapId);
+            ShowStageName();
+        }
+
+        private void ShowStageName()
+        {
+            MapSO map = MapCatalogSO.Load()?.GetMap(CurrentMapId);
+            string title = map != null && !string.IsNullOrWhiteSpace(map.displayName)
+                ? map.displayName : CurrentMapId.Replace("TilemapMap_", "");
+            MixMaster.UI.StageNameBannerUI.Show(title);
+        }
+
+        private void RestoreTownResources()
+        {
+            var player=GetComponent<PlayerManager>()??FindFirstObjectByType<PlayerManager>();
+            player?.RestoreFullResources();
+            foreach(var member in FindObjectsByType<MixMaster.Monsters.PartyMemberCombat>(FindObjectsSortMode.None))
+                if(member!=null)member.RestoreFullResources();
         }
     }
 }

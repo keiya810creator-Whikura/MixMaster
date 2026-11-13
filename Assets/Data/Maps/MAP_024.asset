@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdbe3b6a04e34005a8bab0479db16554, type: 3}
+  m_Name: MAP_024
+  m_EditorClassIdentifier: 
+  mapId: MAP_024
+  displayName: "\u6C37\u708E\u306E\u93AE\u9B42\u57CE"
+  description: "\u51CD\u3066\u3064\u304F\u5E83\u9593\u3068\u71C3\u3048\u76DB\u308B\u56DE\u5ECA\u304C\u9023\u306A\u308B\u57CE\u3002\u76F8\u53CD\u3059\u308B\u529B\u306E\u4E2D\u306B\u3001\u93AE\u307E\u3089\u306C\u9B42\u304C\u6F02\u3046\u3002"
+  thumbnail: {fileID: 21300000, guid: b32a9b2a40d1b4645b0367a4d567de7d, type: 3}
+  isTown: 0
+  explorationSceneName: 
+  dungeonSceneName: 
+  layoutJsonName: "\u6C37\u708E\u306E\u93AE\u9B42\u57CE"
+  layoutJson: {fileID: 4900000, guid: 1d860ab7f49372747a0b041c234e7795, type: 3}
+  thumbnailKey: 24
+  entranceDirections: 
+  exitDirections: 
+  useExplicitDestinations: 1
+  destinationUp: {fileID: 0}
+  destinationDown: {fileID: 0}
+  destinationLeft: {fileID: 11400000, guid: 85adbd4bf624a3b4ab9a8a7a871889f4, type: 2}
+  destinationRight: {fileID: 11400000, guid: 1ced0c1ee85c67c4c86f677bd76c8b2a, type: 2}
+  recommendedLevel: 24
+  monsters:
+  - {fileID: 11400000, guid: fcbf7fb01e4c44e4baeab59770bf45a5, type: 2}
+  - {fileID: 11400000, guid: 790a7ead5d95184449ec5ef02ed97752, type: 2}
+  - {fileID: 11400000, guid: 3d31b3a98df56ad4d892c4187c91b9e1, type: 2}
+  - {fileID: 11400000, guid: e9dec7c53d7c0f1459c51ad1e87055ed, type: 2}
+  - {fileID: 11400000, guid: 8a2fc835805d9f14da86af2a9e26db23, type: 2}
+  - {fileID: 11400000, guid: c9d160b9d34ff80428d9f68be35c395d, type: 2}
+  normalMonsters:
+  - {fileID: 11400000, guid: fcbf7fb01e4c44e4baeab59770bf45a5, type: 2}
+  - {fileID: 11400000, guid: 790a7ead5d95184449ec5ef02ed97752, type: 2}
+  - {fileID: 11400000, guid: 3d31b3a98df56ad4d892c4187c91b9e1, type: 2}
+  - {fileID: 11400000, guid: e9dec7c53d7c0f1459c51ad1e87055ed, type: 2}
+  - {fileID: 11400000, guid: 8a2fc835805d9f14da86af2a9e26db23, type: 2}
+  bossMonster: {fileID: 11400000, guid: c9d160b9d34ff80428d9f68be35c395d, type: 2}
+  normalMonsterLevel: 27
+  strongMonsterLevel: 135
+  dungeonMaterial: {fileID: 11400000, guid: 02044e15d9393db44a1089be890210d8, type: 2}
+  dungeonEquipment:
+  - {fileID: 11400000, guid: 59e34f1a2ccbabf48aa71a198f86f522, type: 2}
+  - {fileID: 11400000, guid: ca4379a4620ba9d4684d38c782d560e9, type: 2}
+  - {fileID: 11400000, guid: 770d03346882e3247afb7f8ccecfa9cc, type: 2}

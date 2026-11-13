@@ -54,6 +54,26 @@ namespace MixMaster.Core
                 ? gain.amount * (60d / profile.recordDurationSeconds) : 0d;
         }
 
+        public static decimal ComparisonRate(OfflineRecordProfile profile,
+            OfflineGainKind kind, string itemId = null)
+        {
+            if (profile == null || float.IsNaN(profile.recordDurationSeconds) ||
+                float.IsInfinity(profile.recordDurationSeconds) ||
+                profile.recordDurationSeconds < 1f || profile.recordDurationSeconds > 86400f ||
+                profile.gains == null) return 0m;
+            long amount = 0;
+            foreach (OfflineGainRecord gain in profile.gains)
+                if (gain != null && gain.kind == kind &&
+                    (kind != OfflineGainKind.Material || string.Equals(gain.itemId,
+                        itemId, StringComparison.Ordinal)))
+                    amount = LongMath.SaturatingAdd(amount, Math.Max(0L, gain.amount));
+            return (decimal)amount * 60m / (decimal)profile.recordDurationSeconds;
+        }
+
+        public static decimal PerMinuteDifference(OfflineRecordProfile current,
+            OfflineRecordProfile previous, OfflineGainKind kind, string itemId = null) =>
+            ComparisonRate(current, kind, itemId) - ComparisonRate(previous, kind, itemId);
+
         public static List<OfflineGainRecord> Calculate(OfflineRecordProfile profile, double seconds)
         {
             var result = new List<OfflineGainRecord>();

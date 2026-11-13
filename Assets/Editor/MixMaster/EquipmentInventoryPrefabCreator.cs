@@ -11,7 +11,7 @@ namespace MixMaster.EditorTools
     public static class EquipmentInventoryPrefabCreator
     {
         internal const string PrefabPath =
-            "Assets/Prefab/UI/EquipmentInventoryPanel.prefab";
+            "Assets/Resources/UI/EquipmentInventory/EquipmentInventoryPanel.prefab";
 
         [MenuItem("MixMaster/UI/装備インベントリを作成・接続")]
         public static void CreateAndAttach()
@@ -55,6 +55,7 @@ namespace MixMaster.EditorTools
                 "装備インベントリ",
                 "装備インベントリを生成・接続しました。" +
                 "\nステータスメニューの「装備」から開けます。" +
+                "\n専用ボタンにはEquipmentInventoryButtonを追加してください。" +
                 "\n入手順・レベル・全18ステータス項目でソート、" +
                 "ステータスと6段階レア度で絞り込みが可能です。",
                 "OK");
@@ -66,7 +67,7 @@ namespace MixMaster.EditorTools
             if (canvas == null)
                 return null;
 
-            PartyCircularHudPrefabCreator.EnsureFolder("Assets/Prefab/UI");
+            PartyCircularHudPrefabCreator.EnsureFolder("Assets/Resources/UI/EquipmentInventory");
 
             GameObject prefab =
                 AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);

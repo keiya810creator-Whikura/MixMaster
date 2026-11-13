@@ -14,15 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mapId: MAP_001
   displayName: "\u59CB\u307E\u308A\u306E\u5E73\u91CE"
-  description: "\u30B9\u30E9\u30A4\u30E0\u3068\u30DC\u30A2\u304C\u751F\u606F\u3059\u308B\u5E73\u539F"
-  thumbnail: {fileID: 0}
+  description: "\u8272\u3068\u308A\u3069\u308A\u306E\u30B9\u30E9\u30A4\u30E0\u3068\u91CE\u751F\u306E\u7363\u304C\u66AE\u3089\u3059\u3001\u5192\u967A\u306E\u59CB\u307E\u308A\u306B\u3075\u3055\u308F\u3057\u3044\u7A4F\u3084\u304B\u306A\u5E73\u91CE\u3002"
+  thumbnail: {fileID: 21300000, guid: 654183ef0a5ea404ca3a0369db95e155, type: 3}
+  isTown: 0
   explorationSceneName: 
   dungeonSceneName: 
-  layoutJsonName: "\u5E73\u91CE1"
-  layoutJson: {fileID: 4900000, guid: 2c17ef2c09ffc4745b9f7f91a2b8f99c, type: 3}
+  layoutJsonName: "\u59CB\u307E\u308A\u306E\u5E73\u91CE"
+  layoutJson: {fileID: 4900000, guid: 190f190d110914744acd9726ca0222c8, type: 3}
   thumbnailKey: 1
   entranceDirections: 
   exitDirections: 
+  useExplicitDestinations: 1
+  destinationUp: {fileID: 11400000, guid: 09c449c7f64ff27469520df246da4e41, type: 2}
+  destinationDown: {fileID: 11400000, guid: c3f6c6c385ca4ee4bab11a7d267d23d5, type: 2}
+  destinationLeft: {fileID: 0}
+  destinationRight: {fileID: 11400000, guid: 1e18824014083484ca8ad0b2732cfd72, type: 2}
   recommendedLevel: 1
   monsters:
   - {fileID: 11400000, guid: 5ed5adfba29ad844f9830d539dc715f6, type: 2}

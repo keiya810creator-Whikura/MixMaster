@@ -1,50 +1,47 @@
-# ノッチ・Dynamic Island・ホームバーへの対応
+# 共通SafeAreaでUIを管理する
 
-ゲームワールドは全画面で描画し、ボタンや文字などの操作UIを `Screen.safeArea` の内側へ配置します。
-ヘッダー・フッターの背景は上下の画面端まで延ばし、ノッチ周辺とホームバー付近にマップが見えないようにしています。
-カメラの切り欠き自体に表示するのではなく、隠れない範囲へUIを収めます。iPhoneとAndroidの画面切り欠き、下部ホームバーを同じ仕組みで扱います。
+2026年10月30日：各UIの内側にあったSafeAreaオブジェクトを除去し、配置先の共通SafeAreaで制御する構成へ変更した。シーンの配置・階層は変更しない。振り分けと座標調整は利用者が行う。
 
-## 接続済みの範囲
+## 推奨する階層
 
-- MainSceneの上部HUD、下部ボタン、ジョイスティック
-- オフライン記録ボタン、記録結果、受取結果
-- 主人公ステータス、モンスター一覧・詳細、装備一覧、転生、配合
-- ダンジョン挑戦、リザルト、獲得装備の詳細
-- インベントリ内で追加する装備操作、保護・売却・自動売却、ページ送りなどの操作UI
-- 素材ドロップログ、モンスター入手ログ
+Canvasの下へSafeAreaを1つ置き、その下のHeader・Body・BottomへUIを配置する。
 
-各画面の暗い背景は元の画面ルートに残し、その子の `SafeArea` へ操作部分を移しています。
-MainSceneのステータス・モンスター一覧・旧祭壇パネルは、中段HUDのBodyからCanvasへ移し、画面全体を使えるようにしました。
-ワールド座標に追従するHPバーのCanvasと、ゲームカメラの描画範囲は変更していません。
-AndroidのRender Outside Safe AreaとiOSのステータスバー非表示は既存設定を使用しています。
+| 階層 | 設定・用途 |
+| --- | --- |
+| Canvas | 通常のCanvas / CanvasScaler。設計基準1080×1920。 |
+| SafeArea | SafeAreaLayoutを1つだけ付ける。既存のAssets/Prefab/UI/SafeArea.prefabも使用可能。 |
+| SafeArea/Header | 上部HUDやボタンを配置。 |
+| SafeArea/Body | メニュー、図鑑、インベントリなどを配置。 |
+| SafeArea/Bottom | 下部HUD、獲得ログなどを配置。 |
 
-## Prefabの編集
+最初はHeader・Body・BottomのRect Transformをストレッチにして、共通SafeArea全体を基準にすると既存UIの位置を維持しやすい。各領域を分割した高さへ変更する場合は、その領域を基準に各UIのアンカー・座標も調整する。Prefabインスタンスのルートを目的のグループへ移動し、個別SafeAreaは追加しない。
 
-引き続き `Assets/Prefab/UI/` の各Prefabを編集できます。ボタンやCardの位置を変える場合は、子の `SafeArea` 以下を編集してください。
-全画面の背景Imageは `SafeArea` の外側、画面ルートに置きます。
+`SafeAreaLayout.minimumContentSize`の既定は1080×1920。画面の実セーフエリアに収めながら設計空間を維持する。画面回転・SafeArea変更・Canvas描画直前に追従し、空のSafeAreaが一時的に返る端末では前回の有効レイアウトを保持する。ワールド空間のCanvasには適用しない。
 
-MainSceneの `Canvas/SafeAreaHUD/Header/background` と `Canvas/SafeAreaHUD/Bottom/background` には `ScreenEdgeBackground` を接続しています。既存の背景Image自体を画面端まで伸ばすため、背景色はそれぞれのImageのColorから変更できます。上は上端へ、下は下端へ延ばし、どちらも左右の画面端まで広げます。ボタンや文字は同じ親のセーフエリア内に配置します。
-画面サイズ・セーフエリア・Canvasのスケールが変わった場合や時間停止中も、描画前に背景の範囲を更新します。別のヘッダーなどに使う場合は、その背景Imageにこのコンポーネントを追加し、延ばす方向を指定してください。
-新しいUIには `SafeArea.prefab` をCanvas下へ配置し、その子へ操作UIを入れてください。同じ範囲へ二重に余白を付けないよう、親の座標へ変換して重なるセーフエリアを判定します。
+## 整理したPrefab
 
-`SafeAreaLayout` の Minimum Content Size は標準で1080×1920です。
-表示できる範囲がこれより小さい場合は、縦横比を保ってUIを縮小します。拡張した論理レイアウト領域で縮小分を補い、画面端に固定したボタンもセーフエリアの端に追従します。
-そのため、従来900px幅のCardを使用する画面も小型端末で横にはみ出さず、固定サイズの内容を維持できます。
-軸を0にすると、その軸を基準にした縮小を無効にできます。
+22個のUI PrefabからSafeAreaのGameObject・RectTransform・SafeAreaLayoutの3文書ずつを除去した。子オブジェクトを元の親へ繰り上げ、元の並び順、操作部品ID、座標、Script参照を維持した。既存の.meta/GUIDは変更しない。
 
-画面サイズ、向き、セーフエリア、Canvasのスケールが変わると再計算します。時間停止中にもCanvasの描画前に更新します。
-端末の起動直後など、画面サイズやセーフエリアが無効な間は直前の有効なレイアウトを維持して次のフレームで再試行します。
-セーフエリアコンテナの内側で更に画面を開いても、同じ余白や縮小を重ねません。
-旧Prefabを使うシーンでも、ContentRootは元のルートへフォールバックします。
+- 獲得ログ、配合、消耗品ショップ/インベントリ/ショートカット
+- ダンジョン入口/リザルト、記録結果/受取/記録HUD
+- モンスター詳細/一覧、プレイヤー詳細、転生
+- スキルHUD、図鑑メニュー、装備インベントリ、目標HUD
+- 素材インベントリ、パーティプリセット、設定、スキル詳細
 
-## Unityでの表示確認
+共通用のSafeArea単体Prefabは残す。もともと個別SafeAreaがなかったUIはそのまま。MainSceneや他の.unityファイルは変更しない。
 
-1. UnityのDevice Simulatorでノッチあり、Dynamic Islandあり、小型画面、タブレットを切り替え、Playします。
-2. 上部HP・ゴールド・記録ボタンがカメラ部分に隠れず、下部ボタンがホームバーの上にあることを確認します。
-3. 主人公ステータス、モンスター一覧・詳細、装備・配合・転生、ダンジョン各画面を開き、閉じるボタンとスクロールが使えることを確認します。
-4. 装備の比較・強化、売却確認、自動売却設定、ページ送りなど、実行時に追加される操作も確認します。
-5. 記録完了とオフライン復帰で、各画面と素材アイコンが収まることを確認します。
-6. ヘッダーのグレーがノッチの左右を含む上端まで、フッターのグレーがホームバーを含む下端まで続き、その部分にマップが見えないことを確認します。
-7. 背景ImageのColorを変更すると画面端まで同じ色になることと、HPバーがモンスターの位置に追従することを確認します。
+## コード生成UIと互換性
 
-実際のノッチ領域は端末・OSが返す値を使用します。最終確認はiPhone・Android実機でも行ってください。
+スキル画面と記録/目標/ヘルプ画面もSafeAreaラッパーを生成せず、パネル自身のルートへ部品を生成する。`SafeAreaLayout.CreateContent`は呼出元のRectTransformを返し、新しいオブジェクトやSafeAreaLayoutを追加しない。既存のログ・装備詳細などの呼出元でも個別SafeAreaを再生成しない。
+
+`SafeAreaLayout.ContentRoot`は旧配置済み・展開済みUIの互換性のために旧ラッパーの検索を維持する。整理済みPrefabでは自身のルートを返す。新しいPrefabの内側にSafeAreaを付け直す処理ではない。
+
+RuntimeUiLayoutSettingsの既定パスも`GameGuidePanel/Card`、`SkillHUD/SkillButtons`、`SkillHUD/SkillPanel`へ変更した。利用者が独自のパス設定を保存している場合は、削除したPrefab内の`/SafeArea/`をパスから除く。Canvas直下の共通SafeAreaは削除対象ではない。
+
+## 確認結果とUnityでの確認
+
+- 22 Prefabの全ドキュメント・内部PPtr・親子関係・残存部品のID/スタイル/座標を比較。SafeAreaの66文書以外を維持し、子の順序と参照の付け替えを検査した。全31426件の静的アサーション成功。削除したSafeAreaへの外部参照は既存UI Prefab/MainSceneに見つからなかった。
+- 実SafeAreaLayoutの幾何・ライフサイクル・旧ラッパー互換・新CreateContentの代替API検証6254項目成功。画面サイズ/Canvas縮尺/ノッチ/回転と1500件のランダム矩形を含む。
+- 実SkillScreenUI、GameGuidePanelUI、共通UI Factory、RuntimeUiLayoutSettingsのクラス全体を代替環境でコンパイルし54項目成功。Header/Body/Bottomそれぞれで新しいSafeAreaを作らず、5スキル枠、8目標行、ヘルプ、戻る、パネル再利用、平坦化後の座標パスが使えることを確認。
+
+Unity本体の全体コンパイル・Prefabインポート・Play・実機表示は未実施。共通SafeAreaを設置して配置後、PrefabのMissing参照がないこと、各画面の開閉・クリック・スクロール、縦横画面でのノッチ・下部バーとの重なりを確認する。

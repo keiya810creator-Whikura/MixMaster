@@ -59,7 +59,21 @@ namespace MixMaster.Core
             return count < AutoSellRequiredStats;
         }
 
+        private readonly HashSet<string> acquiredMonsterIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public event Action AcquisitionHistoryChanged;
+
+        public bool HasAcquiredMonster(string monsterId) => acquiredMonsterIds.Contains(monsterId);
+
+        public List<string> CaptureAcquiredMonsters()
+        {
+            var ids = new List<string>(acquiredMonsterIds);
+            ids.Sort(StringComparer.OrdinalIgnoreCase);
+            return ids;
+        }
+
         private readonly List<OwnedMonsterRecord> ownedMonsters = new List<OwnedMonsterRecord>();
+        private readonly Dictionary<string, OwnedMonsterRecord> ownedById =
+            new Dictionary<string, OwnedMonsterRecord>(StringComparer.Ordinal);
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
 
         public IReadOnlyList<OwnedMonsterRecord> OwnedMonsters => ownedMonsters;
@@ -119,6 +133,32 @@ namespace MixMaster.Core
         public event Action<OwnedMonsterRecord> MonsterBehaviorChanged;
         public event Action<OwnedMonsterRecord> MonsterAttackRangeDisplayChanged;
         public event Action PartyChanged;
+        internal bool IsApplyingPartyPreset { get; private set; }
+
+        internal void ApplyPresetParty(PartyPresetRecord preset)
+        {
+            partyMonsterUniqueIds.Clear();
+            foreach (PartyPresetActor actor in preset.members)
+            {
+                partyMonsterUniqueIds.Add(actor.ownerId);
+                FindOwnedMonster(actor.ownerId).combatBehavior = actor.combatBehavior;
+            }
+            partyCombatOrder = preset.combatOrder;
+        }
+
+        internal void NotifyPartyPresetChanged()
+        {
+            // All configuration has already committed when observers run.
+            // Let the field spawner preserve matching live/dead members.
+            IsApplyingPartyPreset = true;
+            try
+            {
+                PartyCombatOrderChanged?.Invoke(partyCombatOrder);
+                foreach (string id in partyMonsterUniqueIds) MonsterBehaviorChanged?.Invoke(FindOwnedMonster(id));
+                PartyChanged?.Invoke();
+            }
+            finally { IsApplyingPartyPreset = false; }
+        }
         public event Action<OwnedMonsterRecord> MonsterProtectionChanged;
         public event Action<string> MonsterSold;
         public event Action MonstersBulkSold;
@@ -225,7 +265,7 @@ namespace MixMaster.Core
             foreach (OwnedMonsterRecord record in toSell)
             {
                 record.equippedItemUniqueIds?.Clear();
-                ownedMonsters.Remove(record);
+                RemoveOwnedMonster(record);
             }
 
             game.AddGold(earnedGold);
@@ -250,7 +290,7 @@ namespace MixMaster.Core
                 equipment.UnequipAllFromMonster(record);
 
             goldGained = GetMonsterSaleGold(record);
-            ownedMonsters.Remove(record);
+            RemoveOwnedMonster(record);
             game.AddGold(goldGained);
             MonsterSold?.Invoke(uniqueId);
             return true;
@@ -286,7 +326,12 @@ namespace MixMaster.Core
             MonsterIndividualValues individualValues,
             string titleId = "",
             bool bypassAutoSell = false,
-            int initialSkillPoints = 0)
+            int initialSkillPoints = 0) =>
+            ObtainMonster(monsterId, individualValues, titleId, bypassAutoSell, initialSkillPoints, null);
+
+        private OwnedMonsterRecord ObtainMonster(
+            string monsterId, MonsterIndividualValues individualValues, string titleId,
+            bool bypassAutoSell, int initialSkillPoints, JournalMonster[] ancestors)
         {
             var monster = new OwnedMonsterRecord
             {
@@ -295,6 +340,7 @@ namespace MixMaster.Core
                 level = 1,
                 experience = 0,
                 skillPoints = Math.Max(0, initialSkillPoints),
+                ancestors = ancestors,
                 individualValues =
                     MonsterDropRoller.CloneIndividualValues(
                         individualValues),
@@ -303,14 +349,17 @@ namespace MixMaster.Core
 
             monster.individualValues.ClampAll();
 
-            ownedMonsters.Add(monster);
+            AddOwnedMonster(monster);
+            bool firstAcquisition = !string.IsNullOrWhiteSpace(monster.monsterId) &&
+                acquiredMonsterIds.Add(monster.monsterId);
 
             // Newly obtained monsters are not in a party, but use the
             // existing validated sale operation to preserve the same rules
             // for lock/favorite/party safety and gold accounting.
-            if (!bypassAutoSell && ShouldAutoSell(monster) &&
-                TrySellMonster(monster.uniqueId, out _))
-                return null;
+            bool sold = !bypassAutoSell && ShouldAutoSell(monster) &&
+                TrySellMonster(monster.uniqueId, out _);
+            if (firstAcquisition) AcquisitionHistoryChanged?.Invoke();
+            if (sold) return null;
 
             MonsterObtained?.Invoke(monster);
             return monster;
@@ -345,6 +394,8 @@ namespace MixMaster.Core
                 parentB.level < BreedingManager.MinimumParentLevel)
                 return false;
 
+            var skills=GetComponent<SkillProgressionManager>() ?? SkillProgressionManager.Instance;
+            var inheritedSkills=succeeded&&skills!=null?skills.InheritanceCandidates(parentUniqueIdA,parentUniqueIdB):null;
             MonsterIndividualValues inheritedIvs = null;
             string inheritedTitleId = string.Empty;
             int inheritedSkillPoints = ReincarnationRules.TotalSkillPoints(
@@ -365,6 +416,17 @@ namespace MixMaster.Core
                         childSpecies.titlePool, 0.10f)?.titleId ?? string.Empty;
             }
 
+            JournalMonster[] ancestors = null;
+            if (succeeded)
+            {
+                ancestors = new[]
+                {
+                    GameJournalManager.Snapshot(parentA, null), GameJournalManager.Snapshot(parentB, null),
+                    parentA.GetAncestor(0), parentA.GetAncestor(1),
+                    parentB.GetAncestor(0), parentB.GetAncestor(1)
+                };
+            }
+
             if (succeeded || !preserveParentsOnFailure)
             {
                 EquipmentManager equipment = GetComponent<EquipmentManager>() ??
@@ -375,14 +437,15 @@ namespace MixMaster.Core
                     equipment.UnequipAllFromMonster(parentB);
                 }
 
-                ownedMonsters.Remove(parentA);
-                ownedMonsters.Remove(parentB);
+                RemoveOwnedMonster(parentA);
+                RemoveOwnedMonster(parentB);
             }
 
             if (succeeded)
             {
                 child = ObtainMonster(childSpecies.monsterId,
-                    inheritedIvs, inheritedTitleId, true, inheritedSkillPoints);
+                    inheritedIvs, inheritedTitleId, true, inheritedSkillPoints, ancestors);
+                if(inheritedSkills!=null)skills.Inherit(child,inheritedSkills);
             }
 
             // Reuse the existing single-rebuild inventory notification.
@@ -430,9 +493,15 @@ namespace MixMaster.Core
 
         public void RestoreMonsters(
             IReadOnlyList<OwnedMonsterRecord> savedMonsters,
-            IReadOnlyList<string> savedPartyIds)
+            IReadOnlyList<string> savedPartyIds,
+            IReadOnlyList<string> savedAcquiredMonsterIds = null)
         {
+            acquiredMonsterIds.Clear();
+            if (savedAcquiredMonsterIds != null)
+                foreach (string id in savedAcquiredMonsterIds)
+                    if (!string.IsNullOrWhiteSpace(id)) acquiredMonsterIds.Add(id);
             ownedMonsters.Clear();
+            ownedById.Clear();
             partyMonsterUniqueIds.Clear();
 
             HashSet<string> uniqueIds =
@@ -477,8 +546,10 @@ namespace MixMaster.Core
                             int.MaxValue,
                             (long)Math.Max(0, record.skillPoints) + restoredLevels);
                     record.learnedSkillIds ??= new List<string>();
+                    record.inheritedSkillIds = SkillProgressionManager.CopyInheritedSkills(record.inheritedSkillIds);
                     record.equippedItemUniqueIds ??= new List<string>();
-                    ownedMonsters.Add(record);
+                    AddOwnedMonster(record);
+                    if (!string.IsNullOrWhiteSpace(record.monsterId)) acquiredMonsterIds.Add(record.monsterId);
                 }
             }
 
@@ -523,7 +594,20 @@ namespace MixMaster.Core
 
         public OwnedMonsterRecord FindOwnedMonster(string monsterUniqueId)
         {
-            return ownedMonsters.Find(x => x.uniqueId == monsterUniqueId);
+            if (string.IsNullOrEmpty(monsterUniqueId)) return null;
+            return ownedById.TryGetValue(monsterUniqueId, out var record) ? record : null;
+        }
+
+        private void AddOwnedMonster(OwnedMonsterRecord record)
+        {
+            ownedMonsters.Add(record);
+            ownedById.Add(record.uniqueId, record);
+        }
+
+        private void RemoveOwnedMonster(OwnedMonsterRecord record)
+        {
+            ownedMonsters.Remove(record);
+            ownedById.Remove(record.uniqueId);
         }
 
         public bool SetMonsterCombatBehavior(

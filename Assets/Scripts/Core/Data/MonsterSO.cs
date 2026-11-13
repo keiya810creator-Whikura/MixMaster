@@ -63,6 +63,8 @@ namespace MixMaster.Core
         [Header("Skills")]
         [Tooltip("Skills this monster can learn. Rough target: about 10 per species.")]
         public List<SkillSO> availableSkills = new List<SkillSO>();
+        [Tooltip("敵として自動使用するスキル。習得可能一覧とは別です。")]
+        public List<SkillSO> enemySkills = new List<SkillSO>();
 
         [Header("Breeding")]
         [Min(1)] public int appearanceStage = 1;

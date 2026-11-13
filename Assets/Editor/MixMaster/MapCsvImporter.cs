@@ -97,6 +97,7 @@ namespace MixMaster.EditorTools
             Dictionary<string, EquipmentSO> equipment =
                 IndexAssets<EquipmentSO>(x => x.equipmentId);
 
+            var connectionRows = new Dictionary<MapSO, List<string>>();
             int expectedColumns = rows[0].Count;
             int levelOffset = hasEquipmentColumns ? 3 : 0;
             List<string> csvHeader = rows[0];
@@ -232,7 +233,7 @@ namespace MixMaster.EditorTools
                 map.displayName = displayName;
                 map.description = C(2);
                 map.thumbnailKey = C(3);
-                map.layoutJsonName = Path.GetFileNameWithoutExtension(C(4));
+                map.layoutJsonName = NormalizeLayoutName(C(4));
 
                 // Optional CSV connection columns. If absent, preserve manual settings.
                 if (TryReadDirectionColumn(csvHeader, row,
@@ -280,7 +281,10 @@ namespace MixMaster.EditorTools
                 if (boss != null && !map.monsters.Contains(boss))
                     map.monsters.Add(boss);
 
-                map.layoutJson = FindLayoutJson(map.layoutJsonName);
+                map.layoutJson = ResolveLayoutJson(map.layoutJsonName, map.displayName);
+                if (map.layoutJson != null)
+                    map.layoutJsonName = Path.GetFileNameWithoutExtension(
+                        AssetDatabase.GetAssetPath(map.layoutJson));
                 if (map.layoutJson == null)
                 {
                     Debug.LogWarning("[MapCsvImporter] " + id +
@@ -328,10 +332,51 @@ namespace MixMaster.EditorTools
 
                 EditorUtility.SetDirty(map);
                 maps[id] = map;
+                connectionRows[map] = row;
                 if (exists) updated++; else created++;
             }
 
+            // Second pass: every newly created MapSO exists before resolving forward IDs.
+            string[] destinationHeaders = { "上移動先MapID", "下移動先MapID", "左移動先MapID", "右移動先MapID" };
+            int[] destinationColumns = new int[4];
+            int found = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                destinationColumns[i] = csvHeader.FindIndex(h => h.Trim() == destinationHeaders[i]);
+                if (destinationColumns[i] >= 0) found++;
+            }
+            if (found != 0 && found != 4)
+            {
+                Debug.LogError("[MapCsvImporter] 移動先は上下左右の4列すべてを追加してください。既存の接続は維持します。");
+                warnings++;
+            }
+            if (found == 4)
+                foreach (var entry in connectionRows)
+                {
+                    MapSO[] targets = new MapSO[4];
+                    bool validConnections = true;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        string targetId = Cell(entry.Value, destinationColumns[i]);
+                        if (string.IsNullOrWhiteSpace(targetId)) continue;
+                        if (!maps.TryGetValue(targetId, out targets[i]) || targets[i] == null || targets[i] == entry.Key)
+                        {
+                            Debug.LogError("[MapCsvImporter] " + entry.Key.mapId + " " + destinationHeaders[i] +
+                                ": 不明または自身のMapID: " + targetId + "。この行の接続は維持します。");
+                            validConnections = false; warnings++;
+                        }
+                    }
+                    if (!validConnections) continue;
+                    Undo.RecordObject(entry.Key, "Import Map Destinations");
+                    entry.Key.useExplicitDestinations = true;
+                    entry.Key.destinationUp = targets[0];
+                    entry.Key.destinationDown = targets[1];
+                    entry.Key.destinationLeft = targets[2];
+                    entry.Key.destinationRight = targets[3];
+                    EditorUtility.SetDirty(entry.Key);
+                }
             AssetDatabase.SaveAssets();
+            MapExitMarkerEditorSetup.RegisterAllDestinations();
             MapCatalogBuilder.RebuildCatalog();
             AssetDatabase.Refresh();
 
@@ -437,24 +482,53 @@ namespace MixMaster.EditorTools
             return fallback;
         }
 
-        private static TextAsset FindLayoutJson(string name)
+        // Only remove the actual extension: "1.始まりの平野" is a valid name.
+        internal static string NormalizeLayoutName(string value)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                return null;
+            string name = Path.GetFileName((value ?? "").Trim().Replace('\\', '/'));
+            return name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(0, name.Length - 5) : name;
+        }
 
-            TextAsset asset = AssetDatabase.LoadAssetAtPath<TextAsset>(
-                LayoutFolder + "/" + name + ".json");
-            if (asset != null)
-                return asset;
+        private static string WithoutNumberPrefix(string name)
+        {
+            int i = 0;
+            while (i < name.Length && char.IsDigit(name[i])) i++;
+            if (i > 0 && i < name.Length &&
+                (name[i] == '.' || name[i] == '．' || name[i] == '_' || name[i] == ' '))
+                return name.Substring(i + 1).Trim();
+            return name;
+        }
 
-            string[] guids = AssetDatabase.FindAssets(name, new[] { LayoutFolder });
-            for (int i = 0; i < guids.Length; i++)
+        internal static TextAsset ResolveLayoutJson(string key, string displayName)
+        {
+            string[] candidates = {
+                NormalizeLayoutName(key),
+                WithoutNumberPrefix(NormalizeLayoutName(key)),
+                NormalizeLayoutName(displayName),
+                WithoutNumberPrefix(NormalizeLayoutName(displayName))
+            };
+            if (!AssetDatabase.IsValidFolder(LayoutFolder)) return null;
+            string[] guids = AssetDatabase.FindAssets("t:TextAsset", new[] { LayoutFolder });
+            foreach (string candidate in candidates)
             {
-                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                if (Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase)
-                    && Path.GetFileNameWithoutExtension(path)
-                        .Equals(name, StringComparison.OrdinalIgnoreCase))
-                    return AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                if (string.IsNullOrWhiteSpace(candidate)) continue;
+                TextAsset match = null;
+                foreach (string guid in guids)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase)
+                        || !Path.GetFileNameWithoutExtension(path).Equals(candidate,
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (match != null)
+                    {
+                        Debug.LogWarning("[MapCsvImporter] JSON名が重複しています: " + candidate +
+                            "。ファイル名を一意にしてください。");
+                        return null;
+                    }
+                    match = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+                }
+                if (match != null) return match;
             }
             return null;
         }
@@ -620,4 +694,5 @@ namespace MixMaster.EditorTools
     }
 }
 #endif
+
 

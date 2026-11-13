@@ -38,6 +38,12 @@ namespace MixMaster.Core
         public string uniqueId;
         public string monsterId;
 
+        // Parent A/B, followed by A's parents and then B's parents.
+        public JournalMonster[] ancestors;
+
+        public JournalMonster GetAncestor(int index) =>
+            ancestors != null && index >= 0 && index < ancestors.Length ? ancestors[index] : null;
+
         public int level = 1;
         public long experience;
         public MonsterCombatBehavior combatBehavior = MonsterCombatBehavior.PlayerAttackRange;
@@ -53,6 +59,9 @@ namespace MixMaster.Core
         public int spentSkillPoints;
         public List<string> learnedSkillIds =
             new List<string>();
+
+        // Breeding grants learning options, not free learned skills.
+        public List<string> inheritedSkillIds = new List<string>();
 
         // Legacy float is kept so older save data can still be loaded.
         public float intimacy;
@@ -106,6 +115,7 @@ namespace MixMaster.Core
         public int roomReductionLevel;
         public int noBranchesLevel;
         public int minimumEquipmentLevelBonusLevel;
+        public int reforgeResearchLevel;
 
         // Runtime-applied dungeon levels, separate from purchased levels.
         // Old save files have configured=false and use purchased levels.
@@ -117,6 +127,7 @@ namespace MixMaster.Core
         public int appliedRoomReductionLevel;
         public int appliedNoBranchesLevel;
         public int appliedMinimumEquipmentLevelBonusLevel;
+        public int appliedReforgeResearchLevel;
     }
 
     [Serializable]
@@ -129,6 +140,8 @@ namespace MixMaster.Core
         // Missing fields in old saves mean an unenhanced item at its saved Lv.
         public int originalLevel;
         public int enhancementCount;
+        // Flat additive bonus: 0 = never reforged, 1..100 = +1%..+100%.
+        public int reforgeDropRatePercent;
         public string sourceMapId;
         public long baseValue = 1;
         public bool isFavorite;

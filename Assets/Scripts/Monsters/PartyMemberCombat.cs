@@ -39,6 +39,8 @@ namespace MixMaster.Monsters
         [SerializeField] private PartyCombatMode combatMode = PartyCombatMode.Follow;
         [SerializeField] private PartyAttackStyle attackStyle = PartyAttackStyle.Melee;
 
+        private PartyAttackStyle EffectiveAttackStyle => SkillProgressionManager.Instance!=null
+            ? (SkillProgressionManager.Instance.Ranged(ownedMonsterUniqueId,attackStyle==PartyAttackStyle.Ranged)?PartyAttackStyle.Ranged:PartyAttackStyle.Melee) : attackStyle;
         [Header("Ranged Attack")]
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform projectileSpawnPoint;
@@ -145,15 +147,17 @@ namespace MixMaster.Monsters
         private bool isAttackLunging;
         private Vector2 lungeStartPosition;
 
-        public CharacterStats Stats => stats;
+        private SkillActor skills;
+        public CharacterStats BaseStats => stats;
+        public CharacterStats Stats => skills != null ? skills.Effective(stats) : stats;
         public long CurrentHp => currentHp;
         public long CurrentMp => currentMp;
-        public float DropRateBonus => Mathf.Max(0f, stats.dropRateBonus);
+        public float DropRateBonus => Mathf.Max(0f, Stats.dropRateBonus);
         public bool IsAlive => isAlive;
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public PartyCombatMode CombatMode => combatMode;
-        public PartyAttackStyle AttackStyle => attackStyle;
+        public PartyAttackStyle AttackStyle => EffectiveAttackStyle;
         public float AttackRange => GetEffectiveAttackRange();
         public int PartySlot => follower != null ? follower.FollowOrder : 0;
 
@@ -163,6 +167,7 @@ namespace MixMaster.Monsters
 
         private void Awake()
         {
+            skills = SkillActor.Ensure(gameObject);
             follower = GetComponent<MonsterTrailFollower>();
             body = GetComponent<Rigidbody2D>();
 
@@ -272,9 +277,11 @@ namespace MixMaster.Monsters
 
             bool hasTarget = IsTargetValid(currentTarget);
             follower.SetCombatControlled(ControlsCombatMovement);
+            // Casting blocks the strike, not target acquisition or auto-hunt movement.
+            if(skills!=null&&skills.NormalAttackBlocked)return;
 
             if (chargeWhileNoTarget || hasTarget)
-                SetAttackGauge(attackGauge + Mathf.Max(0.1f, stats.attackSpeed) * Time.deltaTime);
+                SetAttackGauge(attackGauge + Mathf.Max(0.1f, Stats.attackSpeed) * Time.deltaTime);
 
             if (!hasTarget || isAttackLunging)
                 return;
@@ -302,6 +309,7 @@ namespace MixMaster.Monsters
 
         private void FixedUpdate()
         {
+            if (skills != null && skills.MovementBlocked) { follower.StopCombatMovement(); return; }
             if (!isAlive || isAttackLunging || combatMode == PartyCombatMode.OwnAttackRange)
                 return;
 
@@ -326,7 +334,7 @@ namespace MixMaster.Monsters
                     // A tiny inset avoids oscillation from float rounding.
                     float stoppingRange = range - Mathf.Min(0.01f, range * 0.01f);
                     follower.MoveForCombat(enemyPosition - approach.normalized * stoppingRange,
-                        Mathf.Max(0.1f, stats.moveSpeed) * combatMoveSpeedMultiplier, 0f);
+                        Mathf.Max(0.1f, Stats.moveSpeed) * combatMoveSpeedMultiplier, 0f);
                 }
                 return;
             }
@@ -343,7 +351,7 @@ namespace MixMaster.Monsters
             }
 
             float moveSpeed =
-                Mathf.Max(0.1f, stats.moveSpeed) *
+                Mathf.Max(0.1f, Stats.moveSpeed) *
                 combatMoveSpeedMultiplier;
 
             follower.MoveForCombat(
@@ -364,12 +372,12 @@ namespace MixMaster.Monsters
             // Existing melee spacing was a bit too wide, so melee uses
             // half of the configured base ratio. Ranged stands at about
             // three times that melee distance.
-            float baseAttackRange = Mathf.Max(0.1f, stats.attackRange);
+            float baseAttackRange = Mathf.Max(0.1f, Stats.attackRange);
             float meleeRadius = Mathf.Max(
                 0.08f,
                 baseAttackRange * attackPositionRadiusRatio * 0.5f);
 
-            float radius = attackStyle == PartyAttackStyle.Ranged
+            float radius = EffectiveAttackStyle == PartyAttackStyle.Ranged
                 ? meleeRadius * 3f
                 : meleeRadius;
 
@@ -420,39 +428,39 @@ namespace MixMaster.Monsters
 
             follower.FaceDirection(direction);
 
-            if (attackStyle == PartyAttackStyle.Ranged)
+            bool critical = UnityEngine.Random.value < Mathf.Clamp01((float)Stats.criticalRate);
+            if (EffectiveAttackStyle == PartyAttackStyle.Ranged)
             {
-                long magicPower = Math.Max(1L, stats.magic);
+                long magicPower = Math.Max(1L, Stats.magic);
 
-                if (UnityEngine.Random.value <
-                    Mathf.Clamp01((float)stats.criticalRate))
+                if (critical)
                 {
                     magicPower = MultiplyLong(
                         magicPower,
-                        Mathf.Max(1f, (float)stats.criticalMultiplier));
+                        Mathf.Max(1f, (float)Stats.criticalMultiplier));
                 }
 
-                FireProjectile(target, magicPower);
+                FireProjectile(target, magicPower, critical);
                 return;
             }
 
-            long attackPower = Math.Max(1L, stats.attack);
+            long attackPower = Math.Max(1L, Stats.attack);
 
-            if (UnityEngine.Random.value <
-                Mathf.Clamp01((float)stats.criticalRate))
+            if (critical)
             {
                 attackPower = MultiplyLong(
                     attackPower,
-                    Mathf.Max(1f, (float)stats.criticalMultiplier));
+                    Mathf.Max(1f, (float)Stats.criticalMultiplier));
             }
 
-            meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(), spriteRenderer);
+            meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(critical), spriteRenderer);
             StartAttackLunge(direction);
         }
 
         private void FireProjectile(
             EnemyHealth target,
-            long magicPower)
+            long magicPower,
+            bool critical)
         {
             if (target == null || !target.IsAlive)
                 return;
@@ -466,7 +474,7 @@ namespace MixMaster.Monsters
 
                 target.TakeMagicHit(
                     magicPower,
-                    CreateDropSourceInfo());
+                    CreateDropSourceInfo(critical));
 
                 return;
             }
@@ -509,10 +517,10 @@ namespace MixMaster.Monsters
                 projectileSpeed,
                 projectileLifetime,
                 projectileHoming,
-                CreateDropSourceInfo());
+                CreateDropSourceInfo(critical));
         }
 
-        private MaterialDropSourceInfo CreateDropSourceInfo()
+        private MaterialDropSourceInfo CreateDropSourceInfo(bool critical)
         {
             int followOrder =
                 follower != null
@@ -522,7 +530,7 @@ namespace MixMaster.Monsters
             return MaterialDropSourceInfo.Party(
                 followOrder,
                 DropRateBonus,
-                ownedMonsterUniqueId);
+                ownedMonsterUniqueId).WithAttack(Stats.element, critical);
         }
 
         private EnemyHealth FindNearestTarget()
@@ -538,7 +546,7 @@ namespace MixMaster.Monsters
 
             float playerRange = playerAutoAttack != null
                 ? playerAutoAttack.AttackRange
-                : Mathf.Max(0.1f, stats.attackRange);
+                : Mathf.Max(0.1f, Stats.attackRange);
 
             float playerRangeSqr = playerRange * playerRange;
 
@@ -660,7 +668,7 @@ namespace MixMaster.Monsters
             {
                 float playerRange = playerAutoAttack != null
                     ? playerAutoAttack.AttackRange
-                    : Mathf.Max(0.1f, stats.attackRange);
+                    : Mathf.Max(0.1f, Stats.attackRange);
 
                 return fromPlayer.sqrMagnitude <= playerRange * playerRange;
             }
@@ -669,13 +677,13 @@ namespace MixMaster.Monsters
         }
 
         internal bool CanHitWithSword(EnemyHealth enemy) => isAlive &&
-            isActiveAndEnabled && attackStyle == PartyAttackStyle.Melee && IsTargetValid(enemy);
+            isActiveAndEnabled && EffectiveAttackStyle == PartyAttackStyle.Melee && IsTargetValid(enemy);
 
         private float GetEffectiveAttackRange()
         {
-            float baseRange = Mathf.Max(0.1f, stats.attackRange);
+            float baseRange = Mathf.Max(0.1f, Stats.attackRange);
 
-            return attackStyle == PartyAttackStyle.Ranged
+            return EffectiveAttackStyle == PartyAttackStyle.Ranged
                 ? baseRange * 2f
                 : baseRange;
         }
@@ -694,6 +702,8 @@ namespace MixMaster.Monsters
 
             stats = calculatedStats;
             ownedMonsterUniqueId = individualUniqueId;
+            skills = SkillActor.Ensure(gameObject);
+            skills.Configure(definition, individualUniqueId);
 
             attackStyle = definition.attackType == MonsterAttackType.Ranged
                 ? PartyAttackStyle.Ranged
@@ -718,7 +728,8 @@ namespace MixMaster.Monsters
             SetCurrentTarget(null);
             targetRefreshTimer = 0f;
             attackGauge = 0f;
-            RestoreFullResources();
+            RestoreFullHp(false);
+            RestoreFullMp();
             SetAttackGauge(0f);
 
             if (follower == null)
@@ -818,38 +829,61 @@ namespace MixMaster.Monsters
 
         public long TakePhysicalHit(long attackPower)
         {
+            return TakePhysicalHit(attackPower, ElementType.None, false);
+        }
+
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        {
             if (!isAlive || attackPower <= 0)
                 return 0;
 
             long damage = DamageCalculator.Calculate(
-                attackPower, stats.defense);
+                attackPower, Stats.defense);
 
-            return TakeDamage(damage);
+            float resistance = DamageCalculator.Resistance(Stats.resistances, element);
+            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
         }
 
         public long TakeMagicHit(long magicPower)
+        {
+            return TakeMagicHit(magicPower, ElementType.None, false);
+        }
+
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
         {
             if (!isAlive || magicPower <= 0L)
                 return 0L;
 
             long damage = DamageCalculator.Calculate(
-                magicPower, stats.magicDefense);
+                magicPower, Stats.magicDefense);
 
-            return TakeDamage(damage);
+            float resistance = DamageCalculator.Resistance(Stats.resistances, element);
+            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
         }
 
+        public void ClampSkillResources()
+        {
+            currentHp=Math.Min(currentHp,Stats.maxHp);currentMp=Math.Min(currentMp,Stats.maxMp);
+        }
         public long TakeDamage(long damage)
+        {
+            return TakeDamage(damage, default);
+        }
+
+        public long TakeDamage(long damage, DamageFeedback feedback)
         {
             if (!isAlive || damage <= 0)
                 return 0;
 
+            damage = DamageCalculator.Randomize(damage);
             long actual = Math.Min(currentHp, damage);
+            skills?.NotifyDamage(SkillActor.ApplyingSkill);
             currentHp -= actual;
 
-            DamagePopupText.Show(transform.position, actual, true);
+            DamagePopupText.Show(transform.position, actual, true, feedback);
 
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
 
             if (spriteRenderer != null)
             {
@@ -870,24 +904,33 @@ namespace MixMaster.Monsters
             if (!isAlive || amount <= 0)
                 return;
 
+            long before = currentHp;
             currentHp = Math.Min(
-                Math.Max(1L, stats.maxHp),
+                Math.Max(1L, Stats.maxHp),
                 LongMath.SaturatingAdd(currentHp, amount));
 
+            DamagePopupText.ShowHealing(transform.position, currentHp - before);
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
         }
 
         public void RestoreFullHp()
         {
-            currentHp = Math.Max(1L, stats.maxHp);
+            RestoreFullHp(true);
+        }
+
+        private void RestoreFullHp(bool showFeedback)
+        {
+            long before = currentHp;
+            currentHp = Math.Max(1L, Stats.maxHp);
             isAlive = true;
+            if (showFeedback) DamagePopupText.ShowHealing(transform.position, currentHp - before);
 
             if (spriteRenderer != null)
                 spriteRenderer.color = originalColor;
 
             RefreshHpSlider();
-            HpChanged?.Invoke(currentHp, Math.Max(1L, stats.maxHp));
+            HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
         }
 
         /// <summary>
@@ -900,7 +943,7 @@ namespace MixMaster.Monsters
             if (isAlive)
                 return false;
 
-            long maximum = Math.Max(1L, stats.maxHp);
+            long maximum = Math.Max(1L, Stats.maxHp);
             double desired = Math.Ceiling(maximum *
                 (double)Mathf.Clamp01(hpPercent));
             currentHp = desired >= long.MaxValue
@@ -908,6 +951,7 @@ namespace MixMaster.Monsters
                 : Math.Max(1L, (long)desired);
             currentHp = Math.Min(maximum, currentHp);
             isAlive = true;
+            DamagePopupText.ShowHealing(transform.position, currentHp);
 
             if (hitFlashRoutine != null)
             {
@@ -931,14 +975,14 @@ namespace MixMaster.Monsters
 
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, maximum);
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
             return true;
         }
 
         public void RestoreFullMp()
         {
-            currentMp = Math.Max(0L, stats.maxMp);
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            currentMp = Math.Max(0L, Stats.maxMp);
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
         }
 
         public void RestoreFullResources()
@@ -956,20 +1000,20 @@ namespace MixMaster.Monsters
                 return false;
 
             currentMp -= amount;
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
             return true;
         }
 
         public void RecoverMp(long amount)
         {
-            if (amount <= 0L || currentMp >= stats.maxMp)
+            if (amount <= 0L || currentMp >= Stats.maxMp)
                 return;
 
             currentMp = Math.Min(
-                Math.Max(0L, stats.maxMp),
+                Math.Max(0L, Stats.maxMp),
                 LongMath.SaturatingAdd(currentMp, amount));
 
-            MpChanged?.Invoke(currentMp, Math.Max(0L, stats.maxMp));
+            MpChanged?.Invoke(currentMp, Math.Max(0L, Stats.maxMp));
         }
 
         private void Die()
@@ -1032,7 +1076,7 @@ namespace MixMaster.Monsters
             if (hpSlider == null)
                 return;
 
-            long max = Math.Max(1L, stats.maxHp);
+            long max = Math.Max(1L, Stats.maxHp);
             float normalized = Mathf.Clamp01((float)((double)currentHp / max));
             hpSlider.SetValueWithoutNotify(normalized);
         }
@@ -1086,6 +1130,7 @@ namespace MixMaster.Monsters
             float elapsed = 0f;
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
@@ -1096,6 +1141,7 @@ namespace MixMaster.Monsters
             elapsed = 0f;
             while (elapsed < halfDuration)
             {
+                if (skills != null && skills.MovementBlocked) { yield return new WaitForFixedUpdate(); continue; }
                 elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(elapsed / halfDuration);
                 float eased = t * t;
@@ -1113,9 +1159,9 @@ namespace MixMaster.Monsters
 
         private void OnDrawGizmosSelected()
         {
-            float effectiveRange = attackStyle == PartyAttackStyle.Ranged
-                ? Mathf.Max(0.1f, stats.attackRange) * 2f
-                : Mathf.Max(0.1f, stats.attackRange);
+            float effectiveRange = EffectiveAttackStyle == PartyAttackStyle.Ranged
+                ? Mathf.Max(0.1f, Stats.attackRange) * 2f
+                : Mathf.Max(0.1f, Stats.attackRange);
 
             Gizmos.DrawWireSphere(
                 transform.position,
@@ -1152,3 +1198,5 @@ namespace MixMaster.Monsters
 #endif
     }
 }
+
+

@@ -1,0 +1,155 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_2
+  m_EditorClassIdentifier: 
+  skillId: 2
+  displayName: "\u30D2\u30FC\u30EA\u30F3\u30B0"
+  description: "\u81EA\u5206\u307E\u305F\u306F\u5473\u65B9\u4E00\u4F53\u306E\u4F53\u529B\u3092\u56DE\u5FA9\u3059\u308B"
+  icon: {fileID: 0}
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 4
+  mpCost: 15
+  powerMultiplier: 1.5
+  useOwnerElement: 1
+  overrideElement: 0
+  executable: 1
+  effect: 1
+  application: 0
+  flatPower: 200
+  cooldown: 8
+  castTime: 0
+  globalCooldown: 0.2
+  range: 5
+  radius: 0
+  hitLimit: 1
+  canCritical: 0
+  projectile: 1
+  homing: 0
+  projectileSpeed: 1
+  projectileLifetime: 0.8
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 4363815651053454791, guid: bdd0bbe6392ec8b4cae86310d9bd7e96, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 2
+    value: 0
+  - option: 3
+    value: 360
+  - option: 4
+    value: 0
+  - option: 5
+    value: 0.3
+  - option: 6
+    value: 2
+  - option: 7
+    value: 0
+  - option: 8
+    value: 3
+  - option: 9
+    value: 50
+  - option: 10
+    value: 0.3
+  - option: 11
+    value: 3
+  - option: 12
+    value: 8
+  - option: 13
+    value: 0.8
+  - option: 14
+    value: 2
+  - option: 15
+    value: 0.8
+  - option: 16
+    value: 12
+  - option: 17
+    value: 0.8
+  - option: 18
+    value: 1.5
+  - option: 19
+    value: 720
+  - option: 20
+    value: 0.6
+  - option: 21
+    value: 540
+  - option: 22
+    value: 1.8
+  - option: 23
+    value: 4
+  - option: 24
+    value: 4
+  - option: 25
+    value: 1
+  - option: 26
+    value: 0
+  - option: 27
+    value: 0
+  - option: 28
+    value: 0.5
+  - option: 29
+    value: 1.5
+  - option: 30
+    value: 2.5
+  - option: 31
+    value: 2.5
+  - option: 32
+    value: 0
+  - option: 33
+    value: 1
+  - option: 34
+    value: 1
+  - option: 35
+    value: 10
+  - option: 36
+    value: 0
+  - option: 37
+    value: 4
+  - option: 38
+    value: 8
+  - option: 39
+    value: 0.85
+  - option: 40
+    value: 0
+  - option: 41
+    value: 2
+  - option: 42
+    value: 50
+  - option: 43
+    value: 0.5
+  - option: 44
+    value: 1
+  - option: 45
+    value: 0
+  - option: 46
+    value: 1
+  - option: 47
+    value: 2
+  - option: 48
+    value: 0.4
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
+  effectInterval: 1
+  passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
+  affixes: []

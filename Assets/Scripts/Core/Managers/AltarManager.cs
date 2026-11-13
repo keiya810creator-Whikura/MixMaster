@@ -7,6 +7,7 @@ namespace MixMaster.Core
     [DisallowMultipleComponent]
     public sealed class AltarManager : MonoBehaviour
     {
+        private bool upgradingDungeon;
         private readonly List<AltarProgressRecord> monsterRecords =
             new List<AltarProgressRecord>();
 
@@ -268,24 +269,24 @@ namespace MixMaster.Core
             if (level >= DungeonUpgradeBalance.MaxLevel(type))
                 return false;
 
+            if (upgradingDungeon) return false;
             long cost = DungeonUpgradeBalance.Cost(type, level);
-            if (!inventory.TryConsume(dungeonMaterial, cost))
-                return false;
-
-            record.donatedDungeonMaterial = LongMath.SaturatingAdd(
-                record.donatedDungeonMaterial, cost);
-            int previouslyApplied =
-                DungeonUpgradeBalance.AppliedLevel(record, type);
-            DungeonUpgradeBalance.SetLevel(record, type, level + 1);
-            // When the player has configured an effective level and it was
-            // previously MAX, automatically follow the newly unlocked Lv.
-            // When intentionally lowered, preserve that choice.
-            if (record.dungeonAppliedLevelsConfigured &&
-                previouslyApplied == level)
-                DungeonUpgradeBalance.SetAppliedLevel(record, type, level + 1);
-
-            MapAltarProgressChanged?.Invoke(record);
-            return true;
+            var materialSet = new[] { dungeonMaterial };
+            upgradingDungeon = true;
+            try
+            {
+                if (!inventory.TryConsumeSet(materialSet, cost)) return false;
+                record.donatedDungeonMaterial = LongMath.SaturatingAdd(
+                    record.donatedDungeonMaterial, cost);
+                int previouslyApplied = DungeonUpgradeBalance.AppliedLevel(record, type);
+                DungeonUpgradeBalance.SetLevel(record, type, level + 1);
+                if (record.dungeonAppliedLevelsConfigured && previouslyApplied == level)
+                    DungeonUpgradeBalance.SetAppliedLevel(record, type, level + 1);
+                inventory.NotifyConsumedSet(materialSet, cost);
+                MapAltarProgressChanged?.Invoke(record);
+                return true;
+            }
+            finally { upgradingDungeon = false; }
         }
 
         public int GetDungeonUpgradeLevel(string mapId,

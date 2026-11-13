@@ -7,11 +7,21 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 13;
+        public const int CurrentVersion = 22;
+        public DisplaySettingsData displaySettings;
+        public List<PartyPresetRecord> partyPresets = new List<PartyPresetRecord>();
+        // Older saves have no per-species defeat history. Start empty rather
+        // than treating bred/obtained monsters as proof of a battle victory.
+        public List<string> defeatedMonsterIds = new List<string>();
+        public List<string> acquiredMonsterIds = new List<string>();
+        public List<string> acquiredEquipmentIds = new List<string>();
+        public SkillSaveData skills;
         public int version = CurrentVersion;
+        public GameJournalData journal;
         public string savedUtc = string.Empty;
 
         public string mapId = string.Empty;
+        public List<string> visitedMapIds = new List<string>();
         public GameMode gameMode = GameMode.Exploration;
         public string sceneName = string.Empty;
         public bool hasPlayerPosition;
@@ -62,6 +72,7 @@ namespace MixMaster.Core
 
         public OfflineRecordProfile offlineProfile;
         public OfflineRecordProfile offlinePendingProfile;
+        public bool hasOfflinePendingProfile;
         public string offlineCheckpointUtc = string.Empty;
     }
 }

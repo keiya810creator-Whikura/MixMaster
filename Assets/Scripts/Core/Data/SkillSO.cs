@@ -12,7 +12,8 @@ namespace MixMaster.Core
     {
         None,
         Attack,
-        Magic
+        Magic,
+        MaxHp
     }
 
     public enum SkillTargetType
@@ -20,7 +21,8 @@ namespace MixMaster.Core
         Self,
         SingleEnemy,
         AreaAroundSelf,
-        AreaAroundTarget
+        AreaAroundTarget,
+        SingleAlly
     }
 
     [CreateAssetMenu(
@@ -49,6 +51,31 @@ namespace MixMaster.Core
         public bool useOwnerElement = true;
         public ElementType overrideElement = ElementType.None;
 
+        [Header("共通スキル実行")]
+        public bool executable;
+        public SkillBaseEffect effect;
+        public SkillApplication application;
+        [Min(0)] public long flatPower;
+        [Min(0)] public float cooldown = 5f, castTime, globalCooldown = 0.2f, range = 6f, radius;
+        [Min(0)] public int hitLimit = 1;
+        public bool canCritical = true, projectile, homing;
+        [Min(0)] public float projectileSpeed = 8f, projectileLifetime = 3f;
+        public GameObject effectPrefab;
+        [Header("発射物の共通プレファブとCSV上書き")]
+        public GameObject projectilePrefab;
+        public bool useProjectileMotionOverrides;
+        public ProjectileMotionOverride[] projectileMotionOverrides = new ProjectileMotionOverride[0];
+        public SkillSpawnPosition spawnPosition;
+        public SkillFollowTarget followTarget;
+        public SkillEffectTiming effectTiming;
+        [Min(0.02f)] public float effectInterval = 1f;
+        public SkillPassive[] passives = new SkillPassive[0];
+        [Header("範囲エフェクトの表示（ダメージ範囲とは独立）")]
+        public bool fitSpriteToArea = true;
+        [Min(0.02f)] public float burstVisualDuration = 0.35f;
+        [Range(0.01f,1f)] public float burstVisualStartScale = 0.1f;
+        public SkillAffix[] affixes = new SkillAffix[0];
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -60,3 +87,4 @@ namespace MixMaster.Core
 #endif
     }
 }
+

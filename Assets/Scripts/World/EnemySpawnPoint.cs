@@ -161,6 +161,11 @@ namespace MixMaster.World
                     spawnPosition,
                     Quaternion.identity);
 
+            // Root instantiation uses the active scene, which can be a
+            // different scene from this map during additive loading.
+            if (enemyObject.scene != gameObject.scene)
+                SceneManager.MoveGameObjectToScene(enemyObject, gameObject.scene);
+
             MonsterRuntimeSetup runtimeSetup =
                 enemyObject.GetComponent<MonsterRuntimeSetup>();
 
@@ -225,7 +230,8 @@ namespace MixMaster.World
             return Mathf.Max(0f, spawnInterval);
         }
 
-        private float GetEffectiveSpawnInterval()
+        private float GetEffectiveSpawnInterval() => GetAltarSpawnInterval()/(float)(1+SkillProgressionManager.PartyBonus(SkillPassiveType.RespawnSpeed)/100);
+        private float GetAltarSpawnInterval()
         {
             float baseInterval =
                 Mathf.Max(
