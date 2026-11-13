@@ -13,8 +13,10 @@ namespace MixMaster.UI
         private sealed class Slot
         {
             public Button button;
+            public Button removeButton;
             public Image icon;
             public TMP_Text levels;
+            [NonSerialized] public OwnedMonsterRecord record;
         }
 
         [SerializeField] private Button closeButton;
@@ -34,6 +36,7 @@ namespace MixMaster.UI
             {
                 int index = i;
                 slots[i].button.onClick.AddListener(() => OpenDetail(index));
+                slots[i].removeButton.onClick.AddListener(() => RemoveFromFarm(index));
             }
         }
 
@@ -92,6 +95,8 @@ namespace MixMaster.UI
             {
                 Slot slot = slots[i];
                 OwnedMonsterRecord record = i < count ? monsters.FarmMonsters[i] : null;
+                slot.record = record;
+                slot.removeButton.gameObject.SetActive(record != null);
                 MonsterSO species = record != null && catalog != null
                     ? catalog.GetMonster(record.monsterId) : null;
                 slot.icon.sprite = species != null
@@ -101,6 +106,17 @@ namespace MixMaster.UI
                     ? $"{record.farmStartLevel}Lv → {record.level}Lv" : "空き";
                 slot.button.interactable = record != null;
             }
+        }
+
+        private void RemoveFromFarm(int index)
+        {
+            OwnedMonsterRecord record = slots[index].record;
+            if (record == null || monsters == null ||
+                !monsters.SetFarmRegistration(record.uniqueId, false))
+                return;
+
+            Refresh();
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
         }
 
         private void OpenDetail(int index)

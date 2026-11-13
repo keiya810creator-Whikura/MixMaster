@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using MixMaster.Core;
 
 namespace MixMaster.UI
 {
     [DisallowMultipleComponent]
-    public sealed class OwnedMonsterEntryUI : MonoBehaviour
+    public sealed class OwnedMonsterEntryUI : MonoBehaviour,
+        IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
     {
         [Header("Visual")]
         [SerializeField] private Image monsterIcon;
@@ -21,6 +23,63 @@ namespace MixMaster.UI
         [SerializeField] private Button selectionButton;
 
         private Action<OwnedMonsterRecord> onSelected;
+        private Action<OwnedMonsterRecord> onHeld;
+        private PointerEventData heldPointer;
+        private OwnedMonsterRecord heldRecord;
+        private float holdDeadline;
+        private int suppressClickFrame = -1;
+
+        public void SetHoldHandler(Action<OwnedMonsterRecord> handler) => onHeld = handler;
+
+        public void OnPointerDown(PointerEventData data)
+        {
+            if (onHeld == null || heldPointer != null || Record == null ||
+                data.button != PointerEventData.InputButton.Left ||
+                !selectionButton.IsInteractable())
+                return;
+
+            heldPointer = data;
+            heldRecord = Record;
+            holdDeadline = Time.unscaledTime + 0.55f;
+        }
+
+        public void OnPointerUp(PointerEventData data) => CancelHold(data);
+        public void OnPointerExit(PointerEventData data) => CancelHold(data);
+
+        private void CancelHold(PointerEventData data)
+        {
+            if (heldPointer?.pointerId == data.pointerId) ClearHold();
+        }
+
+        private void OnDisable() => ClearHold();
+
+        private void ClearHold()
+        {
+            heldPointer = null;
+            heldRecord = null;
+        }
+
+        private void Update()
+        {
+            if (heldPointer == null) return;
+            int dragThreshold = EventSystem.current != null
+                ? EventSystem.current.pixelDragThreshold : 10;
+            if (heldPointer.dragging || !heldPointer.eligibleForClick ||
+                heldRecord != Record || !selectionButton.IsInteractable() ||
+                (heldPointer.position - heldPointer.pressPosition).sqrMagnitude >
+                    dragThreshold * dragThreshold)
+            {
+                ClearHold();
+                return;
+            }
+            if (Time.unscaledTime < holdDeadline) return;
+
+            OwnedMonsterRecord record = heldRecord;
+            heldPointer.eligibleForClick = false;
+            suppressClickFrame = Time.frameCount;
+            ClearHold();
+            onHeld?.Invoke(record);
+        }
 
         private MonsterCatalogSO catalog;
         private EquipmentManager equipmentManager;
@@ -61,7 +120,7 @@ namespace MixMaster.UI
 
         private void HandleSelected()
         {
-            if (Record != null)
+            if (Record != null && suppressClickFrame != Time.frameCount)
                 onSelected?.Invoke(Record);
         }
 
