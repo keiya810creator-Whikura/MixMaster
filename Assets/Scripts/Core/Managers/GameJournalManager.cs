@@ -27,6 +27,57 @@ namespace MixMaster.Core
         public IReadOnlyList<BreedingHistoryRecord> History => data.history;
         public IReadOnlyList<GoalRecord> Goals => data.goals;
 
+        public IReadOnlyList<DiscoveredBreedingRecipe> DiscoveredRecipes => data.recipes;
+
+        private static void RememberRecipe(GameJournalData target, string childId,
+            string a, string b, BreedingRecipeKind kind)
+        {
+            if (string.IsNullOrWhiteSpace(childId) || string.IsNullOrWhiteSpace(a) ||
+                string.IsNullOrWhiteSpace(b)) return;
+            if (StringComparer.OrdinalIgnoreCase.Compare(a, b) > 0)
+                (a, b) = (b, a);
+
+            foreach (var recipe in target.recipes)
+                if (SameId(recipe.childId, childId) && SameId(recipe.parentAId, a) &&
+                    SameId(recipe.parentBId, b)) return;
+
+            target.recipes.Add(new DiscoveredBreedingRecipe
+            {
+                childId = childId, parentAId = a, parentBId = b, kind = kind
+            });
+        }
+
+        private static bool SameId(string a, string b) =>
+            string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        public bool HasDiscoveredRecipe(string childId) =>
+            !string.IsNullOrEmpty(childId) && data.recipes.Exists(x => SameId(x.childId, childId));
+
+        public bool RegisterBreedingGoal(string childId, string name)
+        {
+            if (!HasDiscoveredRecipe(childId)) return false;
+            GoalRecord existing = data.goals.Find(x =>
+                x.kind == GoalKind.Monster && SameId(x.definitionId, childId));
+            if (existing == null && data.goals.Count >= GoalLimit) return false;
+            if (existing == null)
+            {
+                existing = new GoalRecord
+                {
+                    goalId = Guid.NewGuid().ToString("N"),
+                    kind = GoalKind.Monster,
+                    definitionId = childId,
+                    name = string.IsNullOrWhiteSpace(name) ? childId : name
+                };
+                data.goals.Add(existing);
+            }
+            if (!existing.showBreedingProgress)
+            {
+                existing.showBreedingProgress = true;
+                QueueSave();
+            }
+            return true;
+        }
+
         private static GameJournalData NewData() => new GameJournalData { startedUtc = DateTime.UtcNow.ToString("o") };
         private void Awake() { Instance = this; }
         private void Start() { BindSave(); }
@@ -84,6 +135,8 @@ namespace MixMaster.Core
                 SkillSO skill = skills != null ? skills.Get(id) : null;
                 entry.inheritedSkills.Add(skill != null ? skill.displayName : id);
             }
+            if (succeeded && offer.isSpecial && child != null)
+                RememberRecipe(data, child.monsterId, a.monsterId, b.monsterId, offer.recipeKind);
             data.history.Insert(0, entry);
             if (data.history.Count > HistoryLimit) data.history.RemoveRange(HistoryLimit, data.history.Count - HistoryLimit);
             data.breedingAttempts = LongMath.SaturatingAdd(data.breedingAttempts, 1);
@@ -144,6 +197,10 @@ namespace MixMaster.Core
             result.playSeconds = double.IsNaN(source.playSeconds) || double.IsInfinity(source.playSeconds) ? 0 : Math.Max(0, Math.Min(1e12, source.playSeconds));
             result.defeatedEnemies = Math.Max(0, source.defeatedEnemies); result.maximumDamage = Math.Max(0, source.maximumDamage);
             result.breedingAttempts = Math.Max(0, source.breedingAttempts); result.breedingSuccesses = Math.Max(0, source.breedingSuccesses); result.breedingFailures = Math.Max(0, source.breedingFailures);
+            if (source.recipes != null)
+                foreach (var recipe in source.recipes)
+                    if (recipe != null)
+                        RememberRecipe(result, recipe.childId, recipe.parentAId, recipe.parentBId, recipe.kind);
             if (source.history != null) foreach (var x in source.history)
             {
                 if (result.history.Count >= HistoryLimit) break;
@@ -153,6 +210,12 @@ namespace MixMaster.Core
                 if (x.inheritedSkills != null) foreach (string skill in x.inheritedSkills)
                     if (!string.IsNullOrWhiteSpace(skill) && entry.inheritedSkills.Count < 3) entry.inheritedSkills.Add(skill);
                 result.history.Add(entry);
+                if (entry.succeeded && entry.specialRecipe && entry.child != null)
+                {
+                    var recipe = new SpecialBreedingRecipe { childId = entry.child.monsterId };
+                    RememberRecipe(result, recipe.childId, entry.parentA.monsterId,
+                        entry.parentB.monsterId, recipe.Kind);
+                }
             }
             var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var ids = new HashSet<string>();
@@ -165,7 +228,7 @@ namespace MixMaster.Core
                 if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) { id = Guid.NewGuid().ToString("N"); ids.Add(id); }
                 bool showOnHud = x.showOnHud && tracked < TrackedGoalLimit;
                 if (showOnHud) tracked++;
-                result.goals.Add(new GoalRecord { goalId = id, kind = x.kind, definitionId = x.definitionId, name = x.name, showOnHud = showOnHud, targetCount = Math.Max(1, Math.Min(MaximumTarget, x.targetCount)) });
+                result.goals.Add(new GoalRecord { goalId = id, kind = x.kind, definitionId = x.definitionId, name = x.name, showOnHud = showOnHud, showBreedingProgress = x.showBreedingProgress, targetCount = Math.Max(1, Math.Min(MaximumTarget, x.targetCount)) });
             }
             return result;
         }

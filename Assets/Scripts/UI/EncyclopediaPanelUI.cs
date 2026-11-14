@@ -37,10 +37,12 @@ namespace MixMaster.UI
         private List<EquipmentSO> equipment = new List<EquipmentSO>();
         private readonly List<EncyclopediaLinkUI> titleLinks = new List<EncyclopediaLinkUI>();
         private readonly List<EncyclopediaLinkUI> skillLinks = new List<EncyclopediaLinkUI>();
+        private readonly List<EncyclopediaLinkUI> recipeLinks = new List<EncyclopediaLinkUI>();
         private EncyclopediaManager progress;
         private EquipmentManager equipmentProgress;
         private MonsterManager monsterAcquisitions;
         private MapCatalogSO maps;
+        private GameJournalManager journal;
         private MonsterSO selectedMonster;
         private EquipmentSO selectedEquipment;
         private Action returnToMenu;
@@ -66,6 +68,8 @@ namespace MixMaster.UI
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = null;
             if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged -= ProgressChanged;
+            if (journal != null) journal.Changed -= ProgressChanged;
+            journal = null;
             monsterAcquisitions = null;
             if (equipmentProgress != null) equipmentProgress.InventoryChanged -= ProgressChanged;
             equipmentProgress = null;
@@ -89,6 +93,9 @@ namespace MixMaster.UI
             if (kind == EncyclopediaKind.Monster)
             {
                 if (progress != null) progress.Changed += ProgressChanged;
+                if (journal != null) journal.Changed -= ProgressChanged;
+                journal = GameJournalManager.Instance;
+                if (journal != null) journal.Changed += ProgressChanged;
                 if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged -= ProgressChanged;
                 monsterAcquisitions = FindFirstObjectByType<MonsterManager>();
                 if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged += ProgressChanged;
@@ -114,7 +121,9 @@ namespace MixMaster.UI
         }
 
         private int Count => kind == EncyclopediaKind.Monster ? monsters.Count : equipment.Count;
-        private bool Unlocked(MonsterSO monster) => monster != null && progress != null && progress.IsUnlocked(monster.monsterId);
+        private bool Unlocked(MonsterSO monster) => monster != null &&
+            ((progress != null && progress.IsUnlocked(monster.monsterId)) ||
+             (GameJournalManager.Instance != null && GameJournalManager.Instance.HasDiscoveredRecipe(monster.monsterId)));
 
         private bool Unlocked(EquipmentSO item) =>
             item != null && equipmentProgress != null && equipmentProgress.HasAcquiredEquipment(item.equipmentId);
@@ -179,7 +188,7 @@ namespace MixMaster.UI
             }
             int known = 0;
             foreach (MonsterSO monster in monsters) if (Unlocked(monster)) known++;
-            progressText.text = "討伐済み " + known + " / " + monsters.Count;
+            progressText.text = "公開済み " + known + " / " + monsters.Count;
         }
 
         private void SelectEntry(int index)
@@ -202,6 +211,7 @@ namespace MixMaster.UI
                     ? EncyclopediaContent.Name(material.displayName, material.materialId) : "なし"));
                 SetText(habitatsText, "生息地\n" + EncyclopediaContent.Habitats(monster, maps));
                 ShowLinks(monster);
+                ShowRecipes(monster);
             }
             else
             {
@@ -241,6 +251,7 @@ namespace MixMaster.UI
             SetText(skillsHeading, skills.Count == 0 ? "スキル：なし" : "スキル（タップで詳細）");
             foreach (EncyclopediaLinkUI link in titleLinks) link.Clear();
             foreach (EncyclopediaLinkUI link in skillLinks) link.Clear();
+            foreach (EncyclopediaLinkUI link in recipeLinks) link.Clear();
             for (int i = 0; i < titles.Count; i++)
             {
                 TitleSO title = titles[i];
@@ -255,6 +266,37 @@ namespace MixMaster.UI
                 if (link != null) link.Bind(EncyclopediaContent.Name(skill.displayName, skill.skillId), skill.icon,
                     () => ShowPopup(skill.icon, EncyclopediaContent.Name(skill.displayName, skill.skillId), EncyclopediaContent.SkillDetails(skill)));
             }
+        }
+
+        private void ShowRecipes(MonsterSO monster)
+        {
+            var recipes = BreedingGoalContent.ForChild(journal, monster.monsterId);
+            if (recipes.Count == 0 || skillsRoot == null) return;
+            var catalog = MonsterCatalogSO.Load();
+            string childId = monster.monsterId;
+            int index = 0;
+            foreach (var recipe in recipes)
+            {
+                var link = Link(recipeLinks, index++, skillsRoot);
+                if (link == null) continue;
+                string title = BreedingGoalContent.KindName(recipe.kind) + "　" +
+                    BreedingGoalContent.Name(catalog, recipe.parentAId) + " × " +
+                    BreedingGoalContent.Name(catalog, recipe.parentBId);
+                link.Bind(title, null, () => ShowPopup(monster.icon, title,
+                    BreedingGoalContent.Describe(journal, childId, monsterAcquisitions, catalog, recipe)));
+                link.transform.SetAsLastSibling();
+            }
+
+            var goal = Link(recipeLinks, index, skillsRoot);
+            if (goal == null) return;
+            goal.Bind("配合目標に登録", null, () =>
+            {
+                string result = journal != null && journal.RegisterBreedingGoal(childId, monster.displayName)
+                    ? "目標リストに登録しました。"
+                    : "目標を登録できませんでした。登録上限は50件です。";
+                ShowPopup(monster.icon, "配合目標", result);
+            });
+            goal.transform.SetAsLastSibling();
         }
 
         private EncyclopediaLinkUI Link(List<EncyclopediaLinkUI> pool, int index, RectTransform root)

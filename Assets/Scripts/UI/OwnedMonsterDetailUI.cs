@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text;
 using MixMaster.Core;
 using TMPro;
@@ -67,6 +68,11 @@ namespace MixMaster.UI
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
         private bool readOnlyMode;
+        private RectTransform comparisonPanel;
+        private TMP_Text comparisonLeft, comparisonRight, comparisonPage;
+        private Button comparisonPrevious, comparisonNext;
+        private readonly List<OwnedMonsterRecord> comparisonCandidates = new List<OwnedMonsterRecord>();
+        private int comparisonIndex;
         private Color defaultPartyButtonColor = Color.white;
 
         public OwnedMonsterRecord SelectedRecord => selectedRecord;
@@ -139,6 +145,7 @@ namespace MixMaster.UI
             UnsubscribeParty();
             UnsubscribeEquipment();
             CloseFamilyTree();
+            CloseComparison();
         }
 
         private void OnDestroy()
@@ -177,6 +184,7 @@ namespace MixMaster.UI
                 return;
 
             CloseFamilyTree();
+            CloseComparison();
             selectedRecord = record;
             SubscribeSkills();
             SubscribeParty();
@@ -211,6 +219,9 @@ namespace MixMaster.UI
         {
             if (selectedRecord == null)
                 return;
+
+            if (comparisonPanel != null && comparisonPanel.gameObject.activeSelf)
+                RefreshComparison();
 
             MonsterSO monster = catalog != null
                 ? catalog.GetMonster(selectedRecord.monsterId)
@@ -909,7 +920,11 @@ namespace MixMaster.UI
                 monsterManager.FindOwnedMonster(selectedRecord.uniqueId) != selectedRecord)
                 HandleMonsterSold(selectedRecord.uniqueId);
             else
+            {
                 RefreshFarmControl();
+                if (comparisonPanel != null && comparisonPanel.gameObject.activeSelf)
+                    RefreshComparison();
+            }
         }
 
         private void HandleMonsterSold(string uniqueId)
@@ -921,7 +936,11 @@ namespace MixMaster.UI
                 Hide();
             }
             else
+            {
                 RefreshFarmControl();
+                if (comparisonPanel != null && comparisonPanel.gameObject.activeSelf)
+                    RefreshComparison();
+            }
         }
 
         private void HandleExperienceChanged(OwnedMonsterRecord record)
@@ -929,6 +948,9 @@ namespace MixMaster.UI
             if (selectedRecord != null && record != null &&
                 selectedRecord.uniqueId == record.uniqueId)
                 Refresh();
+            else if (comparisonPanel != null && comparisonPanel.gameObject.activeSelf &&
+                comparisonCandidates.Count > 0 && record == comparisonCandidates[comparisonIndex])
+                comparisonRight.text = "比較する個体\n" + FormatComparison(record);
         }
 
         private void EnsureProtectionControls()
@@ -979,7 +1001,114 @@ namespace MixMaster.UI
                 farmButtonText.font = monsterNameText.font;
             farmButton.onClick.AddListener(ToggleFarmRegistration);
 
+            Button compareButton = InventoryUiFactory.Button(section.transform,
+                "CompareSameSpecies", "同種個体を比較",
+                new Vector2(450f, -166f), new Vector2(372f, 60f));
+            if (monsterNameText != null)
+                compareButton.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
+            compareButton.onClick.AddListener(OpenComparison);
+
             CreateSellConfirmation();
+        }
+
+        private void OpenComparison()
+        {
+            if (readOnlyMode || selectedRecord == null || monsterManager == null) return;
+            comparisonIndex = 0;
+            if (comparisonPanel == null) BuildComparison();
+            RefreshComparison();
+            comparisonPanel.SetAsLastSibling();
+            comparisonPanel.gameObject.SetActive(true);
+        }
+
+        private void CloseComparison()
+        {
+            if (comparisonPanel != null) comparisonPanel.gameObject.SetActive(false);
+            comparisonCandidates.Clear();
+        }
+
+        private void BuildComparison()
+        {
+            Image backdrop = FamilyImage(SafeAreaLayout.ContentRoot(transform),
+                "MonsterComparison", Vector2.zero, Vector2.one, new Color(.035f, .05f, .09f, .99f));
+            backdrop.raycastTarget = true;
+            comparisonPanel = backdrop.rectTransform;
+            FamilyText(comparisonPanel, "Heading", "同種個体の比較",
+                new Vector2(.08f, .89f), new Vector2(.92f, .98f), 38f);
+            comparisonLeft = ComparisonColumn("Selected", .04f, .49f);
+            comparisonRight = ComparisonColumn("Candidate", .51f, .96f);
+
+            comparisonPage = FamilyText(comparisonPanel, "Page", "",
+                new Vector2(.31f, .15f), new Vector2(.69f, .22f), 26f);
+            comparisonPrevious = ComparisonButton("Previous", "前へ", .04f, .30f, .15f,
+                () => { comparisonIndex--; RefreshComparison(); });
+            comparisonNext = ComparisonButton("Next", "次へ", .70f, .96f, .15f,
+                () => { comparisonIndex++; RefreshComparison(); });
+            ComparisonButton("Close", "閉じる", .28f, .72f, .04f, CloseComparison);
+        }
+
+        private TMP_Text ComparisonColumn(string name, float left, float right)
+        {
+            Image column = FamilyImage(comparisonPanel, name,
+                new Vector2(left, .24f), new Vector2(right, .88f), new Color(.10f, .16f, .23f));
+            TMP_Text text = FamilyText(column.transform, "Values", "",
+                new Vector2(.05f, .03f), new Vector2(.95f, .97f), 26f);
+            text.fontSizeMin = 12f;
+            text.alignment = TextAlignmentOptions.TopLeft;
+            return text;
+        }
+
+        private Button ComparisonButton(string name, string caption, float left, float right,
+            float bottom, Action click)
+        {
+            Button button = InventoryUiFactory.Button(comparisonPanel, name, caption, Vector2.zero, Vector2.zero);
+            FamilyBounds((RectTransform)button.transform, new Vector2(left, bottom), new Vector2(right, bottom + .075f));
+            if (monsterNameText != null) button.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
+            button.onClick.AddListener(() => click());
+            return button;
+        }
+
+        private void RefreshComparison()
+        {
+            comparisonCandidates.Clear();
+            foreach (var record in monsterManager.OwnedMonsters)
+                if (record != null && record.uniqueId != selectedRecord.uniqueId &&
+                    string.Equals(record.monsterId, selectedRecord.monsterId, StringComparison.OrdinalIgnoreCase))
+                    comparisonCandidates.Add(record);
+            int count = comparisonCandidates.Count;
+            comparisonIndex = Mathf.Clamp(comparisonIndex, 0, Mathf.Max(0, count - 1));
+
+            comparisonLeft.text = "選択中の個体\n" + FormatComparison(selectedRecord);
+            comparisonRight.text = count == 0 ? "同種の個体がいません"
+                : "比較する個体\n" + FormatComparison(comparisonCandidates[comparisonIndex]);
+            comparisonPage.text = count == 0 ? "0 / 0" : $"{comparisonIndex + 1} / {count}";
+            comparisonPrevious.interactable = comparisonIndex > 0;
+            comparisonNext.interactable = comparisonIndex + 1 < count;
+        }
+
+        private string FormatComparison(OwnedMonsterRecord record)
+        {
+            TitleSO title = catalog != null ? catalog.GetTitle(record.titleId) : null;
+            var text = new StringBuilder();
+            text.Append("Lv.").AppendLine(record.level.ToString());
+            text.Append("称号：").AppendLine(title != null ? title.displayName
+                : string.IsNullOrWhiteSpace(record.titleId) ? "なし" : record.titleId);
+            text.AppendLine().AppendLine("個体値");
+            text.AppendLine(FormatIndividualValues(record.individualValues, highlightPerfect: false));
+            text.AppendLine().AppendLine("継承候補");
+            var skills = skillManager != null
+                ? skillManager.InheritanceCandidates(record.uniqueId, null) : null;
+            bool hasSkills = false;
+            if (skills != null)
+                foreach (string id in skills)
+                {
+                    SkillSO skill = skillManager.Catalog?.Get(id);
+                    if (skill == null || !skill.executable) continue;
+                    text.AppendLine(EncyclopediaContent.Name(skill.displayName, id));
+                    hasSkills = true;
+                }
+            if (!hasSkills) text.Append("なし");
+            return text.ToString();
         }
 
         private void CreateSellConfirmation()
@@ -1216,19 +1345,19 @@ namespace MixMaster.UI
         }
 
         public static string FormatIndividualValues(
-            MonsterIndividualValues iv)
+            MonsterIndividualValues iv, bool highlightPerfect = true)
         {
             if (iv == null)
                 return "個体値データなし";
 
-            return "HP " + FormatIv(iv.hp) + "    MP " + FormatIv(iv.mp) +
-                   "\n攻撃 " + FormatIv(iv.attack) + "    魔力 " + FormatIv(iv.magic) +
-                   "\n防御 " + FormatIv(iv.defense) + "    魔防 " + FormatIv(iv.magicDefense) +
-                   "\nクリ率 " + FormatIv(iv.criticalRate) +
-                   "    クリ倍率 " + FormatIv(iv.criticalMultiplier) +
-                   "\n移動速度 " + FormatIv(iv.moveSpeed) +
-                   "    攻撃速度 " + FormatIv(iv.attackSpeed) +
-                   "\n攻撃範囲 " + FormatIv(iv.attackRange);
+            return "HP " + FormatIv(iv.hp, highlightPerfect) + "    MP " + FormatIv(iv.mp, highlightPerfect) +
+                   "\n攻撃 " + FormatIv(iv.attack, highlightPerfect) + "    魔力 " + FormatIv(iv.magic, highlightPerfect) +
+                   "\n防御 " + FormatIv(iv.defense, highlightPerfect) + "    魔防 " + FormatIv(iv.magicDefense, highlightPerfect) +
+                   "\nクリ率 " + FormatIv(iv.criticalRate, highlightPerfect) +
+                   "    クリ倍率 " + FormatIv(iv.criticalMultiplier, highlightPerfect) +
+                   "\n移動速度 " + FormatIv(iv.moveSpeed, highlightPerfect) +
+                   "    攻撃速度 " + FormatIv(iv.attackSpeed, highlightPerfect) +
+                   "\n攻撃範囲 " + FormatIv(iv.attackRange, highlightPerfect);
         }
 
         private static string FormatStats(CharacterStats stats)
@@ -1260,11 +1389,11 @@ namespace MixMaster.UI
                    (stats.dropRateBonus * 100f).ToString("0.##") + "%";
         }
 
-        private static string FormatIv(int value)
+        private static string FormatIv(int value, bool highlightPerfect)
         {
             int iv = MonsterIndividualValues.Clamp(value);
 
-            return iv == 100
+            return highlightPerfect && iv == 100
                 ? "<color=#FFD700><b>100</b></color>"
                 : iv.ToString();
         }

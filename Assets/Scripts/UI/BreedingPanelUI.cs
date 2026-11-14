@@ -46,6 +46,7 @@ namespace MixMaster.UI
         [SerializeField] private Button materialBPlusButton;
         [SerializeField] private Button materialBMinusButton;
         [SerializeField] private TMP_Text selectionHeader;
+        private Toggle recipeOnlyToggle;
         [SerializeField] private Toggle individualValuesToggle;
         [SerializeField] private TMP_Dropdown sortDropdown;
         [SerializeField] private TMP_Dropdown statFilterDropdown;
@@ -136,6 +137,8 @@ namespace MixMaster.UI
         private void OnEnable()
         {
             WireButtons();
+            EnsureRecipeFilter();
+            if (recipeOnlyToggle != null) recipeOnlyToggle.SetIsOnWithoutNotify(false);
             EnsureReferences();
             parentAUniqueId = null;
             parentBUniqueId = null;
@@ -157,6 +160,22 @@ namespace MixMaster.UI
             if (noticeText != null)
                 noticeText.text = $"親はLv.{MinimumParentLevel}以上が必要です。編成中・お気に入り・ロック中も選択不可。";
             RefreshAll();
+        }
+
+        private void EnsureRecipeFilter()
+        {
+            if (recipeOnlyToggle != null || selectionHeader == null) return;
+            recipeOnlyToggle = CreateIndividualValuesToggle(selectionHeader.transform.parent,
+                "RecipeOnlyToggle", "レシピ候補のみ", 185f);
+            recipeOnlyToggle.onValueChanged.AddListener(_ => HandleFilterChanged(0));
+        }
+
+        private OwnedMonsterRecord SingleSelectedParent()
+        {
+            if (monsterManager == null ||
+                string.IsNullOrEmpty(parentAUniqueId) == string.IsNullOrEmpty(parentBUniqueId))
+                return null;
+            return monsterManager.FindOwnedMonster(string.IsNullOrEmpty(parentAUniqueId) ? parentBUniqueId : parentAUniqueId);
         }
 
         private void EnsureReferences()
@@ -685,6 +704,12 @@ namespace MixMaster.UI
                     breedingManager != null;
             if (breedButton != null)
                 breedButton.interactable = previewChild != null;
+            if (recipeOnlyToggle != null)
+            {
+                bool available = SingleSelectedParent() != null;
+                recipeOnlyToggle.gameObject.SetActive(available);
+                if (!available) recipeOnlyToggle.SetIsOnWithoutNotify(false);
+            }
             BuildCandidateSnapshot();
             RefreshCandidateRows();
         }
@@ -757,10 +782,26 @@ namespace MixMaster.UI
             int thresholdValue = thresholdDropdown != null
                 ? thresholdDropdown.value : 0;
 
+            OwnedMonsterRecord recipeParent = recipeOnlyToggle != null && recipeOnlyToggle.isOn
+                ? SingleSelectedParent() : null;
+            var matchingSpecies = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             var filteredIndices = new List<int>(owned.Count);
             for (int i = 0; i < owned.Count; i++)
             {
                 OwnedMonsterRecord record = owned[i];
+                if (recipeParent != null && record != null)
+                {
+                    if (record.uniqueId == recipeParent.uniqueId || string.IsNullOrEmpty(record.monsterId))
+                        continue;
+                    if (!matchingSpecies.TryGetValue(record.monsterId, out bool matches))
+                    {
+                        matches = breedingManager != null &&
+                            breedingManager.GetRecipeKind(recipeParent.monsterId, record.monsterId) !=
+                                BreedingRecipeKind.Unspecified;
+                        matchingSpecies.Add(record.monsterId, matches);
+                    }
+                    if (!matches) continue;
+                }
                 if (record != null &&
                     InventoryProtectionIcons.MatchesCombinedStatFilter(
                         filterValue, record.isFavorite, record.isLocked))
@@ -857,11 +898,7 @@ namespace MixMaster.UI
 
         private void RefreshCandidateRows()
         {
-            bool hasParentA = !string.IsNullOrEmpty(parentAUniqueId);
-            bool hasParentB = !string.IsNullOrEmpty(parentBUniqueId);
-            OwnedMonsterRecord singleParent = hasParentA != hasParentB
-                ? monsterManager?.FindOwnedMonster(hasParentA ? parentAUniqueId : parentBUniqueId)
-                : null;
+            OwnedMonsterRecord singleParent = SingleSelectedParent();
             var partyIds = monsterManager != null
                 ? new HashSet<string>(monsterManager.PartyMonsterUniqueIds)
                 : null;
@@ -1272,16 +1309,17 @@ namespace MixMaster.UI
             return panel;
         }
 
-        private static Toggle CreateIndividualValuesToggle(Transform parent)
+        private static Toggle CreateIndividualValuesToggle(Transform parent,
+            string name = "IndividualValuesToggle", string label = "個体値表示", float width = 280f)
         {
-            GameObject root = MakeRectObject("IndividualValuesToggle", parent,
+            GameObject root = MakeRectObject(name, parent,
                 typeof(Image), typeof(Toggle), typeof(HorizontalLayoutGroup),
                 typeof(LayoutElement));
             Image background = root.GetComponent<Image>();
             background.color = new Color(0.19f, 0.28f, 0.36f, 1f);
             LayoutElement element = root.GetComponent<LayoutElement>();
-            element.preferredWidth = 280f;
-            element.minWidth = 240f;
+            element.preferredWidth = width;
+            element.minWidth = width - 40f;
             element.flexibleWidth = 0f;
             element.preferredHeight = 40f;
 
@@ -1312,7 +1350,7 @@ namespace MixMaster.UI
             Image checkImage = check.GetComponent<Image>();
             checkImage.color = new Color(0.40f, 0.91f, 0.56f, 1f);
 
-            TMP_Text caption = Label(root.transform, "Label", "個体値表示", 19f, 35f);
+            TMP_Text caption = Label(root.transform, "Label", label, 19f, 35f);
             caption.alignment = TextAlignmentOptions.Center;
             caption.GetComponent<LayoutElement>().flexibleWidth = 1f;
 
