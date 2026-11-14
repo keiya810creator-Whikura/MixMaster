@@ -314,6 +314,12 @@ namespace MixMaster.UI
             if (goal == null) { selectedGoal = null; detailRoot.SetActive(false); return; }
             var target = content.Resolve(goal); long owned = GameGuideContent.Owned(goal, monsters, equipment, materials);
             string value = target.name + "\n\n" + (owned >= goal.targetCount ? "達成" : "未達成") + "　" + GameGuideContent.Number(owned) + " / " + GameGuideContent.Number(goal.targetCount) + "\n\n" + target.sources + "\n\n現在の所持数で判定します。消費や売却で進捗が減る場合があります。";
+            if (goal.kind == GoalKind.Monster && goal.showBreedingProgress)
+            {
+                string parents = BreedingGoalContent.Describe(journal, goal.definitionId,
+                    monsters, MonsterCatalogSO.Load());
+                if (parents.Length > 0) value += "\n\n発見済みの配合レシピ\n" + parents;
+            }
             detailRoot.SetActive(true); detailRoot.transform.SetAsLastSibling(); deleteButton.gameObject.SetActive(true);
             if (reset) ScrollText(detailScroll, detailText, value); else if (detailText.text != value)
             {

@@ -201,9 +201,18 @@ namespace MixMaster.Core
         }
         public List<string> InheritanceCandidates(string a,string b)
         {
-            var result=new List<string>();
-            foreach(var owner in new[]{a,b})foreach(var slot in Loadout(owner).slots)
-                if(slot!=null&&!string.IsNullOrEmpty(slot.skillId)&&Learned(owner,slot.skillId)&&Catalog?.Get(slot.skillId)!=null&&!result.Contains(slot.skillId))result.Add(slot.skillId);
+            var result = new List<string>();
+            foreach (string owner in new[] { a, b })
+            {
+                if (string.IsNullOrEmpty(owner)) continue;
+                var loadout = data.loadouts.Find(item => item != null && item.ownerId == owner);
+                if (loadout?.slots == null) continue;
+                foreach (var slot in loadout.slots)
+                    if (slot != null && !string.IsNullOrEmpty(slot.skillId) &&
+                        Learned(owner, slot.skillId) && Catalog?.Get(slot.skillId) != null &&
+                        !result.Contains(slot.skillId))
+                        result.Add(slot.skillId);
+            }
             return result;
         }
         public void Inherit(OwnedMonsterRecord child,List<string> candidates)

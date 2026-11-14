@@ -103,7 +103,10 @@ namespace MixMaster.UI
                     ? (species.icon != null ? species.icon : species.sprite) : null;
                 slot.icon.enabled = slot.icon.sprite != null;
                 slot.levels.text = record != null
-                    ? $"{record.farmStartLevel}Lv → {record.level}Lv" : "空き";
+                    ? $"{record.farmStartLevel}Lv → {record.level}Lv" +
+                      (record.level >= BreedingManager.MinimumParentLevel
+                          ? $"\n<color=#9AF4A3>Lv.{BreedingManager.MinimumParentLevel}到達</color>" : "")
+                    : "空き";
                 slot.button.interactable = record != null;
             }
         }

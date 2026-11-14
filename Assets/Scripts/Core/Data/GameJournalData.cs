@@ -23,12 +23,20 @@ namespace MixMaster.Core
     }
 
     [Serializable]
+    public sealed class DiscoveredBreedingRecipe
+    {
+        public string childId, parentAId, parentBId;
+        public BreedingRecipeKind kind;
+    }
+
+    [Serializable]
     public sealed class GoalRecord
     {
         public string goalId, definitionId, name;
         public GoalKind kind;
         public long targetCount = 1;
         public bool showOnHud;
+        public bool showBreedingProgress;
     }
 
     [Serializable]
@@ -38,6 +46,7 @@ namespace MixMaster.Core
         public double playSeconds;
         public long defeatedEnemies, maximumDamage, breedingAttempts, breedingSuccesses, breedingFailures;
         public List<BreedingHistoryRecord> history = new List<BreedingHistoryRecord>();
+        public List<DiscoveredBreedingRecipe> recipes = new List<DiscoveredBreedingRecipe>();
         public List<GoalRecord> goals = new List<GoalRecord>();
     }
 }
