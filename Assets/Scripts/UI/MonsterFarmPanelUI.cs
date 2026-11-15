@@ -19,6 +19,7 @@ namespace MixMaster.UI
             [NonSerialized] public OwnedMonsterRecord record;
             [NonSerialized] public Button favoriteButton, lockButton;
             [NonSerialized] public TMP_Text favoriteLabel, lockLabel;
+            [NonSerialized] public Vector2 layoutSize;
         }
 
         [SerializeField] private Button closeButton;
@@ -40,9 +41,9 @@ namespace MixMaster.UI
                 slots[i].button.onClick.AddListener(() => OpenDetail(index));
                 Slot slot = slots[i];
                 slot.removeButton.onClick.AddListener(() => RemoveFromFarm(index));
-                slot.favoriteButton = CreateProtectionButton(slot, "Favorite", "☆", .02f, .30f,
+                slot.favoriteButton = CreateProtectionButton(slot, "Favorite", "☆",
                     () => ToggleProtection(slot, false), out slot.favoriteLabel);
-                slot.lockButton = CreateProtectionButton(slot, "Lock", "ロック", .32f, .60f,
+                slot.lockButton = CreateProtectionButton(slot, "Lock", "ロック",
                     () => ToggleProtection(slot, true), out slot.lockLabel);
             }
         }
@@ -93,6 +94,17 @@ namespace MixMaster.UI
         private void LateUpdate()
         {
             if (dirty) Refresh();
+
+            foreach (Slot slot in slots)
+            {
+                Vector2 size = ((RectTransform)slot.button.transform).rect.size;
+                if (size == slot.layoutSize) continue;
+                slot.layoutSize = size;
+                float side = Mathf.Max(0f, Mathf.Min(size.x * .28f, size.y * .28f));
+                PlaceButton(slot.favoriteButton, 1f / 6f, side);
+                PlaceButton(slot.lockButton, .5f, side);
+                PlaceButton(slot.removeButton, 5f / 6f, side);
+            }
         }
 
         private void Refresh()
@@ -113,27 +125,32 @@ namespace MixMaster.UI
                     ? (species.icon != null ? species.icon : species.sprite) : null;
                 slot.icon.enabled = slot.icon.sprite != null;
                 slot.levels.text = record != null
-                    ? $"{record.farmStartLevel}Lv → {record.level}Lv" +
-                      (record.level >= BreedingManager.MinimumParentLevel
-                          ? $"\n<color=#9AF4A3>Lv.{BreedingManager.MinimumParentLevel}到達</color>" : "")
+                    ? $"{record.farmStartLevel}Lv → {record.level}Lv"
                     : "空き";
                 slot.button.interactable = record != null;
             }
         }
 
         private static Button CreateProtectionButton(Slot slot, string name, string label,
-            float left, float right, Action click, out TMP_Text text)
+            Action click, out TMP_Text text)
         {
             Button button = InventoryUiFactory.Button(slot.button.transform, name, label,
                 Vector2.zero, Vector2.zero);
-            var rect = (RectTransform)button.transform;
-            rect.anchorMin = new Vector2(left, .66f);
-            rect.anchorMax = new Vector2(right, .98f);
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
             text = button.GetComponentInChildren<TMP_Text>();
             text.font = slot.levels.font;
+            text.enableWordWrapping = false;
+            text.fontSizeMin = 8f;
             button.onClick.AddListener(() => click());
             return button;
+        }
+
+        private static void PlaceButton(Button button, float horizontalAnchor, float side)
+        {
+            var rect = (RectTransform)button.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(horizontalAnchor, .98f);
+            rect.pivot = new Vector2(.5f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(side, side);
         }
 
         private static void RefreshProtection(Slot slot)
