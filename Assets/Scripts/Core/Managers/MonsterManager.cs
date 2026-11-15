@@ -241,6 +241,19 @@ namespace MixMaster.Core
             return true;
         }
 
+        public event Action<OwnedMonsterRecord> MonsterRenamed;
+
+        public bool SetNickname(string uniqueId, string nickname)
+        {
+            var record = FindOwnedMonster(uniqueId);
+            if (record == null) return false;
+            string value = OwnedMonsterRecord.NormalizeNickname(nickname);
+            if (value == (record.nickname ?? string.Empty)) return false;
+            record.nickname = value;
+            MonsterRenamed?.Invoke(record);
+            return true;
+        }
+
         public bool SetLocked(string uniqueId, bool locked)
         {
             OwnedMonsterRecord record = FindOwnedMonster(uniqueId);
@@ -581,6 +594,7 @@ namespace MixMaster.Core
                     if (record.individualValues == null)
                         record.individualValues = new MonsterIndividualValues();
 
+                    record.nickname = OwnedMonsterRecord.NormalizeNickname(record.nickname);
                     record.individualValues.ClampAll();
                     record.intimacyKills = Math.Max(0, record.intimacyKills);
                     record.skillPoints = Math.Max(0, record.skillPoints);

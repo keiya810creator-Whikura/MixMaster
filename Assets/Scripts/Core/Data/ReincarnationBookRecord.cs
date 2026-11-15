@@ -19,7 +19,17 @@ namespace MixMaster.Core
         Attack,
         Magic,
         Defense,
-        MagicDefense
+        MagicDefense,
+        CriticalRate,
+        CriticalMultiplier,
+        MoveSpeed,
+        AttackSpeed,
+        AttackRange,
+        Element,
+        AttackType,
+        Stage,
+        BreedingValue,
+        Favorite
     }
 
     public static class ReincarnationRules

@@ -38,6 +38,32 @@ namespace MixMaster.Core
         public string uniqueId;
         public string monsterId;
 
+        public const int MaxNicknameLength = 20;
+        public string nickname;
+
+        public string DisplayName(string speciesName)
+        {
+            return string.IsNullOrWhiteSpace(nickname)
+                ? speciesName : nickname + "（" + speciesName + "）";
+        }
+
+        internal static string NormalizeNickname(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            var text = new System.Text.StringBuilder();
+            var elements = System.Globalization.StringInfo.GetTextElementEnumerator(value.Trim());
+            int count = 0;
+            while (count < MaxNicknameLength && elements.MoveNext())
+            {
+                string element = elements.GetTextElement();
+                if (char.IsControl(element[0]) || element.Contains("<") || element.Contains(">"))
+                    continue;
+                text.Append(element);
+                count++;
+            }
+            return text.ToString().Trim();
+        }
+
         // Parent A/B, followed by A's parents and then B's parents.
         public JournalMonster[] ancestors;
 

@@ -68,7 +68,10 @@ namespace MixMaster.UI
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
         private bool readOnlyMode;
-        private RectTransform comparisonPanel;
+        private RectTransform comparisonPanel, nicknamePanel;
+        private TMP_InputField nicknameInput;
+        private Button comparisonLeftFavorite, comparisonLeftLock;
+        private Button comparisonRightFavorite, comparisonRightLock;
         private TMP_Text comparisonLeft, comparisonRight, comparisonPage;
         private Button comparisonPrevious, comparisonNext;
         private readonly List<OwnedMonsterRecord> comparisonCandidates = new List<OwnedMonsterRecord>();
@@ -146,6 +149,7 @@ namespace MixMaster.UI
             UnsubscribeEquipment();
             CloseFamilyTree();
             CloseComparison();
+            if (nicknamePanel != null) nicknamePanel.gameObject.SetActive(false);
         }
 
         private void OnDestroy()
@@ -185,6 +189,7 @@ namespace MixMaster.UI
 
             CloseFamilyTree();
             CloseComparison();
+            if (nicknamePanel != null) nicknamePanel.gameObject.SetActive(false);
             selectedRecord = record;
             SubscribeSkills();
             SubscribeParty();
@@ -244,7 +249,7 @@ namespace MixMaster.UI
 
             SetText(monsterNameText,
                 (title != null ? "《" + titleName + "》" : "") +
-                monsterName);
+                selectedRecord.DisplayName(monsterName));
 
             if (monsterIcon != null)
             {
@@ -912,6 +917,8 @@ namespace MixMaster.UI
             if (selectedRecord != null && record != null &&
                 selectedRecord.uniqueId == record.uniqueId)
                 RefreshProtectionControls();
+            if (comparisonPanel != null && comparisonPanel.gameObject.activeSelf)
+                RefreshComparisonProtection();
         }
 
         private void HandleMonstersBulkSold()
@@ -964,8 +971,8 @@ namespace MixMaster.UI
                 typeof(Image), typeof(LayoutElement));
             section.transform.SetParent(content, false);
             LayoutElement layout = section.GetComponent<LayoutElement>();
-            layout.preferredHeight = 245f;
-            layout.minHeight = 245f;
+            layout.preferredHeight = 315f;
+            layout.minHeight = 315f;
             Image image = section.GetComponent<Image>();
             image.color = new Color(0.12f, 0.17f, 0.23f, 1f);
             image.raycastTarget = false;
@@ -1007,8 +1014,66 @@ namespace MixMaster.UI
             if (monsterNameText != null)
                 compareButton.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
             compareButton.onClick.AddListener(OpenComparison);
+            Button rename = InventoryUiFactory.Button(section.transform, "RenameMonster", "名前を付ける",
+                new Vector2(15f, -236f), new Vector2(420f, 60f));
+            ApplyMonsterFont(rename.GetComponentInChildren<TMP_Text>());
+            rename.onClick.AddListener(OpenNicknameEditor);
 
             CreateSellConfirmation();
+        }
+
+        private void ApplyMonsterFont(TMP_Text label)
+        {
+            if (monsterNameText != null) label.font = monsterNameText.font;
+        }
+
+        private void OpenNicknameEditor()
+        {
+            if (readOnlyMode || selectedRecord == null || monsterManager == null ||
+                monsterManager.FindOwnedMonster(selectedRecord.uniqueId) != selectedRecord) return;
+            if (nicknamePanel == null) BuildNicknameEditor();
+            nicknameInput.SetTextWithoutNotify(selectedRecord.nickname ?? "");
+            nicknamePanel.SetAsLastSibling();
+            nicknamePanel.gameObject.SetActive(true);
+            nicknameInput.Select();
+            nicknameInput.ActivateInputField();
+        }
+
+        private void BuildNicknameEditor()
+        {
+            Image shade = FamilyImage(SafeAreaLayout.ContentRoot(transform), "MonsterNickname",
+                Vector2.zero, Vector2.one, new Color(.035f, .05f, .09f, .98f));
+            nicknamePanel = shade.rectTransform;
+            shade.raycastTarget = true;
+            FamilyText(nicknamePanel, "Heading", "個体名を入力（最大20文字・空欄で解除）",
+                new Vector2(.06f, .62f), new Vector2(.94f, .73f), 36f);
+            Image input = FamilyImage(nicknamePanel, "Input",
+                new Vector2(.08f, .47f), new Vector2(.92f, .60f), new Color(.19f, .25f, .34f));
+            input.raycastTarget = true;
+            nicknameInput = input.gameObject.AddComponent<TMP_InputField>();
+            nicknameInput.targetGraphic = input;
+            TMP_Text field = FamilyText(input.transform, "Text", "", new Vector2(.04f, .12f),
+                new Vector2(.96f, .88f), 32f);
+            field.alignment = TextAlignmentOptions.MidlineLeft;
+            field.overflowMode = TextOverflowModes.Masking;
+            input.gameObject.AddComponent<RectMask2D>();
+            nicknameInput.textViewport = input.rectTransform;
+            nicknameInput.textComponent = field;
+            nicknameInput.lineType = TMP_InputField.LineType.SingleLine;
+            MakeDetailButton(nicknamePanel, "Cancel", "キャンセル", .08f, .47f, .34f,
+                () => nicknamePanel.gameObject.SetActive(false));
+            MakeDetailButton(nicknamePanel, "Save", "保存", .53f, .92f, .34f, SaveNickname);
+        }
+
+        private void SaveNickname()
+        {
+            if (selectedRecord != null && monsterManager != null &&
+                monsterManager.SetNickname(selectedRecord.uniqueId, nicknameInput.text))
+            {
+                Refresh();
+                FindFirstObjectByType<SaveManager>()?.SaveGame();
+            }
+            nicknamePanel.gameObject.SetActive(false);
         }
 
         private void OpenComparison()
@@ -1035,8 +1100,16 @@ namespace MixMaster.UI
             comparisonPanel = backdrop.rectTransform;
             FamilyText(comparisonPanel, "Heading", "同種個体の比較",
                 new Vector2(.08f, .89f), new Vector2(.92f, .98f), 38f);
-            comparisonLeft = ComparisonColumn("Selected", .04f, .49f);
-            comparisonRight = ComparisonColumn("Candidate", .51f, .96f);
+            comparisonLeft = ComparisonColumn("Selected", .04f, .49f, false);
+            comparisonRight = ComparisonColumn("Candidate", .51f, .96f, true);
+            comparisonLeftFavorite = ComparisonButton("LeftFavorite", "☆ お気に入り", .04f, .26f, .24f,
+                () => ToggleComparisonProtection(false, false));
+            comparisonLeftLock = ComparisonButton("LeftLock", "ロック", .27f, .49f, .24f,
+                () => ToggleComparisonProtection(false, true));
+            comparisonRightFavorite = ComparisonButton("RightFavorite", "☆ お気に入り", .51f, .73f, .24f,
+                () => ToggleComparisonProtection(true, false));
+            comparisonRightLock = ComparisonButton("RightLock", "ロック", .74f, .96f, .24f,
+                () => ToggleComparisonProtection(true, true));
 
             comparisonPage = FamilyText(comparisonPanel, "Page", "",
                 new Vector2(.31f, .15f), new Vector2(.69f, .22f), 26f);
@@ -1047,10 +1120,14 @@ namespace MixMaster.UI
             ComparisonButton("Close", "閉じる", .28f, .72f, .04f, CloseComparison);
         }
 
-        private TMP_Text ComparisonColumn(string name, float left, float right)
+        private TMP_Text ComparisonColumn(string name, float left, float right, bool other)
         {
             Image column = FamilyImage(comparisonPanel, name,
-                new Vector2(left, .24f), new Vector2(right, .88f), new Color(.10f, .16f, .23f));
+                new Vector2(left, .32f), new Vector2(right, .88f), new Color(.10f, .16f, .23f));
+            column.raycastTarget = true;
+            Button detail = column.gameObject.AddComponent<Button>();
+            detail.targetGraphic = column;
+            detail.onClick.AddListener(() => OpenComparedDetail(other));
             TMP_Text text = FamilyText(column.transform, "Values", "",
                 new Vector2(.05f, .03f), new Vector2(.95f, .97f), 26f);
             text.fontSizeMin = 12f;
@@ -1060,12 +1137,51 @@ namespace MixMaster.UI
 
         private Button ComparisonButton(string name, string caption, float left, float right,
             float bottom, Action click)
+            => MakeDetailButton(comparisonPanel, name, caption, left, right, bottom, click);
+
+        private Button MakeDetailButton(Transform parent, string name, string caption, float left, float right,
+            float bottom, Action click)
         {
-            Button button = InventoryUiFactory.Button(comparisonPanel, name, caption, Vector2.zero, Vector2.zero);
+            Button button = InventoryUiFactory.Button(parent, name, caption, Vector2.zero, Vector2.zero);
             FamilyBounds((RectTransform)button.transform, new Vector2(left, bottom), new Vector2(right, bottom + .075f));
             if (monsterNameText != null) button.GetComponentInChildren<TMP_Text>().font = monsterNameText.font;
             button.onClick.AddListener(() => click());
             return button;
+        }
+
+        private OwnedMonsterRecord CompareRecord(bool other) => !other ? selectedRecord
+            : comparisonIndex >= 0 && comparisonIndex < comparisonCandidates.Count
+                ? comparisonCandidates[comparisonIndex] : null;
+
+        private void OpenComparedDetail(bool other)
+        {
+            var record = CompareRecord(other);
+            if (record != null && monsterManager.FindOwnedMonster(record.uniqueId) == record)
+                Show(record, catalog, showIndividualValues);
+        }
+
+        private void ToggleComparisonProtection(bool other, bool locked)
+        {
+            var record = CompareRecord(other);
+            if (record == null) return;
+            bool changed = locked ? monsterManager.SetLocked(record.uniqueId, !record.isLocked)
+                : monsterManager.SetFavorite(record.uniqueId, !record.isFavorite);
+            if (!changed) return;
+            RefreshComparisonProtection();
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
+        }
+
+        private void RefreshComparisonProtection()
+        {
+            SetComparisonProtection(CompareRecord(false), comparisonLeftFavorite, comparisonLeftLock);
+            SetComparisonProtection(CompareRecord(true), comparisonRightFavorite, comparisonRightLock);
+        }
+
+        private static void SetComparisonProtection(OwnedMonsterRecord record, Button favorite, Button locked)
+        {
+            favorite.interactable = locked.interactable = record != null;
+            favorite.GetComponentInChildren<TMP_Text>().text = record?.isFavorite == true ? "★ お気に入り" : "☆ お気に入り";
+            locked.GetComponentInChildren<TMP_Text>().text = record?.isLocked == true ? "ロック中" : "ロック";
         }
 
         private void RefreshComparison()
@@ -1084,12 +1200,16 @@ namespace MixMaster.UI
             comparisonPage.text = count == 0 ? "0 / 0" : $"{comparisonIndex + 1} / {count}";
             comparisonPrevious.interactable = comparisonIndex > 0;
             comparisonNext.interactable = comparisonIndex + 1 < count;
+            comparisonRight.transform.parent.GetComponent<Button>().interactable = count > 0;
+            RefreshComparisonProtection();
         }
 
         private string FormatComparison(OwnedMonsterRecord record)
         {
             TitleSO title = catalog != null ? catalog.GetTitle(record.titleId) : null;
             var text = new StringBuilder();
+            MonsterSO species = catalog != null ? catalog.GetMonster(record.monsterId) : null;
+            text.AppendLine(record.DisplayName(EncyclopediaContent.Name(species?.displayName, record.monsterId)));
             text.Append("Lv.").AppendLine(record.level.ToString());
             text.Append("称号：").AppendLine(title != null ? title.displayName
                 : string.IsNullOrWhiteSpace(record.titleId) ? "なし" : record.titleId);

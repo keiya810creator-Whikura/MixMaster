@@ -225,7 +225,7 @@ namespace MixMaster.UI
                           "》"
                         : string.Empty;
 
-                monsterNameText.text = titlePrefix + monsterName;
+                monsterNameText.text = titlePrefix + record.DisplayName(monsterName);
             }
 
             if (levelText != null)

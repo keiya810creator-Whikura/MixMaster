@@ -26,6 +26,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text detailText;
         [SerializeField] private TMP_Text noticeText;
         [SerializeField] private TMP_Text sortText;
+        private TMP_Dropdown sortDropdown;
         [SerializeField] private TMP_Text directionText;
         [SerializeField] private TMP_Text favoritesFilterText;
         [SerializeField] private ScrollRect detailsScroll;
@@ -56,14 +57,18 @@ namespace MixMaster.UI
         private float lastWidth;
         private int visibleCount;
         private static readonly string[] SortNames =
-            { "入手順", "名前", "基礎HP", "基礎MP", "基礎攻撃", "基礎魔力", "基礎防御", "基礎魔防" };
+            {
+                "入手順", "名前", "基礎HP", "基礎MP", "基礎攻撃", "基礎魔力", "基礎防御", "基礎魔防",
+                "クリ率", "クリ倍率", "移動速度", "攻撃速度", "攻撃範囲",
+                "属性", "攻撃タイプ", "出現ステージ", "配合値", "お気に入り"
+            };
         public event Action Closed;
 
         private void Awake()
         {
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (humanButton != null) humanButton.onClick.AddListener(SelectHuman);
-            if (sortButton != null) sortButton.onClick.AddListener(CycleSort);
+            BuildSortDropdown();
             if (directionButton != null) directionButton.onClick.AddListener(ReverseSort);
             if (favoritesFilterButton != null) favoritesFilterButton.onClick.AddListener(ToggleFavoritesFilter);
             if (reincarnateButton != null) reincarnateButton.onClick.AddListener(RequestReincarnation);
@@ -129,9 +134,31 @@ namespace MixMaster.UI
         {
             if (!executing && manager != null) manager.ToggleFavorite(id);
         }
-        private void CycleSort()
+        private void BuildSortDropdown()
         {
-            sort = (ReincarnationBookSort)(((int)sort + 1) % SortNames.Length);
+            if (sortButton == null) return;
+            RectTransform old = (RectTransform)sortButton.transform;
+            sortDropdown = InventoryUiFactory.Dropdown(old.parent, "SortDropdown",
+                Vector2.zero, old.sizeDelta, SortNames);
+            RectTransform rect = (RectTransform)sortDropdown.transform;
+            rect.anchorMin = old.anchorMin;
+            rect.anchorMax = old.anchorMax;
+            rect.pivot = old.pivot;
+            rect.anchoredPosition = old.anchoredPosition;
+            rect.SetSiblingIndex(old.GetSiblingIndex());
+            old.gameObject.SetActive(false);
+            if (sortText != null)
+            {
+                sortDropdown.captionText.font = sortText.font;
+                sortDropdown.itemText.font = sortText.font;
+            }
+            sortDropdown.SetValueWithoutNotify((int)sort);
+            sortDropdown.onValueChanged.AddListener(SelectSort);
+        }
+
+        private void SelectSort(int value)
+        {
+            sort = (ReincarnationBookSort)value;
             descending = sort != ReincarnationBookSort.Name && sort != ReincarnationBookSort.Acquisition;
             Refresh();
         }
@@ -166,7 +193,6 @@ namespace MixMaster.UI
             }
             for (int i = visible.Count; i < entries.Count; i++) entries[i].gameObject.SetActive(false);
             if (countText != null) countText.text = "転生の書 " + manager.Books.Count + "種　／　表示 " + visible.Count + "種";
-            if (sortText != null) sortText.text = "並び順: " + SortNames[(int)sort];
             if (directionText != null) directionText.text = descending ? "降順 ▼" : "昇順 ▲";
             if (favoritesFilterText != null) favoritesFilterText.text = favoritesOnly ? "★のみ: ON" : "★のみ: OFF";
             if (noticeText != null) noticeText.text = visible.Count == 0
