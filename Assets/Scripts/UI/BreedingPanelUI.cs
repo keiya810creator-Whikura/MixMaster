@@ -603,7 +603,7 @@ namespace MixMaster.UI
                 ? monsterCatalog.GetTitle(record.titleId) : null;
             string titleName = title != null ? "《" + title.displayName + "》" : "";
             return titleName +
-                (species != null ? species.displayName : record.monsterId) +
+                record.DisplayName(species != null ? species.displayName : record.monsterId) +
                 " Lv." + record.level + "（個体値 " + GetTotalIv(record) + "）";
         }
 
@@ -924,7 +924,7 @@ namespace MixMaster.UI
                     (selectingParent == 0 ? parentAUniqueId : parentBUniqueId);
                 MonsterSO species = monsterCatalog != null
                     ? monsterCatalog.GetMonster(record.monsterId) : null;
-                string name = species != null ? species.displayName : record.monsterId;
+                string name = record.DisplayName(species != null ? species.displayName : record.monsterId);
                 unavailableReasons.Clear();
                 if (partyIds != null && partyIds.Contains(record.uniqueId))
                     unavailableReasons.Add("パーティ編成中");

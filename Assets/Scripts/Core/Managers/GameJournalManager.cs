@@ -119,7 +119,7 @@ namespace MixMaster.Core
             if (record == null) return null;
             MonsterSO species = catalog != null ? catalog.GetMonster(record.monsterId) : null;
             TitleSO title = catalog != null ? catalog.GetTitle(record.titleId) : null;
-            return new JournalMonster { monsterId = record.monsterId, name = species != null ? species.displayName : record.monsterId,
+            return new JournalMonster { monsterId = record.monsterId, name = record.DisplayName(species != null ? species.displayName : record.monsterId),
                 title = title != null ? title.displayName : record.titleId, level = record.level };
         }
         public void RecordBreeding(JournalMonster a, JournalMonster b, OwnedMonsterRecord child,

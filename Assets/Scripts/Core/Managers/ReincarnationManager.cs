@@ -144,19 +144,25 @@ namespace MixMaster.Core
                 if (descending) result.Reverse();
                 return result;
             }
+            var scores = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            if (sort != ReincarnationBookSort.Name)
+                foreach (var book in result)
+                    scores[book.bookId] = SortValue(book, sort);
             result.Sort((a, b) =>
             {
                 int comparison = sort == ReincarnationBookSort.Name
                     ? string.Compare(GetBookName(a.bookId), GetBookName(b.bookId), StringComparison.Ordinal)
-                    : SortValue(a.bookId, sort).CompareTo(SortValue(b.bookId, sort));
+                    : scores[a.bookId].CompareTo(scores[b.bookId]);
                 if (descending) comparison = -comparison;
                 return comparison != 0 ? comparison : string.Compare(a.bookId, b.bookId, StringComparison.Ordinal);
             });
             return result;
         }
-        private long SortValue(string id, ReincarnationBookSort sort)
+        private decimal SortValue(ReincarnationBookRecord book, ReincarnationBookSort sort)
         {
-            CharacterStats stats = GetBookBaseStats(id);
+            if (sort == ReincarnationBookSort.Favorite) return book.isFavorite ? 1 : 0;
+            MonsterSO species = GetSpecies(book.bookId);
+            CharacterStats stats = GetBookBaseStats(book.bookId);
             if (stats == null) return -1;
             switch (sort)
             {
@@ -166,9 +172,21 @@ namespace MixMaster.Core
                 case ReincarnationBookSort.Magic: return stats.magic;
                 case ReincarnationBookSort.Defense: return stats.defense;
                 case ReincarnationBookSort.MagicDefense: return stats.magicDefense;
+                case ReincarnationBookSort.CriticalRate: return FiniteSortValue(stats.criticalRate);
+                case ReincarnationBookSort.CriticalMultiplier: return FiniteSortValue(stats.criticalMultiplier);
+                case ReincarnationBookSort.MoveSpeed: return FiniteSortValue(stats.moveSpeed);
+                case ReincarnationBookSort.AttackSpeed: return FiniteSortValue(stats.attackSpeed);
+                case ReincarnationBookSort.AttackRange: return FiniteSortValue(stats.attackRange);
+                case ReincarnationBookSort.Element: return (int)stats.element;
+                case ReincarnationBookSort.AttackType: return species != null ? (int)species.attackType : 0;
+                case ReincarnationBookSort.Stage: return species != null ? species.appearanceStage : 0;
+                case ReincarnationBookSort.BreedingValue: return species != null ? species.breedingValue : 0;
                 default: return 0;
             }
         }
+
+        private static decimal FiniteSortValue(float value) =>
+            float.IsNaN(value) ? 0 : (decimal)Math.Max(-1e20f, Math.Min(1e20f, value));
 
         public bool TryReincarnate(string bookId, out string error)
         {

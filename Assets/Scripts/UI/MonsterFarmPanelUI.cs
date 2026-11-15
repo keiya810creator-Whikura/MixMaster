@@ -17,6 +17,8 @@ namespace MixMaster.UI
             public Image icon;
             public TMP_Text levels;
             [NonSerialized] public OwnedMonsterRecord record;
+            [NonSerialized] public Button favoriteButton, lockButton;
+            [NonSerialized] public TMP_Text favoriteLabel, lockLabel;
         }
 
         [SerializeField] private Button closeButton;
@@ -36,7 +38,12 @@ namespace MixMaster.UI
             {
                 int index = i;
                 slots[i].button.onClick.AddListener(() => OpenDetail(index));
-                slots[i].removeButton.onClick.AddListener(() => RemoveFromFarm(index));
+                Slot slot = slots[i];
+                slot.removeButton.onClick.AddListener(() => RemoveFromFarm(index));
+                slot.favoriteButton = CreateProtectionButton(slot, "Favorite", "☆", .02f, .30f,
+                    () => ToggleProtection(slot, false), out slot.favoriteLabel);
+                slot.lockButton = CreateProtectionButton(slot, "Lock", "ロック", .32f, .60f,
+                    () => ToggleProtection(slot, true), out slot.lockLabel);
             }
         }
 
@@ -53,6 +60,7 @@ namespace MixMaster.UI
             if (monsters != null)
             {
                 monsters.FarmChanged += MarkDirty;
+                monsters.MonsterProtectionChanged += HandleProtectionChanged;
                 monsters.MonsterSold += HandleSale;
                 monsters.MonstersBulkSold += MarkDirty;
                 monsters.MonsterLeveledUp += HandleLevelUp;
@@ -65,6 +73,7 @@ namespace MixMaster.UI
             if (monsters != null)
             {
                 monsters.FarmChanged -= MarkDirty;
+                monsters.MonsterProtectionChanged -= HandleProtectionChanged;
                 monsters.MonsterSold -= HandleSale;
                 monsters.MonstersBulkSold -= MarkDirty;
                 monsters.MonsterLeveledUp -= HandleLevelUp;
@@ -96,6 +105,7 @@ namespace MixMaster.UI
                 Slot slot = slots[i];
                 OwnedMonsterRecord record = i < count ? monsters.FarmMonsters[i] : null;
                 slot.record = record;
+                RefreshProtection(slot);
                 slot.removeButton.gameObject.SetActive(record != null);
                 MonsterSO species = record != null && catalog != null
                     ? catalog.GetMonster(record.monsterId) : null;
@@ -109,6 +119,48 @@ namespace MixMaster.UI
                     : "空き";
                 slot.button.interactable = record != null;
             }
+        }
+
+        private static Button CreateProtectionButton(Slot slot, string name, string label,
+            float left, float right, Action click, out TMP_Text text)
+        {
+            Button button = InventoryUiFactory.Button(slot.button.transform, name, label,
+                Vector2.zero, Vector2.zero);
+            var rect = (RectTransform)button.transform;
+            rect.anchorMin = new Vector2(left, .66f);
+            rect.anchorMax = new Vector2(right, .98f);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            text = button.GetComponentInChildren<TMP_Text>();
+            text.font = slot.levels.font;
+            button.onClick.AddListener(() => click());
+            return button;
+        }
+
+        private static void RefreshProtection(Slot slot)
+        {
+            var record = slot.record;
+            slot.favoriteButton.gameObject.SetActive(record != null);
+            slot.lockButton.gameObject.SetActive(record != null);
+            if (record == null) return;
+            slot.favoriteLabel.text = record.isFavorite ? "★" : "☆";
+            slot.favoriteLabel.color = record.isFavorite ? new Color(1f, .84f, .35f) : Color.white;
+            slot.lockLabel.text = record.isLocked ? "ロック中" : "ロック";
+            slot.lockLabel.color = record.isLocked ? new Color(.52f, .89f, 1f) : Color.white;
+        }
+
+        private void HandleProtectionChanged(OwnedMonsterRecord record)
+        {
+            foreach (Slot slot in slots)
+                if (slot.record == record) RefreshProtection(slot);
+        }
+
+        private void ToggleProtection(Slot slot, bool locked)
+        {
+            var record = slot.record;
+            if (record == null || record.farmStartLevel <= 0 || monsters == null) return;
+            bool changed = locked ? monsters.SetLocked(record.uniqueId, !record.isLocked)
+                : monsters.SetFavorite(record.uniqueId, !record.isFavorite);
+            if (changed) FindFirstObjectByType<SaveManager>()?.SaveGame();
         }
 
         private void RemoveFromFarm(int index)

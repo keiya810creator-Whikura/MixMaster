@@ -78,7 +78,7 @@ namespace MixMaster.UI
         {
             var options = new List<string>(InventoryProtectionIcons.CombinedStatFilterLabels)
             {
-                "称号有り", "称号なし"
+                "称号有り", "称号なし", "Lv20以上", "Lv20未満"
             };
             return options.ToArray();
         }
@@ -86,8 +86,10 @@ namespace MixMaster.UI
         private static bool MatchesMonsterFilter(int filter, OwnedMonsterRecord record)
         {
             bool titled = !string.IsNullOrWhiteSpace(record.titleId);
-            if (filter == MonsterFilterOptions.Length - 2) return titled;
-            if (filter == MonsterFilterOptions.Length - 1) return !titled;
+            if (filter == MonsterFilterOptions.Length - 4) return titled;
+            if (filter == MonsterFilterOptions.Length - 3) return !titled;
+            if (filter == MonsterFilterOptions.Length - 2) return record.level >= 20;
+            if (filter == MonsterFilterOptions.Length - 1) return record.level < 20;
             return InventoryProtectionIcons.MatchesCombinedStatFilter(
                 filter, record.isFavorite, record.isLocked);
         }
@@ -486,6 +488,7 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained +=
                 HandleMonsterObtained;
+            monsterManager.MonsterRenamed += HandleMonsterExperienceChanged;
             monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
             monsterManager.FarmChanged += RefreshFarmMarks;
             monsterManager.MonsterSold += HandleMonsterSold;
@@ -517,6 +520,7 @@ namespace MixMaster.UI
 
             monsterManager.MonsterObtained -=
                 HandleMonsterObtained;
+            monsterManager.MonsterRenamed -= HandleMonsterExperienceChanged;
             monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
             monsterManager.FarmChanged -= RefreshFarmMarks;
             monsterManager.MonsterSold -= HandleMonsterSold;
@@ -663,9 +667,11 @@ namespace MixMaster.UI
         private void HandleMonsterLevelChanged(OwnedMonsterRecord record)
         {
             if (record != null) statCache.Remove(record.uniqueId);
+            int filter = statFilterDropdown != null ? statFilterDropdown.value : 0;
             if ((sortDropdown != null && sortDropdown.value != 0) ||
-                (statFilterDropdown != null && statFilterDropdown.value > 0 &&
-                 statFilterDropdown.value < InventoryStatFilter.Labels.Length))
+                (filter > 0 && filter < InventoryStatFilter.Labels.Length) ||
+                filter == MonsterFilterOptions.Length - 2 ||
+                filter == MonsterFilterOptions.Length - 1)
                 Rebuild();
             else RefreshAll();
         }
