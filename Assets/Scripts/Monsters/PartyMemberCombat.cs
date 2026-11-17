@@ -46,7 +46,6 @@ namespace MixMaster.Monsters
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform projectileSpawnPoint;
         [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
-        [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
         [SerializeField] private bool projectileHoming = true;
         [Tooltip("Legacy value kept for existing prefabs. Ranged spacing is now automatically about 3x melee spacing.")]
         [SerializeField, HideInInspector] private float rangedPositionRadiusRatio = 0.82f;
@@ -467,62 +466,15 @@ namespace MixMaster.Monsters
             if (target == null || !target.IsAlive)
                 return;
 
-            if (projectilePrefab == null)
-            {
-                Debug.LogWarning(
-                    "PartyMemberCombat: Ranged attack requires Projectile Prefab. " +
-                    "Applying magic damage directly as fallback.",
-                    this);
-
-                target.TakeMagicHit(
-                    magicPower,
-                    CreateDropSourceInfo(critical));
-
-                return;
-            }
-
-            Vector3 spawnPosition =
-                projectileSpawnPoint != null
-                    ? projectileSpawnPoint.position
-                    : transform.position;
-
-            Quaternion spawnRotation =
-                projectileSpawnPoint != null
-                    ? projectileSpawnPoint.rotation
-                    : Quaternion.identity;
-
-            GameObject projectileObject =
-                Instantiate(
-                    projectilePrefab,
-                    spawnPosition,
-                    spawnRotation);
-
-            if (projectileObject.scene != gameObject.scene)
-                SceneManager.MoveGameObjectToScene(projectileObject, gameObject.scene);
-
-            // MonsterSO may point to the same projectile prefab enemies use.
-            // Disable its enemy-only script so it cannot destroy or redirect
-            // an allied projectile before PartyMagicProjectile initializes.
-            EnemyMagicProjectile enemyProjectile =
-                projectileObject.GetComponent<EnemyMagicProjectile>();
-
-            if (enemyProjectile != null)
+            var source = CreateDropSourceInfo(critical);
+            Transform origin = projectileSpawnPoint != null ? projectileSpawnPoint : transform;
+            var shot = PiercingMagicFlight.CreateShot(projectilePrefab, origin.position,
+                origin.rotation, gameObject.scene, source.attackElement);
+            if (shot.TryGetComponent<EnemyMagicProjectile>(out var enemyProjectile))
                 enemyProjectile.enabled = false;
-
-            PartyMagicProjectile projectile =
-                projectileObject.GetComponent<PartyMagicProjectile>();
-
-            if (projectile == null)
-                projectile =
-                    projectileObject.AddComponent<PartyMagicProjectile>();
-
-            projectile.Initialize(
-                target,
-                magicPower,
-                projectileSpeed,
-                projectileLifetime,
-                projectileHoming,
-                CreateDropSourceInfo(critical));
+            var projectile = shot.GetComponent<PartyMagicProjectile>() ?? shot.AddComponent<PartyMagicProjectile>();
+            projectile.enabled = true;
+            projectile.Initialize(target, magicPower, projectileSpeed, projectileHoming, source);
         }
 
         private MaterialDropSourceInfo CreateDropSourceInfo(bool critical)
@@ -719,7 +671,6 @@ namespace MixMaster.Monsters
 
             projectilePrefab = definition.projectilePrefab;
             projectileSpeed = Mathf.Max(0.1f, definition.projectileSpeed);
-            projectileLifetime = Mathf.Max(0.1f, definition.projectileLifetime);
             projectileHoming = definition.projectileHoming;
             aggroRange = Mathf.Max(0.1f, definition.detectionRange);
 
@@ -1194,7 +1145,6 @@ namespace MixMaster.Monsters
             combatMoveSpeedMultiplier = Mathf.Max(0.1f, combatMoveSpeedMultiplier);
             attackSlotArrivalDistance = Mathf.Max(0.01f, attackSlotArrivalDistance);
             projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
-            projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
             attackPositionRadiusRatio =
                 Mathf.Clamp(attackPositionRadiusRatio, 0.2f, 0.9f);
             lungeDistance = Mathf.Max(0f, lungeDistance);

@@ -1,140 +1,54 @@
-using UnityEngine;
 using MixMaster.Core;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace MixMaster.Combat
 {
     [DisallowMultipleComponent]
     public sealed class PartyMagicProjectile : MonoBehaviour
     {
-        [Header("Movement")]
-        [SerializeField, Min(0.1f)] private float defaultSpeed = 8f;
-        [SerializeField, Min(0.1f)] private float defaultLifetime = 3f;
-        [SerializeField, Min(0.01f)] private float hitDistance = 0.12f;
-        [SerializeField] private bool homing = true;
+        [SerializeField, Min(.1f)] private float defaultSpeed = 8f;
+        [SerializeField, Min(.01f)] private float hitDistance = .12f;
         [SerializeField] private bool rotateToDirection = true;
 
+        private readonly PiercingMagicFlight flight = new PiercingMagicFlight();
         private EnemyHealth target;
+        private PhysicsScene2D scene;
         private long magicPower;
-        private float speed;
-        private float remainingLifetime;
-        private Vector2 travelDirection;
+        private MaterialDropSourceInfo source;
         private bool initialized;
-        private MaterialDropSourceInfo sourceInfo =
-            MaterialDropSourceInfo.Unknown();
 
-        public void Initialize(
-            EnemyHealth newTarget,
-            long newMagicPower,
-            float newSpeed,
-            float lifetime,
-            bool useHoming = true,
-            MaterialDropSourceInfo newSourceInfo = null)
+        public void Initialize(EnemyHealth newTarget, long power, float speed, bool homing,
+            MaterialDropSourceInfo attackSource)
         {
             target = newTarget;
-            magicPower = System.Math.Max(1L, newMagicPower);
-            speed = Mathf.Max(0.1f, newSpeed);
-            remainingLifetime = Mathf.Max(0.1f, lifetime);
-            homing = useHoming;
-
-            sourceInfo =
-                newSourceInfo != null
-                    ? newSourceInfo.Clone()
-                    : MaterialDropSourceInfo.Unknown();
-
+            magicPower = System.Math.Max(1L, power);
+            source = attackSource?.Clone() ?? MaterialDropSourceInfo.Unknown();
+            scene = gameObject.scene.GetPhysicsScene2D();
+            flight.Begin(transform, target, speed, homing);
             initialized = true;
-
-            if (target != null)
-            {
-                Vector2 direction =
-                    target.transform.position - transform.position;
-
-                if (direction.sqrMagnitude > 0.000001f)
-                    travelDirection = direction.normalized;
-            }
-
-            UpdateRotation(travelDirection);
         }
 
         private void Start()
         {
-            if (initialized)
-                return;
-
-            speed = Mathf.Max(0.1f, defaultSpeed);
-            remainingLifetime = Mathf.Max(0.1f, defaultLifetime);
-
-            if (travelDirection.sqrMagnitude <= 0.000001f)
-                travelDirection = transform.right;
+            if (!initialized) Initialize(null, 1L, defaultSpeed, false, null);
         }
 
         private void Update()
         {
-            remainingLifetime -= Time.deltaTime;
-
-            if (remainingLifetime <= 0f)
+            if (Time.deltaTime <= 0f) return;
+            Vector2 start = flight.Step(transform, target != null && target.IsAlive, rotateToDirection);
+            Vector2 end = transform.position;
+            var enemies = EnemyHealth.ActiveEnemies;
+            for (int i = enemies.Count - 1; i >= 0; i--)
             {
-                Destroy(gameObject);
-                return;
+                if (i >= enemies.Count) continue;
+                var enemy = enemies[i];
+                if (enemy != null && enemy.IsAlive && flight.TryHit(enemy, scene, start, end, hitDistance))
+                    enemy.TakeMagicHit(magicPower, source);
             }
 
-            if (target == null || !target.IsAlive)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Vector2 current = transform.position;
-            Vector2 toTarget =
-                (Vector2)target.transform.position - current;
-
-            if (homing && toTarget.sqrMagnitude > 0.000001f)
-                travelDirection = toTarget.normalized;
-
-            Vector2 next =
-                current +
-                travelDirection.normalized *
-                speed *
-                Time.deltaTime;
-
-            Vector2 movement = next - current;
-            float along = movement.sqrMagnitude > 0f
-                ? Mathf.Clamp01(Vector2.Dot(toTarget, movement) / movement.sqrMagnitude)
-                : 0f;
-            if ((toTarget - movement * along).sqrMagnitude <= hitDistance * hitDistance)
-            {
-                target.TakeMagicHit(magicPower, sourceInfo);
-                Destroy(gameObject);
-                return;
-            }
-
-            transform.position = next;
-            UpdateRotation(travelDirection);
+            if (flight.Expired) Destroy(gameObject);
         }
-
-        private void UpdateRotation(Vector2 direction)
-        {
-            if (!rotateToDirection ||
-                direction.sqrMagnitude <= 0.000001f)
-            {
-                return;
-            }
-
-            // Projectile artwork faces local +Y (up); Atan2 uses +X.
-            float angle =
-                Mathf.Atan2(direction.y, direction.x) *
-                Mathf.Rad2Deg - 90f;
-
-            transform.rotation =
-                Quaternion.Euler(0f, 0f, angle);
-        }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            defaultSpeed = Mathf.Max(0.1f, defaultSpeed);
-            defaultLifetime = Mathf.Max(0.1f, defaultLifetime);
-            hitDistance = Mathf.Max(0.01f, hitDistance);
-        }
-#endif
     }
 }

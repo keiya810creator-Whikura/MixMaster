@@ -1,187 +1,64 @@
-using UnityEngine;
-using MixMaster.Monsters;
 using MixMaster.Core;
+using MixMaster.Monsters;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace MixMaster.Combat
 {
     [DisallowMultipleComponent]
     public sealed class EnemyMagicProjectile : MonoBehaviour
     {
-        [Header("Movement")]
-        [SerializeField, Min(0.1f)] private float defaultSpeed = 8f;
-        [SerializeField, Min(0.1f)] private float defaultLifetime = 3f;
-        [SerializeField, Min(0.01f)] private float hitDistance = 0.12f;
-        [SerializeField] private bool homing = true;
+        [SerializeField, Min(.1f)] private float defaultSpeed = 8f;
+        [SerializeField, Min(.01f)] private float hitDistance = .12f;
         [SerializeField] private bool rotateToDirection = true;
 
-        private PlayerAutoAttack playerTarget;
-        private PartyMemberCombat partyTarget;
-        private Transform targetTransform;
-
+        private readonly PiercingMagicFlight flight = new PiercingMagicFlight();
+        private PlayerAutoAttack player;
+        private Component aim;
+        private PhysicsScene2D scene;
         private long magicPower;
-        private ElementType attackElement;
-        private bool isCritical;
-        private float speed;
-        private float remainingLifetime;
-        private Vector2 travelDirection;
+        private ElementType element;
+        private bool critical;
         private bool initialized;
 
-        public void Initialize(
-            PlayerAutoAttack newPlayerTarget,
-            PartyMemberCombat newPartyTarget,
-            long newMagicPower,
-            float newSpeed,
-            float lifetime,
-            bool useHoming = true)
+        public void Initialize(PlayerAutoAttack activePlayer, Component target,
+            long power, float speed, bool homing, ElementType attackElement, bool isCritical)
         {
-            Initialize(newPlayerTarget, newPartyTarget, newMagicPower, newSpeed, lifetime, useHoming, ElementType.None, false);
-        }
-
-        public void Initialize(PlayerAutoAttack newPlayerTarget, PartyMemberCombat newPartyTarget,
-            long newMagicPower, float newSpeed, float lifetime, bool useHoming, ElementType element, bool critical)
-        {
-            playerTarget = newPlayerTarget;
-            partyTarget = newPartyTarget;
-
-            targetTransform =
-                playerTarget != null
-                    ? playerTarget.transform
-                    : partyTarget != null
-                        ? partyTarget.transform
-                        : null;
-
-            magicPower = System.Math.Max(1L, newMagicPower);
-            attackElement = element;
-            isCritical = critical;
-            speed = Mathf.Max(0.1f, newSpeed);
-            remainingLifetime = Mathf.Max(0.1f, lifetime);
-            homing = useHoming;
+            scene = gameObject.scene.GetPhysicsScene2D();
+            player = activePlayer;
+            aim = target;
+            magicPower = System.Math.Max(1L, power);
+            element = attackElement;
+            critical = isCritical;
+            flight.Begin(transform, aim, speed, homing);
             initialized = true;
-
-            UpdateTravelDirection();
-            UpdateRotation(travelDirection);
         }
 
         private void Start()
         {
-            if (initialized)
-                return;
-
-            speed = Mathf.Max(0.1f, defaultSpeed);
-            remainingLifetime = Mathf.Max(0.1f, defaultLifetime);
-
-            if (travelDirection.sqrMagnitude <= 0.000001f)
-                travelDirection = transform.right;
+            if (!initialized) Initialize(null, null, 1L, defaultSpeed, false, ElementType.None, false);
         }
 
         private void Update()
         {
-            remainingLifetime -= Time.deltaTime;
+            if (Time.deltaTime <= 0f) return;
+            bool aimAlive = aim != null && (aim is PartyMemberCombat memberTarget
+                ? memberTarget.IsAlive : aim is PlayerAutoAttack playerTarget && playerTarget.IsAlive);
+            Vector2 start = flight.Step(transform, aimAlive, rotateToDirection);
+            Vector2 end = transform.position;
+            if (player != null && player.isActiveAndEnabled && player.IsAlive && flight.TryHit(player, scene, start, end, hitDistance))
+                player.TakeMagicHit(magicPower, element, critical);
 
-            if (remainingLifetime <= 0f)
+            var members = PartyMemberCombat.ActiveMembers;
+            for (int i = members.Count - 1; i >= 0; i--)
             {
-                Destroy(gameObject);
-                return;
+                if (i >= members.Count) continue;
+                var member = members[i];
+                if (member != null && member.IsAlive && flight.TryHit(member, scene, start, end, hitDistance))
+                    member.TakeMagicHit(magicPower, element, critical);
             }
 
-            if (!IsTargetValid())
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Vector2 current = transform.position;
-            Vector2 toTarget =
-                (Vector2)targetTransform.position - current;
-
-            if (toTarget.sqrMagnitude <= hitDistance * hitDistance)
-            {
-                ApplyHit();
-                Destroy(gameObject);
-                return;
-            }
-
-            if (homing && toTarget.sqrMagnitude > 0.000001f)
-                travelDirection = toTarget.normalized;
-
-            if (travelDirection.sqrMagnitude <= 0.000001f)
-                return;
-
-            Vector2 next =
-                current +
-                travelDirection.normalized *
-                speed *
-                Time.deltaTime;
-
-            transform.position = next;
-            UpdateRotation(travelDirection);
+            if (flight.Expired) Destroy(gameObject);
         }
-
-        private bool IsTargetValid()
-        {
-            if (targetTransform == null)
-                return false;
-
-            if (playerTarget != null)
-                return playerTarget.IsAlive;
-
-            if (partyTarget != null)
-                return partyTarget.IsAlive;
-
-            return false;
-        }
-
-        private void ApplyHit()
-        {
-            if (playerTarget != null)
-            {
-                playerTarget.TakeMagicHit(magicPower, attackElement, isCritical);
-                return;
-            }
-
-            if (partyTarget != null)
-                partyTarget.TakeMagicHit(magicPower, attackElement, isCritical);
-        }
-
-        private void UpdateTravelDirection()
-        {
-            if (targetTransform == null)
-                return;
-
-            Vector2 direction =
-                targetTransform.position - transform.position;
-
-            if (direction.sqrMagnitude > 0.000001f)
-                travelDirection = direction.normalized;
-        }
-
-        private void UpdateRotation(Vector2 direction)
-        {
-            if (!rotateToDirection ||
-                direction.sqrMagnitude <= 0.000001f)
-            {
-                return;
-            }
-
-            // Projectile artwork faces local +Y (up).
-            // Atan2 gives an angle for local +X, so subtract 90 degrees
-            // to make the projectile's top point toward its travel direction.
-            float angle =
-                Mathf.Atan2(direction.y, direction.x) *
-                Mathf.Rad2Deg -
-                90f;
-
-            transform.rotation =
-                Quaternion.Euler(0f, 0f, angle);
-        }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            defaultSpeed = Mathf.Max(0.1f, defaultSpeed);
-            defaultLifetime = Mathf.Max(0.1f, defaultLifetime);
-            hitDistance = Mathf.Max(0.01f, hitDistance);
-        }
-#endif
     }
 }
