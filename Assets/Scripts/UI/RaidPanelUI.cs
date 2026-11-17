@@ -21,6 +21,7 @@ namespace MixMaster.UI
         private int tier;
         private TMP_Text status;
         private TMP_Text bossName;
+        private Slider bossHp;
         private Button start;
         private Button close;
         private Button previous;
@@ -99,6 +100,7 @@ namespace MixMaster.UI
             viewport.SetActive(false);
 
             status = Text(layout, "Status", "", .04f, .145f, .96f, .222f, 36);
+            bossHp = BuildBossHpSlider(layout);
             for (int i = 0; i < farms.Length; i++)
             {
                 int index = i;
@@ -173,6 +175,9 @@ namespace MixMaster.UI
             battlefield.texture = battle.View;
             battlefield.transform.parent.gameObject.SetActive(true);
             preview.SetActive(false);
+            Place(status.rectTransform, .04f, .181f, .96f, .222f);
+            UpdateBossHp();
+            bossHp.gameObject.SetActive(true);
             start.interactable = previous.interactable = next.interactable = false;
             foreach (Button button in farms) button.interactable = false;
             Caption(close).text = "撤退";
@@ -186,10 +191,10 @@ namespace MixMaster.UI
                 return;
             }
             if (battle == null || resultShown) return;
+            UpdateBossHp();
             if (battle.Result == RaidBattlefield.Outcome.Fighting)
             {
-                status.text = $"残り {Mathf.CeilToInt(battle.Remaining)} 秒　味方 {battle.LivingAllies}/{battle.AllyCount}体\n" +
-                    $"ボスHP {battle.BossHp:N0} / {battle.BossMaxHp:N0}";
+                status.text = $"残り {Mathf.CeilToInt(battle.Remaining)} 秒　味方 {battle.LivingAllies}/{battle.AllyCount}体";
                 return;
             }
 
@@ -222,7 +227,50 @@ namespace MixMaster.UI
             battle = null;
             resultShown = false;
             if (preview != null) preview.SetActive(true);
+            if (bossHp != null)
+            {
+                bossHp.gameObject.SetActive(false);
+                Place(status.rectTransform, .04f, .145f, .96f, .222f);
+            }
             if (start != null) Caption(start).text = "挑戦";
+        }
+
+        private void UpdateBossHp()
+        {
+            float ratio = battle.BossMaxHp > 0 ? (float)((double)battle.BossHp / battle.BossMaxHp) : 0f;
+            bossHp.SetValueWithoutNotify(Mathf.Clamp01(ratio));
+        }
+
+        private static Slider BuildBossHpSlider(RectTransform parent)
+        {
+            var root = new GameObject("BossHpSlider", typeof(RectTransform), typeof(Image), typeof(Slider));
+            root.transform.SetParent(parent, false);
+            var rect = (RectTransform)root.transform;
+            Place(rect, .08f, .15f, .92f, .175f);
+            var track = root.GetComponent<Image>();
+            track.color = new Color(.22f, .12f, .17f);
+            track.raycastTarget = false;
+
+            var fillArea = new GameObject("FillArea", typeof(RectTransform));
+            fillArea.transform.SetParent(root.transform, false);
+            var fillRect = (RectTransform)fillArea.transform;
+            Place(fillRect, 0, 0, 1, 1);
+            fillRect.offsetMin = new Vector2(3f, 3f);
+            fillRect.offsetMax = new Vector2(-3f, -3f);
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(fillArea.transform, false);
+            var image = fill.GetComponent<Image>();
+            image.color = new Color(.92f, .28f, .31f);
+            image.raycastTarget = false;
+            Place(image.rectTransform, 0, 0, 1, 1);
+
+            var slider = root.GetComponent<Slider>();
+            slider.interactable = false;
+            slider.transition = Selectable.Transition.None;
+            slider.fillRect = image.rectTransform;
+            root.SetActive(false);
+            return slider;
         }
 
         private static void SetIcon(Image icon, MonsterSO species)
