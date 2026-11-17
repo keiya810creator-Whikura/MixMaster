@@ -31,10 +31,31 @@ namespace MixMaster.UI
         private MonsterCatalogSO catalog;
         private OwnedMonsterDetailUI detail;
         private bool dirty;
+        private readonly Button[] presetButtons = new Button[MonsterManager.FarmPresetCount];
+        private Button upgradeButton;
+        private TMP_Text upgradeLabel;
 
         private void Awake()
         {
             closeButton.onClick.AddListener(Close);
+            for (int i = 0; i < presetButtons.Length; i++)
+            {
+                int index = i;
+                float left = .04f + i * .31f;
+                presetButtons[i] = AddFarmButton($"Farm{i + 1}", $"ファーム{i + 1}",
+                    new Vector2(left, .076f), new Vector2(left + .30f, .123f));
+                presetButtons[i].onClick.AddListener(() =>
+                {
+                    if (monsters != null && monsters.SetActiveFarm(index)) SaveFarm();
+                });
+            }
+            upgradeButton = AddFarmButton("FarmUpgrade", "", new Vector2(.04f, .012f),
+                new Vector2(.96f, .068f));
+            upgradeLabel = upgradeButton.GetComponentInChildren<TMP_Text>();
+            upgradeButton.onClick.AddListener(() =>
+            {
+                if (monsters != null && monsters.TryUpgradeFarm()) SaveFarm();
+            });
             for (int i = 0; i < slots.Length; i++)
             {
                 int index = i;
@@ -107,11 +128,42 @@ namespace MixMaster.UI
             }
         }
 
+        private Button AddFarmButton(string name, string caption, Vector2 min, Vector2 max)
+        {
+            var button = InventoryUiFactory.Button(transform, name, caption, Vector2.zero, Vector2.zero);
+            var rect = (RectTransform)button.transform;
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            button.GetComponentInChildren<TMP_Text>().font = countText.font;
+            return button;
+        }
+
+        private void SaveFarm()
+        {
+            if (detail != null) detail.Hide();
+            Refresh();
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
+        }
+
         private void Refresh()
         {
             dirty = false;
             int count = monsters != null ? monsters.FarmMonsters.Count : 0;
-            countText.text = $"{count} / {MonsterManager.MaxFarmSize}体";
+            countText.text = monsters == null ? "" :
+                $"稼働中 ファーム{monsters.ActiveFarmIndex + 1}　{count} / {MonsterManager.MaxFarmSize}体";
+            for (int i = 0; i < presetButtons.Length; i++)
+            {
+                presetButtons[i].interactable = monsters != null && i != monsters.ActiveFarmIndex;
+                int members = monsters != null ? monsters.GetFarm(i).Count : 0;
+                presetButtons[i].GetComponentInChildren<TMP_Text>().text = $"ファーム{i + 1}（{members}体）";
+            }
+            int cost = monsters != null ? monsters.FarmUpgradeCost : 0;
+            upgradeButton.interactable = cost > 0 && monsters.RaidMaterials >= cost;
+            upgradeLabel.text = monsters == null ? "" :
+                $"ファーム Lv{monsters.FarmLevel}　経験値 {monsters.FarmExperienceRate}%\n" +
+                (cost == 0 ? $"最大レベル　レイド勲晶 {monsters.RaidMaterials:N0}個" :
+                    $"レベルアップ　レイド勲晶 {monsters.RaidMaterials:N0} / {cost:N0}");
             for (int i = 0; i < slots.Length; i++)
             {
                 Slot slot = slots[i];

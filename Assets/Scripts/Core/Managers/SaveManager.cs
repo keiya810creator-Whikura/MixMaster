@@ -229,6 +229,10 @@ namespace MixMaster.Core
 
             if (monster != null)
             {
+                data.activeFarmIndex = monster.ActiveFarmIndex;
+                data.farmLevel = monster.FarmLevel;
+                data.raidMaterials = monster.RaidMaterials;
+                data.clearedRaidTiers = monster.ClearedRaidTiers;
                 data.acquiredMonsterIds = monster.CaptureAcquiredMonsters();
                 data.monsters = new List<OwnedMonsterRecord>(
                     monster.OwnedMonsters);
@@ -389,6 +393,7 @@ namespace MixMaster.Core
                     data.version >= 4
                         ? data.partyCombatOrder
                         : PartyCombatOrder.Individual);
+                monster.RestoreFarmProgress(data);
                 monster.RestoreMonsters(data.monsters, data.partyIds, data.acquiredMonsterIds);
             }
 

@@ -12,7 +12,8 @@ namespace MixMaster.World
         Blacksmith,
         Reincarnation,
         ConsumableShop,
-        TeleportCircle
+        TeleportCircle,
+        RaidReception
     }
 
     [DisallowMultipleComponent]
