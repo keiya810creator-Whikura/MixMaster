@@ -26,6 +26,10 @@ namespace MixMaster.Combat
         private readonly List<Status> statuses = new List<Status>();
         private readonly List<Status> statusSnapshot = new List<Status>();
         private readonly List<int> castOrder = new List<int>();
+        private readonly List<int> randomizedCastOrder = new List<int>();
+        private bool randomizeAutoSkills;
+
+        internal void RandomizeAutoSkills() => randomizeAutoSkills = true;
         private readonly double[] statusPercent = new double[8], statusFlat = new double[8];
         private Func<SkillPassiveType, double> passiveAmount;
         private SkillProgressionManager cachedPassiveManager;
@@ -324,7 +328,21 @@ namespace MixMaster.Combat
                     ? loadout.slots[b].priority.CompareTo(loadout.slots[a].priority) : a.CompareTo(b));
             }
             var slots = loadout.slots;
-            foreach (int i in castOrder)
+            var order = castOrder;
+            if (randomizeAutoSkills)
+            {
+                // A shuffled order makes the first castable slot an unbiased pick.
+                randomizedCastOrder.Clear();
+                randomizedCastOrder.AddRange(castOrder);
+                for (int i = randomizedCastOrder.Count - 1; i > 0; i--)
+                {
+                    int other = UnityEngine.Random.Range(0, i + 1);
+                    (randomizedCastOrder[i], randomizedCastOrder[other]) =
+                        (randomizedCastOrder[other], randomizedCastOrder[i]);
+                }
+                order = randomizedCastOrder;
+            }
+            foreach (int i in order)
             {
                 var slot = slots[i];
                 if (slot.trigger == SkillTrigger.Manual) continue;

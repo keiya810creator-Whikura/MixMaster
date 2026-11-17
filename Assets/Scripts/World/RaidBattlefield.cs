@@ -91,7 +91,7 @@ namespace MixMaster.World
             DisableBehaviour<EnemyWanderAI>(enemy);
             boss = enemy.GetComponent<EnemyHealth>();
             enemy.GetComponent<EnemyCombatAI>().HuntRaidAllies();
-            enemy.transform.localScale *= 2f;
+            enemy.transform.localScale *= 3f;
             boss.RefreshOriginalScale();
             BossMaxHp = boss.MaxHp;
             boss.Died += HandleBossDefeated;
@@ -110,6 +110,9 @@ namespace MixMaster.World
                 var combat = PartyFieldSpawner.CreateMember(member, species, stats,
                     actors.transform, position, i, null);
                 combat.SetCombatMode(PartyCombatMode.AutoHunt);
+                combat.GetComponent<SkillActor>()?.RandomizeAutoSkills();
+                foreach (var indicator in combat.GetComponentsInChildren<PlayerAttackRangeIndicator>(true))
+                    indicator.HideForRaid();
                 var bar = CreateChild("HP", combat.transform, position + Vector3.up * .55f);
                 AddSprite(bar.transform, "Track", square, new Color(.10f, .12f, .16f),
                     Vector3.zero, new Vector2(3f, .22f), 12);

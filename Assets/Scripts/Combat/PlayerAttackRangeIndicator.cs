@@ -71,8 +71,16 @@ namespace MixMaster.Combat
 
         // The settings screen controls every player/party circle, regardless
         // of the legacy per-monster/Inspector value. Keep that value serialized.
-        private bool IsVisible => DisplaySettingsManager.Instance != null
-            ? !DisplaySettingsManager.IsDisabled(DisplayOption.AttackRange) : visible;
+        private bool forceHidden;
+
+        internal void HideForRaid()
+        {
+            forceHidden = true;
+            if (circleRenderer != null) circleRenderer.enabled = false;
+        }
+
+        private bool IsVisible => !forceHidden && (DisplaySettingsManager.Instance != null
+            ? !DisplaySettingsManager.IsDisabled(DisplayOption.AttackRange) : visible);
 
         public void SetPartyMember(PartyMemberCombat member)
         {
