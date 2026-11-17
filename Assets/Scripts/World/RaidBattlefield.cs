@@ -85,10 +85,10 @@ namespace MixMaster.World
             enemy.name = "RaidBoss";
             var setup = enemy.GetComponent<MonsterRuntimeSetup>() ?? enemy.AddComponent<MonsterRuntimeSetup>();
             setup.RaidRewardsOnly = true;
+            setup.Initialize(definition, level);
             DisableBehaviour<EnemyMaterialDropController>(enemy);
             DisableBehaviour<EnemyMonsterDropController>(enemy);
             DisableBehaviour<EnemyWanderAI>(enemy);
-            setup.Initialize(definition, level);
             boss = enemy.GetComponent<EnemyHealth>();
             enemy.GetComponent<EnemyCombatAI>().HuntRaidAllies();
             enemy.transform.localScale *= 2f;

@@ -1,5 +1,4 @@
 using MixMaster.Core;
-using MixMaster.Combat;
 using MixMaster.World;
 using TMPro;
 using UnityEngine;
@@ -137,9 +136,8 @@ namespace MixMaster.UI
             }
 
             bool dungeon = FindFirstObjectByType<DungeonManager>()?.IsDungeonActive == true;
-            bool bossReady = species != null && species.enemyPrefab != null &&
-                species.enemyPrefab.GetComponent<EnemyHealth>() != null &&
-                species.enemyPrefab.GetComponent<EnemyCombatAI>() != null;
+            // MonsterRuntimeSetup supplies the enemy components at spawn time.
+            bool bossReady = species != null && species.enemyPrefab != null;
             start.interactable = !dungeon && bossReady && tier <= unlocked && ready > 0 &&
                 FindFirstObjectByType<SaveManager>() != null;
             status.text = dungeon ? "ダンジョン探索中は挑戦できません" :
