@@ -13,6 +13,9 @@ namespace MixMaster.World
         [SerializeField] private int[] bossLevels = new int[MonsterManager.RaidTierCount];
         [SerializeField, Min(1)] private int materialsPerTier = 5;
 
+        [SerializeField] private Sprite arenaFloor;
+        internal Sprite ArenaFloor => arenaFloor;
+
         private void Awake() => GetComponent<MapBuildingAccess>().Configure(MapBuildingType.RaidReception);
 
         public MonsterSO GetBoss(int tier, MonsterCatalogSO catalog)

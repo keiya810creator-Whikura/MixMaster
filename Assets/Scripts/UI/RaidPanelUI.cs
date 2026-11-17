@@ -1,4 +1,5 @@
 using MixMaster.Core;
+using MixMaster.Combat;
 using MixMaster.World;
 using TMPro;
 using UnityEngine;
@@ -9,33 +10,16 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class RaidPanelUI : MonoBehaviour
     {
-        private sealed class FighterView
-        {
-            public Image icon;
-            public TMP_Text hp;
-
-            public void Render(RaidBattle.Fighter fighter, float time)
-            {
-                icon.gameObject.SetActive(fighter != null);
-                hp.gameObject.SetActive(fighter != null);
-                if (fighter == null) return;
-                icon.sprite = fighter.Species.sprite != null ? fighter.Species.sprite : fighter.Species.icon;
-                icon.enabled = icon.sprite != null;
-                icon.color = fighter.Hp > 0 ? Color.white : new Color(.5f, .5f, .5f, .45f);
-                float attackTime = time - fighter.LastAttack;
-                icon.rectTransform.localScale = Vector3.one * (attackTime < .16f ? 1.12f : 1f);
-                hp.text = fighter.Hp > 0 ? $"{fighter.Hp:N0}" : "戦闘不能";
-            }
-        }
-
         private MapBuildingUIRouter router;
         private RaidReception reception;
         private MonsterManager monsters;
         private MonsterCatalogSO catalog;
-        private RaidBattle battle;
+        private RaidBattlefield battle;
+        private GameObject preview;
+        private RawImage battlefield;
+        private bool resultShown;
         private int farmIndex;
         private int tier;
-        private float stepRemainder;
         private TMP_Text status;
         private TMP_Text bossName;
         private Button start;
@@ -43,8 +27,8 @@ namespace MixMaster.UI
         private Button previous;
         private Button next;
         private readonly Button[] farms = new Button[MonsterManager.FarmPresetCount];
-        private readonly FighterView[] allies = new FighterView[MonsterManager.MaxFarmSize];
-        private FighterView boss;
+        private readonly Image[] allies = new Image[MonsterManager.MaxFarmSize];
+        private Image boss;
 
         internal static RaidPanelUI Create(Transform parent)
         {
@@ -72,7 +56,7 @@ namespace MixMaster.UI
             catalog = MonsterCatalogSO.Load();
             farmIndex = monsters != null ? monsters.ActiveFarmIndex : 0;
             tier = Mathf.Min(monsters != null ? monsters.ClearedRaidTiers : 0, MonsterManager.RaidTierCount - 1);
-            battle = null;
+            CloseBattle();
             RefreshReception();
         }
 
@@ -90,14 +74,30 @@ namespace MixMaster.UI
                 () => { tier--; RefreshReception(); });
             next = AddButton(layout, "NextTier", "▶", .83f, .805f, .96f, .86f,
                 () => { tier++; RefreshReception(); });
-            boss = CreateFighter(layout, "Boss", .25f, .51f, .75f, .79f);
+            preview = new GameObject("FormationPreview", typeof(RectTransform));
+            preview.transform.SetParent(layout, false);
+            var previewLayout = (RectTransform)preview.transform;
+            Place(previewLayout, 0f, 0f, 1f, 1f);
+            boss = CreateIcon(previewLayout, "Boss", .25f, .51f, .75f, .79f);
 
             for (int i = 0; i < allies.Length; i++)
             {
                 float left = .045f + (i % 5) * .185f;
                 float bottom = .224f + (3 - i / 5) * .069f;
-                allies[i] = CreateFighter(layout, $"Ally{i + 1}", left, bottom, left + .17f, bottom + .067f);
+                allies[i] = CreateIcon(previewLayout, $"Ally{i + 1}", left, bottom, left + .17f, bottom + .067f);
             }
+
+            var viewport = new GameObject("BattleViewport", typeof(RectTransform));
+            viewport.transform.SetParent(layout, false);
+            Place((RectTransform)viewport.transform, .025f, .224f, .975f, .79f);
+            var imageObject = new GameObject("ArenaView", typeof(RectTransform), typeof(RawImage));
+            imageObject.transform.SetParent(viewport.transform, false);
+            battlefield = imageObject.GetComponent<RawImage>();
+            battlefield.raycastTarget = false;
+            var aspect = imageObject.AddComponent<AspectRatioFitter>();
+            aspect.aspectRatio = 1f;
+            aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            viewport.SetActive(false);
 
             status = Text(layout, "Status", "", .04f, .145f, .96f, .222f, 36);
             for (int i = 0; i < farms.Length; i++)
@@ -115,19 +115,16 @@ namespace MixMaster.UI
         {
             var species = reception.GetBoss(tier, catalog);
             bossName.text = $"難易度 {tier + 1}　{(species != null ? species.displayName : "ボス未登録")}";
-            boss.Render(species != null ? new RaidBattle.Fighter(species, species.baseStats) : null, 0);
+            SetIcon(boss, species);
             var farm = monsters?.GetFarm(farmIndex);
             int ready = 0;
             for (int i = 0; i < allies.Length; i++)
             {
                 MonsterSO ally = farm != null && i < farm.Count && catalog != null
                     ? catalog.GetMonster(farm[i].monsterId) : null;
-                allies[i].Render(ally != null ? new RaidBattle.Fighter(ally, ally.baseStats) : null, 0);
-                // The reception only previews members, without showing battle HP.
-                allies[i].hp.gameObject.SetActive(false);
+                SetIcon(allies[i], ally);
                 if (ally != null) ready++;
             }
-            boss.hp.gameObject.SetActive(false);
 
             int unlocked = monsters != null ? monsters.ClearedRaidTiers : 0;
             previous.interactable = tier > 0;
@@ -140,11 +137,15 @@ namespace MixMaster.UI
             }
 
             bool dungeon = FindFirstObjectByType<DungeonManager>()?.IsDungeonActive == true;
-            start.interactable = !dungeon && species != null && tier <= unlocked && ready > 0 &&
+            bool bossReady = species != null && species.enemyPrefab != null &&
+                species.enemyPrefab.GetComponent<EnemyHealth>() != null &&
+                species.enemyPrefab.GetComponent<EnemyCombatAI>() != null;
+            start.interactable = !dungeon && bossReady && tier <= unlocked && ready > 0 &&
                 FindFirstObjectByType<SaveManager>() != null;
             status.text = dungeon ? "ダンジョン探索中は挑戦できません" :
                 tier > unlocked ? "前の難易度をクリアすると解放" :
                 species == null ? "受付の Inspector にボスを設定してください" :
+                !bossReady ? "ボスの敵用Prefabを設定してください" :
                 ready == 0 ? "出撃するファームにモンスターを登録してください" :
                 $"勝利報酬　レイド勲晶 ×{reception.GetReward(tier):N0}";
             Caption(close).text = "閉じる";
@@ -154,22 +155,29 @@ namespace MixMaster.UI
         {
             if (battle != null)
             {
-                if (!battle.Finished) return;
-                battle = null;
-                Caption(start).text = "挑戦";
+                if (!resultShown) return;
+                CloseBattle();
                 RefreshReception();
                 return;
             }
+
             RefreshReception();
             if (!start.interactable) return;
+            battle = RaidBattlefield.Create(reception.GetBoss(tier, catalog), reception.GetBossLevel(tier),
+                reception.ArenaFloor, monsters.GetFarm(farmIndex), catalog, FindFirstObjectByType<EquipmentManager>());
+            if (battle == null)
+            {
+                status.text = "レイドフィールドを開けませんでした";
+                return;
+            }
 
-            battle = new RaidBattle(reception.GetBoss(tier, catalog), reception.GetBossLevel(tier),
-                monsters.GetFarm(farmIndex), catalog, FindFirstObjectByType<EquipmentManager>());
-            stepRemainder = 0;
+            resultShown = false;
+            battlefield.texture = battle.View;
+            battlefield.transform.parent.gameObject.SetActive(true);
+            preview.SetActive(false);
             start.interactable = previous.interactable = next.interactable = false;
             foreach (Button button in farms) button.interactable = false;
             Caption(close).text = "撤退";
-            RenderBattle();
         }
 
         private void Update()
@@ -179,24 +187,20 @@ namespace MixMaster.UI
                 router.CloseAll();
                 return;
             }
-            if (battle == null || battle.Finished) return;
-            const float step = .05f;
-            stepRemainder += Time.unscaledDeltaTime;
-            bool ticked = false;
-            while (stepRemainder >= step && !battle.Finished)
+            if (battle == null || resultShown) return;
+            if (battle.Result == RaidBattlefield.Outcome.Fighting)
             {
-                stepRemainder -= step;
-                battle.Step(step);
-                ticked = true;
+                status.text = $"残り {Mathf.CeilToInt(battle.Remaining)} 秒　味方 {battle.LivingAllies}/{battle.AllyCount}体\n" +
+                    $"ボスHP {battle.BossHp:N0} / {battle.BossMaxHp:N0}";
+                return;
             }
-            if (!ticked) return;
 
-            RenderBattle();
-            if (!battle.Finished) return;
+            resultShown = true;
+            battle.Freeze();
             Caption(close).text = "閉じる";
             Caption(start).text = "受付に戻る";
             start.interactable = true;
-            if (battle.Won)
+            if (battle.Result == RaidBattlefield.Outcome.Victory)
             {
                 int reward = reception.GetReward(tier);
                 monsters.CompleteRaid(tier, reward);
@@ -204,25 +208,32 @@ namespace MixMaster.UI
                 status.text = $"勝利！　レイド勲晶 ×{reward:N0}" + (saved ? "" : "\nセーブに失敗しました");
             }
             else
-                status.text = battle.Elapsed >= RaidBattle.TimeLimit ? "時間切れ" : "全滅";
+                status.text = battle.Result == RaidBattlefield.Outcome.Timeout ? "時間切れ" : "全滅";
         }
 
-        private void OnDisable()
+        private void OnDisable() => CloseBattle();
+
+        private void CloseBattle()
         {
+            if (battlefield != null)
+            {
+                battlefield.texture = null;
+                battlefield.transform.parent.gameObject.SetActive(false);
+            }
+            if (battle != null) battle.Close();
             battle = null;
+            resultShown = false;
+            if (preview != null) preview.SetActive(true);
             if (start != null) Caption(start).text = "挑戦";
         }
 
-        private void RenderBattle()
+        private static void SetIcon(Image icon, MonsterSO species)
         {
-            float time = battle.Elapsed;
-            boss.Render(battle.Boss, time);
-            for (int i = 0; i < allies.Length; i++)
-                allies[i].Render(i < battle.Allies.Count ? battle.Allies[i] : null, time);
-            status.text = $"残り {Mathf.CeilToInt(Mathf.Max(0, RaidBattle.TimeLimit - time))} 秒";
+            icon.sprite = species != null ? (species.sprite != null ? species.sprite : species.icon) : null;
+            icon.enabled = icon.sprite != null;
         }
 
-        private static FighterView CreateFighter(RectTransform parent, string name,
+        private static Image CreateIcon(RectTransform parent, string name,
             float left, float bottom, float right, float top)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
@@ -230,9 +241,8 @@ namespace MixMaster.UI
             var icon = go.GetComponent<Image>();
             icon.preserveAspect = true;
             icon.raycastTarget = false;
-            float hpTop = bottom + (top - bottom) * .25f;
-            Place(icon.rectTransform, left, hpTop, right, top);
-            return new FighterView { icon = icon, hp = Text(parent, name + "HP", "", left, bottom, right, hpTop, 23) };
+            Place(icon.rectTransform, left, bottom, right, top);
+            return icon;
         }
 
         private static TMP_Text Text(Transform parent, string name, string value,

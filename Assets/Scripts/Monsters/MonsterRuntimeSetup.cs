@@ -78,9 +78,11 @@ namespace MixMaster.Monsters
                 ApplyDefinition();
         }
 
+        internal bool RaidRewardsOnly { get; set; }
+
         private void HandleDefeated(EnemyHealth defeatedEnemy)
         {
-            if (monsterDefinition == null) return;
+            if (monsterDefinition == null || RaidRewardsOnly) return;
             EncyclopediaManager.Instance?.RecordDefeat(monsterDefinition.monsterId);
 
             // Award exactly once from the enemy death event, regardless of

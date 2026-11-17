@@ -50,6 +50,7 @@ namespace MixMaster.Monsters
         private bool hasTrailTarget;
         private bool isMoving;
         private bool combatControlled;
+        private bool followPlayer = true;
 
         public int FollowOrder => followOrder;
         public bool IsMoving => isMoving;
@@ -73,14 +74,14 @@ namespace MixMaster.Monsters
 
         private void Start()
         {
-            if (playerTrail == null)
+            if (followPlayer && playerTrail == null)
                 playerTrail = FindFirstObjectByType<PlayerTrailRecorder>();
         }
 
         private void FixedUpdate()
         {
             if (GetComponent<MixMaster.Combat.SkillActor>()?.MovementBlocked == true) { StopCombatMovement(); return; }
-            if (combatControlled)
+            if (combatControlled || !followPlayer)
                 return;
 
             if (playerTrail == null)
@@ -142,6 +143,13 @@ namespace MixMaster.Monsters
         public void SetFollowOrder(int order)
         {
             followOrder = Mathf.Max(0, order);
+            ResetFollowMovement();
+        }
+
+        internal void DisablePlayerFollowing()
+        {
+            followPlayer = false;
+            playerTrail = null;
             ResetFollowMovement();
         }
 
