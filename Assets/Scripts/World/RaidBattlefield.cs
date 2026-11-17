@@ -37,6 +37,7 @@ namespace MixMaster.World
         internal int AllyCount => allies.Count;
         internal long BossHp => boss != null ? boss.CurrentHp : 0;
         internal long BossMaxHp { get; private set; }
+        internal long DamageDealt { get; private set; }
 
         internal static RaidBattlefield Create(MonsterSO definition, int level, Sprite floor,
             IReadOnlyList<OwnedMonsterRecord> members, MonsterCatalogSO catalog, EquipmentManager equipment)
@@ -91,10 +92,12 @@ namespace MixMaster.World
             DisableBehaviour<EnemyWanderAI>(enemy);
             boss = enemy.GetComponent<EnemyHealth>();
             enemy.GetComponent<EnemyCombatAI>().HuntRaidAllies();
-            enemy.transform.localScale *= 3f;
+            enemy.transform.localScale *= 5f;
+            boss.RaidDamageFeedback = true;
             boss.RefreshOriginalScale();
             BossMaxHp = boss.MaxHp;
             boss.Died += HandleBossDefeated;
+            boss.Damaged += RecordDamage;
 
             foreach (var member in members)
             {
@@ -110,6 +113,7 @@ namespace MixMaster.World
                 var combat = PartyFieldSpawner.CreateMember(member, species, stats,
                     actors.transform, position, i, null);
                 combat.SetCombatMode(PartyCombatMode.AutoHunt);
+                combat.RaidDamageFeedback = true;
                 combat.GetComponent<SkillActor>()?.RandomizeAutoSkills();
                 foreach (var indicator in combat.GetComponentsInChildren<PlayerAttackRangeIndicator>(true))
                     indicator.HideForRaid();
@@ -202,6 +206,13 @@ namespace MixMaster.World
             else if (Remaining <= 0f) Result = Outcome.Timeout;
         }
 
+        private void RecordDamage(EnemyHealth target, long amount)
+        {
+            var source = target.LastHitSource.sourceType;
+            if (Result == Outcome.Fighting && source >= MaterialDropSourceType.Party1 && source <= MaterialDropSourceType.Party3)
+                DamageDealt = LongMath.SaturatingAdd(DamageDealt, amount);
+        }
+
         private void HandleBossDefeated(EnemyHealth _)
         {
             if (Result == Outcome.Fighting) Result = Outcome.Victory;
@@ -209,6 +220,7 @@ namespace MixMaster.World
 
         internal void Freeze()
         {
+            enabled = false;
             foreach (var root in arenaScene.GetRootGameObjects())
                 if (root != gameObject) root.SetActive(false);
             // Retain the last rendered frame behind the result text.
@@ -226,7 +238,11 @@ namespace MixMaster.World
 
         private void OnDestroy()
         {
-            if (boss != null) boss.Died -= HandleBossDefeated;
+            if (boss != null)
+            {
+                boss.Died -= HandleBossDefeated;
+                boss.Damaged -= RecordDamage;
+            }
             if (arenaCamera != null) arenaCamera.targetTexture = null;
             if (view != null)
             {

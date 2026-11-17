@@ -3,6 +3,7 @@ using System.Globalization;
 using TMPro;
 using UnityEngine;
 using MixMaster.Core;
+using MixMaster.Combat;
 
 namespace MixMaster.UI
 {
@@ -69,6 +70,12 @@ namespace MixMaster.UI
         public static void Show(Vector3 worldPosition, long damage, MaterialDropSourceType attackSource,
             bool takenByAlly, DamageFeedback feedback)
         {
+            Show(worldPosition, damage, attackSource, takenByAlly, feedback, false);
+        }
+
+        internal static void Show(Vector3 worldPosition, long damage, MaterialDropSourceType attackSource,
+            bool takenByAlly, DamageFeedback feedback, bool raid, ElementType element = ElementType.None)
+        {
             if (!Application.isPlaying || damage <= 0L)
                 return;
 
@@ -82,6 +89,12 @@ namespace MixMaster.UI
                 string prefix = feedback.IsWeakness ? "弱点\n" : string.Empty;
                 string suffix = feedback.IsCritical ? "‼" : string.Empty;
                 float size = feedback.IsCritical ? 0.65f : 0.5f;
+                if (raid)
+                {
+                    size *= 1.5f;
+                    if (!takenByAlly && attackSource >= MaterialDropSourceType.Party1 && attackSource <= MaterialDropSourceType.Party3)
+                        damageColor = PartyMeleeSwordSwing.ElementColor(element);
+                }
                 ShowText(worldPosition, prefix + damage.ToString("N0", CultureInfo.InvariantCulture) + suffix, damageColor,
                     DisplayOption.DamageText, takenByAlly, size);
             }
