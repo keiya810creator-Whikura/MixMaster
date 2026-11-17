@@ -79,8 +79,6 @@ namespace MixMaster.Combat
         private Coroutine swingRoutine;
         private Texture2D generatedSwordTexture;
         private Sprite generatedSwordSprite;
-        private Texture2D magicOrbTexture;
-        private Sprite magicOrbSprite;
 
         private Coroutine hitFlashRoutine;
         private Color originalSpriteColor = Color.white;
@@ -200,9 +198,6 @@ namespace MixMaster.Combat
 
             if (generatedSwordTexture != null)
                 Destroy(generatedSwordTexture);
-
-            if (magicOrbSprite != null) Destroy(magicOrbSprite);
-            if (magicOrbTexture != null) Destroy(magicOrbTexture);
         }
 
         private void Update()
@@ -284,49 +279,14 @@ namespace MixMaster.Combat
             long magic = Math.Max(1L, playerManager != null ? playerManager.Stats.magic : fallbackAttack);
             if (critical) magic = MultiplyLong(magic, GetCriticalMultiplier());
             var source = CreateAttackSource(critical);
-            GameObject prefab = species != null ? species.projectilePrefab : null;
-            GameObject shot;
-            if (prefab != null)
-            {
-                shot = Instantiate(prefab, transform.position, Quaternion.identity);
-                if (shot.TryGetComponent<EnemyMagicProjectile>(out var enemyProjectile))
-                    enemyProjectile.enabled = false;
-            }
-            else
-            {
-                shot = new GameObject("PlayerMagicOrb", typeof(SpriteRenderer));
-                shot.transform.position = transform.position;
-                var renderer = shot.GetComponent<SpriteRenderer>();
-                renderer.sprite = GetMagicOrbSprite();
-                renderer.color = PartyMeleeSwordSwing.ElementColor(source.attackElement);
-                renderer.sortingOrder = 60;
-            }
-
-            if (shot.scene != gameObject.scene)
-                SceneManager.MoveGameObjectToScene(shot, gameObject.scene);
+            var shot = PiercingMagicFlight.CreateShot(species != null ? species.projectilePrefab : null,
+                transform.position, Quaternion.identity, gameObject.scene, source.attackElement);
+            if (shot.TryGetComponent<EnemyMagicProjectile>(out var enemyProjectile))
+                enemyProjectile.enabled = false;
             var projectile = shot.GetComponent<PartyMagicProjectile>() ?? shot.AddComponent<PartyMagicProjectile>();
+            projectile.enabled = true;
             projectile.Initialize(target, magic, species != null ? species.projectileSpeed : 8f,
-                species != null ? species.projectileLifetime : 5f,
                 species == null || species.projectileHoming, source);
-        }
-
-        private Sprite GetMagicOrbSprite()
-        {
-            if (magicOrbSprite != null) return magicOrbSprite;
-            const int size = 16;
-            magicOrbTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var pixels = new Color[size * size];
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    var offset = new Vector2(x + .5f, y + .5f) / (size * .5f) - Vector2.one;
-                    pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01((1f - offset.magnitude) * 3f));
-                }
-            magicOrbTexture.SetPixels(pixels);
-            magicOrbTexture.Apply();
-            magicOrbSprite = Sprite.Create(magicOrbTexture, new Rect(0, 0, size, size),
-                new Vector2(.5f, .5f), 48f);
-            return magicOrbSprite;
         }
 
         private MaterialDropSourceInfo CreateAttackSource(bool critical) =>

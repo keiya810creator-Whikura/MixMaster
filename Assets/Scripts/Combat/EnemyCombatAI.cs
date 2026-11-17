@@ -31,7 +31,6 @@ namespace MixMaster.Combat
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform projectileSpawnPoint;
         [SerializeField, Min(0.1f)] private float projectileSpeed = 8f;
-        [SerializeField, Min(0.1f)] private float projectileLifetime = 3f;
         [SerializeField] private bool projectileHoming = true;
 
         [Header("Movement")]
@@ -105,7 +104,6 @@ namespace MixMaster.Combat
             attackType = monster.attackType;
             projectilePrefab = monster.projectilePrefab;
             projectileSpeed = Mathf.Max(0.1f, monster.projectileSpeed);
-            projectileLifetime = Mathf.Max(0.1f, monster.projectileLifetime);
             projectileHoming = monster.projectileHoming;
 
             targetRefreshTimer = 0f;
@@ -385,57 +383,16 @@ namespace MixMaster.Combat
             if (playerTarget == null && partyTarget == null)
                 return;
 
-            if (projectilePrefab == null)
-            {
-                if (playerTarget != null)
-                    playerTarget.TakeMagicHit(magicPower, element, critical);
-                else if (partyTarget != null)
-                    partyTarget.TakeMagicHit(magicPower, element, critical);
-
-                return;
-            }
-
-            Vector3 spawnPosition =
-                projectileSpawnPoint != null
-                    ? projectileSpawnPoint.position
-                    : transform.position;
-
-            Quaternion spawnRotation =
-                projectileSpawnPoint != null
-                    ? projectileSpawnPoint.rotation
-                    : Quaternion.identity;
-
-            GameObject projectileObject =
-                Instantiate(
-                    projectilePrefab,
-                    spawnPosition,
-                    spawnRotation);
-
-            if (projectileObject.scene != gameObject.scene)
-                SceneManager.MoveGameObjectToScene(projectileObject, gameObject.scene);
-
-            PartyMagicProjectile partyProjectile =
-                projectileObject.GetComponent<PartyMagicProjectile>();
-
-            if (partyProjectile != null)
-                partyProjectile.enabled = false;
-
-            EnemyMagicProjectile projectile =
-                projectileObject.GetComponent<EnemyMagicProjectile>();
-
-            if (projectile == null)
-            {
-                projectile =
-                    projectileObject.AddComponent<EnemyMagicProjectile>();
-            }
-
-            projectile.Initialize(
-                playerTarget,
-                partyTarget,
-                magicPower,
-                projectileSpeed,
-                projectileLifetime,
-                projectileHoming, element, critical);
+            Transform origin = projectileSpawnPoint != null ? projectileSpawnPoint : transform;
+            var shot = PiercingMagicFlight.CreateShot(projectilePrefab, origin.position,
+                origin.rotation, gameObject.scene, element);
+            if (shot.TryGetComponent<PartyMagicProjectile>(out var friendlyProjectile))
+                friendlyProjectile.enabled = false;
+            var projectile = shot.GetComponent<EnemyMagicProjectile>() ?? shot.AddComponent<EnemyMagicProjectile>();
+            projectile.enabled = true;
+            Component aim = playerTarget != null ? (Component)playerTarget : partyTarget;
+            projectile.Initialize(playerTarget != null ? playerTarget : cachedPlayer, aim,
+                magicPower, projectileSpeed, projectileHoming, element, critical);
         }
 
         private void ClearTarget()
@@ -660,7 +617,6 @@ namespace MixMaster.Combat
                 Mathf.Max(1f, criticalMultiplier);
 
             projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
-            projectileLifetime = Mathf.Max(0.1f, projectileLifetime);
 
             lungeDistance = Mathf.Max(0f, lungeDistance);
             lungeDuration = Mathf.Max(0.04f, lungeDuration);
