@@ -93,7 +93,8 @@ namespace MixMaster.Core
         public long RaidMaterials { get; private set; }
         public int ClearedRaidTiers { get; private set; }
         public const int RaidTierCount = 10;
-        public int FarmExperienceRate => FarmRates[FarmLevel - 1];
+        public int FarmExperienceRate => Math.Min(100, FarmRates[FarmLevel - 1] +
+            (int)Math.Min(100d, SkillProgressionManager.PartyBonus(SkillPassiveType.FarmExperience)));
         public int FarmUpgradeCost => FarmLevel <= FarmCosts.Length ? FarmCosts[FarmLevel - 1] : 0;
         public IReadOnlyList<OwnedMonsterRecord> FarmMonsters => farms[ActiveFarmIndex];
         public IReadOnlyList<OwnedMonsterRecord> GetFarm(int index) => farms[index];
@@ -478,6 +479,8 @@ namespace MixMaster.Core
             // for lock/favorite/party safety and gold accounting.
             bool sold = !bypassAutoSell && ShouldAutoSell(monster) &&
                 TrySellMonster(monster.uniqueId, out _);
+            if (!sold)
+                (GetComponent<SkillProgressionManager>() ?? SkillProgressionManager.Instance)?.GrantInnateSkills(monster);
             if (firstAcquisition) AcquisitionHistoryChanged?.Invoke();
             if (sold) return null;
 

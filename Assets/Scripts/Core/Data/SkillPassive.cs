@@ -5,10 +5,29 @@ namespace MixMaster.Core
     public enum SkillSpawnPosition { Owner, Target }
     public enum SkillFollowTarget { None, Owner, Target }
     public enum SkillEffectTiming { Hit, Spawn, Interval }
-    public enum SkillPassiveType { None, MaxHp, MaxMp, Attack, Magic, Defense, MagicDefense, MoveSpeed, AttackSpeed, AttackRange, CriticalRate, CriticalMultiplier, MaterialDrop, EquipmentDrop, FireResistance, WaterResistance, WindResistance, LightningResistance, LightResistance, DarkResistance, AllResistance, Melee, Ranged, BreedingChance, WeaponCount, TitleRolls, RespawnSpeed }
+    public enum SkillPassiveType
+    {
+        None, MaxHp, MaxMp, Attack, Magic, Defense, MagicDefense, MoveSpeed, AttackSpeed,
+        AttackRange, CriticalRate, CriticalMultiplier, MaterialDrop, EquipmentDrop,
+        FireResistance, WaterResistance, WindResistance, LightningResistance, LightResistance,
+        DarkResistance, AllResistance, Melee, Ranged, BreedingChance, WeaponCount, TitleRolls,
+        RespawnSpeed, DungeonMaterials, RaidDamage, FarmExperience, DefeatGold, DefeatExperience,
+        HealingPower, MpCostReduction, CooldownReduction
+    }
     [Serializable] public sealed class SkillPassive { public SkillPassiveType type; public double amount; }
     public static class SkillPassiveRules
     {
+        public static long Increase(long amount, double bonus)
+        {
+            if (amount <= 0L || !(bonus > 0d)) return amount;
+            if (amount * (1d + bonus / 100d) >= long.MaxValue) return long.MaxValue;
+            decimal value = amount * (1m + (decimal)bonus / 100m);
+            return value >= long.MaxValue ? long.MaxValue : (long)value;
+        }
+
+        public static double SkillCostMultiplier(double reduction) =>
+            1d - Math.Min(60d, Math.Max(0d, reduction)) / 100d;
+
         // Rates use percentage points in the sheet, e.g. 10 means +10%.
         public static CharacterStats Apply(CharacterStats source, Func<SkillPassiveType,double> value)
         {

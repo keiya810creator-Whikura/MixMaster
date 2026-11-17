@@ -200,6 +200,7 @@ namespace MixMaster.Combat
                 if (status.effect.ailment == ailment && status.until > Time.time) return true;
             return false;
         }
+        internal double RaidDamageBonus => PassiveAmount(SkillPassiveType.RaidDamage);
         private double PassiveAmount(SkillPassiveType type) => SkillProgressionManager.Instance?.PassiveValue(ownerId, type) ?? 0;
 
         public CharacterStats Effective(CharacterStats original)
@@ -313,7 +314,13 @@ namespace MixMaster.Combat
             if (IsEnemy)
             {
                 if (species == null) return;
-                foreach (var s in species.enemySkills) if (s != null && TryCast(s, out _)) break;
+                bool engaged = GetComponent<EnemyCombatAI>()?.HasTarget == true;
+                foreach (var skill in species.enemySkills)
+                {
+                    if (skill == null || (skill.distribution == SkillDistribution.MonsterSignature && !engaged))
+                        continue;
+                    if (TryCast(skill, out _)) break;
+                }
                 return;
             }
             var manager = SkillProgressionManager.Instance;
@@ -373,6 +380,13 @@ namespace MixMaster.Combat
             }
         }
         public float Remaining(SkillSO s) => s != null && Cooldowns.TryGetValue(s.skillId, out float end) ? Mathf.Max(0, end - Time.time) : 0;
+        private long EffectiveMpCost(SkillSO skill)
+        {
+            double multiplier = SkillPassiveRules.SkillCostMultiplier(PassiveAmount(SkillPassiveType.MpCostReduction));
+            return skill.mpCost <= 0 ? 0 : multiplier == 1d ? skill.mpCost :
+                Math.Max(1L, SkillMath.Amount(skill.mpCost * multiplier));
+        }
+
         public bool TryCast(SkillSO s, out string message)
         {
             message = "使用できません。";
@@ -386,7 +400,7 @@ namespace MixMaster.Combat
             }
             else if (species == null || !species.enemySkills.Contains(s)) return false;
             if (Remaining(s) > 0 || Time.time < globalUntil) { message = "再使用待ちです。"; return false; }
-            if (Mp < s.mpCost) { message = "MPが足りません。"; return false; }
+            if (Mp < EffectiveMpCost(s)) { message = "MPが足りません。"; return false; }
             var target = SelectTarget(s);
             if (!ValidTarget(s, target)) { message = "射程内に対象がいません。"; return false; }
             if (s.castTime > 0) { casting = s; castTarget = target; finishAt = Time.time + s.castTime; }
@@ -398,10 +412,14 @@ namespace MixMaster.Combat
             (target == this || Has(SkillAilment.Confusion) || (target.IsEnemy == IsEnemy) == (s.targetType == SkillTargetType.SingleAlly));
         private bool Commit(SkillSO s, SkillActor target)
         {
-            if (!Alive || SkillBlocked || !ValidTarget(s, target) || Remaining(s) > 0 || Mp < s.mpCost) return false;
+            if (!Alive || SkillBlocked || !ValidTarget(s, target) || Remaining(s) > 0) return false;
+            long cost = EffectiveMpCost(s);
+            if (Mp < cost) return false;
             // Set the gate before resource events fire, preventing reentrant double casts.
-            Cooldowns[s.skillId] = Time.time + s.cooldown; globalUntil = Time.time + Mathf.Max(0.02f, s.globalCooldown);
-            bool paid = enemy != null ? enemy.TrySpendMp(s.mpCost) : party != null ? party.TrySpendMp(s.mpCost) : player.TrySpendMp(s.mpCost);
+            float cooldown = s.cooldown * (float)SkillPassiveRules.SkillCostMultiplier(
+                PassiveAmount(SkillPassiveType.CooldownReduction));
+            Cooldowns[s.skillId] = Time.time + cooldown; globalUntil = Time.time + Mathf.Max(0.02f, s.globalCooldown);
+            bool paid = enemy != null ? enemy.TrySpendMp(cost) : party != null ? party.TrySpendMp(cost) : player.TrySpendMp(cost);
             if (!paid) { Cooldowns.Remove(s.skillId); globalUntil = Time.time; return false; }
             if (s.projectile) SkillProjectile.Launch(this, target, s, Stats, Source());
             else Execute(s, target, target.transform.position, ReincarnationRules.CopyStats(Stats), Source());
@@ -464,7 +482,8 @@ namespace MixMaster.Combat
                     if (critical) amount = SkillMath.Amount(amount * (double)Mathf.Max(1,powerStats.criticalMultiplier));
                     target.DealRaw(amount, skillSource, new DamageFeedback(critical, resistance < 0f));
                 }
-                else if (s.effect == SkillBaseEffect.Heal) target.Heal(amount);
+                else if (s.effect == SkillBaseEffect.Heal)
+                    target.Heal(SkillPassiveRules.Increase(amount, PassiveAmount(SkillPassiveType.HealingPower)));
                 if (target.Alive)
                     for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],skillSource);
                 if (s.effectPrefab != null)

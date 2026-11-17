@@ -146,7 +146,8 @@ namespace MixMaster.UI
                     text.Append('\n').Append(PassiveName(passive.type));
                     if (passive.type != SkillPassiveType.Melee && passive.type != SkillPassiveType.Ranged)
                         text.Append(' ').Append(Signed(passive.amount,
-                            passive.type == SkillPassiveType.WeaponCount || passive.type == SkillPassiveType.TitleRolls ? "" : "%"));
+                            passive.type == SkillPassiveType.WeaponCount || passive.type == SkillPassiveType.TitleRolls ? "" :
+                            passive.type == SkillPassiveType.FarmExperience ? "ポイント" : "%"));
                 }
             }
             else
@@ -188,6 +189,8 @@ namespace MixMaster.UI
             "なし", "最大HP", "最大MP", "攻撃", "魔力", "防御", "魔防", "移動速度", "攻撃速度", "攻撃範囲",
             "クリティカル率", "クリティカル倍率", "素材ドロップ率", "装備ドロップ率", "火属性耐性", "水属性耐性",
             "風属性耐性", "雷属性耐性", "光属性耐性", "闇属性耐性", "全属性耐性", "近接攻撃タイプになる",
-            "遠距離攻撃タイプになる", "配合成功率", "武器取得数", "称号抽選回数", "敵リスポーン速度");
+            "遠距離攻撃タイプになる", "配合成功率", "武器取得数", "称号抽選回数", "敵リスポーン速度",
+            "ダンジョン素材獲得量", "レイドボス与ダメージ", "ファーム経験値率", "討伐ゴールド",
+            "討伐経験値", "スキル回復量", "スキル消費MP軽減", "スキル再使用短縮");
     }
 }

@@ -103,6 +103,9 @@ namespace MixMaster.Monsters
                 if (title != null)
                     goldReward = LongMath.SaturatingMultiply(goldReward, 2L);
 
+                goldReward = SkillPassiveRules.Increase(goldReward,
+                    SkillProgressionManager.PartyBonus(SkillPassiveType.DefeatGold));
+
                 GameManager game = GameManager.Instance != null
                     ? GameManager.Instance
                     : FindFirstObjectByType<GameManager>();
@@ -133,6 +136,8 @@ namespace MixMaster.Monsters
             // of which character landed the final hit.
             long reward = LongMath.SaturatingMultiply(
                 monsterDefinition.experienceReward, Mathf.Max(1, level));
+            reward = SkillPassiveRules.Increase(reward,
+                SkillProgressionManager.PartyBonus(SkillPassiveType.DefeatExperience));
 
             PlayerManager player = RewardPlayer();
             if (player != null)

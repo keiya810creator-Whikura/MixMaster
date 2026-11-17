@@ -274,6 +274,8 @@ namespace MixMaster.World
                     baseMaterial, LongMath.SaturatingMultiply(
                         perMidBoss, Math.Max(0, dungeon.DefeatedSideBosses)));
 
+                materialTotal = SkillPassiveRules.Increase(materialTotal,
+                    SkillProgressionManager.PartyBonus(SkillPassiveType.DungeonMaterials));
                 report.actualMaterialAmount = materials.AddMaterial(
                     report.dungeonMaterial, materialTotal);
             }
