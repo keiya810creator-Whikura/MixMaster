@@ -343,81 +343,18 @@ namespace MixMaster.Monsters
             PlayerTrailRecorder trail,
             int order)
         {
-            GameObject prefab = monster.partyPrefab;
-
-            // Enemy prefabs must never be spawned as allies.
-            if (prefab != null &&
-                prefab.GetComponent<MixMaster.Combat.EnemyHealth>() != null)
-            {
-                Debug.LogWarning(
-                    "[PartyFieldSpawner] PartyPrefabが敵用Prefabのため共通Prefabを使用します: " +
-                    monster.name);
-                prefab = null;
-            }
-
-            if (prefab == null)
-                prefab = Resources.Load<GameObject>(DefaultPrefabPath);
-
             if (actorsRoot == null)
             {
                 actorsRoot = new GameObject("_RuntimePartyMembers");
-                SceneManager.MoveGameObjectToScene(
-                    actorsRoot, SceneManager.GetActiveScene());
+                SceneManager.MoveGameObjectToScene(actorsRoot, SceneManager.GetActiveScene());
             }
 
-            Vector3 spawnPosition = trail.transform.position +
+            Vector3 position = trail.transform.position +
                 new Vector3(-0.6f + order * 0.6f, -0.65f, 0f);
-
-            GameObject actor = prefab != null
-                ? Instantiate(prefab, spawnPosition, Quaternion.identity,
-                    actorsRoot.transform)
-                : CreateFallbackActor(spawnPosition, actorsRoot.transform);
-
-            // Allies always use the same display scale regardless of prefab.
-            actor.transform.localScale = Vector3.one * 0.25f;
-
-            actor.name = "Party_" + (order + 1) + "_" +
-                (!string.IsNullOrWhiteSpace(monster.displayName)
-                    ? monster.displayName
-                    : monster.monsterId);
-
-            SpriteRenderer renderer = actor.GetComponent<SpriteRenderer>();
-
-            if (renderer == null)
-                renderer = actor.AddComponent<SpriteRenderer>();
-
-            if (monster.sprite != null)
-                renderer.sprite = monster.sprite;
-
-            renderer.sortingOrder = 10;
-
-            Rigidbody2D body = actor.GetComponent<Rigidbody2D>();
-            if (body == null)
-                body = actor.AddComponent<Rigidbody2D>();
-
-            body.gravityScale = 0f;
-            body.freezeRotation = true;
-
-            MonsterTrailFollower follower =
-                actor.GetComponent<MonsterTrailFollower>();
-
-            if (follower == null)
-                follower = actor.AddComponent<MonsterTrailFollower>();
-
-            follower.SetPlayerTrail(trail);
-            follower.SetFollowOrder(order);
-
-            PartyMemberCombat combat = actor.GetComponent<PartyMemberCombat>();
-
-            if (combat == null)
-                combat = actor.AddComponent<PartyMemberCombat>();
-
-            CharacterStats calculated = BuildStats(record, monster);
-
-            combat.ConfigureOwnedMonster(
-                monster, calculated, record.uniqueId);
-            combat.SetCombatMode((PartyCombatMode)
-                monsterManager.GetEffectiveCombatBehavior(record));
+            PartyMemberCombat combat = CreateMember(record, monster, BuildStats(record, monster),
+                actorsRoot.transform, position, order, trail);
+            GameObject actor = combat.gameObject;
+            combat.SetCombatMode((PartyCombatMode)monsterManager.GetEffectiveCombatBehavior(record));
 
             // Copy the player's authored circle style for custom/fallback
             // ally prefabs as well as the shared PartyMember prefab.
@@ -440,6 +377,36 @@ namespace MixMaster.Monsters
 
             activeActors.Add(actor);
             activeByMonsterId[record.uniqueId] = combat;
+        }
+
+        internal static PartyMemberCombat CreateMember(OwnedMonsterRecord record, MonsterSO monster,
+            CharacterStats stats, Transform parent, Vector3 position, int order, PlayerTrailRecorder trail)
+        {
+            GameObject prefab = monster.partyPrefab;
+            if (prefab == null || prefab.GetComponent<MixMaster.Combat.EnemyHealth>() != null)
+                prefab = Resources.Load<GameObject>(DefaultPrefabPath);
+
+            GameObject actor = prefab != null
+                ? Instantiate(prefab, position, Quaternion.identity, parent)
+                : CreateFallbackActor(position, parent);
+            string displayName = string.IsNullOrWhiteSpace(monster.displayName) ? monster.monsterId : monster.displayName;
+            actor.name = $"Party_{order + 1}_{displayName}";
+            actor.transform.localScale = Vector3.one * .25f;
+            var renderer = actor.GetComponent<SpriteRenderer>() ?? actor.AddComponent<SpriteRenderer>();
+            if (monster.sprite != null) renderer.sprite = monster.sprite;
+            renderer.sortingOrder = 10;
+
+            var body = actor.GetComponent<Rigidbody2D>() ?? actor.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            body.freezeRotation = true;
+            var follower = actor.GetComponent<MonsterTrailFollower>() ?? actor.AddComponent<MonsterTrailFollower>();
+            follower.SetFollowOrder(order);
+            if (trail != null) follower.SetPlayerTrail(trail);
+            else follower.DisablePlayerFollowing();
+
+            var combat = actor.GetComponent<PartyMemberCombat>() ?? actor.AddComponent<PartyMemberCombat>();
+            combat.ConfigureOwnedMonster(monster, stats, record.uniqueId);
+            return combat;
         }
 
         private static GameObject CreateFallbackActor(

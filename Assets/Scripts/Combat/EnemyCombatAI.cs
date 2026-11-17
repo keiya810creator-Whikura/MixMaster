@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using MixMaster.Monsters;
 using MixMaster.Core;
 
@@ -58,6 +59,9 @@ namespace MixMaster.Combat
         private PlayerAutoAttack playerTarget;
         private PartyMemberCombat partyTarget;
         private Transform targetTransform;
+        private bool huntRaidAllies;
+
+        internal void HuntRaidAllies() => huntRaidAllies = true;
 
         private float targetRefreshTimer;
         private float attackGauge;
@@ -246,13 +250,15 @@ namespace MixMaster.Combat
             ClearTarget();
             if (TryApplyLureTarget()) return;
 
-            float detectionSqr = detectionRange * detectionRange;
+            float detectionSqr = huntRaidAllies ? float.MaxValue : detectionRange * detectionRange;
+            var physicsScene = gameObject.scene.GetPhysicsScene2D();
             float bestDistanceSqr = float.MaxValue;
 
             if (cachedPlayer == null)
                 cachedPlayer = FindFirstObjectByType<PlayerAutoAttack>();
 
-            if (cachedPlayer != null && cachedPlayer.IsAlive)
+            if (!huntRaidAllies && cachedPlayer != null && cachedPlayer.IsAlive &&
+                cachedPlayer.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
             {
                 float distanceSqr =
                     ((Vector2)(cachedPlayer.transform.position - transform.position))
@@ -273,7 +279,7 @@ namespace MixMaster.Combat
             {
                 PartyMemberCombat member = members[i];
 
-                if (member == null || !member.IsAlive)
+                if (member == null || !member.IsAlive || !member.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
                     continue;
 
                 float distanceSqr =
@@ -295,6 +301,7 @@ namespace MixMaster.Combat
 
         private bool TryApplyLureTarget()
         {
+            if (huntRaidAllies) return false;
             ConsumableManager items = ConsumableManager.Instance;
             PlayerAutoAttack lure = items != null ? items.LureTarget : null;
             if (lure == null || !lure.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return false;
@@ -319,6 +326,8 @@ namespace MixMaster.Combat
             ConsumableManager items = ConsumableManager.Instance;
             if (playerTarget != null && items != null && items.LureTarget == playerTarget &&
                 playerTarget.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return true;
+
+            if (huntRaidAllies) return partyTarget != null;
 
             float loseRange = Mathf.Max(detectionRange, loseTargetRange);
             float distanceSqr =
@@ -401,6 +410,9 @@ namespace MixMaster.Combat
                     projectilePrefab,
                     spawnPosition,
                     spawnRotation);
+
+            if (projectileObject.scene != gameObject.scene)
+                SceneManager.MoveGameObjectToScene(projectileObject, gameObject.scene);
 
             PartyMagicProjectile partyProjectile =
                 projectileObject.GetComponent<PartyMagicProjectile>();

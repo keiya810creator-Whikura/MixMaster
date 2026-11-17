@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using MixMaster.Combat;
 using MixMaster.Core;
 using MixMaster.Player;
@@ -495,6 +496,9 @@ namespace MixMaster.Monsters
                     spawnPosition,
                     spawnRotation);
 
+            if (projectileObject.scene != gameObject.scene)
+                SceneManager.MoveGameObjectToScene(projectileObject, gameObject.scene);
+
             // MonsterSO may point to the same projectile prefab enemies use.
             // Disable its enemy-only script so it cannot destroy or redirect
             // an allied projectile before PartyMagicProjectile initializes.
@@ -542,6 +546,7 @@ namespace MixMaster.Monsters
             float fallbackDistanceSqr = float.MaxValue;
             EnemyHealth best = null;
             EnemyHealth fallback = null;
+            var physicsScene = gameObject.scene.GetPhysicsScene2D();
             IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
 
             float playerRange = playerAutoAttack != null
@@ -554,7 +559,8 @@ namespace MixMaster.Monsters
             {
                 EnemyHealth enemy = enemies[i];
 
-                if (enemy == null || !enemy.IsAlive)
+                if (enemy == null || !enemy.IsAlive ||
+                    !enemy.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
                     continue;
 
                 if (requireEnemyTag && !enemy.CompareTag(enemyTag))
@@ -635,7 +641,8 @@ namespace MixMaster.Monsters
 
         private bool IsTargetValid(EnemyHealth target)
         {
-            if (target == null || !target.IsAlive)
+            if (target == null || !target.IsAlive ||
+                !target.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D()))
                 return false;
 
             if (requireEnemyTag && !target.CompareTag(enemyTag))

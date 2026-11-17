@@ -173,7 +173,8 @@ namespace MixMaster.Combat
             if (!IsAlive || damage <= 0)
                 return 0;
 
-            if (!SkillActor.AllowNormalHit(sourceInfo)) return 0;
+            var attacker = SkillActor.FromSource(sourceInfo, gameObject.scene);
+            if (!SkillActor.AllowNormalHit(sourceInfo, attacker)) return 0;
 
             damage = DamageCalculator.Randomize(damage);
             GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
@@ -188,7 +189,7 @@ namespace MixMaster.Combat
             CurrentHp -= actualDamage;
             HpChanged?.Invoke(CurrentHp, maxHp);
             GetComponent<SkillActor>()?.NotifyDamage(SkillActor.ApplyingSkill || sourceInfo?.isSkill == true);
-            SkillActor.FromSource(sourceInfo)?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);
+            attacker?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);
 
             wanderAI?.EnterCombat(1.5f);
 

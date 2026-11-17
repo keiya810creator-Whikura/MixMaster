@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using MixMaster.Core;
 using MixMaster.Player;
@@ -280,13 +281,15 @@ namespace MixMaster.Combat
             float bestDistanceSqr = float.MaxValue;
             EnemyHealth best = null;
 
+            var physicsScene = gameObject.scene.GetPhysicsScene2D();
             IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
 
             for (int i = 0; i < enemies.Count; i++)
             {
                 EnemyHealth enemy = enemies[i];
 
-                if (enemy == null || !enemy.IsAlive)
+                if (enemy == null || !enemy.IsAlive ||
+                    !enemy.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
                     continue;
 
                 if (requireEnemyTag && !enemy.CompareTag(enemyTag))
@@ -307,7 +310,8 @@ namespace MixMaster.Combat
 
         private bool IsTargetValid(EnemyHealth target)
         {
-            if (target == null || !target.IsAlive)
+            if (target == null || !target.IsAlive ||
+                !target.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D()))
                 return false;
 
             if (requireEnemyTag && !target.CompareTag(enemyTag))
@@ -789,13 +793,15 @@ namespace MixMaster.Combat
 
             // Use the same live enemy registry as target acquisition.
             // Each enemy is damaged at most once for this full swing.
+            var physicsScene = gameObject.scene.GetPhysicsScene2D();
             IReadOnlyList<EnemyHealth> enemies = EnemyHealth.ActiveEnemies;
 
             for (int i = enemies.Count - 1; i >= 0; i--)
             {
                 EnemyHealth enemy = enemies[i];
                 if (enemy == null || !enemy.IsAlive ||
-                    hitTargets.Contains(enemy))
+                    hitTargets.Contains(enemy) ||
+                    !enemy.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
                     continue;
 
                 if (requireEnemyTag && !enemy.CompareTag(enemyTag))

@@ -4,6 +4,7 @@ using MixMaster.Core;
 using MixMaster.Monsters;
 using MixMaster.UI;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace MixMaster.Combat
 {
@@ -32,7 +33,10 @@ namespace MixMaster.Combat
         private float cachedStatsTime;
         private StatsInput cachedInput;
         private readonly Dictionary<string, float> readyAt = new Dictionary<string, float>();
-        private Dictionary<string,float> Cooldowns => !IsEnemy && !string.IsNullOrEmpty(ownerId) && SkillProgressionManager.Instance!=null ? SkillProgressionManager.Instance.Cooldowns(ownerId) : readyAt;
+        private bool useLocalCooldowns;
+        private Dictionary<string, float> Cooldowns =>
+            !useLocalCooldowns && !IsEnemy && !string.IsNullOrEmpty(ownerId) && SkillProgressionManager.Instance != null
+                ? SkillProgressionManager.Instance.Cooldowns(ownerId) : readyAt;
         private readonly Dictionary<int, float> intervals = new Dictionary<int, float>();
         private readonly Dictionary<int, int> hitsAt = new Dictionary<int, int>(), damageAt = new Dictionary<int, int>(), killsAt = new Dictionary<int, int>();
         private int normalHits, damageEvents, kills, lastAttackSequence;
@@ -180,6 +184,7 @@ namespace MixMaster.Combat
         {
             ResolveReferences();ResetTransient();
             species = monster; ownerId = individualId;
+            useLocalCooldowns = !gameObject.scene.GetPhysicsScene2D().Equals(Physics2D.defaultPhysicsScene);
             if (enemyStats != null) enemyBase = ReincarnationRules.CopyStats(enemyStats);
             statuses.Clear(); readyAt.Clear(); intervals.Clear(); hitsAt.Clear(); damageAt.Clear(); killsAt.Clear(); casting = null; cachedFrame = -1;
             if (IsEnemy && species != null)
@@ -236,17 +241,19 @@ namespace MixMaster.Combat
             statuses.RemoveAll(s => s.effect.ailment == SkillAilment.Sleep); cachedFrame = -1;
             if (!fromSkill) damageEvents++;
         }
-        public static SkillActor FromSource(MaterialDropSourceInfo source)
+        internal static SkillActor FromSource(MaterialDropSourceInfo source, Scene targetScene)
         {
-            if (source == null) return null;
-            if(source.sourceType==MaterialDropSourceType.Unknown)return null;
-            return source.sourceType == MaterialDropSourceType.Player ? PlayerActor : Active.Find(a => !a.IsEnemy && a.ownerId == source.ownedMonsterUniqueId);
+            if (source == null || source.sourceType == MaterialDropSourceType.Unknown) return null;
+            if (source.sourceType == MaterialDropSourceType.Player) return PlayerActor;
+            var physicsScene = targetScene.GetPhysicsScene2D();
+            return Active.Find(actor => !actor.IsEnemy && actor.ownerId == source.ownedMonsterUniqueId &&
+                actor.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene));
         }
-        public static bool AllowNormalHit(MaterialDropSourceInfo source)
+
+        internal static bool AllowNormalHit(MaterialDropSourceInfo source, SkillActor actor)
         {
-            if (source == null || source.isSkill) return true;
-            var a = FromSource(source);
-            return a == null || (!a.MovementBlocked && (!a.Has(SkillAilment.Blind) || UnityEngine.Random.value < 0.5f));
+            if (source == null || source.isSkill || actor == null) return true;
+            return !actor.MovementBlocked && (!actor.Has(SkillAilment.Blind) || UnityEngine.Random.value < .5f);
         }
         public void NotifyNormalHit(MaterialDropSourceInfo source, bool killed)
         {
@@ -444,6 +451,8 @@ namespace MixMaster.Combat
                 if (s.effectPrefab != null)
                 {
                     var effect = Instantiate(s.effectPrefab, target.SkillEffectPosition(s), Quaternion.identity);
+                    if (effect.scene != gameObject.scene)
+                        SceneManager.MoveGameObjectToScene(effect, gameObject.scene);
                     SkillEffectVisibility.Track(effect);
                     Destroy(effect, 5f);
                 }
