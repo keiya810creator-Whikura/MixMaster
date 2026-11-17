@@ -54,6 +54,7 @@ namespace MixMaster.Combat
             DamagePopupText.ShowHealing(transform.position, CurrentHp - before);
         }
         public bool IsAlive { get; private set; }
+        internal bool RaidDamageFeedback { get; set; }
         public MaterialDropSourceInfo LastHitSource =>
             lastHitSource != null
                 ? lastHitSource.Clone()
@@ -199,7 +200,8 @@ namespace MixMaster.Combat
                 damage,
                 sourceInfo != null
                     ? sourceInfo.sourceType
-                    : MaterialDropSourceType.Unknown, false, feedback);
+                    : MaterialDropSourceType.Unknown, false, feedback,
+                RaidDamageFeedback, sourceInfo?.attackElement ?? ElementType.None);
             Damaged?.Invoke(this, actualDamage);
 
             if (spriteRenderer != null)

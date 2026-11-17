@@ -16,7 +16,11 @@ namespace MixMaster.UI
         private RaidBattlefield battle;
         private GameObject preview;
         private RawImage battlefield;
-        private bool resultShown;
+        private GameObject resultPanel;
+        private TMP_Text resultTitle;
+        private TMP_Text resultDamage;
+        private TMP_Text resultRewards;
+        private Image resultBabyIcon;
         private int farmIndex;
         private int tier;
         private TMP_Text status;
@@ -109,7 +113,8 @@ namespace MixMaster.UI
                     () => { farmIndex = index; RefreshReception(); });
             }
             start = AddButton(layout, "Start", "挑戦", .045f, .032f, .495f, .087f, StartBattle);
-            close = AddButton(layout, "Close", "閉じる", .505f, .032f, .955f, .087f, () => router.CloseAll());
+            close = AddButton(layout, "Close", "閉じる", .505f, .032f, .955f, .087f, CloseOrRetreat);
+            BuildResultPanel(layout);
         }
 
         private void RefreshReception()
@@ -153,13 +158,7 @@ namespace MixMaster.UI
 
         private void StartBattle()
         {
-            if (battle != null)
-            {
-                if (!resultShown) return;
-                CloseBattle();
-                RefreshReception();
-                return;
-            }
+            if (battle != null) return;
 
             RefreshReception();
             if (!start.interactable) return;
@@ -171,7 +170,6 @@ namespace MixMaster.UI
                 return;
             }
 
-            resultShown = false;
             battlefield.texture = battle.View;
             battlefield.transform.parent.gameObject.SetActive(true);
             preview.SetActive(false);
@@ -190,7 +188,7 @@ namespace MixMaster.UI
                 router.CloseAll();
                 return;
             }
-            if (battle == null || resultShown) return;
+            if (battle == null || resultPanel.activeSelf) return;
             UpdateBossHp();
             if (battle.Result == RaidBattlefield.Outcome.Fighting)
             {
@@ -198,20 +196,73 @@ namespace MixMaster.UI
                 return;
             }
 
-            resultShown = true;
+            bool won = battle.Result == RaidBattlefield.Outcome.Victory;
+            ShowResult(won ? "勝利" : battle.Result == RaidBattlefield.Outcome.Timeout ? "時間切れ" : "全滅", won);
+        }
+
+        private void CloseOrRetreat()
+        {
+            if (battle == null) router.CloseAll();
+            else if (battle.Result == RaidBattlefield.Outcome.Fighting) ShowResult("撤退", false);
+        }
+
+        private void ShowResult(string outcome, bool won)
+        {
+            if (resultPanel.activeSelf) return;
             battle.Freeze();
-            Caption(close).text = "閉じる";
-            Caption(start).text = "受付に戻る";
-            start.interactable = true;
-            if (battle.Result == RaidBattlefield.Outcome.Victory)
+            resultTitle.text = outcome;
+            resultDamage.text = $"ボスに与えたダメージ　{battle.DamageDealt:N0}";
+            resultRewards.text = "獲得物　なし";
+            SetIcon(resultBabyIcon, null);
+            resultPanel.SetActive(true);
+
+            if (!won) return;
+
+            int materials = reception.GetReward(tier);
+            var baby = reception.GetRewardBaby(tier, catalog);
+            monsters.CompleteRaid(tier, materials);
+            var obtained = baby != null ? monsters.ObtainMonster(baby.monsterId,
+                MonsterDropRoller.RollIndividualValues(), bypassAutoSell: true) : null;
+            bool saved = FindFirstObjectByType<SaveManager>()?.SaveGame() == true;
+
+            resultRewards.text = $"獲得物\nレイド勲晶 ×{materials:N0}\n" +
+                (obtained != null ? $"{baby.displayName}（Lv1）×1" : "ベビー報酬が未登録です") +
+                (saved ? "" : "\nセーブに失敗しました");
+            if (obtained != null) SetIcon(resultBabyIcon, baby);
+        }
+
+        private void BuildResultPanel(RectTransform parent)
+        {
+            resultPanel = new GameObject("RaidResultPanel", typeof(RectTransform), typeof(Image));
+            resultPanel.transform.SetParent(parent, false);
+            var overlay = (RectTransform)resultPanel.transform;
+            Place(overlay, 0, 0, 1, 1);
+            resultPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, .72f);
+
+            var cardObject = new GameObject("ResultCard", typeof(RectTransform), typeof(Image));
+            cardObject.transform.SetParent(overlay, false);
+            var card = (RectTransform)cardObject.transform;
+            Place(card, .07f, .23f, .93f, .77f);
+            cardObject.GetComponent<Image>().color = new Color(.10f, .16f, .24f);
+
+            Text(card, "Heading", "レイド結果", .06f, .86f, .94f, .97f, 46);
+            resultTitle = Text(card, "Outcome", "", .06f, .71f, .94f, .86f, 64);
+            resultDamage = Text(card, "DamageDealt", "", .06f, .59f, .94f, .71f, 38);
+            resultRewards = Text(card, "Rewards", "", .06f, .32f, .94f, .58f, 36);
+            resultBabyIcon = CreateIcon(card, "RewardBaby", .32f, .14f, .68f, .32f);
+            AddButton(card, "Retry", "再挑戦", .05f, .035f, .47f, .14f, () =>
             {
-                int reward = reception.GetReward(tier);
-                monsters.CompleteRaid(tier, reward);
-                bool saved = FindFirstObjectByType<SaveManager>()?.SaveGame() == true;
-                status.text = $"勝利！　レイド勲晶 ×{reward:N0}" + (saved ? "" : "\nセーブに失敗しました");
-            }
-            else
-                status.text = battle.Result == RaidBattlefield.Outcome.Timeout ? "時間切れ" : "全滅";
+                ReturnToReception();
+                StartBattle();
+            });
+            AddButton(card, "Reception", "受付へ戻る", .53f, .035f, .95f, .14f, ReturnToReception);
+            resultPanel.SetActive(false);
+        }
+
+        private void ReturnToReception()
+        {
+            CloseBattle();
+            RefreshReception();
         }
 
         private void OnDisable() => CloseBattle();
@@ -225,7 +276,7 @@ namespace MixMaster.UI
             }
             if (battle != null) battle.Close();
             battle = null;
-            resultShown = false;
+            if (resultPanel != null) resultPanel.SetActive(false);
             if (preview != null) preview.SetActive(true);
             if (bossHp != null)
             {

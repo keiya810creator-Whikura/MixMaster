@@ -305,7 +305,7 @@ namespace MixMaster.Combat
                     var target = targets[UnityEngine.Random.Range(0, targets.Count)];
                     float resistance = DamageCalculator.Resistance(target.Stats.resistances, Stats.element);
                     target.DealRaw(DamageCalculator.ApplyResistance(DamageCalculator.Calculate(Stats.attack, target.Stats.defense), resistance),
-                        Source(), new DamageFeedback(false, resistance < 0f));
+                        Source().WithAttack(Stats.element, false), new DamageFeedback(false, resistance < 0f));
                 }
             }
             if (Time.time < nextCheck || SkillBlocked) return;
@@ -446,6 +446,8 @@ namespace MixMaster.Combat
                 targets.Sort((a,b) => { int d=(a.transform.position-center).sqrMagnitude.CompareTo((b.transform.position-center).sqrMagnitude); return d!=0?d:a.GetInstanceID().CompareTo(b.GetInstanceID()); });
                 if (areaRadiusOverride<0&&s.hitLimit > 0 && targets.Count > s.hitLimit) targets.RemoveRange(s.hitLimit,targets.Count-s.hitLimit);
             }
+            var element = s.useOwnerElement ? powerStats.element : s.overrideElement;
+            var skillSource = source?.Clone().WithAttack(element, false);
             foreach (var target in targets)
             {
                 if (target == null || !target.Alive) continue;
@@ -456,16 +458,15 @@ namespace MixMaster.Combat
                 if (s.effect == SkillBaseEffect.Damage)
                 {
                     amount = DamageCalculator.Calculate(amount, s.powerSource == SkillPowerSource.Attack ? target.Stats.defense : target.Stats.magicDefense);
-                    var element = s.useOwnerElement ? powerStats.element : s.overrideElement;
                     float resistance = DamageCalculator.Resistance(target.Stats.resistances, element);
                     amount = DamageCalculator.ApplyResistance(amount, resistance);
                     bool critical = s.canCritical && UnityEngine.Random.value < powerStats.criticalRate;
                     if (critical) amount = SkillMath.Amount(amount * (double)Mathf.Max(1,powerStats.criticalMultiplier));
-                    target.DealRaw(amount, source, new DamageFeedback(critical, resistance < 0f));
+                    target.DealRaw(amount, skillSource, new DamageFeedback(critical, resistance < 0f));
                 }
                 else if (s.effect == SkillBaseEffect.Heal) target.Heal(amount);
                 if (target.Alive)
-                    for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],source);
+                    for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],skillSource);
                 if (s.effectPrefab != null)
                 {
                     var effect = Instantiate(s.effectPrefab, target.SkillEffectPosition(s), Quaternion.identity);

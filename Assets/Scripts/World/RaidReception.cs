@@ -13,6 +13,8 @@ namespace MixMaster.World
         [SerializeField] private int[] bossLevels = new int[MonsterManager.RaidTierCount];
         [SerializeField, Min(1)] private int materialsPerTier = 5;
 
+        [Tooltip("難易度順のベビー報酬。空欄は MON_30010 ～ MON_30019 を検索します。")]
+        [SerializeField] private MonsterSO[] rewardBabies = new MonsterSO[MonsterManager.RaidTierCount];
         [SerializeField] private Sprite arenaFloor;
         internal Sprite ArenaFloor => arenaFloor;
 
@@ -22,6 +24,13 @@ namespace MixMaster.World
         {
             if (bosses != null && tier < bosses.Length && bosses[tier] != null) return bosses[tier];
             return catalog != null ? catalog.GetMonster($"MON_{30000 + tier}") : null;
+        }
+
+        internal MonsterSO GetRewardBaby(int tier, MonsterCatalogSO catalog)
+        {
+            if (catalog == null) return null;
+            var configured = rewardBabies != null && tier < rewardBabies.Length ? rewardBabies[tier] : null;
+            return catalog.GetMonster(configured != null ? configured.monsterId : $"MON_{30010 + tier}");
         }
 
         public int GetBossLevel(int tier) =>

@@ -155,6 +155,7 @@ namespace MixMaster.Monsters
         public long CurrentMp => currentMp;
         public float DropRateBonus => Mathf.Max(0f, Stats.dropRateBonus);
         public bool IsAlive => isAlive;
+        internal bool RaidDamageFeedback { get; set; }
         public EnemyHealth CurrentTarget => currentTarget;
         public float AttackGauge => attackGauge;
         public PartyCombatMode CombatMode => combatMode;
@@ -887,7 +888,8 @@ namespace MixMaster.Monsters
             skills?.NotifyDamage(SkillActor.ApplyingSkill);
             currentHp -= actual;
 
-            DamagePopupText.Show(transform.position, actual, true, feedback);
+            DamagePopupText.Show(transform.position, actual, MaterialDropSourceType.Unknown,
+                true, feedback, RaidDamageFeedback);
 
             RefreshHpSlider();
             HpChanged?.Invoke(currentHp, Math.Max(1L, Stats.maxHp));
