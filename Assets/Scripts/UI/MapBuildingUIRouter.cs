@@ -25,6 +25,7 @@ namespace MixMaster.UI
         [SerializeField] private ConsumablePanelUI consumableShop;
 
         private VillageTeleportPanelUI teleportPanel;
+        private RaidPanelUI raidPanel;
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -242,6 +243,8 @@ namespace MixMaster.UI
             cachedPlayer = contact.player;
             if (contact.building.BuildingType == MapBuildingType.TeleportCircle)
                 OpenTeleport(contact.player, contact.building.GetComponentInParent<TilemapMapRoot>());
+            else if (contact.building.BuildingType == MapBuildingType.RaidReception)
+                OpenRaid(contact.building.GetComponent<RaidReception>());
             else
                 Open(contact.building.BuildingType);
         }
@@ -256,6 +259,14 @@ namespace MixMaster.UI
             Open(MapBuildingType.TeleportCircle);
         }
 
+        private void OpenRaid(RaidReception reception)
+        {
+            if (reception == null || IsOpen) return;
+            if (raidPanel == null) raidPanel = RaidPanelUI.Create(transform);
+            raidPanel.Prepare(this, reception);
+            Open(MapBuildingType.RaidReception);
+        }
+
         public void Open(MapBuildingType type)
         {
             if (IsOpen && CurrentBuilding == type) return;
@@ -263,7 +274,7 @@ namespace MixMaster.UI
             // usable when no global EventSystem has been provided.
             if ((type == MapBuildingType.BreedingShop || type == MapBuildingType.Blacksmith ||
                 type == MapBuildingType.Reincarnation || type == MapBuildingType.ConsumableShop ||
-                 type == MapBuildingType.TeleportCircle) &&
+                 type == MapBuildingType.TeleportCircle || type == MapBuildingType.RaidReception) &&
                 EventSystem.current == null)
             {
                 new GameObject("MapBuildingEventSystem",
@@ -277,6 +288,7 @@ namespace MixMaster.UI
             if (type == MapBuildingType.ConsumableShop) ResolveConsumableShop();
 
             GameObject targetPanel =
+                type == MapBuildingType.RaidReception && raidPanel != null ? raidPanel.gameObject :
                 type == MapBuildingType.TeleportCircle && teleportPanel != null ? teleportPanel.gameObject :
                 type == MapBuildingType.Altar ? altarPanel :
                 type == MapBuildingType.DungeonEntrance ? dungeonEntrancePanel :
@@ -419,6 +431,7 @@ namespace MixMaster.UI
             IsOpen = false;
             CurrentBuilding = null;
 
+            if (raidPanel != null) SetPanelActive(raidPanel.gameObject, false);
             if (teleportPanel != null) SetPanelActive(teleportPanel.gameObject, false);
             SetPanelActive(altarPanel, false);
             SetPanelActive(dungeonEntrancePanel, false);

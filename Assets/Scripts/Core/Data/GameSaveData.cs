@@ -7,7 +7,11 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 22;
+        public const int CurrentVersion = 23;
+        public int activeFarmIndex;
+        public int farmLevel = 1;
+        public long raidMaterials;
+        public int clearedRaidTiers;
         public DisplaySettingsData displaySettings;
         public List<PartyPresetRecord> partyPresets = new List<PartyPresetRecord>();
         // Older saves have no per-species defeat history. Start empty rather

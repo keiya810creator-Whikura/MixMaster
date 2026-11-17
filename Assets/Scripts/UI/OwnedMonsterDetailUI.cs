@@ -1311,8 +1311,8 @@ namespace MixMaster.UI
             bool registered = selectedRecord.farmStartLevel > 0;
             bool full = monsterManager.FarmMonsters.Count >= MonsterManager.MaxFarmSize;
             farmButton.interactable = registered || !full;
-            farmButtonText.text = registered ? "ファーム解除"
-                : full ? "ファーム満員（20 / 20）" : "ファームに送る";
+            farmButtonText.text = registered ? $"ファーム{selectedRecord.farmPresetIndex + 1}から解除"
+                : full ? "ファーム満員（20 / 20）" : $"ファーム{monsterManager.ActiveFarmIndex + 1}に送る";
         }
 
         private void ToggleFarmRegistration()

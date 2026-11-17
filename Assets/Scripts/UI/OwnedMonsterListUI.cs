@@ -544,11 +544,11 @@ namespace MixMaster.UI
 
             string message;
             if (record.farmStartLevel > 0)
-                message = "ファームに登録済みです";
+                message = $"ファーム{record.farmPresetIndex + 1}に登録済みです";
             else if (monsterManager.SetFarmRegistration(record.uniqueId, true))
             {
                 FindFirstObjectByType<SaveManager>()?.SaveGame();
-                message = $"ファームに送りました（{monsterManager.FarmMonsters.Count} / {MonsterManager.MaxFarmSize}）";
+                message = $"ファーム{monsterManager.ActiveFarmIndex + 1}に送りました（{monsterManager.FarmMonsters.Count} / {MonsterManager.MaxFarmSize}）";
             }
             else
                 message = "ファームは満員です";

@@ -77,11 +77,61 @@ namespace MixMaster.Core
         private readonly List<string> partyMonsterUniqueIds = new List<string>();
 
         public const int MaxFarmSize = 20;
-        private readonly List<OwnedMonsterRecord> farmMonsters =
-            new List<OwnedMonsterRecord>(MaxFarmSize);
+        public const int FarmPresetCount = 3;
+        private static readonly int[] FarmRates = { 10, 15, 20, 25, 30, 40, 50 };
+        private static readonly int[] FarmCosts = { 5, 10, 20, 35, 55, 80 };
 
-        public IReadOnlyList<OwnedMonsterRecord> FarmMonsters => farmMonsters;
+        private readonly List<OwnedMonsterRecord>[] farms =
+        {
+            new List<OwnedMonsterRecord>(MaxFarmSize),
+            new List<OwnedMonsterRecord>(MaxFarmSize),
+            new List<OwnedMonsterRecord>(MaxFarmSize)
+        };
+
+        public int ActiveFarmIndex { get; private set; }
+        public int FarmLevel { get; private set; } = 1;
+        public long RaidMaterials { get; private set; }
+        public int ClearedRaidTiers { get; private set; }
+        public const int RaidTierCount = 10;
+        public int FarmExperienceRate => FarmRates[FarmLevel - 1];
+        public int FarmUpgradeCost => FarmLevel <= FarmCosts.Length ? FarmCosts[FarmLevel - 1] : 0;
+        public IReadOnlyList<OwnedMonsterRecord> FarmMonsters => farms[ActiveFarmIndex];
+        public IReadOnlyList<OwnedMonsterRecord> GetFarm(int index) => farms[index];
         public event Action FarmChanged;
+
+        internal void RestoreFarmProgress(GameSaveData data)
+        {
+            ActiveFarmIndex = Mathf.Clamp(data.activeFarmIndex, 0, FarmPresetCount - 1);
+            FarmLevel = Mathf.Clamp(data.farmLevel, 1, FarmRates.Length);
+            RaidMaterials = Math.Max(0L, data.raidMaterials);
+            ClearedRaidTiers = Mathf.Clamp(data.clearedRaidTiers, 0, RaidTierCount);
+        }
+
+        public bool SetActiveFarm(int index)
+        {
+            if (index < 0 || index >= FarmPresetCount || index == ActiveFarmIndex) return false;
+            ActiveFarmIndex = index;
+            FarmChanged?.Invoke();
+            return true;
+        }
+
+        public bool TryUpgradeFarm()
+        {
+            int cost = FarmUpgradeCost;
+            if (cost == 0 || RaidMaterials < cost) return false;
+            RaidMaterials -= cost;
+            FarmLevel++;
+            FarmChanged?.Invoke();
+            return true;
+        }
+
+        internal void CompleteRaid(int tier, int reward)
+        {
+            if (tier < 0 || tier >= RaidTierCount || tier > ClearedRaidTiers || reward <= 0) return;
+            RaidMaterials = LongMath.SaturatingAdd(RaidMaterials, reward);
+            ClearedRaidTiers = Math.Max(ClearedRaidTiers, tier + 1);
+            FarmChanged?.Invoke();
+        }
 
         public bool SetFarmRegistration(string uniqueId, bool registered)
         {
@@ -91,16 +141,18 @@ namespace MixMaster.Core
 
             if (registered)
             {
-                if (farmMonsters.Count >= MaxFarmSize) return false;
+                var farm = farms[ActiveFarmIndex];
+                if (farm.Count >= MaxFarmSize) return false;
+                monster.farmPresetIndex = ActiveFarmIndex;
                 monster.farmStartLevel = monster.level;
-                farmMonsters.Add(monster);
+                farm.Add(monster);
             }
             else
             {
+                farms[monster.farmPresetIndex].Remove(monster);
                 monster.farmStartLevel = 0;
-                farmMonsters.Remove(monster);
             }
-            monster.farmHalfExperiencePending = false;
+            monster.farmExperienceRemainder = 0;
             FarmChanged?.Invoke();
             return true;
         }
@@ -110,19 +162,18 @@ namespace MixMaster.Core
             if (amount <= 0) return 0L;
 
             long awarded = 0L;
-            for (int i = farmMonsters.Count - 1; i >= 0; i--)
+            int rate = FarmExperienceRate;
+            var farm = farms[ActiveFarmIndex];
+            for (int i = farm.Count - 1; i >= 0; i--)
             {
-                OwnedMonsterRecord monster = farmMonsters[i];
+                OwnedMonsterRecord monster = farm[i];
                 if (monster.level >= ExperienceProgression.MaxLevel ||
                     partyMonsterUniqueIds.Contains(monster.uniqueId))
                     continue;
 
-                long share = amount / 2;
-                if ((amount & 1L) != 0)
-                {
-                    if (monster.farmHalfExperiencePending) share++;
-                    monster.farmHalfExperiencePending = !monster.farmHalfExperiencePending;
-                }
+                int remainder = (int)(amount % 100) * rate + monster.farmExperienceRemainder;
+                long share = (amount / 100) * rate + remainder / 100;
+                monster.farmExperienceRemainder = remainder % 100;
                 if (share > 0)
                 {
                     AddExperience(monster.uniqueId, share);
@@ -569,7 +620,7 @@ namespace MixMaster.Core
             if (savedAcquiredMonsterIds != null)
                 foreach (string id in savedAcquiredMonsterIds)
                     if (!string.IsNullOrWhiteSpace(id)) acquiredMonsterIds.Add(id);
-            farmMonsters.Clear();
+            foreach (var farm in farms) farm.Clear();
             ownedMonsters.Clear();
             ownedById.Clear();
             partyMonsterUniqueIds.Clear();
@@ -619,16 +670,21 @@ namespace MixMaster.Core
                     record.learnedSkillIds ??= new List<string>();
                     record.inheritedSkillIds = SkillProgressionManager.CopyInheritedSkills(record.inheritedSkillIds);
                     record.equippedItemUniqueIds ??= new List<string>();
-                    if (record.farmStartLevel > 0 && farmMonsters.Count < MaxFarmSize)
+                    record.farmPresetIndex = Mathf.Clamp(record.farmPresetIndex, 0, FarmPresetCount - 1);
+                    var farm = farms[record.farmPresetIndex];
+                    if (record.farmStartLevel > 0 && farm.Count < MaxFarmSize)
                     {
                         record.farmStartLevel = Math.Min(record.farmStartLevel, record.level);
-                        farmMonsters.Add(record);
+                        farm.Add(record);
+                        record.farmExperienceRemainder = Mathf.Clamp(
+                            record.farmExperienceRemainder + (record.farmHalfExperiencePending ? 50 : 0), 0, 99);
                     }
                     else
                     {
                         record.farmStartLevel = 0;
-                        record.farmHalfExperiencePending = false;
+                        record.farmExperienceRemainder = 0;
                     }
+                    record.farmHalfExperiencePending = false;
                     AddOwnedMonster(record);
                     if (!string.IsNullOrWhiteSpace(record.monsterId)) acquiredMonsterIds.Add(record.monsterId);
                 }
@@ -690,10 +746,11 @@ namespace MixMaster.Core
         {
             ownedMonsters.Remove(record);
             ownedById.Remove(record.uniqueId);
-            if (farmMonsters.Remove(record))
+            if (record.farmStartLevel > 0 && farms[record.farmPresetIndex].Remove(record))
             {
                 record.farmStartLevel = 0;
-                record.farmHalfExperiencePending = false;
+                record.farmExperienceRemainder = 0;
+                FarmChanged?.Invoke();
             }
         }
 
