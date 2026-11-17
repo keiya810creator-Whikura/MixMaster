@@ -116,10 +116,52 @@ namespace MixMaster.Core
                 specialRecipes != null && monsterCatalog != null &&
                 specialRecipes.TryFindRecipe(parentAId, parentBId,
                     out string childId, out BreedingRecipeKind kind) &&
-                monsterCatalog.GetMonster(childId) != null)
+                !IsRaidBoss(childId) && monsterCatalog.GetMonster(childId) != null)
                 return kind;
 
             return BreedingRecipeKind.Unspecified;
+        }
+
+        internal const int FirstRaidBossId = 30000;
+        internal const int FirstRaidBabyId = 30010;
+
+        internal static bool IsRaidBoss(string id) => RaidIndex(id, FirstRaidBossId) >= 0;
+        internal static bool IsRaidBaby(string id) => RaidIndex(id, FirstRaidBabyId) >= 0;
+
+        private static int RaidIndex(string id, int first)
+        {
+            if (id == null || id.Length != 9 || !id.StartsWith("MON_", StringComparison.OrdinalIgnoreCase) ||
+                !int.TryParse(id.Substring(4), out int number)) return -1;
+            return number >= first && number < first + MonsterManager.RaidTierCount ? number - first : -1;
+        }
+
+        internal static bool HasRaidLineage(OwnedMonsterRecord a, OwnedMonsterRecord b, out string bossId)
+        {
+            bossId = null;
+            if (a == null || b == null || string.Equals(a.uniqueId, b.uniqueId, StringComparison.Ordinal))
+                return false;
+            string babyId = a.monsterId;
+            int tier = RaidIndex(babyId, FirstRaidBabyId);
+            if (tier < 0 || !string.Equals(b.monsterId, babyId, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Entries 0 and 1 on either prospective parent are the child's four grandparents.
+            for (int i = 0; i < 2; i++)
+                if (!string.Equals(a.GetAncestor(i)?.monsterId, babyId, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(b.GetAncestor(i)?.monsterId, babyId, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+            bossId = $"MON_{FirstRaidBossId + tier}";
+            return true;
+        }
+
+        internal BreedingRecipeKind GetRecipeKind(OwnedMonsterRecord a, OwnedMonsterRecord b)
+        {
+            if (a == null || b == null) return BreedingRecipeKind.Unspecified;
+            EnsureDependencies();
+            if (HasRaidLineage(a, b, out string bossId) && monsterCatalog?.GetMonster(bossId) != null)
+                return BreedingRecipeKind.RaidLineage;
+            return GetRecipeKind(a.monsterId, b.monsterId);
         }
 
         public bool TryResolveChild(
@@ -130,7 +172,8 @@ namespace MixMaster.Core
             isSpecialRecipe = false;
             if (parentA == null || parentB == null ||
                 string.IsNullOrWhiteSpace(parentA.monsterId) ||
-                string.IsNullOrWhiteSpace(parentB.monsterId))
+                string.IsNullOrWhiteSpace(parentB.monsterId) ||
+                IsRaidBoss(parentA.monsterId) || IsRaidBoss(parentB.monsterId))
                 return false;
 
             // Same species always breeds back into itself.
@@ -147,7 +190,7 @@ namespace MixMaster.Core
                 specialRecipes.TryFindRecipe(
                     parentA.monsterId, parentB.monsterId, out string childId))
             {
-                if (monsterCatalog == null)
+                if (monsterCatalog == null || IsRaidBoss(childId))
                     return false;
                 child = monsterCatalog.GetMonster(childId);
                 isSpecialRecipe = child != null;
@@ -177,7 +220,7 @@ namespace MixMaster.Core
                     string.IsNullOrWhiteSpace(candidate.monsterId) ||
                     candidate.appearanceStage < 1 ||
                     candidate.appearanceStage > maximumStage ||
-                    candidate.specialBreedingOnly)
+                    candidate.specialBreedingOnly || IsRaidBoss(candidate.monsterId) || IsRaidBaby(candidate.monsterId))
                     continue;
 
                 long distance = Math.Abs((long)candidate.breedingValue - target);
@@ -242,6 +285,20 @@ namespace MixMaster.Core
                 monsterManager.IsProtectedFromConsumption(ownedB))
             {
                 error = "パーティ編成中・ロック・お気に入りの親は配合できません。";
+                return false;
+            }
+
+            if (IsRaidBoss(ownedA.monsterId) || IsRaidBoss(ownedB.monsterId))
+            {
+                error = "レイドボスは配合の親にできません。";
+                return false;
+            }
+            if (HasRaidLineage(ownedA, ownedB, out string bossId))
+            {
+                child = monsterCatalog.GetMonster(bossId);
+                special = child != null;
+                if (special) return true;
+                error = "血統配合のレイドボスがモンスターカタログに未登録です。";
                 return false;
             }
 
@@ -319,7 +376,7 @@ namespace MixMaster.Core
             {
                 child = child,
                 isSpecial = special,
-                recipeKind = special ? GetRecipeKind(a.monsterId, b.monsterId)
+                recipeKind = special ? GetRecipeKind(a, b)
                     : BreedingRecipeKind.Unspecified,
                 materialA = materialA,
                 materialB = materialB,

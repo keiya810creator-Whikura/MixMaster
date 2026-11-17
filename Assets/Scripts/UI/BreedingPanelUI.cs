@@ -396,7 +396,7 @@ namespace MixMaster.UI
 
             OwnedMonsterRecord selected = monsterManager.FindOwnedMonster(uniqueId);
             if (selected == null || selected.level < MinimumParentLevel ||
-                monsterManager.IsProtectedFromConsumption(selected))
+                monsterManager.IsProtectedFromConsumption(selected) || BreedingManager.IsRaidBoss(selected.monsterId))
             {
                 ShowNotice(selected != null && selected.level < MinimumParentLevel
                     ? $"親として選択するにはLv.{MinimumParentLevel}以上が必要です。"
@@ -793,7 +793,12 @@ namespace MixMaster.UI
                 {
                     if (record.uniqueId == recipeParent.uniqueId || string.IsNullOrEmpty(record.monsterId))
                         continue;
-                    if (!matchingSpecies.TryGetValue(record.monsterId, out bool matches))
+                    bool matches;
+                    if (BreedingManager.IsRaidBaby(recipeParent.monsterId) &&
+                        string.Equals(recipeParent.monsterId, record.monsterId, StringComparison.OrdinalIgnoreCase))
+                        matches = breedingManager != null && breedingManager.GetRecipeKind(recipeParent, record) ==
+                            BreedingRecipeKind.RaidLineage;
+                    else if (!matchingSpecies.TryGetValue(record.monsterId, out matches))
                     {
                         matches = breedingManager != null &&
                             breedingManager.GetRecipeKind(recipeParent.monsterId, record.monsterId) !=
@@ -883,6 +888,8 @@ namespace MixMaster.UI
                     return ("上位種変異配合", "#8BE7FF", new Color(0.16f, 0.35f, 0.43f));
                 case BreedingRecipeKind.Special:
                     return ("特殊配合", "#E4BCFF", new Color(0.35f, 0.23f, 0.45f));
+                case BreedingRecipeKind.RaidLineage:
+                    return ("レイド血統配合", "#FFBE83", new Color(0.42f, 0.25f, 0.16f));
                 case BreedingRecipeKind.UltraSpecial:
                     return ("超特殊配合", "#FFE388", new Color(0.42f, 0.32f, 0.15f));
                 default:
@@ -918,6 +925,7 @@ namespace MixMaster.UI
                 OwnedMonsterRecord record = candidates[index];
                 bool protectedMonster = monsterManager.IsProtectedFromConsumption(record);
                 bool tooLow = record.level < MinimumParentLevel;
+                bool raidBoss = BreedingManager.IsRaidBoss(record.monsterId);
                 bool sameAsOtherParent = record.uniqueId ==
                     (selectingParent == 0 ? parentBUniqueId : parentAUniqueId);
                 bool selected = record.uniqueId ==
@@ -930,6 +938,7 @@ namespace MixMaster.UI
                     unavailableReasons.Add("パーティ編成中");
                 if (record.isLocked) unavailableReasons.Add("ロック");
                 if (record.isFavorite) unavailableReasons.Add("お気に入り");
+                if (raidBoss) unavailableReasons.Add("レイドボス");
                 if (tooLow) unavailableReasons.Add($"LV.{MinimumParentLevel}未満");
                 if (sameAsOtherParent) unavailableReasons.Add("もう一方の親");
                 string status = unavailableReasons.Count > 0
@@ -937,7 +946,7 @@ namespace MixMaster.UI
                     : selected ? " [選択中]" : string.Empty;
                 BreedingRecipeKind recipeKind = singleParent != null &&
                     record.uniqueId != singleParent.uniqueId && breedingManager != null
-                    ? breedingManager.GetRecipeKind(singleParent.monsterId, record.monsterId)
+                    ? breedingManager.GetRecipeKind(singleParent, record)
                     : BreedingRecipeKind.Unspecified;
                 bool hasRecipe = recipeKind != BreedingRecipeKind.Unspecified;
                 TitleSO title = monsterCatalog != null
@@ -991,7 +1000,7 @@ namespace MixMaster.UI
                 SetIcon(row.icon, species != null
                     ? (species.icon != null ? species.icon : species.sprite) : null);
                 row.button.interactable =
-                    !tooLow && !protectedMonster && !sameAsOtherParent;
+                    !tooLow && !protectedMonster && !sameAsOtherParent && !raidBoss;
                 row.button.GetComponent<Image>().color = selected
                     ? new Color(0.24f, 0.47f, 0.37f, 1f)
                     : GetRecipeVisuals(recipeKind).background;

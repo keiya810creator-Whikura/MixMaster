@@ -23,14 +23,14 @@ namespace MixMaster.World
         public MonsterSO GetBoss(int tier, MonsterCatalogSO catalog)
         {
             if (bosses != null && tier < bosses.Length && bosses[tier] != null) return bosses[tier];
-            return catalog != null ? catalog.GetMonster($"MON_{30000 + tier}") : null;
+            return catalog != null ? catalog.GetMonster($"MON_{BreedingManager.FirstRaidBossId + tier}") : null;
         }
 
         internal MonsterSO GetRewardBaby(int tier, MonsterCatalogSO catalog)
         {
             if (catalog == null) return null;
             var configured = rewardBabies != null && tier < rewardBabies.Length ? rewardBabies[tier] : null;
-            return catalog.GetMonster(configured != null ? configured.monsterId : $"MON_{30010 + tier}");
+            return catalog.GetMonster(configured != null ? configured.monsterId : $"MON_{BreedingManager.FirstRaidBabyId + tier}");
         }
 
         public int GetBossLevel(int tier) =>

@@ -123,6 +123,7 @@ namespace MixMaster.UI
         private int Count => kind == EncyclopediaKind.Monster ? monsters.Count : equipment.Count;
         private bool Unlocked(MonsterSO monster) => monster != null &&
             ((progress != null && progress.IsUnlocked(monster.monsterId)) ||
+             (monsterAcquisitions != null && monsterAcquisitions.HasAcquiredMonster(monster.monsterId)) ||
              (GameJournalManager.Instance != null && GameJournalManager.Instance.HasDiscoveredRecipe(monster.monsterId)));
 
         private bool Unlocked(EquipmentSO item) =>
