@@ -28,6 +28,7 @@ namespace MixMaster.UI
             switch (kind)
             {
                 case BreedingRecipeKind.UpperVariant: return "上位種変異配合";
+                case BreedingRecipeKind.RaidLineage: return "レイド血統配合";
                 case BreedingRecipeKind.UltraSpecial: return "超特殊配合";
                 default: return "特殊配合";
             }

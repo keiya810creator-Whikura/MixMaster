@@ -511,7 +511,14 @@ namespace MixMaster.Core
             if (IsProtectedFromConsumption(parentA) ||
                 IsProtectedFromConsumption(parentB) ||
                 parentA.level < BreedingManager.MinimumParentLevel ||
-                parentB.level < BreedingManager.MinimumParentLevel)
+                parentB.level < BreedingManager.MinimumParentLevel ||
+                BreedingManager.IsRaidBoss(parentA.monsterId) ||
+                BreedingManager.IsRaidBoss(parentB.monsterId))
+                return false;
+
+            if (BreedingManager.IsRaidBoss(childSpecies.monsterId) &&
+                (!BreedingManager.HasRaidLineage(parentA, parentB, out string bossId) ||
+                 !string.Equals(childSpecies.monsterId, bossId, StringComparison.OrdinalIgnoreCase)))
                 return false;
 
             var skills=GetComponent<SkillProgressionManager>() ?? SkillProgressionManager.Instance;

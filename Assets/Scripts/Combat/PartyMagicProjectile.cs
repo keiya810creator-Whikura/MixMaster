@@ -87,26 +87,25 @@ namespace MixMaster.Combat
             Vector2 toTarget =
                 (Vector2)target.transform.position - current;
 
-            if (toTarget.sqrMagnitude <= hitDistance * hitDistance)
-            {
-                target.TakeMagicHit(
-                    magicPower,
-                    sourceInfo);
-                Destroy(gameObject);
-                return;
-            }
-
             if (homing && toTarget.sqrMagnitude > 0.000001f)
                 travelDirection = toTarget.normalized;
-
-            if (travelDirection.sqrMagnitude <= 0.000001f)
-                return;
 
             Vector2 next =
                 current +
                 travelDirection.normalized *
                 speed *
                 Time.deltaTime;
+
+            Vector2 movement = next - current;
+            float along = movement.sqrMagnitude > 0f
+                ? Mathf.Clamp01(Vector2.Dot(toTarget, movement) / movement.sqrMagnitude)
+                : 0f;
+            if ((toTarget - movement * along).sqrMagnitude <= hitDistance * hitDistance)
+            {
+                target.TakeMagicHit(magicPower, sourceInfo);
+                Destroy(gameObject);
+                return;
+            }
 
             transform.position = next;
             UpdateRotation(travelDirection);

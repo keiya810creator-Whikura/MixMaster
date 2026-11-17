@@ -9,7 +9,8 @@ namespace MixMaster.Core
         Unspecified,
         UpperVariant,
         Special,
-        UltraSpecial
+        UltraSpecial,
+        RaidLineage
     }
 
     [Serializable]
