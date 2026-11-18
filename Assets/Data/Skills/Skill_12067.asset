@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_12067
+  m_EditorClassIdentifier: 
+  skillId: 12067
+  displayName: "\u4F59\u97FB\u30FB\u5929\u5149\u306E\u6B8B\u97FF\u9663"
+  description: "\u6575\u306E\u8DB3\u5143\u306B\u9663\u3092\u6577\u304D\u3001\u4E00\u5B9A\u9593\u9694\u3067\u30C0\u30E1\u30FC\u30B8\u3092\u4E0E\u3048\u308B\u3002"
+  icon: {fileID: 0}
+  distribution: 2
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 3
+  mpCost: 1
+  powerMultiplier: 0.623
+  useOwnerElement: 0
+  overrideElement: 5
+  executable: 1
+  effect: 0
+  application: 2
+  flatPower: 0
+  cooldown: 14.16
+  castTime: 0.22
+  globalCooldown: 0.35
+  range: 4.99
+  radius: 1.92
+  hitLimit: 5
+  canCritical: 0
+  projectile: 1
+  homing: 0
+  projectileSpeed: 1
+  projectileLifetime: 3.89
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 3820293102541007597, guid: 3dc29dc4762bb6b408b18932ac56b3c4, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.3
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 0
+  effectTiming: 2
+  effectInterval: 0.94
+  passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
+  affixes: []

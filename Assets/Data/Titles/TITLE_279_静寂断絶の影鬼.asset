@@ -31,9 +31,9 @@ MonoBehaviour:
     attackRange: 0.705
     dropRateBonus: 3.1184
     resistanceBonus:
-      fire: 0.02
-      water: 0.02
-      wind: 0.02
-      lightning: 0.02
-      light: 0.0535
-      dark: 0.4009
+      fire: 0.0267
+      water: 0.0267
+      wind: 0.4009
+      lightning: 0.1002
+      light: 0.02
+      dark: 0.02

@@ -13,45 +13,64 @@ MonoBehaviour:
   m_Name: Skill_16
   m_EditorClassIdentifier: 
   skillId: 16
-  displayName: "\u9B54\u6CD5\u653B\u6483\u529B\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u57F7\u5FF5\u306E\u9ED2\u722A"
+  description: "\u6028\u5FF5\u306E\u56FA\u6709\u6280\u3002\u6575\u4E00\u4F53\u3078\u722A\u3092\u5165\u308C\u3001\u52D5\u304D\u3092\u920D\u3089\u305B\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
+  category: 0
   powerSource: 1
   targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  mpCost: 1
+  powerMultiplier: 1.799
+  useOwnerElement: 0
+  overrideElement: 6
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5
+  cooldown: 8.89
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
+  globalCooldown: 0.35
+  range: 1.79
   radius: 0
   hitLimit: 1
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.51
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
-  followTarget: 0
-  effectTiming: 0
+  projectilePrefab: {fileID: 2802790114260569031, guid: 6e7248d1f38fc254f8ede152fba06a0a, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.32
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 4
-    amount: 10
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
-  affixes: []
+  affixes:
+  - type: 2
+    stat: 5
+    change: 1
+    amount: 22
+    duration: 4.39
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1

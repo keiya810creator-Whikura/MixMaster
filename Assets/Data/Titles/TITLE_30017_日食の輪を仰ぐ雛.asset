@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e16b5139164846c1a743736c90c2dcf3, type: 3}
+  m_Name: "TITLE_30017_\u65E5\u98DF\u306E\u8F2A\u3092\u4EF0\u3050\u96DB"
+  m_EditorClassIdentifier: 
+  titleId: TITLE_30017
+  displayName: "\u65E5\u98DF\u306E\u8F2A\u3092\u4EF0\u3050\u96DB"
+  description: 
+  icon: {fileID: 0}
+  selectionWeight: 1
+  modifiers:
+    maxHp: 1.0975
+    maxMp: 0.9146
+    attack: 0.1663
+    magic: 1.6628
+    defense: 0.848
+    magicDefense: 0.7915
+    criticalRate: 0.7316
+    criticalMultiplier: 0.5044
+    moveSpeed: 0.3512
+    attackSpeed: 0.7982
+    attackRange: 0.5587
+    dropRateBonus: 2.8083
+    resistanceBonus:
+      fire: 0.0222
+      water: 0.0222
+      wind: 0.0222
+      lightning: 0.0222
+      light: 0.4448
+      dark: 0.0593

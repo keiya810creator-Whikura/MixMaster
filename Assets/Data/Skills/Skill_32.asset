@@ -13,44 +13,53 @@ MonoBehaviour:
   m_Name: Skill_32
   m_EditorClassIdentifier: 
   skillId: 32
-  displayName: "\u5168\u5C5E\u6027\u8010\u6027\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u7802\u87F2\u306E\u7802\u67F1"
+  description: "\u30B5\u30F3\u30C9\u30EF\u30FC\u30E0\u306E\u56FA\u6709\u6280\u3002\u6575\u3092\u4E2D\u5FC3\u306B\u5F37\u3044\u5149\u67F1\u3092\u7ACB\u3066\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
-  powerSource: 1
-  targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  category: 0
+  powerSource: 2
+  targetType: 3
+  mpCost: 5
+  powerMultiplier: 1.941
+  useOwnerElement: 0
+  overrideElement: 1
   executable: 1
   effect: 0
-  application: 0
+  application: 2
   flatPower: 0
-  cooldown: 5
+  cooldown: 12.61
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
-  radius: 0
-  hitLimit: 1
+  globalCooldown: 0.35
+  range: 9.49
+  radius: 1.5
+  hitLimit: 4
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.51
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
+  projectilePrefab: {fileID: 2119198253735705106, guid: 40674a8627b0a8b49b581c82dfa47dda, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.35
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
   followTarget: 0
-  effectTiming: 0
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 20
-    amount: 10
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1

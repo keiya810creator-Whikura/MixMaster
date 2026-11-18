@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_10586
+  m_EditorClassIdentifier: 
+  skillId: 10586
+  displayName: "\u75BE\u5531\u30FB\u5E7D\u5F71\u306E\u964D\u7D0B"
+  description: "\u72D9\u3063\u305F\u6575\u306E\u8DB3\u5143\u306B\u7BC4\u56F2\u9B54\u6CD5\u3092\u843D\u3068\u3059\u3002"
+  icon: {fileID: 0}
+  distribution: 2
+  skillPointCost: 1
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 3
+  mpCost: 1
+  powerMultiplier: 1.058
+  useOwnerElement: 0
+  overrideElement: 6
+  executable: 1
+  effect: 0
+  application: 2
+  flatPower: 0
+  cooldown: 6.57
+  castTime: 0
+  globalCooldown: 0.35
+  range: 4.37
+  radius: 1.79
+  hitLimit: 6
+  canCritical: 1
+  projectile: 1
+  homing: 0
+  projectileSpeed: 1
+  projectileLifetime: 0.49
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 8500749415257650364, guid: e9c980f52022c8e4cbe1ee391d0aea39, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.3
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 0
+  effectTiming: 1
+  effectInterval: 1
+  passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
+  affixes: []

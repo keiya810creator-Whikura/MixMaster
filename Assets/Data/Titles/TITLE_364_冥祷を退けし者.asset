@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\u51A5\u7977\u3092\u9000\u3051\u3057\u8005"
   description: 
   icon: {fileID: 0}
-  selectionWeight: 1
+  selectionWeight: 0.55
   modifiers:
     maxHp: 1.8768
     maxMp: 3.0985

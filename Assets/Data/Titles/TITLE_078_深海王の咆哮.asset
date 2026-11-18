@@ -35,5 +35,5 @@ MonoBehaviour:
       water: 0.0076
       wind: 0.0076
       lightning: 0.0076
-      light: 0.0202
-      dark: 0.1513
+      light: 0.1513
+      dark: 0.0202

@@ -13,45 +13,64 @@ MonoBehaviour:
   m_Name: Skill_31
   m_EditorClassIdentifier: 
   skillId: 31
-  displayName: "\u95C7\u5C5E\u6027\u8010\u6027\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u9AA8\u5175\u306E\u4E71\u6295"
+  description: "\u30B9\u30B1\u30EB\u30C8\u30F3\u306E\u56FA\u6709\u6280\u3002\u5C0F\u5F3E\u306B\u5206\u304B\u308C\u3066\u3001\u5468\u56F2\u306E\u6575\u3078\u98DB\u3076\u6563\u5F3E\u3092\u653E\u3064\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
-  powerSource: 1
+  category: 0
+  powerSource: 2
   targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  mpCost: 4
+  powerMultiplier: 1.435
+  useOwnerElement: 0
+  overrideElement: 2
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5
+  cooldown: 9.86
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
+  globalCooldown: 0.35
+  range: 9.92
   radius: 0
   hitLimit: 1
   canCritical: 1
-  projectile: 0
-  homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectile: 1
+  homing: 1
+  projectileSpeed: 9.27
+  projectileLifetime: 1.7
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
+  projectilePrefab: {fileID: 1022462291516903252, guid: dd1333e073d97c447ac387e10ab3ba64, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 1
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.35
+  - option: 11
+    value: 1
+  - option: 40
+    value: 1
+  - option: 41
+    value: 2
+  - option: 42
+    value: 46
+  - option: 43
+    value: 0.48
+  - option: 44
+    value: 1
+  - option: 26
+    value: 0
   spawnPosition: 0
   followTarget: 0
   effectTiming: 0
   effectInterval: 1
-  passives:
-  - type: 19
-    amount: 10
-  fitSpriteToArea: 1
+  passives: []
+  fitSpriteToArea: 0
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
   affixes: []

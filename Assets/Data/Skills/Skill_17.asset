@@ -13,45 +13,64 @@ MonoBehaviour:
   m_Name: Skill_17
   m_EditorClassIdentifier: 
   skillId: 17
-  displayName: "\u9632\u5FA1\u529B\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u8150\u7ADC\u306E\u9AA8\u5C3E"
+  description: "\u30C9\u30E9\u30B4\u30F3\u30BE\u30F3\u30D3\u306E\u56FA\u6709\u6280\u3002\u6575\u4E00\u4F53\u306B\u6BD2\u3092\u4ED8\u4E0E\u3057\u3001\u7D99\u7D9A\u30C0\u30E1\u30FC\u30B8\u3092\u4E0E\u3048\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
+  category: 0
   powerSource: 1
   targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  mpCost: 2
+  powerMultiplier: 1.145
+  useOwnerElement: 0
+  overrideElement: 2
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5
+  cooldown: 9.28
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
+  globalCooldown: 0.35
+  range: 2.29
   radius: 0
   hitLimit: 1
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.5
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
-  followTarget: 0
-  effectTiming: 0
+  projectilePrefab: {fileID: 1111793137413385995, guid: b5756e0ad444e0541ac2b06ab93df811, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.32
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 5
-    amount: 10
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
-  affixes: []
+  affixes:
+  - type: 3
+    stat: 0
+    change: 4
+    amount: 0.83
+    duration: 5
+    chance: 77
+    interval: 1
+    ailment: 1
+    stacking: 0
+    stackLimit: 1

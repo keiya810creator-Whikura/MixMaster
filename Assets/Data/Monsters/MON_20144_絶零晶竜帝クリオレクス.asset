@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e5efeb508be4a5293d94d7ecb99a832, type: 3}
+  m_Name: "MON_20144_\u7D76\u96F6\u6676\u7ADC\u5E1D\u30AF\u30EA\u30AA\u30EC\u30AF\u30B9"
+  m_EditorClassIdentifier: 
+  monsterId: MON_20144
+  displayName: "\u7D76\u96F6\u6676\u7ADC\u5E1D\u30AF\u30EA\u30AA\u30EC\u30AF\u30B9"
+  description: 
+  icon: {fileID: 21300000, guid: e472b8b770bf74d44835bd7109a2515a, type: 3}
+  sprite: {fileID: 21300000, guid: e472b8b770bf74d44835bd7109a2515a, type: 3}
+  enemyPrefab: {fileID: 3290457914211444514, guid: 26f9de9e24f7baf4fb22e11fb4b1acb2, type: 3}
+  partyPrefab: {fileID: 0}
+  baseStats:
+    maxHp: 51586
+    maxMp: 978
+    attack: 4067
+    magic: 1647
+    defense: 3060
+    magicDefense: 2617
+    criticalRate: 0.025
+    criticalMultiplier: 1.35
+    moveSpeed: 1.15
+    attackSpeed: 0.51
+    attackRange: 1
+    element: 5
+    resistances:
+      fire: 0.05
+      water: 0.05
+      wind: 0.05
+      lightning: 0.05
+      light: 0.25
+      dark: -0.05
+    dropRateBonus: 0
+  attackType: 0
+  detectionRange: 3.2
+  projectilePrefab: {fileID: 0}
+  projectileSpeed: 0.1
+  projectileLifetime: 0.1
+  projectileHoming: 0
+  baseRespawnInterval: 0
+  uniqueMaterial: {fileID: 0}
+  materialBaseDropRate: 0
+  baseMonsterDropRate: 0.0001
+  experienceReward: 0
+  titlePool: []
+  availableSkills:
+  - {fileID: 11400000, guid: 4df4b13a224d43643930bc4348dbfaac, type: 2}
+  enemySkills:
+  - {fileID: 11400000, guid: 4df4b13a224d43643930bc4348dbfaac, type: 2}
+  appearanceStage: 1
+  breedingValue: 0
+  specialBreedingOnly: 0

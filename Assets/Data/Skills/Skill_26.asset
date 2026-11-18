@@ -13,45 +13,74 @@ MonoBehaviour:
   m_Name: Skill_26
   m_EditorClassIdentifier: 
   skillId: 26
-  displayName: "\u706B\u5C5E\u6027\u8010\u6027\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u9178\u8755\u30B8\u30A7\u30C3\u30C8"
+  description: "\u30A2\u30B7\u30C3\u30C9\u30B9\u30E9\u30A4\u30E0\u306E\u56FA\u6709\u6280\u3002\u8150\u98DF\u3059\u308B\u7BC4\u56F2\u653B\u6483\u3067\u6575\u306E\u7269\u7406\u30FB\u9B54\u6CD5\u9632\u5FA1\u3092\u4E0B\u3052\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
-  powerSource: 1
-  targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  category: 0
+  powerSource: 2
+  targetType: 3
+  mpCost: 3
+  powerMultiplier: 1.279
+  useOwnerElement: 0
+  overrideElement: 1
   executable: 1
   effect: 0
-  application: 0
+  application: 2
   flatPower: 0
-  cooldown: 5
+  cooldown: 12.58
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
-  radius: 0
-  hitLimit: 1
+  globalCooldown: 0.35
+  range: 7.76
+  radius: 1.94
+  hitLimit: 5
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.54
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
+  projectilePrefab: {fileID: 1875180559532338703, guid: bf5992b6622c24741ac48ad15d8fa3b8, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.35
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
   followTarget: 0
-  effectTiming: 0
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 14
-    amount: 10
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
-  affixes: []
+  affixes:
+  - type: 2
+    stat: 3
+    change: 1
+    amount: 22
+    duration: 4.39
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1
+  - type: 2
+    stat: 4
+    change: 1
+    amount: 22
+    duration: 4.39
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1

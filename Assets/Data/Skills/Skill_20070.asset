@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2530db24d50495d9ee88f68fc9698c6, type: 3}
+  m_Name: Skill_20070
+  m_EditorClassIdentifier: 
+  skillId: 20070
+  displayName: "\u7164\u9244\u51A5\u5751\u4E3B\u30E9\u30F3\u30D7\u30EC\u30A4\u30F4\u30FB\u5C01\u9B54\u6483"
+  description: "\u7164\u9244\u51A5\u5751\u4E3B\u30E9\u30F3\u30D7\u30EC\u30A4\u30F4\u306E\u5F71\u7E2B\u3044\u306E\u56FA\u6709\u6280\u3002\u546A\u3044\u306E\u4E00\u6483\u3092\u52A0\u3048\u3001\u6575\u306E\u9B54\u6CD5\u9632\u5FA1\u529B\u3092\u4E0B\u3052\u3066\u6C88\u9ED9\u3055\u305B\u308B\u3002"
+  icon: {fileID: 0}
+  distribution: 1
+  skillPointCost: 2
+  requiredLevel: 1
+  category: 0
+  powerSource: 2
+  targetType: 1
+  mpCost: 25
+  powerMultiplier: 1.305
+  useOwnerElement: 0
+  overrideElement: 6
+  executable: 1
+  effect: 0
+  application: 0
+  flatPower: 0
+  cooldown: 8.97
+  castTime: 0
+  globalCooldown: 0.35
+  range: 7.56
+  radius: 0
+  hitLimit: 1
+  canCritical: 1
+  projectile: 1
+  homing: 0
+  projectileSpeed: 1
+  projectileLifetime: 0.51
+  effectPrefab: {fileID: 0}
+  projectilePrefab: {fileID: 1577082536210373388, guid: f8a10d1852922b8428af42c63efedf96, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.35
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
+  effectInterval: 1
+  passives: []
+  fitSpriteToArea: 1
+  burstVisualDuration: 0.35
+  burstVisualStartScale: 0.1
+  affixes:
+  - type: 2
+    stat: 4
+    change: 1
+    amount: 22
+    duration: 4.22
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1
+  - type: 3
+    stat: 0
+    change: 0
+    amount: 0
+    duration: 2.21
+    chance: 73
+    interval: 0
+    ailment: 6
+    stacking: 0
+    stackLimit: 1

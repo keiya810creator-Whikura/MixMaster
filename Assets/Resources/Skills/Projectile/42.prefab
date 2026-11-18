@@ -76,8 +76,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 60
-  m_Sprite: {fileID: 21300000, guid: 7cd2c9687f2a08445b085e752878d51c, type: 3}
-  m_Color: {r: 0.5137255, g: 0.7372549, b: 1, a: 0.7019608}
+  m_Sprite: {fileID: 21300000, guid: d053f176b7b971543be8339cf57a1333, type: 3}
+  m_Color: {r: 1, g: 0.9411765, b: 0.6784314, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -114,7 +114,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 3, y: 3, z: 3}
+  m_LocalScale: {x: 0.35, y: 0.35, z: 0.35}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3843079233690348295}
@@ -133,9 +133,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaults:
-    moveType: 3
-    homing: 0
-    piercing: 1
+    moveType: 5
+    homing: 1
+    piercing: 0
     spin: 0
     spinSpeed: 360
     wave: 0
@@ -144,14 +144,14 @@ MonoBehaviour:
     accelerate: 0
     acceleration: 3
     maximumSpeed: 50
-    hitRadius: 3
+    hitRadius: 0.35
     turnSpeed: 8
     growSpeed: 0.8
     maximumScale: 2
     outboundTime: 0.8
     returnSpeed: 12
-    orbitTime: 0.8
-    orbitRadius: 1.5
+    orbitTime: 0.44
+    orbitRadius: 0.62
     orbitAngularSpeed: 720
     delayedHomingTime: 0.6
     spiralAngularSpeed: 540
@@ -179,7 +179,7 @@ MonoBehaviour:
     splitPower: 0.5
     splitDepth: 1
     explodeOnHit: 0
-    explodeOnStop: 0
+    explodeOnStop: 1
     explosionRadius: 2
     explosionDuration: 0.4
   rotatingVisual: {fileID: 0}

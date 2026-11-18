@@ -33,7 +33,7 @@ MonoBehaviour:
     resistanceBonus:
       fire: 0.021
       water: 0.021
-      wind: 0.0787
-      lightning: 0.3149
+      wind: 0.3149
+      lightning: 0.0787
       light: 0.0157
       dark: 0.0157

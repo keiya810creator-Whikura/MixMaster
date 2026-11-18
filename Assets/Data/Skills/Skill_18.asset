@@ -13,45 +13,74 @@ MonoBehaviour:
   m_Name: Skill_18
   m_EditorClassIdentifier: 
   skillId: 18
-  displayName: "\u9B54\u6CD5\u9632\u5FA1\u529B\uFF0B10\uFF05"
-  description: "\u67A0\u306B\u30BB\u30C3\u30C8\u4E2D\u306E\u307F\u6709\u52B9\u3002"
+  displayName: "\u8755\u546A\u306E\u970A\u846C\u9663"
+  description: "\u30A8\u30AF\u30EA\u30B9\u30FB\u30AB\u30FC\u30B9\u306E\u56FA\u6709\u6280\u3002\u546A\u3044\u306E\u4E00\u6483\u3092\u52A0\u3048\u3001\u6575\u306E\u9B54\u6CD5\u9632\u5FA1\u529B\u3092\u4E0B\u3052\u3066\u6C88\u9ED9\u3055\u305B\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
-  powerSource: 1
+  category: 0
+  powerSource: 2
   targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  mpCost: 3
+  powerMultiplier: 1.158
+  useOwnerElement: 0
+  overrideElement: 6
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5
+  cooldown: 9.43
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
+  globalCooldown: 0.35
+  range: 6.64
   radius: 0
   hitLimit: 1
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.5
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
-  followTarget: 0
-  effectTiming: 0
+  projectilePrefab: {fileID: 4004840613471888395, guid: cb68cbf5b82db6f4db98b0493873a591, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.35
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 6
-    amount: 10
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
-  affixes: []
+  affixes:
+  - type: 2
+    stat: 4
+    change: 1
+    amount: 22
+    duration: 4.71
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1
+  - type: 3
+    stat: 0
+    change: 0
+    amount: 0
+    duration: 2.47
+    chance: 73
+    interval: 0
+    ailment: 6
+    stacking: 0
+    stackLimit: 1

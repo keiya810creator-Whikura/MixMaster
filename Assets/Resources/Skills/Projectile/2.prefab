@@ -76,8 +76,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 60
-  m_Sprite: {fileID: 21300000, guid: bbd8973622c6b6140800ca9282841270, type: 3}
-  m_Color: {r: 0.4627451, g: 1, b: 0.6901961, a: 1}
+  m_Sprite: {fileID: 21300000, guid: d053f176b7b971543be8339cf57a1333, type: 3}
+  m_Color: {r: 1, g: 0.4745098, b: 0.2784314, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -114,7 +114,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
+  m_LocalScale: {x: 0.35, y: 0.35, z: 0.35}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6666025332780129442}
@@ -133,7 +133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaults:
-    moveType: 3
+    moveType: 0
     homing: 0
     piercing: 0
     spin: 0
@@ -144,7 +144,7 @@ MonoBehaviour:
     accelerate: 0
     acceleration: 3
     maximumSpeed: 50
-    hitRadius: 0.3
+    hitRadius: 0.35
     turnSpeed: 8
     growSpeed: 0.8
     maximumScale: 2
@@ -178,8 +178,8 @@ MonoBehaviour:
     splitAngle: 50
     splitPower: 0.5
     splitDepth: 1
-    explodeOnHit: 0
+    explodeOnHit: 1
     explodeOnStop: 1
-    explosionRadius: 2
-    explosionDuration: 0.4
+    explosionRadius: 1.75
+    explosionDuration: 0.33
   rotatingVisual: {fileID: 0}

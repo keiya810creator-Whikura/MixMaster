@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\u4E16\u754C\u306E\u4E80\u88C2\u3092\u8D8A\u3048\u3057\u82F1\u96C4"
   description: 
   icon: {fileID: 0}
-  selectionWeight: 0.9
+  selectionWeight: 0.25
   modifiers:
     maxHp: 1.6486
     maxMp: 1.7919

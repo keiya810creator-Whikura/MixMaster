@@ -13,45 +13,64 @@ MonoBehaviour:
   m_Name: Skill_34
   m_EditorClassIdentifier: 
   skillId: 34
-  displayName: "\u9060\u8DDD\u96E2\u653B\u6483\u30BF\u30A4\u30D7\u306B\u5909\u66F4"
-  description: "\u901A\u5E38\u653B\u6483\u306E\u65B9\u5F0F\u3092\u5909\u66F4\u3002\u4E21\u65B9\u88C5\u7740\u6642\u306F\u5F8C\u308D\u306E\u67A0\u3092\u512A\u5148\u3002"
+  displayName: "\u9ED2\u7363\u4EBA\u306E\u722A\u6F5C\u308A"
+  description: "\u30D6\u30E9\u30C3\u30AF\u30B3\u30DC\u30EB\u30C8\u306E\u56FA\u6709\u6280\u3002\u6575\u4E00\u4F53\u3078\u722A\u3092\u5165\u308C\u3001\u52D5\u304D\u3092\u920D\u3089\u305B\u308B\u3002"
   icon: {fileID: 0}
-  skillPointCost: 1
+  distribution: 1
+  skillPointCost: 2
   requiredLevel: 1
-  category: 1
+  category: 0
   powerSource: 1
   targetType: 1
-  mpCost: 0
-  powerMultiplier: 1
-  useOwnerElement: 1
-  overrideElement: 0
+  mpCost: 3
+  powerMultiplier: 1.799
+  useOwnerElement: 0
+  overrideElement: 1
   executable: 1
   effect: 0
   application: 0
   flatPower: 0
-  cooldown: 5
+  cooldown: 9.49
   castTime: 0
-  globalCooldown: 0.2
-  range: 6
+  globalCooldown: 0.35
+  range: 1.94
   radius: 0
   hitLimit: 1
   canCritical: 1
-  projectile: 0
+  projectile: 1
   homing: 0
-  projectileSpeed: 8
-  projectileLifetime: 3
+  projectileSpeed: 1
+  projectileLifetime: 0.5
   effectPrefab: {fileID: 0}
-  projectilePrefab: {fileID: 0}
-  useProjectileMotionOverrides: 0
-  projectileMotionOverrides: []
-  spawnPosition: 0
-  followTarget: 0
-  effectTiming: 0
+  projectilePrefab: {fileID: 6237311032298130662, guid: 0f76d4b4f40d3684b95882834164184d, type: 3}
+  useProjectileMotionOverrides: 1
+  projectileMotionOverrides:
+  - option: 0
+    value: 0
+  - option: 1
+    value: 0
+  - option: 10
+    value: 0.32
+  - option: 11
+    value: 3
+  - option: 26
+    value: 0
+  spawnPosition: 1
+  followTarget: 2
+  effectTiming: 1
   effectInterval: 1
-  passives:
-  - type: 22
-    amount: 0
+  passives: []
   fitSpriteToArea: 1
   burstVisualDuration: 0.35
   burstVisualStartScale: 0.1
-  affixes: []
+  affixes:
+  - type: 2
+    stat: 5
+    change: 1
+    amount: 22
+    duration: 4.88
+    chance: 90
+    interval: 0
+    ailment: 0
+    stacking: 0
+    stackLimit: 1
