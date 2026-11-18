@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using MixMaster.Combat;
 using MixMaster.Core;
 using TMPro;
@@ -16,6 +17,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Dropdown actorDropdown,skillDropdown,triggerDropdown,andDropdown;
         [SerializeField] private TMP_InputField threshold,andThreshold,priority;
         [SerializeField] private TMP_Text details,message;
+        [SerializeField] private ScrollRect detailsScroll;
         [SerializeField] private Button openButton,closeButton,learnButton,saveButton,clearButton;
         [SerializeField] private Button[] assignButtons,castButtons;
         [SerializeField] private TMP_Text[] assignLabels,castLabels;
@@ -25,6 +27,7 @@ namespace MixMaster.UI
         private sealed class SkillOwner
         {
             public string OwnerId, Name;
+            public ElementType? Element;
             public bool IsPlayer => OwnerId == "player";
         }
         private readonly List<SkillOwner> actors=new List<SkillOwner>();
@@ -39,6 +42,8 @@ namespace MixMaster.UI
         private string partySnapshot;
         private int slotIndex;
         private float refreshAt;
+        private (SkillSO Skill, string OwnerId, string IndividualName, ElementType? Element, bool Learned,
+            int Points, int Revision, int LoadoutRevision) renderedDetails;
         private static readonly string[] Triggers={"手動のみ／追加条件なし","使用可能になったら","自分の体力％以下","自分のMP％以上","対象の体力％以下","攻撃範囲内の敵の数以上","通常攻撃が指定回数命中","指定回数ダメージを受けたら","指定秒数ごと","指定数の敵を倒したら"};
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -70,6 +75,7 @@ namespace MixMaster.UI
         {
             // Build() adds this component before assigning its UI references.
             if(initialized||panel==null)return;initialized=true;
+            EnsureDetailsScroll();
             openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){individualSelection=false;individualOwner=null;transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
             closeButton.onClick.AddListener(()=>panel.SetActive(false));
             actorDropdown.onValueChanged.AddListener(_=>{individualSelection=false;individualOwner=null;selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
@@ -91,6 +97,7 @@ namespace MixMaster.UI
             {
                 if(manager!=null)manager.Changed-=Refresh;
                 manager=current;if(manager!=null)manager.Changed+=Refresh;
+                renderedDetails = default;
             }
             if(manager==null)return false;
             monsters=manager.GetComponent<MonsterManager>();return true;
@@ -151,7 +158,12 @@ namespace MixMaster.UI
         private static SkillOwner DescribeOwner(OwnedMonsterRecord record,MonsterCatalogSO catalog)
         {
             var species=catalog!=null?catalog.GetMonster(record.monsterId):null;
-            return new SkillOwner{OwnerId=record.uniqueId,Name="仲間："+(species!=null?species.displayName:record.monsterId)+" Lv."+record.level};
+            return new SkillOwner
+            {
+                OwnerId = record.uniqueId,
+                Name = "仲間：" + (species != null ? species.displayName : record.monsterId) + " Lv." + record.level,
+                Element = species != null ? species.baseStats?.element : null
+            };
         }
         private string SkillLabel(SkillSO skill)
         {
@@ -181,14 +193,135 @@ namespace MixMaster.UI
         }
         private void RefreshDetails()
         {
-            if(Owner==null||Selected==null){details.text="使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";learnButton.interactable=saveButton.interactable=false;return;}
-            var s=Selected;bool learned=manager.Learned(Owner.OwnerId,s.skillId);
-            string ownerHeading=individualOwner!=null?"設定対象："+individualOwner.Name+"\n":"";
-            details.text=ownerHeading+s.displayName+"\n"+s.description+"\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n消費MP "+s.mpCost+"　再使用 "+s.cooldown+"秒　射程 "+s.range+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得")+"\n枠を選び、発動条件を設定して登録してください。";
-            bool active=s.category==SkillCategory.Active;
+            var owner = Owner;
+            var skill = Selected;
+            bool active = owner != null && skill != null && skill.category == SkillCategory.Active;
             triggerDropdown.interactable=andDropdown.interactable=threshold.interactable=andThreshold.interactable=priority.interactable=active;
-            if(!active)details.text=ownerHeading+s.displayName+"\n"+s.description+"\nパッシブ：枠にセット中のみ有効。\n必要レベル "+s.requiredLevel+"　習得ポイント "+s.skillPointCost+"\n所持ポイント "+manager.Points(Owner.OwnerId)+(learned?"　習得済み":"　未習得");
-            learnButton.interactable=!learned;saveButton.interactable=learned;
+            if (owner == null || skill == null)
+            {
+                const string empty = "使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";
+                if (details.text != empty) SetDetailsText(empty, true);
+                renderedDetails = default;
+                learnButton.interactable = saveButton.interactable = false;
+                return;
+            }
+
+            bool learned = manager.Learned(owner.OwnerId, skill.skillId);
+            learnButton.interactable = !learned;
+            saveButton.interactable = learned;
+
+            ElementType? element = null;
+            if (active && skill.useOwnerElement)
+                element = owner.IsPlayer ? manager.GetComponent<PlayerManager>()?.UnmodifiedStats?.element : owner.Element;
+            int points = manager.Points(owner.OwnerId);
+            var loadout = manager.Loadout(owner.OwnerId);
+            var state = (skill, owner.OwnerId, individualOwner?.Name, element, learned, points, manager.Revision, loadout.revision);
+            if (state == renderedDetails) return;
+
+            int registered = loadout.slots.FindIndex(slot => slot != null && slot.skillId == skill.skillId);
+            var text = new StringBuilder();
+            if (individualOwner != null) text.Append(individualOwner.Name).Append('\n');
+            text.Append("<b>").Append(EncyclopediaContent.Name(skill.displayName, skill.skillId)).Append("</b>\n")
+                .Append(learned ? "習得済み" : "未習得").Append("　所持SP ").Append(points.ToString("N0", CultureInfo.InvariantCulture));
+            if (registered >= 0) text.Append("　枠 ").Append(registered + 1).Append(" に登録中");
+            text.Append('\n').Append(EncyclopediaContent.SkillDetails(skill, element));
+            if (active && registered >= 0)
+            {
+                var slot = loadout.slots[registered];
+                text.Append("\n\n<b>保存済みの発動条件</b>\n").Append(DescribeTrigger(slot.trigger, slot.threshold));
+                if (slot.trigger != SkillTrigger.Manual && slot.andCondition != SkillTrigger.Manual && slot.andCondition != SkillTrigger.Ready)
+                    text.Append("\nかつ ").Append(DescribeTrigger(slot.andCondition, slot.andThreshold));
+            }
+
+            bool selectionChanged = renderedDetails.Skill != skill || renderedDetails.OwnerId != owner.OwnerId;
+            SetDetailsText(text.ToString(), selectionChanged);
+            renderedDetails = state;
+        }
+
+        private static string DescribeTrigger(SkillTrigger trigger, float threshold)
+        {
+            string ratio = threshold.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+            string count = Math.Ceiling(Math.Max(1f, threshold)).ToString("N0", CultureInfo.InvariantCulture);
+            return trigger switch
+            {
+                SkillTrigger.Manual => "手動のみ",
+                SkillTrigger.Ready => "使用可能になったら自動発動",
+                SkillTrigger.SelfHpBelow => "自分の残りHPが " + ratio + " 以下",
+                SkillTrigger.SelfMpAbove => "自分の残りMPが " + ratio + " 以上",
+                SkillTrigger.TargetHpBelow => "対象の残りHPが " + ratio + " 以下",
+                SkillTrigger.EnemyCount => "通常攻撃範囲内の敵が " + count + " 体以上",
+                SkillTrigger.NormalHits => "通常攻撃が " + count + " 回命中",
+                SkillTrigger.DamageTaken => "通常攻撃で " + count + " 回ダメージを受けたら",
+                SkillTrigger.Interval => Math.Max(.2f, threshold).ToString("0.##", CultureInfo.InvariantCulture) + "秒ごと",
+                SkillTrigger.Kill => "通常攻撃で敵を " + count + " 体倒したら",
+                _ => "未設定"
+            };
+        }
+
+        private void SetDetailsText(string text, bool resetScroll)
+        {
+            details.text = text;
+            if (!resetScroll || detailsScroll == null || detailsScroll.content == null) return;
+            detailsScroll.StopMovement();
+            var content = detailsScroll.content;
+            content.anchoredPosition = new Vector2(content.anchoredPosition.x, 0f);
+        }
+
+        private void EnsureDetailsScroll()
+        {
+            if (detailsScroll != null || details == null) return;
+
+            // Older scene copies may still have the text directly on the panel.
+            var label = details.rectTransform;
+            detailsScroll = CreateDetailsScroll(label.parent, "DetailsScroll");
+            var view = detailsScroll.viewport;
+            view.SetSiblingIndex(label.GetSiblingIndex());
+            view.anchorMin = label.anchorMin;
+            view.anchorMax = label.anchorMax;
+            view.pivot = label.pivot;
+            view.sizeDelta = label.sizeDelta;
+            view.anchoredPosition3D = label.anchoredPosition3D;
+            view.localRotation = label.localRotation;
+            view.localScale = label.localScale;
+            SetDetailsContent(detailsScroll, details);
+        }
+
+        private static ScrollRect CreateDetailsScroll(Transform parent, string name)
+        {
+            var view = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
+            view.layer = parent.gameObject.layer;
+            view.transform.SetParent(parent, false);
+            view.GetComponent<Image>().color = new Color(.035f, .06f, .092f, 1f);
+            var scroll = view.GetComponent<ScrollRect>();
+            scroll.viewport = (RectTransform)view.transform;
+            scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 36f;
+            return scroll;
+        }
+
+        private static void SetDetailsContent(ScrollRect scroll, TMP_Text label)
+        {
+            var rect = label.rectTransform;
+            rect.SetParent(scroll.viewport, false);
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition3D = Vector3.zero;
+            rect.sizeDelta = Vector2.zero;
+            label.alignment = TextAlignmentOptions.TopLeft;
+            label.enableAutoSizing = false;
+            label.richText = true;
+            label.textWrappingMode = TextWrappingModes.Normal;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.margin = new Vector4(14f, 9f, 14f, 9f);
+            label.raycastTarget = false;
+            var fitter = label.GetComponent<ContentSizeFitter>() ?? label.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = rect;
         }
         private void SaveRule()
         {
@@ -212,7 +345,10 @@ namespace MixMaster.UI
             ui.actorDropdown=InventoryUiFactory.Dropdown(rect,"Actor",new Vector2(24,-100),new Vector2(880,58),new[]{"主人公"});
             ui.skillDropdown=InventoryUiFactory.Dropdown(rect,"Skill",new Vector2(24,-180),new Vector2(680,58),new[]{"スキルを選択"});
             ui.learnButton=InventoryUiFactory.Button(rect,"Learn","習得",new Vector2(720,-180),new Vector2(180,58));
-            ui.details=InventoryUiFactory.Text(rect,"Details","",new Vector2(24,-265),new Vector2(880,320),25);
+            ui.detailsScroll = CreateDetailsScroll(rect, "Details");
+            InventoryUiFactory.TopLeft(ui.detailsScroll.viewport, new Vector2(24, -265), new Vector2(880, 320));
+            ui.details = InventoryUiFactory.Text(ui.detailsScroll.viewport, "Description", "", Vector2.zero, Vector2.zero, 25);
+            SetDetailsContent(ui.detailsScroll, ui.details);
             ui.assignButtons=new Button[5];ui.assignLabels=new TMP_Text[5];
             for(int i=0;i<5;i++){ui.assignButtons[i]=InventoryUiFactory.Button(rect,"Slot"+i,"未登録",new Vector2(24+i*178,-600),new Vector2(168,105));ui.assignLabels[i]=ui.assignButtons[i].GetComponentInChildren<TMP_Text>();}
             InventoryUiFactory.Text(rect,"TriggerLabel","自動発動条件（手動のみなら自動発動しません）",new Vector2(24,-740),new Vector2(880,40),24);
