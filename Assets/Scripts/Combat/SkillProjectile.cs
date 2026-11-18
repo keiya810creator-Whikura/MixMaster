@@ -41,6 +41,9 @@ namespace MixMaster.Combat
         private readonly HashSet<SkillActor> affected = new HashSet<SkillActor>();
         private static Sprite fallback;
         private static Texture2D fallbackTexture;
+        internal static GameObject ResolvePrefab(SkillSO skill) => skill.projectilePrefab != null
+            ? skill.projectilePrefab : Resources.Load<GameObject>("Skills/CommonSkillProjectile");
+
         public static ProjectileMotion ResolveMotion(SkillSO skill,ProjectileMotion prefabDefaults)
         {
             var result=(prefabDefaults??new ProjectileMotion()).Copy();
@@ -64,7 +67,7 @@ namespace MixMaster.Combat
         private static SkillProjectile Spawn(SkillActor owner,SkillActor target,SkillSO skill,CharacterStats power,MaterialDropSourceInfo source,Vector3 position,Vector3 direction,int generation,float scale,SpawnBudget budget,SkillActor exclude)
         {
             if(budget.remaining--<=0)return null;
-            var prefab=skill.projectilePrefab!=null?skill.projectilePrefab:Resources.Load<GameObject>("Skills/CommonSkillProjectile");
+            var prefab=ResolvePrefab(skill);
             var rotation=PreserveSpriteOrientation(skill)&&prefab!=null?prefab.transform.rotation:Quaternion.identity;
             var go=prefab!=null?Instantiate(prefab,position,rotation):new GameObject("SkillProjectile_"+skill.skillId);
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(go,owner.gameObject.scene);
