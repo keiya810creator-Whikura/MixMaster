@@ -45,6 +45,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class SkillSaveData
     {
+        public bool usesMonsterSkillDistribution;
         public List<string> playerLearned = new List<string>();
         public List<SkillLoadout> loadouts = new List<SkillLoadout>();
     }

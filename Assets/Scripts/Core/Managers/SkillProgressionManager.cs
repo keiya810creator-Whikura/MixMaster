@@ -19,13 +19,14 @@ namespace MixMaster.Core
         public SkillCatalogSO Catalog { get; private set; }
         public event Action Changed;
         private bool pending;
+        private bool saveMigratedDistribution;
         private float saveAt;
         public int Revision { get; private set; }
         private sealed class PassiveSummary
         {
             public int frame = -1, revision = -1, attackStyle = -1;
             public bool affectsStats;
-            public readonly double[] values = new double[(int)SkillPassiveType.RespawnSpeed + 1];
+            public readonly double[] values = new double[(int)SkillPassiveType.CooldownReduction + 1];
             public readonly HashSet<string> seen = new HashSet<string>();
         }
         private readonly Dictionary<string, PassiveSummary> passiveSummaries = new Dictionary<string, PassiveSummary>();
@@ -49,7 +50,9 @@ namespace MixMaster.Core
             }
             var record = Record(owner);
             var monster = record != null ? MonsterCatalogSO.Load()?.GetMonster(record.monsterId) : null;
-            var available=new List<SkillSO>();if(monster!=null)available.AddRange(monster.availableSkills);
+            var available = new List<SkillSO>();
+            if (monster != null)
+                available.AddRange(ReincarnationSkills(monster, Catalog));
             if(record?.inheritedSkillIds!=null)foreach(var id in record.inheritedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
             if(record?.learnedSkillIds!=null)foreach(var id in record.learnedSkillIds){var s=Catalog.Get(id);if(s!=null&&!available.Contains(s))available.Add(s);}
             return available;
@@ -59,9 +62,63 @@ namespace MixMaster.Core
         public static IReadOnlyList<SkillSO> ReincarnationSkills(MonsterSO species, SkillCatalogSO catalog)
         {
             if (catalog == null) return Array.Empty<SkillSO>();
+            if (species != null && catalog.UsesMonsterSkillDistribution)
+            {
+                var signature = catalog.GetMonsterSignature(species.monsterId);
+                if (signature != null) return new[] { signature };
+            }
             return (IReadOnlyList<SkillSO>)(species != null ? species.availableSkills : catalog.humanSkills)
                 ?? Array.Empty<SkillSO>();
         }
+        internal void GrantInnateSkills(OwnedMonsterRecord monster)
+        {
+            if (Catalog == null || !Catalog.UsesMonsterSkillDistribution) return;
+            var signature = Catalog.GetMonsterSignature(monster.monsterId);
+            if (signature == null) return;
+
+            monster.learnedSkillIds ??= new List<string>();
+            if (!monster.learnedSkillIds.Contains(signature.skillId))
+                monster.learnedSkillIds.Add(signature.skillId);
+
+            var pool = Catalog.GenericMonsterSkills;
+            int first = UnityEngine.Random.Range(0, pool.Count);
+            int second = UnityEngine.Random.Range(0, pool.Count - 1);
+            if (second >= first) second++;
+            monster.learnedSkillIds.Add(pool[first].skillId);
+            monster.learnedSkillIds.Add(pool[second].skillId);
+        }
+
+        internal void UpgradeMonsterSkillDistribution(GameSaveData save)
+        {
+            Catalog ??= SkillCatalogSO.Load();
+            if (Catalog == null || !Catalog.UsesMonsterSkillDistribution ||
+                save.skills?.usesMonsterSkillDistribution == true) return;
+
+            // The replacement sheet reuses numeric IDs, so the previous
+            // learned IDs and equipped slots cannot identify the old effects.
+            save.skills = new SkillSaveData { usesMonsterSkillDistribution = true };
+            saveMigratedDistribution = true;
+            save.playerSkillPoints = ReincarnationRules.TotalSkillPoints(save.playerSkillPoints, save.playerSpentSkillPoints);
+            save.playerSpentSkillPoints = 0;
+            if (save.monsters != null)
+                foreach (var monster in save.monsters)
+                {
+                    if (monster == null) continue;
+                    monster.skillPoints = ReincarnationRules.TotalSkillPoints(monster.skillPoints, monster.spentSkillPoints);
+                    monster.spentSkillPoints = 0;
+                    monster.learnedSkillIds = new List<string>();
+                    monster.inheritedSkillIds = new List<string>();
+                    GrantInnateSkills(monster);
+                }
+            if (save.partyPresets != null)
+                foreach (var preset in save.partyPresets)
+                    foreach (var actor in PartyPresetData.Actors(preset))
+                    {
+                        actor.skills = new List<SkillSlot>(SlotCount);
+                        for (int i = 0; i < SlotCount; i++) actor.skills.Add(new SkillSlot());
+                    }
+        }
+
         public bool Learned(string owner, string id) => owner == "player" ? data.playerLearned.Contains(id) : Record(owner)?.learnedSkillIds?.Contains(id) == true;
         public int Points(string owner) => owner == "player" ? GetComponent<PlayerManager>().SkillPoints : Record(owner)?.skillPoints ?? 0;
         public bool Learn(string owner, string id, out string message)
@@ -223,7 +280,8 @@ namespace MixMaster.Core
             foreach (string id in candidates)
             {
                 var skill = string.IsNullOrWhiteSpace(id) ? null : Catalog.Get(id);
-                if (skill != null && skill.executable && !pool.Contains(id) && !child.inheritedSkillIds.Contains(id)) pool.Add(id);
+                if (skill != null && skill.executable && !pool.Contains(id) && !child.inheritedSkillIds.Contains(id) &&
+                    child.learnedSkillIds?.Contains(id) != true) pool.Add(id);
             }
             while (child.inheritedSkillIds.Count < 3 && pool.Count > 0)
             {
@@ -243,7 +301,12 @@ namespace MixMaster.Core
             return result;
         }
         public void ResetPlayer() { data.playerLearned.Clear(); data.loadouts.RemoveAll(l => l.ownerId == "player"); runtimeCooldowns.Remove("player"); MixMaster.Combat.SkillActor.PlayerActor?.ResetTransient(); NotifyChanged(); }
-        public SkillSaveData Capture() => JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));
+        public SkillSaveData Capture()
+        {
+            if (Catalog != null && Catalog.UsesMonsterSkillDistribution)
+                data.usesMonsterSkillDistribution = true;
+            return JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));
+        }
         public void Restore(SkillSaveData saved)
         {
             Revision++; passiveSummaries.Clear();
@@ -264,7 +327,10 @@ namespace MixMaster.Core
                     if(skill!=null)Cooldowns(l.ownerId)[slot.skillId]=Time.time+skill.cooldown;
                 }
             }
-            pending = false; Changed?.Invoke();
+            pending = saveMigratedDistribution;
+            saveMigratedDistribution = false;
+            if (pending) saveAt = Time.unscaledTime + .35f;
+            Changed?.Invoke();
         }
     }
 }

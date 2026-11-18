@@ -177,6 +177,8 @@ namespace MixMaster.Combat
             var attacker = SkillActor.FromSource(sourceInfo, gameObject.scene);
             if (!SkillActor.AllowNormalHit(sourceInfo, attacker)) return 0;
 
+            if (RaidDamageFeedback && attacker != null && !attacker.IsEnemy)
+                damage = SkillPassiveRules.Increase(damage, attacker.RaidDamageBonus);
             damage = DamageCalculator.Randomize(damage);
             GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
 

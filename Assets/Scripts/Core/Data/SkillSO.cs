@@ -8,6 +8,13 @@ namespace MixMaster.Core
         Passive
     }
 
+    public enum SkillDistribution
+    {
+        Unspecified,
+        MonsterSignature,
+        MonsterGeneric
+    }
+
     public enum SkillPowerSource
     {
         None,
@@ -35,6 +42,7 @@ namespace MixMaster.Core
         public string displayName;
         [TextArea(2, 6)] public string description;
         public Sprite icon;
+        public SkillDistribution distribution;
 
         [Header("Acquisition")]
         [Min(0)] public int skillPointCost = 1;

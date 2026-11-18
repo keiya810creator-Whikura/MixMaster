@@ -312,6 +312,7 @@ namespace MixMaster.Core
 
         private void Apply(GameSaveData data)
         {
+            GetComponent<SkillProgressionManager>()?.UpgradeMonsterSkillDistribution(data);
             GetComponent<GameJournalManager>()?.Restore(data.journal);
             // Apply display preferences before restoring combat/party actors.
             GetComponent<DisplaySettingsManager>()?.Restore(data.displaySettings);

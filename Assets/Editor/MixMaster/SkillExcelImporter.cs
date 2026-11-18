@@ -47,6 +47,12 @@ namespace MixMaster.EditorTools
                     if(existing.ContainsKey(skill.skillId))throw new InvalidDataException("既存アセットのIDが重複: "+skill.skillId);
                     existing[skill.skillId]=skill;
                 }
+                bool installDistribution = rows.Any(row => On(row, "既存一覧を置換"));
+                if (installDistribution &&
+                    (!temporary.Any(s => s.distribution == SkillDistribution.MonsterSignature) ||
+                     temporary.Count(s => s.distribution == SkillDistribution.MonsterGeneric) < 2))
+                    throw new InvalidDataException("置換する表には固有スキルと汎用スキル2種以上が必要です。");
+
                 // Validate every sprite, template and output before changing assets.
                 var projectiles=SkillProjectilePrefabBuilder.Prepare(temporary,rows);
                 SkillProjectilePrefabBuilder.SaveAll(projectiles);
@@ -54,22 +60,33 @@ namespace MixMaster.EditorTools
                 var catalog=AssetDatabase.LoadAssetAtPath<SkillCatalogSO>(CatalogPath);
                 if(catalog==null){catalog=ScriptableObject.CreateInstance<SkillCatalogSO>();AssetDatabase.CreateAsset(catalog,CatalogPath);}
                 Undo.RecordObject(catalog,"スキル表取り込み");
-                foreach(var incoming in temporary)
+                var catalogEntries = new HashSet<SkillSO>(catalog.skills);
+                for (int i = 0; i < temporary.Count; i++)
                 {
-                    var sourceRow=rows[temporary.IndexOf(incoming)];
+                    var incoming = temporary[i];
+                    var sourceRow = rows[i];
                     if(existing.TryGetValue(incoming.skillId,out var target))
                     {
                         Undo.RecordObject(target,"スキル更新");
-                        if(string.IsNullOrWhiteSpace(Cell(sourceRow,"画像パス")))incoming.icon=target.icon;
-                        if(string.IsNullOrWhiteSpace(Cell(sourceRow,"演出パス")))incoming.effectPrefab=target.effectPrefab;
+                        if(!installDistribution && string.IsNullOrWhiteSpace(Cell(sourceRow,"画像パス")))incoming.icon=target.icon;
+                        if(!installDistribution && string.IsNullOrWhiteSpace(Cell(sourceRow,"演出パス")))incoming.effectPrefab=target.effectPrefab;
                         EditorUtility.CopySerialized(incoming,target);EditorUtility.SetDirty(target);
                     }
                     else{target=ScriptableObject.CreateInstance<SkillSO>();EditorUtility.CopySerialized(incoming,target);AssetDatabase.CreateAsset(target,"Assets/Data/Skills/Skill_"+incoming.skillId+".asset");}
-                    if(!catalog.skills.Contains(target))catalog.skills.Add(target);
-                    // A new catalog makes the imported list available to the human book.
-                    // Later imports preserve the user's existing human-only selection.
+                    if(catalogEntries.Add(target))catalog.skills.Add(target);
                 }
-                if(catalog.humanSkills.Count==0)catalog.humanSkills.AddRange(catalog.skills.Where(s=>s!=null&&s.executable));
+                if (installDistribution)
+                {
+                    catalog.skills.RemoveAll(s => s == null || !ids.Contains(s.skillId));
+                    catalog.humanSkills.RemoveAll(s => s == null || !ids.Contains(s.skillId) ||
+                        s.distribution != SkillDistribution.MonsterGeneric);
+                    if (catalog.humanSkills.Count == 0)
+                        catalog.humanSkills.AddRange(catalog.skills.Where(s => s.distribution == SkillDistribution.MonsterGeneric)
+                            .Take(24));
+                }
+                else if(catalog.humanSkills.Count==0)
+                    catalog.humanSkills.AddRange(catalog.skills.Where(s=>s!=null&&s.executable));
+                catalog.InvalidateIndex();
                 EditorUtility.SetDirty(catalog);AssetDatabase.SaveAssets();AssetDatabase.Refresh();
                 Debug.Log("[SkillExcelImporter] スキル "+temporary.Count+"件、発射物Prefab "+projectiles.Count+"件の素材・色・動作を更新しました。");
                 if(dialog)EditorUtility.DisplayDialog("スキル取り込み",temporary.Count+"件を取り込みました。\n発射物Prefab "+projectiles.Count+"件を生成・更新し、自動で紐付けました。","OK");
@@ -110,6 +127,7 @@ namespace MixMaster.EditorTools
                 s.displayName=Cell(r,"名前",true);s.description=Cell(r,"説明");
                 s.requiredLevel=Int(r,"必要レベル",1);if(s.requiredLevel<1)throw new InvalidDataException("必要レベルは1以上です。");
                 s.skillPointCost=Int(r,"習得ポイント",1);
+                s.distribution = Pick<SkillDistribution>(r,"配布区分",new[]{"指定なし","固有","汎用"},true);
                 s.category=Pick<SkillCategory>(r,"スキル種別",new[]{"アクティブ","パッシブ"},true);
                 if(s.category==SkillCategory.Passive)
                 {
@@ -121,6 +139,8 @@ namespace MixMaster.EditorTools
                         if(type==SkillPassiveType.None)continue;
                         double amount=Number(r,key+"効果量");
                         if((type==SkillPassiveType.WeaponCount||type==SkillPassiveType.TitleRolls)&&(amount!=Math.Floor(amount)||amount>1000))throw new InvalidDataException(key+"回数は0～1000の整数です。");
+                        if (type == SkillPassiveType.FarmExperience && amount != Math.Floor(amount))
+                            throw new InvalidDataException(key + "ファーム経験値率は整数のポイントで指定してください。");
                         if(type!=SkillPassiveType.Melee&&type!=SkillPassiveType.Ranged&&amount<=0)throw new InvalidDataException(key+"効果量は0より大きい値です。");
                         list.Add(new SkillPassive{type=type,amount=amount});
                     }
@@ -218,7 +238,7 @@ namespace MixMaster.EditorTools
             }
             catch{UnityEngine.Object.DestroyImmediate(s);throw;}
         }
-        public static readonly string[] PassiveNames={"なし","最大HP","最大MP","攻撃力","魔法攻撃力","防御力","魔法防御力","移動速度","攻撃速度","攻撃範囲","会心率","会心倍率","素材ドロップ率","装備ドロップ率","火属性耐性","水属性耐性","風属性耐性","雷属性耐性","光属性耐性","闇属性耐性","全属性耐性","近接攻撃タイプ","遠距離攻撃タイプ","配合確率","武器取得数","称号抽選回数","敵リスポーン速度"};
+        public static readonly string[] PassiveNames={"なし","最大HP","最大MP","攻撃力","魔法攻撃力","防御力","魔法防御力","移動速度","攻撃速度","攻撃範囲","会心率","会心倍率","素材ドロップ率","装備ドロップ率","火属性耐性","水属性耐性","風属性耐性","雷属性耐性","光属性耐性","闇属性耐性","全属性耐性","近接攻撃タイプ","遠距離攻撃タイプ","配合確率","武器取得数","称号抽選回数","敵リスポーン速度","ダンジョン素材獲得量","レイドボス与ダメージ","ファーム経験値率","討伐ゴールド","討伐経験値","スキル回復量","スキル消費MP軽減","スキル再使用短縮"};
         public static readonly string[] MotionTypes={"直進","追尾","拡大直進","その場","ブーメラン","周回後に射出","蛇行","加速","減速停止","遅延追尾","螺旋","往復","感応地雷","収束成長","爆発"};
         public static readonly (ProjectileMotionOption option,string column)[] AdvancedMotionColumns={
             (ProjectileMotionOption.MoveType,"移動タイプ"),(ProjectileMotionOption.TurnSpeed,"追尾旋回速度"),
