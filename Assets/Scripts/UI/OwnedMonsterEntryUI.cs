@@ -102,6 +102,26 @@ namespace MixMaster.UI
         private int sortIndex;
         private Color defaultButtonColor = Color.white;
         private Image farmMark;
+        private TMP_Text selectionMark;
+        public void ShowBulkSelection(bool selecting, bool selected)
+        {
+            if (selecting && selectionMark == null)
+            {
+                selectionMark = InventoryUiFactory.Text(transform, "BulkSelection", "", Vector2.zero, Vector2.zero, 22);
+                var rect = selectionMark.rectTransform;
+                rect.anchorMin = new Vector2(0, .78f);
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = rect.offsetMax = Vector2.zero;
+                selectionMark.alignment = TextAlignmentOptions.Center;
+                selectionMark.color = new Color(1f, .86f, .25f);
+                if (levelText != null) selectionMark.font = levelText.font;
+            }
+            if (selectionMark != null)
+            {
+                selectionMark.text = selected ? "☑ 選択中" : "□ タップで選択";
+                selectionMark.gameObject.SetActive(selecting);
+            }
+        }
 
         public void RefreshFarmMark(Sprite sprite)
         {

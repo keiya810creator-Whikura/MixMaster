@@ -27,6 +27,7 @@ namespace MixMaster.UI
         [SerializeField] private OwnedMonsterDetailUI detailPrefab;
         [SerializeField] private Slot[] slots;
 
+        internal OwnedMonsterDetailUI DetailPrefab => detailPrefab;
         private MonsterManager monsters;
         private MonsterCatalogSO catalog;
         private OwnedMonsterDetailUI detail;
@@ -34,6 +35,8 @@ namespace MixMaster.UI
         private readonly Button[] presetButtons = new Button[MonsterManager.FarmPresetCount];
         private Button upgradeButton;
         private TMP_Text upgradeLabel;
+        [SerializeField] private Button targetLevelButton, acknowledgeButton, trainingButton;
+        private ProgressionPanelUI targetPanel;
 
         private void Awake()
         {
@@ -56,6 +59,33 @@ namespace MixMaster.UI
             {
                 if (monsters != null && monsters.TryUpgradeFarm()) SaveFarm();
             });
+            bool createTargetControls = targetLevelButton == null;
+            if (targetLevelButton == null)
+                targetLevelButton = AddFarmButton("FarmTarget", "育成目標", new Vector2(.04f, .772f), new Vector2(.46f, .812f));
+            if (acknowledgeButton == null)
+                acknowledgeButton = AddFarmButton("AcknowledgeTargets", "通知を確認", new Vector2(.49f, .772f), new Vector2(.74f, .812f));
+            if (trainingButton == null)
+                trainingButton = AddFarmButton("Training", "訓練場", new Vector2(.76f, .772f), new Vector2(.96f, .812f));
+            if (createTargetControls && slots.Length > 0 && slots[0].button.transform.parent is RectTransform slotArea)
+                slotArea.anchorMax = new Vector2(slotArea.anchorMax.x, Mathf.Min(slotArea.anchorMax.y, .76f));
+            targetLevelButton.onClick.AddListener(() =>
+            {
+                if (monsters == null) return;
+                if (targetPanel == null) targetPanel = ProgressionPanelUI.Create(transform, "FarmTargetLevel");
+                targetPanel.ShowNumber("ファームの育成目標Lv", monsters.FarmTargetLevel(monsters.ActiveFarmIndex),
+                    1, ExperienceProgression.MaxLevel, level =>
+                    {
+                        monsters.SetFarmTargetLevel(monsters.ActiveFarmIndex, level);
+                        SaveFarm();
+                    });
+            });
+            acknowledgeButton.onClick.AddListener(() =>
+            {
+                if (monsters == null) return;
+                monsters.AcknowledgeFarmTargets(monsters.ActiveFarmIndex);
+                SaveFarm();
+            });
+            trainingButton.onClick.AddListener(() => RaidPanelUI.OpenTraining(transform));
             for (int i = 0; i < slots.Length; i++)
             {
                 int index = i;
@@ -101,6 +131,7 @@ namespace MixMaster.UI
                 monsters.MonsterLeveledUp -= HandleLevelUp;
             }
             if (detail != null) detail.Hide();
+            if (targetPanel != null) targetPanel.Close();
         }
 
         private void Close() => gameObject.SetActive(false);
@@ -152,11 +183,15 @@ namespace MixMaster.UI
             int count = monsters != null ? monsters.FarmMonsters.Count : 0;
             countText.text = monsters == null ? "" :
                 $"稼働中 ファーム{monsters.ActiveFarmIndex + 1}　{count} / {MonsterManager.MaxFarmSize}体";
+            targetLevelButton.GetComponentInChildren<TMP_Text>().text = monsters == null ? "育成目標" :
+                $"目標Lv {monsters.FarmTargetLevel(monsters.ActiveFarmIndex)}（変更）";
+            acknowledgeButton.interactable = monsters != null && monsters.FarmNotificationCount(monsters.ActiveFarmIndex) > 0;
             for (int i = 0; i < presetButtons.Length; i++)
             {
                 presetButtons[i].interactable = monsters != null && i != monsters.ActiveFarmIndex;
                 int members = monsters != null ? monsters.GetFarm(i).Count : 0;
-                presetButtons[i].GetComponentInChildren<TMP_Text>().text = $"ファーム{i + 1}（{members}体）";
+                presetButtons[i].GetComponentInChildren<TMP_Text>().text = $"ファーム{i + 1}（{members}体）" +
+                    (monsters != null && monsters.FarmNotificationCount(i) > 0 ? " ●" : "");
             }
             int cost = monsters != null ? monsters.FarmUpgradeCost : 0;
             upgradeButton.interactable = cost > 0 && monsters.RaidMaterials >= cost;
@@ -179,6 +214,8 @@ namespace MixMaster.UI
                 slot.levels.text = record != null
                     ? $"{record.farmStartLevel}Lv → {record.level}Lv"
                     : "空き";
+                slot.levels.color = monsters != null && monsters.HasFarmNotification(record)
+                    ? new Color(1f, .86f, .3f) : Color.white;
                 slot.button.interactable = record != null;
             }
         }

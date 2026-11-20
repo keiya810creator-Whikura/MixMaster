@@ -23,6 +23,7 @@ namespace MixMaster.Combat
         public static readonly List<SkillActor> Active = new List<SkillActor>();
         public static SkillActor PlayerActor { get; private set; }
         public static bool ApplyingSkill { get; private set; }
+        internal event Action<long> HealingPerformed;
         private readonly List<Status> statuses = new List<Status>();
         private readonly List<Status> statusSnapshot = new List<Status>();
         private readonly List<int> castOrder = new List<int>();
@@ -483,7 +484,12 @@ namespace MixMaster.Combat
                     target.DealRaw(amount, skillSource, new DamageFeedback(critical, resistance < 0f));
                 }
                 else if (s.effect == SkillBaseEffect.Heal)
+                {
+                    long before = target.Hp;
                     target.Heal(SkillPassiveRules.Increase(amount, PassiveAmount(SkillPassiveType.HealingPower)));
+                    long recovered = Math.Max(0L, target.Hp - before);
+                    if (recovered > 0) HealingPerformed?.Invoke(recovered);
+                }
                 if (target.Alive)
                     for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],skillSource);
                 if (s.effectPrefab != null)

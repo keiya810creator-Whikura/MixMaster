@@ -20,10 +20,32 @@ namespace MixMaster.World
         {
             public PartyMemberCombat combat;
             public Transform hpFill;
+            public SkillActor skillActor;
+            public Action<long> healingHandler;
+            public Action deathHandler;
+            public CombatPerformanceRecord performance;
         }
 
         private readonly List<Ally> allies = new List<Ally>(MonsterManager.MaxFarmSize);
+        private readonly Dictionary<string, CombatPerformanceRecord> performanceByOwner =
+            new Dictionary<string, CombatPerformanceRecord>(StringComparer.Ordinal);
         private Scene arenaScene;
+        private float duration;
+        internal bool IsTraining { get; private set; }
+        internal float Elapsed => Mathf.Max(0, duration - Remaining);
+        internal IReadOnlyList<CombatPerformanceRecord> Performance
+        {
+            get
+            {
+                var result = new List<CombatPerformanceRecord>(performanceByOwner.Values);
+                result.Sort((a, b) =>
+                {
+                    int damage = b.damage.CompareTo(a.damage);
+                    return damage != 0 ? damage : StringComparer.Ordinal.Compare(a.ownerId, b.ownerId);
+                });
+                return result;
+            }
+        }
         private GameObject actors;
         private EnemyHealth boss;
         private Camera arenaCamera;
@@ -40,7 +62,7 @@ namespace MixMaster.World
         internal long DamageDealt { get; private set; }
 
         internal static RaidBattlefield Create(MonsterSO definition, int level, Sprite floor,
-            IReadOnlyList<OwnedMonsterRecord> members, MonsterCatalogSO catalog, EquipmentManager equipment)
+            IReadOnlyList<OwnedMonsterRecord> members, MonsterCatalogSO catalog, EquipmentManager equipment, bool training = false)
         {
             var scene = SceneManager.CreateScene("FarmRaidArena_" + Guid.NewGuid().ToString("N"),
                 new CreateSceneParameters(LocalPhysicsMode.Physics2D));
@@ -48,6 +70,9 @@ namespace MixMaster.World
             SceneManager.MoveGameObjectToScene(root, scene);
             var field = root.AddComponent<RaidBattlefield>();
             field.arenaScene = scene;
+            field.IsTraining = training;
+            field.duration = training ? 60f : TimeLimit;
+            field.Remaining = field.duration;
             try
             {
                 field.Build(definition, level, floor, members, catalog, equipment);
@@ -94,6 +119,7 @@ namespace MixMaster.World
             enemy.GetComponent<EnemyCombatAI>().HuntRaidAllies();
             enemy.transform.localScale *= 5f;
             boss.RaidDamageFeedback = true;
+            boss.IsTrainingTarget = IsTraining;
             boss.RefreshOriginalScale();
             BossMaxHp = boss.MaxHp;
             boss.Died += HandleBossDefeated;
@@ -122,7 +148,28 @@ namespace MixMaster.World
                     Vector3.zero, new Vector2(3f, .22f), 12);
                 var fill = AddSprite(bar.transform, "Fill", square, new Color(.3f, .95f, .44f),
                     Vector3.zero, new Vector2(3f, .16f), 13);
-                allies.Add(new Ally { combat = combat, hpFill = fill });
+                var performance = new CombatPerformanceRecord
+                {
+                    ownerId = member.uniqueId,
+                    name = member.DisplayName(species.displayName),
+                    survived = true
+                };
+                performanceByOwner.Add(member.uniqueId, performance);
+                var skillActor = combat.GetComponent<SkillActor>();
+                Action<long> healingHandler = amount =>
+                {
+                    if (Result == Outcome.Fighting)
+                        performance.healing = LongMath.SaturatingAdd(performance.healing, amount);
+                };
+                Action deathHandler = () =>
+                {
+                    performance.survivalSeconds = Elapsed;
+                    performance.survived = false;
+                };
+                combat.Died += deathHandler;
+                if (skillActor != null) skillActor.HealingPerformed += healingHandler;
+                allies.Add(new Ally { combat = combat, hpFill = fill, skillActor = skillActor,
+                    healingHandler = healingHandler, deathHandler = deathHandler, performance = performance });
             }
             LivingAllies = allies.Count;
         }
@@ -194,10 +241,12 @@ namespace MixMaster.World
             {
                 if (ally.combat == null || !ally.combat.IsAlive)
                 {
+                    ally.performance.survived = false;
                     if (ally.hpFill != null) ally.hpFill.parent.gameObject.SetActive(false);
                     continue;
                 }
                 LivingAllies++;
+                ally.performance.survivalSeconds = Elapsed;
                 float ratio = Mathf.Clamp01((float)((double)ally.combat.CurrentHp / Math.Max(1L, ally.combat.Stats.maxHp)));
                 ally.hpFill.localScale = new Vector3(3f * ratio, .16f, 1f);
                 ally.hpFill.localPosition = new Vector3(-1.5f * (1f - ratio), 0f, 0f);
@@ -208,9 +257,11 @@ namespace MixMaster.World
 
         private void RecordDamage(EnemyHealth target, long amount)
         {
-            var source = target.LastHitSource.sourceType;
-            if (Result == Outcome.Fighting && source >= MaterialDropSourceType.Party1 && source <= MaterialDropSourceType.Party3)
-                DamageDealt = LongMath.SaturatingAdd(DamageDealt, amount);
+            var source = target.LastHitSource;
+            if (Result != Outcome.Fighting || source == null || string.IsNullOrEmpty(source.ownedMonsterUniqueId)) return;
+            if (!performanceByOwner.TryGetValue(source.ownedMonsterUniqueId, out var performance)) return;
+            performance.damage = LongMath.SaturatingAdd(performance.damage, amount);
+            DamageDealt = LongMath.SaturatingAdd(DamageDealt, amount);
         }
 
         private void HandleBossDefeated(EnemyHealth _)
@@ -220,6 +271,11 @@ namespace MixMaster.World
 
         internal void Freeze()
         {
+            foreach (var ally in allies)
+            {
+                ally.performance.survived = ally.combat != null && ally.combat.IsAlive;
+                if (ally.performance.survived) ally.performance.survivalSeconds = Elapsed;
+            }
             enabled = false;
             foreach (var root in arenaScene.GetRootGameObjects())
                 if (root != gameObject) root.SetActive(false);
@@ -238,6 +294,11 @@ namespace MixMaster.World
 
         private void OnDestroy()
         {
+            foreach (var ally in allies)
+            {
+                if (ally.skillActor != null) ally.skillActor.HealingPerformed -= ally.healingHandler;
+                if (ally.combat != null) ally.combat.Died -= ally.deathHandler;
+            }
             if (boss != null)
             {
                 boss.Died -= HandleBossDefeated;

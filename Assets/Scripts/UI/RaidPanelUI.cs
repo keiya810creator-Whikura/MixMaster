@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MixMaster.Core;
 using MixMaster.World;
 using TMPro;
@@ -33,6 +34,38 @@ namespace MixMaster.UI
         private readonly Button[] farms = new Button[MonsterManager.FarmPresetCount];
         private readonly Image[] allies = new Image[MonsterManager.MaxFarmSize];
         private Image boss;
+        private TMP_Text heading;
+        private bool training;
+        private readonly List<MonsterSO> trainingTargets = new List<MonsterSO>();
+        private ProgressionPanelUI performancePanel;
+
+        internal static void OpenTraining(Transform parent)
+        {
+            var panel = parent.GetComponentInChildren<RaidPanelUI>(true);
+            if (panel == null) panel = Create(parent);
+            panel.router = null;
+            panel.reception = null;
+            panel.training = true;
+            panel.monsters = FindFirstObjectByType<MonsterManager>();
+            panel.catalog = MonsterCatalogSO.Load();
+            panel.farmIndex = panel.monsters != null ? panel.monsters.ActiveFarmIndex : 0;
+            panel.tier = 0;
+            panel.trainingTargets.Clear();
+            if (panel.catalog != null)
+                foreach (var species in EncyclopediaContent.Monsters(panel.catalog))
+                    if (species.enemyPrefab != null && panel.monsters != null &&
+                        panel.monsters.HasAcquiredMonster(species.monsterId))
+                        panel.trainingTargets.Add(species);
+            panel.CloseBattle();
+            panel.gameObject.SetActive(true);
+            panel.transform.SetAsLastSibling();
+            panel.heading.text = "訓練場";
+            panel.RefreshReception();
+        }
+
+        private MonsterSO SelectedTarget => training
+            ? (tier >= 0 && tier < trainingTargets.Count ? trainingTargets[tier] : null)
+            : reception.GetBoss(tier, catalog);
 
         internal static RaidPanelUI Create(Transform parent)
         {
@@ -54,6 +87,8 @@ namespace MixMaster.UI
 
         internal void Prepare(MapBuildingUIRouter owner, RaidReception source)
         {
+            training = false;
+            heading.text = "ファームレイド";
             router = owner;
             reception = source;
             monsters = FindFirstObjectByType<MonsterManager>();
@@ -72,7 +107,7 @@ namespace MixMaster.UI
             var background = content.GetComponent<Image>();
             background.color = new Color(.07f, .12f, .18f);
             Place(layout, 0, 0, 1, 1);
-            Text(layout, "Title", "ファームレイド", .08f, .87f, .92f, .94f, 48);
+            heading = Text(layout, "Title", "ファームレイド", .08f, .87f, .92f, .94f, 48);
             bossName = Text(layout, "BossName", "", .18f, .80f, .82f, .87f, 38);
             previous = AddButton(layout, "PreviousTier", "◀", .04f, .805f, .17f, .86f,
                 () => { tier--; RefreshReception(); });
@@ -119,8 +154,9 @@ namespace MixMaster.UI
 
         private void RefreshReception()
         {
-            var species = reception.GetBoss(tier, catalog);
-            bossName.text = $"難易度 {tier + 1}　{(species != null ? species.displayName : "ボス未登録")}";
+            var species = SelectedTarget;
+            bossName.text = (training ? "標的　" : $"難易度 {tier + 1}　") +
+                (species != null ? species.displayName : "未登録");
             SetIcon(boss, species);
             var farm = monsters?.GetFarm(farmIndex);
             int ready = 0;
@@ -134,7 +170,7 @@ namespace MixMaster.UI
 
             int unlocked = monsters != null ? monsters.ClearedRaidTiers : 0;
             previous.interactable = tier > 0;
-            next.interactable = tier + 1 < MonsterManager.RaidTierCount;
+            next.interactable = tier + 1 < (training ? trainingTargets.Count : MonsterManager.RaidTierCount);
             for (int i = 0; i < farms.Length; i++)
             {
                 int count = monsters != null ? monsters.GetFarm(i).Count : 0;
@@ -145,8 +181,18 @@ namespace MixMaster.UI
             bool dungeon = FindFirstObjectByType<DungeonManager>()?.IsDungeonActive == true;
             // MonsterRuntimeSetup supplies the enemy components at spawn time.
             bool bossReady = species != null && species.enemyPrefab != null;
-            start.interactable = !dungeon && bossReady && tier <= unlocked && ready > 0 &&
-                FindFirstObjectByType<SaveManager>() != null;
+            start.interactable = !dungeon && bossReady && (training || tier <= unlocked) && ready > 0 &&
+                (training || FindFirstObjectByType<SaveManager>() != null);
+            if (training)
+            {
+                status.text = dungeon ? "ダンジョン探索中は利用できません" :
+                    !bossReady ? "敵用Prefabのある獲得済みモンスターが必要です" :
+                    ready == 0 ? "ファームにモンスターを登録してください" :
+                    "60秒間、不死身の標的と模擬戦。レイド想定の補正で、育成・報酬は発生しません。";
+                Caption(start).text = "訓練開始";
+                Caption(close).text = "閉じる";
+                return;
+            }
             status.text = dungeon ? "ダンジョン探索中は挑戦できません" :
                 tier > unlocked ? "前の難易度をクリアすると解放" :
                 species == null ? "受付の Inspector にボスを設定してください" :
@@ -162,8 +208,9 @@ namespace MixMaster.UI
 
             RefreshReception();
             if (!start.interactable) return;
-            battle = RaidBattlefield.Create(reception.GetBoss(tier, catalog), reception.GetBossLevel(tier),
-                reception.ArenaFloor, monsters.GetFarm(farmIndex), catalog, FindFirstObjectByType<EquipmentManager>());
+            battle = RaidBattlefield.Create(SelectedTarget, training ? 1 : reception.GetBossLevel(tier),
+                training ? null : reception.ArenaFloor, monsters.GetFarm(farmIndex), catalog,
+                FindFirstObjectByType<EquipmentManager>(), training);
             if (battle == null)
             {
                 status.text = "レイドフィールドを開けませんでした";
@@ -183,7 +230,7 @@ namespace MixMaster.UI
 
         private void Update()
         {
-            if (reception == null || !reception.isActiveAndEnabled)
+            if (!training && (reception == null || !reception.isActiveAndEnabled))
             {
                 router.CloseAll();
                 return;
@@ -202,7 +249,11 @@ namespace MixMaster.UI
 
         private void CloseOrRetreat()
         {
-            if (battle == null) router.CloseAll();
+            if (battle == null)
+            {
+                if (training) gameObject.SetActive(false);
+                else router.CloseAll();
+            }
             else if (battle.Result == RaidBattlefield.Outcome.Fighting) ShowResult("撤退", false);
         }
 
@@ -210,12 +261,17 @@ namespace MixMaster.UI
         {
             if (resultPanel.activeSelf) return;
             battle.Freeze();
-            resultTitle.text = outcome;
-            resultDamage.text = $"ボスに与えたダメージ　{battle.DamageDealt:N0}";
+            resultTitle.text = training ? "訓練終了" : outcome;
+            resultDamage.text = $"与ダメージ {battle.DamageDealt:N0}　経過 {battle.Elapsed:0.0}秒";
             resultRewards.text = "獲得物　なし";
             SetIcon(resultBabyIcon, null);
             resultPanel.SetActive(true);
 
+            if (training)
+            {
+                resultRewards.text = "訓練のため獲得物なし";
+                return;
+            }
             if (!won) return;
 
             int materials = reception.GetReward(tier);
@@ -245,7 +301,8 @@ namespace MixMaster.UI
             Place(card, .07f, .23f, .93f, .77f);
             cardObject.GetComponent<Image>().color = new Color(.10f, .16f, .24f);
 
-            Text(card, "Heading", "レイド結果", .06f, .86f, .94f, .97f, 46);
+            Text(card, "Heading", "戦闘結果", .06f, .86f, .60f, .97f, 46);
+            AddButton(card, "Performance", "個別成績", .64f, .88f, .95f, .97f, ShowPerformance);
             resultTitle = Text(card, "Outcome", "", .06f, .71f, .94f, .86f, 64);
             resultDamage = Text(card, "DamageDealt", "", .06f, .59f, .94f, .71f, 38);
             resultRewards = Text(card, "Rewards", "", .06f, .32f, .94f, .58f, 36);
@@ -259,6 +316,24 @@ namespace MixMaster.UI
             resultPanel.SetActive(false);
         }
 
+        private void ShowPerformance()
+        {
+            if (battle == null) return;
+            if (performancePanel == null) performancePanel = ProgressionPanelUI.Create(transform, "BattlePerformance");
+            var rows = new List<ProgressionPanelUI.Item>();
+            int rank = 0;
+            foreach (var record in battle.Performance)
+            {
+                rank++;
+                rows.Add(new ProgressionPanelUI.Item($"{rank}　{record.name}\n" +
+                    $"与ダメージ {record.damage:N0}　回復量 {record.healing:N0}\n" +
+                    $"DPS {record.DamagePerSecond(battle.Elapsed):N1}　生存 {record.survivalSeconds:0.0}秒" +
+                    (record.survived ? "（生存）" : "（戦闘不能）")));
+            }
+            performancePanel.Show("個別成績", rows,
+                "与ダメージは対象へ実際に与えた量、回復量は実際に回復したHPです。DPSは戦闘全体の経過時間で計算します。");
+        }
+
         private void ReturnToReception()
         {
             CloseBattle();
@@ -269,6 +344,7 @@ namespace MixMaster.UI
 
         private void CloseBattle()
         {
+            if (performancePanel != null) performancePanel.Close();
             if (battlefield != null)
             {
                 battlefield.texture = null;
@@ -362,7 +438,7 @@ namespace MixMaster.UI
             return button;
         }
 
-        private static TMP_Text Caption(Button button) => button.GetComponentInChildren<TMP_Text>();
+        private static TMP_Text Caption(Button button) => button.GetComponentInChildren<TMP_Text>(true);
 
         private static void Place(RectTransform rect, float left, float bottom, float right, float top)
         {

@@ -48,6 +48,8 @@ namespace MixMaster.UI
         private Action returnToMenu;
         private int sortIndex;
         private bool ascending = true;
+        private ProgressionPanelUI reversePanel;
+        private OwnedMonsterDetailUI reverseDetail;
 
         private void Awake()
         {
@@ -65,6 +67,8 @@ namespace MixMaster.UI
 
         private void OnDisable()
         {
+            if (reversePanel != null) reversePanel.Close();
+            if (reverseDetail != null) reverseDetail.Hide();
             if (progress != null) progress.Changed -= ProgressChanged;
             progress = null;
             if (monsterAcquisitions != null) monsterAcquisitions.AcquisitionHistoryChanged -= ProgressChanged;
@@ -272,10 +276,14 @@ namespace MixMaster.UI
         private void ShowRecipes(MonsterSO monster)
         {
             var recipes = BreedingGoalContent.ForChild(journal, monster.monsterId);
-            if (recipes.Count == 0 || skillsRoot == null) return;
+            if (skillsRoot == null) return;
+            if (skillsSection != null) skillsSection.SetActive(true);
             var catalog = MonsterCatalogSO.Load();
             string childId = monster.monsterId;
             int index = 0;
+            var reverse = Link(recipeLinks, index++, skillsRoot);
+            if (reverse != null) reverse.Bind("配合の逆引き・親の所持状況", null, () => ShowReverse(monster));
+            if (recipes.Count == 0) return;
             foreach (var recipe in recipes)
             {
                 var link = Link(recipeLinks, index++, skillsRoot);
@@ -298,6 +306,64 @@ namespace MixMaster.UI
                 ShowPopup(monster.icon, "配合目標", result);
             });
             goal.transform.SetAsLastSibling();
+        }
+
+        private void ShowReverse(MonsterSO monster)
+        {
+            if (reversePanel == null) reversePanel = ProgressionPanelUI.Create(transform, "ReverseBreeding");
+            var catalog = MonsterCatalogSO.Load();
+            var rows = new List<ProgressionPanelUI.Item>();
+            foreach (var recipe in BreedingGoalContent.ForChild(journal, monster.monsterId))
+            {
+                rows.Add(new ProgressionPanelUI.Item(
+                    BreedingGoalContent.KindName(recipe.kind) + "\n" +
+                    BreedingGoalContent.Name(catalog, recipe.parentAId) + "　" + BreedingGoalContent.ParentState(recipe.parentAId, monsterAcquisitions) + "\n" +
+                    BreedingGoalContent.Name(catalog, recipe.parentBId) + "　" + BreedingGoalContent.ParentState(recipe.parentBId, monsterAcquisitions),
+                    () => ShowReverseParents(monster, recipe)));
+            }
+            reversePanel.Show(monster.displayName + " の配合", rows,
+                "発見済みレシピを表示します。親の行をタップすると所持個体を確認できます。",
+                rows.Count > 0 ? "配合目標に登録" : null, () =>
+                {
+                    journal?.RegisterBreedingGoal(monster.monsterId, monster.displayName);
+                    ShowReverse(monster);
+                });
+        }
+
+        private void ShowReverseParents(MonsterSO child, DiscoveredBreedingRecipe recipe)
+        {
+            var rows = new List<ProgressionPanelUI.Item>();
+            var catalog = MonsterCatalogSO.Load();
+            if (monsterAcquisitions != null)
+                foreach (var record in monsterAcquisitions.OwnedMonsters)
+                {
+                    bool match = string.Equals(record.monsterId, recipe.parentAId, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(record.monsterId, recipe.parentBId, StringComparison.OrdinalIgnoreCase);
+                    if (!match) continue;
+                    var species = catalog.GetMonster(record.monsterId);
+                    string state = record.level < BreedingManager.MinimumParentLevel ? "Lv不足" :
+                        monsterAcquisitions.IsProtectedFromConsumption(record) ? "編成・保護中" : "配合可能";
+                    rows.Add(new ProgressionPanelUI.Item(
+                        record.DisplayName(species != null ? species.displayName : record.monsterId) + $"　Lv.{record.level}　{state}" +
+                        (record.farmStartLevel > 0 ? $"\nファーム{record.farmPresetIndex + 1}に登録中" : ""),
+                        () =>
+                        {
+                            if (monsterAcquisitions.FindOwnedMonster(record.uniqueId) == null) { ShowReverseParents(child, recipe); return; }
+                            if (reverseDetail == null)
+                            {
+                                var source = Resources.Load<MonsterFarmPanelUI>("UI/MonsterFarmPanel")?.DetailPrefab
+                                    ?? FindFirstObjectByType<OwnedMonsterDetailUI>(FindObjectsInactive.Include);
+                                if (source == null) return;
+                                reverseDetail = Instantiate(source, transform, false);
+                            }
+                            reverseDetail.transform.SetAsLastSibling();
+                            reverseDetail.Show(record, catalog);
+                        }));
+                }
+            reversePanel.Show("配合の親を確認", rows,
+                BreedingGoalContent.Name(catalog, recipe.parentAId) + " × " + BreedingGoalContent.Name(catalog, recipe.parentBId) +
+                (string.Equals(recipe.parentAId, recipe.parentBId, StringComparison.OrdinalIgnoreCase) ? "（異なる2体が必要）" : ""),
+                "レシピへ戻る", () => ShowReverse(child));
         }
 
         private EncyclopediaLinkUI Link(List<EncyclopediaLinkUI> pool, int index, RectTransform root)

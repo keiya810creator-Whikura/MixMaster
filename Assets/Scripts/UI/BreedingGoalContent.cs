@@ -76,15 +76,18 @@ namespace MixMaster.UI
             path.Remove(id);
         }
 
-        private static string ParentState(string id, MonsterManager monsters)
+        internal static string ParentState(string id, MonsterManager monsters)
         {
             int bestLevel = 0;
             bool ready = false;
+            int owned = 0, farm = 0;
             if (monsters != null)
             {
                 foreach (var record in monsters.OwnedMonsters)
                 {
                     if (record == null || !SameId(record.monsterId, id)) continue;
+                    owned++;
+                    if (record.farmStartLevel > 0) farm++;
                     bestLevel = Math.Max(bestLevel, record.level);
                     if (record.level >= BreedingManager.MinimumParentLevel &&
                         !monsters.IsProtectedFromConsumption(record)) ready = true;
@@ -92,9 +95,10 @@ namespace MixMaster.UI
             }
 
             int level = BreedingManager.MinimumParentLevel;
-            return bestLevel == 0 ? "未所持" : bestLevel < level
-                ? $"育成中（Lv.{bestLevel}）"
-                : ready ? $"Lv.{level}到達" : $"Lv.{level}到達・編成または保護中";
+            if (owned == 0) return "未所持";
+            return $"所持{owned}体・ファーム{farm}体　最高Lv.{bestLevel}　" +
+                (bestLevel < level ? $"Lv.{level}まで育成が必要" :
+                    ready ? "配合可能な個体あり" : "編成または保護中");
         }
 
         private static bool SameId(string a, string b) =>
