@@ -153,6 +153,36 @@ namespace MixMaster.Core
             l.slots[index] = slot; l.revision++; NotifyChanged();
         }
 
+        public List<SkillSlot> PreviewAutoSetup(string owner, SkillSetupProfile profile)
+        {
+            var learned = new List<SkillSO>();
+            foreach (var skill in Available(owner))
+                if (skill != null && Learned(owner, skill.skillId)) learned.Add(skill);
+            return SkillAutoSetup.Build(learned, profile);
+        }
+
+        public bool ApplyAutoSetup(string owner, IReadOnlyList<SkillSlot> slots, out string message)
+        {
+            if ((owner != "player" && Record(owner) == null) ||
+                !ValidatePresetSkills(owner, slots, out message))
+            { message = "設定対象または習得済みスキルを確認してください。"; return false; }
+            var replacement = new List<SkillSlot>(SlotCount);
+            foreach (var slot in slots)
+            {
+                var copy = PartyPresetData.CopySkill(slot);
+                if (owner != "player" && copy.trigger == SkillTrigger.Manual) copy.trigger = SkillTrigger.Ready;
+                replacement.Add(copy);
+            }
+            var loadout = Loadout(owner);
+            loadout.slots = replacement;
+            loadout.revision++;
+            foreach (var actor in MixMaster.Combat.SkillActor.Active)
+                if (actor != null && actor.OwnerId == owner) actor.CancelPresetCast();
+            NotifyChanged();
+            message = "スキルを一括設定しました。";
+            return true;
+        }
+
         internal bool ValidatePresetSkills(string owner, IReadOnlyList<SkillSlot> slots, out string error)
         {
             error = "スキル設定が不正です。";

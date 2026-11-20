@@ -64,6 +64,9 @@ namespace MixMaster.UI
         private TMP_Text directionText;
         private TMP_Text farmHoldHint;
         private bool ascending;
+        private bool bulkSelecting;
+        private readonly HashSet<string> bulkSelected = new HashSet<string>(StringComparer.Ordinal);
+        private ProgressionPanelUI bulkPanel;
 
         private static readonly string[] SortOptions = CreateSortOptions();
         public static readonly string[] ThresholdOptions =
@@ -326,7 +329,7 @@ namespace MixMaster.UI
             while (entries.Count < visible)
             {
                 OwnedMonsterEntryUI entry = Instantiate(entryPrefab, contentRoot);
-                entry.SetSelectionHandler(OpenDetail);
+                entry.SetSelectionHandler(SelectOrOpenDetail);
                 entry.SetHoldHandler(SendToFarm);
                 entries.Add(entry);
             }
@@ -348,6 +351,8 @@ namespace MixMaster.UI
                     favoriteSprite, lockSprite,
                      sortDropdown != null ? sortDropdown.value : 0);
                 entry.RefreshFarmMark(farmSprite);
+                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : SendToFarm);
+                entry.ShowBulkSelection(bulkSelecting, bulkSelected.Contains(record.uniqueId));
             }
 
             RefreshCount(filteredIndices.Count);
@@ -427,6 +432,9 @@ namespace MixMaster.UI
 
         private void HandlePanelClosed()
         {
+            bulkSelecting = false;
+            bulkSelected.Clear();
+            if (bulkPanel != null) bulkPanel.Close();
             if (detailPanel != null)
                 detailPanel.Hide();
 
@@ -823,7 +831,8 @@ namespace MixMaster.UI
                 RequestFirstPage();
             });
             thresholdDropdown.onValueChanged.AddListener(_ => RequestFirstPage());
-            bulkSellButton.onClick.AddListener(ConfirmFilteredMonsterSale);
+            bulkSellButton.onClick.AddListener(OpenBulkMenu);
+            bulkSellButton.GetComponentInChildren<TMP_Text>().text = "まとめ操作";
             autoSellSettingsButton.onClick.AddListener(() =>
                 autoSellDialog?.OpenMonsters());
             sortDirectionButton.onClick.AddListener(() =>
@@ -868,43 +877,131 @@ namespace MixMaster.UI
             if (bulkSellButton == null || monsterManager == null)
                 return;
 
-            bool found = false;
-            IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
-            foreach (int index in filteredIndices)
+            bulkSelected.RemoveWhere(id => monsterManager.FindOwnedMonster(id) == null);
+            bulkSellButton.interactable = monsterManager.OwnedMonsters.Count > 0 || bulkSelecting;
+            bulkSellButton.GetComponentInChildren<TMP_Text>().text = bulkSelecting
+                ? $"選択 {bulkSelected.Count}体・操作" : "まとめ操作";
+        }
+
+        private void SelectOrOpenDetail(OwnedMonsterRecord record)
+        {
+            if (!bulkSelecting) { OpenDetail(record); return; }
+            if (!bulkSelected.Add(record.uniqueId)) bulkSelected.Remove(record.uniqueId);
+            RefreshBulkMarks();
+        }
+
+        private void RefreshBulkMarks()
+        {
+            bulkSelected.RemoveWhere(id => monsterManager.FindOwnedMonster(id) == null);
+            foreach (var entry in entries)
             {
-                if (index >= 0 && index < owned.Count &&
-                    !monsterManager.IsProtectedFromConsumption(owned[index]))
-                {
-                    found = true;
-                    break;
-                }
+                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : SendToFarm);
+                entry.ShowBulkSelection(bulkSelecting, entry.Record != null && bulkSelected.Contains(entry.Record.uniqueId));
             }
-            bulkSellButton.interactable = found;
+            RefreshBulkSaleButton();
+        }
+
+        private void OpenBulkMenu()
+        {
+            if (monsterManager == null) return;
+            if (bulkPanel == null) bulkPanel = ProgressionPanelUI.Create(transform, "MonsterBulkActions");
+            var rows = new List<ProgressionPanelUI.Item>
+            {
+                new ProgressionPanelUI.Item("一覧で複数選択する", () =>
+                {
+                    bulkSelecting = true; bulkPanel.Close(); RefreshBulkMarks();
+                }),
+                new ProgressionPanelUI.Item("絞り込み結果をすべて選択", () =>
+                {
+                    bulkSelecting = true;
+                    foreach (int index in filteredIndices)
+                        if (index >= 0 && index < monsterManager.OwnedMonsters.Count)
+                            bulkSelected.Add(monsterManager.OwnedMonsters[index].uniqueId);
+                    bulkPanel.Close(); RefreshBulkMarks();
+                }),
+                new ProgressionPanelUI.Item("選択した個体をロック", () => SetSelectedProtection(true, true)),
+                new ProgressionPanelUI.Item("選択した個体のロックを解除", () => SetSelectedProtection(true, false)),
+                new ProgressionPanelUI.Item("選択した個体をお気に入り登録", () => SetSelectedProtection(false, true)),
+                new ProgressionPanelUI.Item("選択した個体のお気に入りを解除", () => SetSelectedProtection(false, false)),
+                new ProgressionPanelUI.Item("選択した個体を売却・継承スキルを確認", PreviewSelectedSale),
+                new ProgressionPanelUI.Item("フィルター結果を一括売却", ConfirmFilteredMonsterSale)
+            };
+            bulkPanel.Show("モンスターのまとめ操作", rows,
+                $"選択中 {bulkSelected.Count}体。ページや絞り込みを変えても選択は保持します。",
+                "選択を解除・終了", () => { bulkSelecting = false; bulkSelected.Clear(); bulkPanel.Close(); RefreshBulkMarks(); });
+        }
+
+        private void SetSelectedProtection(bool locked, bool value)
+        {
+            var ids = new List<string>(bulkSelected);
+            // This view rebuilds on protection changes. Rebuild once after the transaction.
+            monsterManager.MonsterProtectionChanged -= HandleProtectionChanged;
+            try
+            {
+                foreach (string id in ids)
+                    if (locked) monsterManager.SetLocked(id, value);
+                    else monsterManager.SetFavorite(id, value);
+            }
+            finally
+            {
+                if (subscribed) monsterManager.MonsterProtectionChanged += HandleProtectionChanged;
+            }
+            FindFirstObjectByType<SaveManager>()?.SaveGame();
+            bulkPanel.Close();
+            Rebuild();
+        }
+
+        private void PreviewSelectedSale()
+        {
+            var ids = new List<string>();
+            var rows = new List<ProgressionPanelUI.Item>();
+            long gold = 0;
+            var skills = SkillProgressionManager.Instance;
+            foreach (var record in monsterManager.OwnedMonsters)
+            {
+                if (!bulkSelected.Contains(record.uniqueId) || monsterManager.IsProtectedFromConsumption(record)) continue;
+                ids.Add(record.uniqueId);
+                gold = LongMath.SaturatingAdd(gold, monsterManager.GetMonsterSaleGold(record));
+                var labels = new List<string>();
+                if (skills != null)
+                    foreach (var id in skills.InheritanceCandidates(record.uniqueId, null))
+                    {
+                        var skill = skills.Catalog?.Get(id);
+                        if (skill != null) labels.Add(skill.displayName);
+                    }
+                var species = catalog.GetMonster(record.monsterId);
+                rows.Add(new ProgressionPanelUI.Item(
+                    record.DisplayName(species != null ? species.displayName : record.monsterId) + $" Lv.{record.level}\n" +
+                    "継承候補　" + (labels.Count > 0 ? string.Join("・", labels) : "なし"),
+                    () => OpenDetail(record)));
+            }
+            bulkPanel.Show("売却する個体を確認", rows,
+                $"売却可能 {ids.Count}体　合計 {gold:N0} G。編成中・ロック・お気に入りは除外します。",
+                ids.Count > 0 ? "確認して売却" : null, () =>
+                {
+                    EnsureBulkSaleDialog();
+                    bulkSaleDialog.Show($"{ids.Count}体を売却します。\n合計 {gold:N0} G\n設定中のスキルもこの個体とともに失われます。",
+                        () =>
+                        {
+                            int sold = monsterManager.SellMonstersBatch(ids, out long received);
+                            bulkSelected.RemoveWhere(id => monsterManager.FindOwnedMonster(id) == null);
+                            FindFirstObjectByType<SaveManager>()?.SaveGame();
+                            Rebuild();
+                            bulkPanel.ShowText("売却結果", $"{sold}体を売却しました。獲得 {received:N0} G\n" +
+                                (sold < ids.Count ? "保護状態が変わった個体や所持一覧にない個体は売却対象から外れました。" : ""));
+                        });
+                }, "操作へ戻る", OpenBulkMenu);
         }
 
         private void ConfirmFilteredMonsterSale()
         {
-            CacheReferences();
-            if (monsterManager == null) return;
-            var selection = new List<string>();
-            GetEligibleFilteredMonsters(selection, out long gold);
-            if (selection.Count == 0) return;
-            EnsureBulkSaleDialog();
-            bulkSaleDialog.Show(
-                "フィルター結果を一括売却しますか？\n\n" +
-                "対象: " + selection.Count.ToString("N0") + "体" +
-                "　／　合計: " + gold.ToString("N0") + " G\n\n" +
-                "編成中・お気に入り・ロック中は除外しています。" +
-                "\nこの操作は元に戻せません。",
-                () =>
-                {
-                    if (monsterManager == null) return;
-                    // IDs are frozen at preview time, and the manager
-                    // rechecks all protection flags at commit time.
-                    int sold = monsterManager.SellMonstersBatch(selection,
-                        out long received);
-                    if (sold == 0) Rebuild();
-                });
+            bulkSelecting = true;
+            bulkSelected.Clear();
+            var ids = new List<string>();
+            GetEligibleFilteredMonsters(ids, out _);
+            foreach (string id in ids) bulkSelected.Add(id);
+            RefreshBulkMarks();
+            PreviewSelectedSale();
         }
 
 #if UNITY_EDITOR

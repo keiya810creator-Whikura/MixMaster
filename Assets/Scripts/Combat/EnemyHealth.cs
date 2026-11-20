@@ -55,6 +55,7 @@ namespace MixMaster.Combat
         }
         public bool IsAlive { get; private set; }
         internal bool RaidDamageFeedback { get; set; }
+        internal bool IsTrainingTarget { get; set; }
         public MaterialDropSourceInfo LastHitSource =>
             lastHitSource != null
                 ? lastHitSource.Clone()
@@ -180,7 +181,7 @@ namespace MixMaster.Combat
             if (RaidDamageFeedback && attacker != null && !attacker.IsEnemy)
                 damage = SkillPassiveRules.Increase(damage, attacker.RaidDamageBonus);
             damage = DamageCalculator.Randomize(damage);
-            GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
+            if (!IsTrainingTarget) GameJournalManager.Instance?.RecordDamage(damage, sourceInfo);
 
             // The killing blow must identify its own attacker.
             // A hit without attribution must never inherit a prior killer.
@@ -188,8 +189,8 @@ namespace MixMaster.Combat
                 ? sourceInfo.Clone()
                 : MaterialDropSourceInfo.Unknown();
 
-            long actualDamage = Math.Min(CurrentHp, damage);
-            CurrentHp -= actualDamage;
+            long actualDamage = IsTrainingTarget ? damage : Math.Min(CurrentHp, damage);
+            if (!IsTrainingTarget) CurrentHp -= actualDamage;
             HpChanged?.Invoke(CurrentHp, maxHp);
             GetComponent<SkillActor>()?.NotifyDamage(SkillActor.ApplyingSkill || sourceInfo?.isSkill == true);
             attacker?.NotifyNormalHit(sourceInfo, CurrentHp <= 0);

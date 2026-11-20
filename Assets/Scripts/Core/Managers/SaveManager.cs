@@ -176,6 +176,7 @@ namespace MixMaster.Core
             GameSaveData data = new GameSaveData();
             data.savedUtc = DateTime.UtcNow.ToString("o");
             data.journal = GetComponent<GameJournalManager>()?.Capture();
+            data.claimedCollectionRewards = GetComponent<EncyclopediaManager>()?.CaptureRewardClaims() ?? new List<string>();
             data.displaySettings = GetComponent<DisplaySettingsManager>()?.Capture();
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
@@ -230,6 +231,7 @@ namespace MixMaster.Core
             if (monster != null)
             {
                 data.activeFarmIndex = monster.ActiveFarmIndex;
+                data.farmTargetLevels = monster.CaptureFarmTargets();
                 data.farmLevel = monster.FarmLevel;
                 data.raidMaterials = monster.RaidMaterials;
                 data.clearedRaidTiers = monster.ClearedRaidTiers;
@@ -425,6 +427,7 @@ namespace MixMaster.Core
             GetComponent<SkillProgressionManager>()?.Restore(data.skills);
             GetComponent<PartyPresetManager>()?.Restore(data.partyPresets);
             GetComponent<EncyclopediaManager>()?.Restore(data.defeatedMonsterIds);
+            GetComponent<EncyclopediaManager>()?.RestoreRewardClaims(data.claimedCollectionRewards);
 
             // Saved coordinates are retained in the file for compatibility,
             // but a new application session always starts in the village.
