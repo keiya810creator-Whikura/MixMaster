@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace MixMaster.Core
 {
-    public enum ConsumableEffect { RestoreHp, RestoreMp, MonsterLure }
+    public enum ConsumableEffect { RestoreHp, RestoreMp, MonsterLure, ReturnToTown }
 
     [Serializable]
     public sealed class ConsumableDefinition
@@ -17,7 +17,9 @@ namespace MixMaster.Core
         [Min(0.1f)] public float durationSeconds = 60f;
         [Tooltip("-1: 価格未設定で販売停止。0以上で販売します。")]
         [Min(-1)] public long purchasePrice = -1;
-        public string Description => effect == ConsumableEffect.MonsterLure
+        public string Description => effect == ConsumableEffect.ReturnToTown
+            ? "街へ帰還する。ダンジョン探索中は探索を終了する"
+            : effect == ConsumableEffect.MonsterLure
             ? "マップ上の全魔物を" + durationSeconds.ToString("0") + "秒間引き寄せる"
             : (effect == ConsumableEffect.RestoreHp ? "HP" : "MP") + "を" + recoveryAmount.ToString("N0") + "回復";
     }

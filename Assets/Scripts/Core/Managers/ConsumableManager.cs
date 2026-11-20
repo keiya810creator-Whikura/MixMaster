@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MixMaster.Combat;
 using MixMaster.Player;
+using MixMaster.World;
 using UnityEngine;
 
 namespace MixMaster.Core
@@ -138,15 +139,27 @@ namespace MixMaster.Core
                 if (ResolveLureActor() == null || item.durationSeconds <= 0 || float.IsNaN(item.durationSeconds) ||
                     float.IsInfinity(item.durationSeconds)) return false;
             }
+            VillageSpawnPoint village = null;
+            if (item.effect == ConsumableEffect.ReturnToTown)
+            {
+                village = FindFirstObjectByType<VillageSpawnPoint>(FindObjectsInactive.Include);
+                if (village == null) { message = "街の帰還地点が見つかりません。"; return false; }
+            }
             busy = true;
             try
             {
                 inventory[id] = Quantity(id) - 1;
+                if (item.effect == ConsumableEffect.ReturnToTown && !village.TryRespawnPlayer(true))
+                {
+                    inventory[id] = Quantity(id) + 1;
+                    message = "街へ帰還できません。帰還の翼は消費していません。";
+                    return false;
+                }
                 if (item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp)
                     recoveryReadyAt = Time.time + RecoveryCooldownSeconds;
                 if (item.effect == ConsumableEffect.RestoreHp) player.Heal(item.recoveryAmount);
                 else if (item.effect == ConsumableEffect.RestoreMp) player.RecoverMp(item.recoveryAmount);
-                else lureUntil = Time.realtimeSinceStartupAsDouble + item.durationSeconds;
+                else if (item.effect == ConsumableEffect.MonsterLure) lureUntil = Time.realtimeSinceStartupAsDouble + item.durationSeconds;
                 Changed?.Invoke();
                 RequestSave();
                 message = item.displayName + "を使用しました。";
@@ -165,7 +178,7 @@ namespace MixMaster.Core
         public bool SetAutoUse(ConsumableEffect effect, bool enabled, string id, int percent)
         {
             ConsumableDefinition item = Catalog != null ? Catalog.Get(id) : null;
-            if (effect == ConsumableEffect.MonsterLure || item == null || item.effect != effect) return false;
+            if ((effect != ConsumableEffect.RestoreHp && effect != ConsumableEffect.RestoreMp) || item == null || item.effect != effect) return false;
             ConsumableAutoUseRule rule = effect == ConsumableEffect.RestoreMp ? mpAutoUse : hpAutoUse;
             rule.enabled = enabled; rule.itemId = id; rule.thresholdPercent = Mathf.Clamp(percent, 0, 100);
             Changed?.Invoke(); RequestSave(); return true;

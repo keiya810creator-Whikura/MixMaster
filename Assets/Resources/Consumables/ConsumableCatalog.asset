@@ -62,3 +62,10 @@ MonoBehaviour:
     recoveryAmount: 0
     durationSeconds: 60
     purchasePrice: 1
+  - itemId: return_wing
+    displayName: 帰還の翼
+    icon: {fileID: 0}
+    effect: 3
+    recoveryAmount: 0
+    durationSeconds: 60
+    purchasePrice: 1
