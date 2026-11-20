@@ -16,11 +16,20 @@ namespace MixMaster.World
 
         public void Configure(TilemapMapRoot map) => villageMap = map;
 
-        public bool TryRespawnPlayer()
+        public bool TryRespawnPlayer(bool endDungeon = false)
         {
             if (villageMap == null) villageMap = GetComponentInParent<TilemapMapRoot>(true);
             PlayerController player = FindFirstObjectByType<PlayerController>();
-            if (villageMap == null || player == null) return false;
+            if (villageMap == null || player == null ||
+                villageMap.gameObject.scene != player.gameObject.scene ||
+                (villageMap.transform.parent != null && !villageMap.transform.parent.gameObject.activeInHierarchy))
+                return false;
+
+            Vector3 target = transform.position;
+            if (useMapCenter && !TryGetCentralPosition(player, out target)) return false;
+            target.z = player.transform.position.z;
+            if (endDungeon)
+                FindFirstObjectByType<DungeonManager>()?.EndDungeon();
 
             TilemapMapRoot[] roots = FindObjectsByType<TilemapMapRoot>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -35,13 +44,10 @@ namespace MixMaster.World
             MapBuildingUIRouter router = FindFirstObjectByType<MapBuildingUIRouter>();
             if (router != null) router.CloseAll();
             MapManager map = FindFirstObjectByType<MapManager>();
-            if (map != null) map.EnterTown(villageMap.name);
+            if (map != null) map.EnterTown(villageMap.MapDefinition != null ? villageMap.MapDefinition.mapId : villageMap.name);
             villageMap.gameObject.SetActive(true);
             Physics2D.SyncTransforms();
 
-            Vector3 target = transform.position;
-            if (useMapCenter && !TryGetCentralPosition(player, out target)) return false;
-            target.z = player.transform.position.z;
             MapBuildingAccess.SuppressOpenFor(0.75f);
             Rigidbody2D body = player.GetComponent<Rigidbody2D>();
             if (body != null)
