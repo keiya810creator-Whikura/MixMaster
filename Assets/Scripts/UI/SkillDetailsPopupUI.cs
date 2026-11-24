@@ -17,6 +17,11 @@ namespace MixMaster.UI
         private void OnDestroy() { if (closeButton != null) closeButton.onClick.RemoveListener(Hide); }
         public static SkillDetailsPopupUI Create(Transform parent)
         {
+            if (parent != null)
+            {
+                var existing = parent.GetComponentInChildren<SkillDetailsPopupUI>(true);
+                if (existing != null) return existing;
+            }
             var prefab = Resources.Load<GameObject>(ResourcePath);
             if (prefab == null || parent == null) { Debug.LogWarning("[SkillDetails] スキル詳細Prefabが見つかりません。"); return null; }
             return Instantiate(prefab, parent, false).GetComponent<SkillDetailsPopupUI>();

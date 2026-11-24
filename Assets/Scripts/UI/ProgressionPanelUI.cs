@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace MixMaster.UI
 {
     /// <summary>Small paged overlay shared by collection and party management tools.</summary>
-    internal sealed class ProgressionPanelUI : MonoBehaviour
+    public sealed class ProgressionPanelUI : MonoBehaviour
     {
         internal sealed class Item
         {
@@ -17,16 +17,27 @@ namespace MixMaster.UI
         }
 
         private const int PageSize = 6;
-        private TMP_Text title, status, pageText, body;
-        private Button previous, next, primary, secondary;
-        private ScrollRect scroll;
-        private TMP_InputField numberInput;
-        private readonly List<Button> rows = new List<Button>();
+        [SerializeField] private TMP_Text title, status, pageText, body;
+        [SerializeField] private Button previous, next, primary, secondary, closeButton;
+        [SerializeField] private ScrollRect scroll;
+        [SerializeField] private TMP_InputField numberInput;
+        [SerializeField] private List<Button> rows = new List<Button>();
+        private bool bound;
         private List<Item> items;
         private int page;
 
         internal static ProgressionPanelUI Create(Transform parent, string name)
         {
+            foreach (var existing in parent.GetComponentsInChildren<ProgressionPanelUI>(true))
+                if (existing.name == name) { existing.BindView(); return existing; }
+            var prefab = Resources.Load<ProgressionPanelUI>("UI/ScenePanels/ProgressionPanel");
+            if (prefab != null)
+            {
+                var view = Instantiate(prefab, parent, false);
+                view.name = name;
+                view.BindView();
+                return view;
+            }
             var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(ProgressionPanelUI));
             root.transform.SetParent(parent, false);
             InventoryUiFactory.Stretch((RectTransform)root.transform);
@@ -35,6 +46,26 @@ namespace MixMaster.UI
             panel.Build();
             root.SetActive(false);
             return panel;
+        }
+
+        private void Awake() => BindView();
+
+        private void BindView()
+        {
+            if (bound || closeButton == null) return;
+            bound = true;
+            closeButton.onClick.AddListener(Close);
+            previous.onClick.AddListener(() => { page--; Render(); });
+            next.onClick.AddListener(() => { page++; Render(); });
+            for (int i = 0; i < rows.Count; i++)
+            {
+                int row = i;
+                rows[i].onClick.AddListener(() =>
+                {
+                    int index = page * PageSize + row;
+                    if (items != null && index < items.Count) items[index].click?.Invoke();
+                });
+            }
         }
 
         private void Build()
@@ -106,6 +137,7 @@ namespace MixMaster.UI
             string primaryLabel = null, Action primaryAction = null,
             string secondaryLabel = null, Action secondaryAction = null, bool keepPage = false)
         {
+            BindView();
             if (numberInput != null) numberInput.gameObject.SetActive(false);
             title.text = heading;
             status.text = note;
@@ -175,6 +207,7 @@ namespace MixMaster.UI
 
         private void Render()
         {
+            if (items == null) return;
             page = Mathf.Clamp(page, 0, Mathf.Max(0, (items.Count - 1) / PageSize));
             for (int i = 0; i < rows.Count; i++)
             {

@@ -14,19 +14,45 @@ namespace MixMaster.UI
     public sealed class GameGuidePanelUI : MonoBehaviour
     {
         private const int PageSize = 8;
-        private RectTransform card;
-        private GameObject recordsRoot, goalsRoot, helpRoot, detailRoot;
-        private TMP_Text title, stats, pageLabel, status, detailText, helpText;
-        private ScrollRect helpScroll, detailScroll;
-        private TMP_Dropdown kindPicker, targetPicker, helpPicker;
-        private TMP_InputField amountInput;
-        private Button previous, next, deleteButton, addButton, clearTrackedButton;
-        private readonly Button[] rows = new Button[PageSize];
-        private readonly Button[] completedGoalRemoveButtons = new Button[PageSize];
-        private readonly Toggle[] goalToggles = new Toggle[PageSize];
+        [SerializeField] private RectTransform card;
+        [SerializeField] private GameObject recordsRoot, goalsRoot, helpRoot, detailRoot;
+        [SerializeField] private TMP_Text title, stats, pageLabel, status, detailText, helpText;
+        [SerializeField] private ScrollRect helpScroll, detailScroll;
+        [SerializeField] private TMP_Dropdown kindPicker, targetPicker, helpPicker;
+        [SerializeField] private TMP_InputField amountInput;
+        [SerializeField] private Button previous, next, deleteButton, addButton, clearTrackedButton;
+        [SerializeField] private Button[] rows = new Button[PageSize];
+        [SerializeField] private Button[] completedGoalRemoveButtons = new Button[PageSize];
+        [SerializeField] private Toggle[] goalToggles = new Toggle[PageSize];
+        [SerializeField] private Button backButton, statsTab, historyTab, closeDetailButton;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || backButton == null) return;
+            bound = true;
+            backButton.onClick.AddListener(Back);
+            statsTab.onClick.AddListener(() => { history = false; offset = 0; Refresh(); });
+            historyTab.onClick.AddListener(() => { history = true; offset = 0; Refresh(); });
+            previous.onClick.AddListener(() => { offset = Math.Max(0, offset - PageSize); Refresh(); });
+            next.onClick.AddListener(() => { offset += PageSize; Refresh(); });
+            addButton.onClick.AddListener(AddGoal);
+            clearTrackedButton.onClick.AddListener(ClearTrackedGoals);
+            deleteButton.onClick.AddListener(DeleteGoal);
+            closeDetailButton.onClick.AddListener(() => { selectedGoal = null; detailRoot.SetActive(false); Refresh(); });
+            kindPicker.onValueChanged.AddListener(_ => UpdateChoices());
+            helpPicker.onValueChanged.AddListener(ShowHelp);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                int row = i;
+                rows[i].onClick.AddListener(() => SelectRow(row));
+                goalToggles[i].onValueChanged.AddListener(value => TrackRow(row, value));
+                completedGoalRemoveButtons[i].onClick.AddListener(() => RemoveCompletedGoal(row));
+            }
+        }
         private string notice;
         private float noticeUntil;
-        private readonly TMP_Text[] rowLabels = new TMP_Text[PageSize];
+        [SerializeField] private TMP_Text[] rowLabels = new TMP_Text[PageSize];
         private List<GameGuideContent.Target> choices = new List<GameGuideContent.Target>();
         private GameGuideContent content;
         private GameJournalManager journal;
@@ -46,6 +72,11 @@ namespace MixMaster.UI
             var panel = parent.GetComponentInChildren<GameGuidePanelUI>(true);
             if (panel == null)
             {
+                var prefab = Resources.Load<GameGuidePanelUI>("UI/ScenePanels/GameGuidePanel");
+                if (prefab != null) panel = Instantiate(prefab, parent, false);
+            }
+            if (panel == null)
+            {
                 var go = new GameObject("GameGuidePanel", typeof(RectTransform), typeof(Image), typeof(GameGuidePanelUI));
                 go.transform.SetParent(parent, false); go.layer = parent.gameObject.layer;
                 InventoryUiFactory.Stretch((RectTransform)go.transform);
@@ -57,6 +88,7 @@ namespace MixMaster.UI
         public void Open(GameGuidePage requested, Action onBack)
         {
             if (card == null) Build();
+            BindView();
             journal = GameJournalManager.Instance;
             monsters = journal != null ? journal.GetComponent<MonsterManager>() : null;
             equipment = journal != null ? journal.GetComponent<EquipmentManager>() : null;

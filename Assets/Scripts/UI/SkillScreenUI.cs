@@ -333,7 +333,7 @@ namespace MixMaster.UI
         private void OpenAutoSetup()
         {
             if (Owner == null || !BindManager()) return;
-            if (autoSetupPanel == null) autoSetupPanel = ProgressionPanelUI.Create(transform, "AutoSetupSkills");
+            if (autoSetupPanel == null) autoSetupPanel = ProgressionPanelUI.Create(panel.transform, "AutoSetupSkills");
             var rows = new List<ProgressionPanelUI.Item>
             {
                 new ProgressionPanelUI.Item("攻撃重視", () => PreviewAutoSetup(SkillSetupProfile.Attack)),

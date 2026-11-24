@@ -26,7 +26,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text detailText;
         [SerializeField] private TMP_Text noticeText;
         [SerializeField] private TMP_Text sortText;
-        private TMP_Dropdown sortDropdown;
+        [SerializeField] private TMP_Dropdown sortDropdown;
         [SerializeField] private TMP_Text directionText;
         [SerializeField] private TMP_Text favoritesFilterText;
         [SerializeField] private ScrollRect detailsScroll;
@@ -136,17 +136,21 @@ namespace MixMaster.UI
         }
         private void BuildSortDropdown()
         {
-            if (sortButton == null) return;
-            RectTransform old = (RectTransform)sortButton.transform;
-            sortDropdown = InventoryUiFactory.Dropdown(old.parent, "SortDropdown",
-                Vector2.zero, old.sizeDelta, SortNames);
-            RectTransform rect = (RectTransform)sortDropdown.transform;
-            rect.anchorMin = old.anchorMin;
-            rect.anchorMax = old.anchorMax;
-            rect.pivot = old.pivot;
-            rect.anchoredPosition = old.anchoredPosition;
-            rect.SetSiblingIndex(old.GetSiblingIndex());
-            old.gameObject.SetActive(false);
+            if (sortDropdown == null)
+            {
+                if (sortButton == null) return;
+                RectTransform old = (RectTransform)sortButton.transform;
+                sortDropdown = InventoryUiFactory.Dropdown(old.parent, "SortDropdown",
+                    Vector2.zero, old.sizeDelta, SortNames);
+                RectTransform rect = (RectTransform)sortDropdown.transform;
+                rect.anchorMin = old.anchorMin;
+                rect.anchorMax = old.anchorMax;
+                rect.pivot = old.pivot;
+                rect.anchoredPosition = old.anchoredPosition;
+                rect.SetSiblingIndex(old.GetSiblingIndex());
+                old.gameObject.SetActive(false);
+            }
+            else if (sortButton != null) sortButton.gameObject.SetActive(false);
             if (sortText != null)
             {
                 sortDropdown.captionText.font = sortText.font;

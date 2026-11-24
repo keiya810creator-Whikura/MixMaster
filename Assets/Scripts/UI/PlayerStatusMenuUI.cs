@@ -330,15 +330,21 @@ namespace MixMaster.UI
             if(growthInfoText==null)
                 foreach(var text in GetComponentsInChildren<TMP_Text>(true))if(text.gameObject.name=="GrowthInfo"){growthInfoText=text;break;}
             if(growthInfoText==null)return;
-            var rect=growthInfoText.rectTransform;
-            rect.sizeDelta=new Vector2(rect.sizeDelta.x,Mathf.Max(170f,rect.sizeDelta.y));
-            var section=growthInfoText.transform.parent;
-            var layout=section.GetComponent<LayoutElement>();
-            if(layout!=null){layout.preferredHeight=Mathf.Max(245f,layout.preferredHeight);layout.minHeight=Mathf.Max(245f,layout.minHeight);}
-            if(skillSettingsButton==null)
+            if (skillSettingsButton == null)
             {
-                var existing=section.Find("OpenSkillSettings");
-                skillSettingsButton=existing!=null?existing.GetComponent<Button>():InventoryUiFactory.Button(section,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f));
+                var rect = growthInfoText.rectTransform;
+                rect.sizeDelta = new Vector2(rect.sizeDelta.x, Mathf.Max(170f, rect.sizeDelta.y));
+                var section = growthInfoText.transform.parent;
+                var layout = section.GetComponent<LayoutElement>();
+                if (layout != null)
+                {
+                    layout.preferredHeight = Mathf.Max(245f, layout.preferredHeight);
+                    layout.minHeight = Mathf.Max(245f, layout.minHeight);
+                }
+                var existing = section.Find("OpenSkillSettings");
+                skillSettingsButton = existing != null ? existing.GetComponent<Button>() :
+                    InventoryUiFactory.Button(section, "OpenSkillSettings", "スキル設定",
+                        new Vector2(660f, -10f), new Vector2(190f, 48f));
             }
             if(skillSettingsButton!=null){skillSettingsButton.onClick.RemoveListener(OpenSkills);skillSettingsButton.onClick.AddListener(OpenSkills);}
         }

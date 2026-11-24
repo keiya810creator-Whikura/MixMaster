@@ -24,8 +24,8 @@ namespace MixMaster.UI
         [SerializeField] private ReincarnationPanelUI reincarnationPanel;
         [SerializeField] private ConsumablePanelUI consumableShop;
 
-        private VillageTeleportPanelUI teleportPanel;
-        private RaidPanelUI raidPanel;
+        [SerializeField] private VillageTeleportPanelUI teleportPanel;
+        [SerializeField] private RaidPanelUI raidPanel;
 
         [Header("Behavior")]
         [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -100,6 +100,11 @@ namespace MixMaster.UI
                     " Assets/Prefab/UI/BreedingShopPanel.prefab をCanvas下に配置し、" +
                     " RouterのBreeding Panelへ設定してください。", this);
 
+            if (teleportPanel == null)
+                teleportPanel = FindFirstObjectByType<VillageTeleportPanelUI>(FindObjectsInactive.Include);
+            if (raidPanel == null)
+                foreach (var candidate in FindObjectsByType<RaidPanelUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (!candidate.IsTrainingView) { raidPanel = candidate; break; }
             ResolveReincarnationPanel();
             ResolveConsumableShop();
             CloseAllInternal(false);

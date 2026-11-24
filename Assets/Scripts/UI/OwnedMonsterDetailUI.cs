@@ -36,9 +36,9 @@ namespace MixMaster.UI
         [SerializeField] private Button skillSettingsButton;
         [SerializeField] private Button closeButton;
         [SerializeField] private Button familyTreeButton;
-        private RectTransform familyTreePanel;
-        private readonly Image[] familyIcons = new Image[7];
-        private readonly TMP_Text[] familyNames = new TMP_Text[7];
+        [SerializeField] private RectTransform familyTreePanel;
+        [SerializeField] private Image[] familyIcons = new Image[7];
+        [SerializeField] private TMP_Text[] familyNames = new TMP_Text[7];
 
         [Header("Party")]
         [SerializeField] private Button partyButton;
@@ -51,30 +51,34 @@ namespace MixMaster.UI
 
         private MonsterManager monsterManager;
         private SkillProgressionManager skillManager;
-        private Button favoriteButton;
-        private Button lockButton;
-        private Button sellButton;
-        private Button farmButton;
-        private TMP_Text farmButtonText;
-        private TMP_Text favoriteButtonText;
-        private TMP_Text lockButtonText;
-        private TMP_Text saleStatusText;
-        private GameObject sellConfirmOverlay;
-        private TMP_Text saleConfirmText;
-        private Button confirmSellButton;
+        [SerializeField] private Button favoriteButton;
+        [SerializeField] private Button lockButton;
+        [SerializeField] private Button sellButton;
+        [SerializeField] private Button farmButton;
+        [SerializeField] private TMP_Text farmButtonText;
+        [SerializeField] private TMP_Text favoriteButtonText;
+        [SerializeField] private TMP_Text lockButtonText;
+        [SerializeField] private TMP_Text saleStatusText;
+        [SerializeField] private GameObject sellConfirmOverlay;
+        [SerializeField] private TMP_Text saleConfirmText;
+        [SerializeField] private Button confirmSellButton;
         private bool partySubscribed;
 
         private OwnedMonsterRecord selectedRecord;
         private MonsterCatalogSO catalog;
         private bool showIndividualValues;
         private bool readOnlyMode;
-        private RectTransform comparisonPanel, nicknamePanel;
-        private TMP_InputField nicknameInput;
-        private Button comparisonLeftFavorite, comparisonLeftLock;
-        private Button comparisonRightFavorite, comparisonRightLock;
-        private TMP_Text comparisonLeft, comparisonRight, comparisonPage;
-        private Button comparisonPrevious, comparisonNext;
+        [SerializeField] private RectTransform comparisonPanel, nicknamePanel;
+        [SerializeField] private TMP_InputField nicknameInput;
+        [SerializeField] private Button comparisonLeftFavorite, comparisonLeftLock;
+        [SerializeField] private Button comparisonRightFavorite, comparisonRightLock;
+        [SerializeField] private TMP_Text comparisonLeft, comparisonRight, comparisonPage;
+        [SerializeField] private Button comparisonPrevious, comparisonNext;
         private readonly List<OwnedMonsterRecord> comparisonCandidates = new List<OwnedMonsterRecord>();
+        [Header("Editable detail dialogs")]
+        [SerializeField] private Button compareButton, renameButton, cancelSellButton, familyCloseButton;
+        [SerializeField] private Button nicknameCancelButton, nicknameSaveButton, comparisonCloseButton;
+        [SerializeField] private Button comparisonLeftDetails, comparisonRightDetails;
         private int comparisonIndex;
         private Color defaultPartyButtonColor = Color.white;
 
@@ -108,6 +112,29 @@ namespace MixMaster.UI
             EnsureEquipmentButton();
             EnsureSkillButton();
             if(skillSettingsButton!=null)skillSettingsButton.onClick.AddListener(OpenSkills);
+            if (compareButton != null)
+            {
+                favoriteButton.onClick.AddListener(ToggleFavorite);
+                lockButton.onClick.AddListener(ToggleLock);
+                sellButton.onClick.AddListener(OpenSellConfirmation);
+                farmButton.onClick.AddListener(ToggleFarmRegistration);
+                compareButton.onClick.AddListener(OpenComparison);
+                renameButton.onClick.AddListener(OpenNicknameEditor);
+                cancelSellButton.onClick.AddListener(() => sellConfirmOverlay.SetActive(false));
+                confirmSellButton.onClick.AddListener(ConfirmSale);
+                familyCloseButton.onClick.AddListener(CloseFamilyTree);
+                nicknameCancelButton.onClick.AddListener(() => nicknamePanel.gameObject.SetActive(false));
+                nicknameSaveButton.onClick.AddListener(SaveNickname);
+                comparisonCloseButton.onClick.AddListener(CloseComparison);
+                comparisonPrevious.onClick.AddListener(() => { comparisonIndex--; RefreshComparison(); });
+                comparisonNext.onClick.AddListener(() => { comparisonIndex++; RefreshComparison(); });
+                comparisonLeftFavorite.onClick.AddListener(() => ToggleComparisonProtection(false, false));
+                comparisonLeftLock.onClick.AddListener(() => ToggleComparisonProtection(false, true));
+                comparisonRightFavorite.onClick.AddListener(() => ToggleComparisonProtection(true, false));
+                comparisonRightLock.onClick.AddListener(() => ToggleComparisonProtection(true, true));
+                comparisonLeftDetails.onClick.AddListener(() => OpenComparedDetail(false));
+                comparisonRightDetails.onClick.AddListener(() => OpenComparedDetail(true));
+            }
             EnsureProtectionControls();
             EnsureFamilyTreeButton();
             if (familyTreeButton != null) familyTreeButton.onClick.AddListener(OpenFamilyTree);
