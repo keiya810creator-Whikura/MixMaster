@@ -15,34 +15,60 @@ namespace MixMaster.UI
         private MonsterManager monsters;
         private MonsterCatalogSO catalog;
         private RaidBattlefield battle;
-        private GameObject preview;
-        private RawImage battlefield;
-        private GameObject resultPanel;
-        private TMP_Text resultTitle;
-        private TMP_Text resultDamage;
-        private TMP_Text resultRewards;
-        private Image resultBabyIcon;
+        [SerializeField] private GameObject preview;
+        [SerializeField] private RawImage battlefield;
+        [SerializeField] private GameObject resultPanel;
+        [SerializeField] private TMP_Text resultTitle;
+        [SerializeField] private TMP_Text resultDamage;
+        [SerializeField] private TMP_Text resultRewards;
+        [SerializeField] private Image resultBabyIcon;
         private int farmIndex;
         private int tier;
-        private TMP_Text status;
-        private TMP_Text bossName;
-        private Slider bossHp;
-        private Button start;
-        private Button close;
-        private Button previous;
-        private Button next;
-        private readonly Button[] farms = new Button[MonsterManager.FarmPresetCount];
-        private readonly Image[] allies = new Image[MonsterManager.MaxFarmSize];
-        private Image boss;
-        private TMP_Text heading;
+        [SerializeField] private TMP_Text status;
+        [SerializeField] private TMP_Text bossName;
+        [SerializeField] private Slider bossHp;
+        [SerializeField] private Button start;
+        [SerializeField] private Button close;
+        [SerializeField] private Button previous;
+        [SerializeField] private Button next;
+        [SerializeField] private Button[] farms = new Button[MonsterManager.FarmPresetCount];
+        [SerializeField] private Image[] allies = new Image[MonsterManager.MaxFarmSize];
+        [SerializeField] private Image boss;
+        [SerializeField] private TMP_Text heading;
+        [SerializeField] private bool trainingView;
+        [SerializeField] private Button performanceButton, retryButton, receptionButton;
+        internal bool IsTrainingView => trainingView;
+        private bool bound;
         private bool training;
+
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || performanceButton == null) return;
+            bound = true;
+            previous.onClick.AddListener(() => { tier--; RefreshReception(); });
+            next.onClick.AddListener(() => { tier++; RefreshReception(); });
+            start.onClick.AddListener(StartBattle);
+            close.onClick.AddListener(CloseOrRetreat);
+            performanceButton.onClick.AddListener(ShowPerformance);
+            retryButton.onClick.AddListener(() => { ReturnToReception(); StartBattle(); });
+            receptionButton.onClick.AddListener(ReturnToReception);
+            for (int i = 0; i < farms.Length; i++)
+            {
+                int index = i;
+                farms[i].onClick.AddListener(() => { farmIndex = index; RefreshReception(); });
+            }
+        }
         private readonly List<MonsterSO> trainingTargets = new List<MonsterSO>();
         private ProgressionPanelUI performancePanel;
 
         internal static void OpenTraining(Transform parent)
         {
-            var panel = parent.GetComponentInChildren<RaidPanelUI>(true);
-            if (panel == null) panel = Create(parent);
+            RaidPanelUI panel = null;
+            foreach (var candidate in FindObjectsByType<RaidPanelUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (candidate.trainingView) { panel = candidate; break; }
+            if (panel == null) { panel = Create(parent, true); panel.trainingView = true; }
+            panel.BindView();
             panel.router = null;
             panel.reception = null;
             panel.training = true;
@@ -67,8 +93,21 @@ namespace MixMaster.UI
             ? (tier >= 0 && tier < trainingTargets.Count ? trainingTargets[tier] : null)
             : reception.GetBoss(tier, catalog);
 
-        internal static RaidPanelUI Create(Transform parent)
+        internal static RaidPanelUI Create(Transform parent, bool forTraining = false)
         {
+            foreach (var existing in FindObjectsByType<RaidPanelUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (existing.trainingView == forTraining) { existing.BindView(); return existing; }
+            if (parent.GetComponentInParent<Canvas>() == null)
+                foreach (var candidate in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                    if (candidate.isRootCanvas && candidate.renderMode != RenderMode.WorldSpace)
+                    { parent = SafeAreaLayout.ContentRoot(candidate.transform); break; }
+            var prefab = Resources.Load<RaidPanelUI>("UI/ScenePanels/" + (forTraining ? "TrainingPanel" : "RaidPanel"));
+            if (prefab != null)
+            {
+                var view = Instantiate(prefab, parent, false);
+                view.BindView();
+                return view;
+            }
             var root = new GameObject("RaidPanel", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
             root.SetActive(false);
@@ -87,6 +126,7 @@ namespace MixMaster.UI
 
         internal void Prepare(MapBuildingUIRouter owner, RaidReception source)
         {
+            BindView();
             training = false;
             heading.text = "ファームレイド";
             router = owner;
@@ -138,7 +178,7 @@ namespace MixMaster.UI
             aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             viewport.SetActive(false);
 
-            status = Text(layout, "Status", "", .04f, .145f, .96f, .222f, 36);
+            status = Text(layout, "Status", "", .04f, .181f, .96f, .222f, 36);
             bossHp = BuildBossHpSlider(layout);
             for (int i = 0; i < farms.Length; i++)
             {
@@ -220,7 +260,6 @@ namespace MixMaster.UI
             battlefield.texture = battle.View;
             battlefield.transform.parent.gameObject.SetActive(true);
             preview.SetActive(false);
-            Place(status.rectTransform, .04f, .181f, .96f, .222f);
             UpdateBossHp();
             bossHp.gameObject.SetActive(true);
             start.interactable = previous.interactable = next.interactable = false;
@@ -357,7 +396,6 @@ namespace MixMaster.UI
             if (bossHp != null)
             {
                 bossHp.gameObject.SetActive(false);
-                Place(status.rectTransform, .04f, .145f, .96f, .222f);
             }
             if (start != null) Caption(start).text = "挑戦";
         }

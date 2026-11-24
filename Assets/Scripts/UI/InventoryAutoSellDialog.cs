@@ -13,15 +13,37 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class InventoryAutoSellDialog : MonoBehaviour
     {
-        private TMP_Text heading;
-        private TMP_Text ruleText;
-        private TMP_Text valueText;
-        private TMP_Text requiredCountText;
-        private TMP_Text noticeText;
-        private Toggle enabledToggle;
-        private Toggle untitledToggle;
-        private GameObject untitledRow;
-        private GameObject requiredCountRow;
+        [SerializeField] private TMP_Text heading;
+        [SerializeField] private TMP_Text ruleText;
+        [SerializeField] private TMP_Text valueText;
+        [SerializeField] private TMP_Text requiredCountText;
+        [SerializeField] private TMP_Text noticeText;
+        [SerializeField] private Toggle enabledToggle;
+        [SerializeField] private Toggle untitledToggle;
+        [SerializeField] private GameObject untitledRow;
+        [SerializeField] private GameObject requiredCountRow;
+        [SerializeField] private Button closeButton;
+        [SerializeField] private Button[] thresholdButtons, countButtons;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || closeButton == null) return;
+            bound = true;
+            closeButton.onClick.AddListener(Close);
+            enabledToggle.onValueChanged.AddListener(SetEnabled);
+            untitledToggle.onValueChanged.AddListener(SetUntitled);
+            for (int i = 0; i < thresholdButtons.Length; i++)
+            {
+                int delta = i < 2 ? (i == 0 ? -10 : -1) : (i == 2 ? 1 : 10);
+                thresholdButtons[i].onClick.AddListener(() => ChangeThreshold(delta));
+            }
+            for (int i = 0; i < countButtons.Length; i++)
+            {
+                int delta = i == 0 ? -1 : 1;
+                countButtons[i].onClick.AddListener(() => ChangeCount(delta));
+            }
+        }
         private EquipmentManager equipment;
         private MonsterManager monsters;
         private bool monsterMode;
@@ -30,8 +52,11 @@ namespace MixMaster.UI
         public static InventoryAutoSellDialog Ensure(Transform parent)
         {
             InventoryAutoSellDialog existing =
+                parent.Find("AutoSellSettingsOverlay")?.GetComponent<InventoryAutoSellDialog>() ??
                 parent.GetComponentInChildren<InventoryAutoSellDialog>(true);
-            if (existing != null) return existing;
+            if (existing != null) { existing.BindView(); return existing; }
+            var prefab = Resources.Load<InventoryAutoSellDialog>("UI/ScenePanels/AutoSellSettings");
+            if (prefab != null) return Instantiate(prefab, parent, false);
 
             GameObject backdrop = new GameObject(
                 "AutoSellSettingsOverlay", typeof(RectTransform),
@@ -101,6 +126,7 @@ namespace MixMaster.UI
 
         public void OpenEquipment()
         {
+            BindView();
             equipment = FindFirstObjectByType<EquipmentManager>();
             if (equipment == null)
             {
@@ -116,6 +142,7 @@ namespace MixMaster.UI
 
         public void OpenMonsters()
         {
+            BindView();
             monsters = FindFirstObjectByType<MonsterManager>();
             if (monsters == null)
             {

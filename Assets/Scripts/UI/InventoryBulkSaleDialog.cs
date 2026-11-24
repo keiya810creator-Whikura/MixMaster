@@ -12,15 +12,27 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class InventoryBulkSaleDialog : MonoBehaviour
     {
-        private TMP_Text message;
+        [SerializeField] private TMP_Text message;
         private Action onConfirmed;
-        private Button confirmButton;
+        [SerializeField] private Button confirmButton, cancelButton;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || cancelButton == null) return;
+            bound = true;
+            cancelButton.onClick.AddListener(Close);
+            confirmButton.onClick.AddListener(Confirm);
+        }
 
         public static InventoryBulkSaleDialog Ensure(Transform parent)
         {
             InventoryBulkSaleDialog dialog =
+                parent.Find("BulkSaleConfirmation")?.GetComponent<InventoryBulkSaleDialog>() ??
                 parent.GetComponentInChildren<InventoryBulkSaleDialog>(true);
-            if (dialog != null) return dialog;
+            if (dialog != null) { dialog.BindView(); return dialog; }
+            var prefab = Resources.Load<InventoryBulkSaleDialog>("UI/ScenePanels/BulkSaleConfirmation");
+            if (prefab != null) return Instantiate(prefab, parent, false);
 
             GameObject backdrop = new GameObject(
                 "BulkSaleConfirmation", typeof(RectTransform),
@@ -66,6 +78,7 @@ namespace MixMaster.UI
 
         public void Show(string messageText, Action action, string confirmLabel = "まとめて売却")
         {
+            BindView();
             onConfirmed = action;
             if (confirmButton != null)
                 confirmButton.GetComponentInChildren<TMP_Text>(true).text = confirmLabel;

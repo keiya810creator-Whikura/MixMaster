@@ -11,15 +11,33 @@ namespace MixMaster.UI
 {
     public sealed class VillageTeleportPanelUI : MonoBehaviour
     {
-        private RectTransform content;
-        private ScrollRect scroll;
-        private TextMeshProUGUI status;
+        [SerializeField] private RectTransform content;
+        [SerializeField] private ScrollRect scroll;
+        [SerializeField] private TextMeshProUGUI status;
+        [SerializeField] private Button closeButton;
+        [SerializeField] private Button destinationTemplate;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || closeButton == null) return;
+            bound = true;
+            closeButton.onClick.AddListener(() => router?.CloseAll());
+        }
         private MapBuildingUIRouter router;
         private PlayerController player;
         private TilemapMapRoot village;
 
         internal static VillageTeleportPanelUI Create(Transform parent)
         {
+            var existing = FindFirstObjectByType<VillageTeleportPanelUI>(FindObjectsInactive.Include);
+            if (existing != null) { existing.BindView(); return existing; }
+            if (parent.GetComponentInParent<Canvas>() == null)
+                foreach (var candidate in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                    if (candidate.isRootCanvas && candidate.renderMode != RenderMode.WorldSpace)
+                    { parent = SafeAreaLayout.ContentRoot(candidate.transform); break; }
+            var prefab = Resources.Load<VillageTeleportPanelUI>("UI/ScenePanels/VillageTeleportPanel");
+            if (prefab != null) return Instantiate(prefab, parent, false);
             var root = new GameObject("VillageTeleportPanel", typeof(RectTransform),
                 typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             root.transform.SetParent(parent, false);
@@ -39,11 +57,13 @@ namespace MixMaster.UI
 
         internal void Prepare(MapBuildingUIRouter owner, PlayerController traveler, TilemapMapRoot origin)
         {
+            BindView();
             router = owner;
             player = traveler;
             village = origin;
             foreach (Transform child in content)
             {
+                if (destinationTemplate != null && child == destinationTemplate.transform) continue;
                 child.gameObject.SetActive(false);
                 Destroy(child.gameObject);
             }
@@ -78,6 +98,18 @@ namespace MixMaster.UI
         private void AddDestination(TilemapMapRoot destination)
         {
             MapSO map = destination.MapDefinition;
+            if (destinationTemplate != null)
+            {
+                var destinationRow = Instantiate(destinationTemplate, content, false);
+                destinationRow.gameObject.SetActive(true);
+                var mapImage = destinationRow.transform.Find("MapSprite").GetComponent<Image>();
+                mapImage.sprite = map.thumbnail;
+                mapImage.enabled = map.thumbnail != null;
+                destinationRow.transform.Find("MapName").GetComponent<TMP_Text>().text =
+                    string.IsNullOrWhiteSpace(map.displayName) ? map.mapId : map.displayName;
+                destinationRow.onClick.AddListener(() => Travel(destination));
+                return;
+            }
             var row = AddButton(content, "Destination", new Color(0.16f, 0.23f, 0.3f));
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 116f;
 

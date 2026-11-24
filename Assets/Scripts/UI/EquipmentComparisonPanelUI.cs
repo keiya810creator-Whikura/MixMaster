@@ -23,6 +23,7 @@ namespace MixMaster.UI
         private static readonly Color NeutralColor =
             new Color32(184, 184, 184, 255); // #B8B8B8
 
+        [Serializable]
         private struct Row
         {
             public TMP_Text oldValue;
@@ -30,14 +31,28 @@ namespace MixMaster.UI
             public TMP_Text deltaValue;
         }
 
-        private TMP_Text title;
-        private TMP_Text equipmentText;
-        private TMP_Text hint;
-        private readonly List<Row> rows = new List<Row>();
+        [SerializeField] private TMP_Text title;
+        [SerializeField] private TMP_Text equipmentText;
+        [SerializeField] private TMP_Text hint;
+        [SerializeField] private List<Row> rows = new List<Row>();
+        [SerializeField] private Button cancelButton, confirmButton;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || cancelButton == null) return;
+            bound = true;
+            cancelButton.onClick.AddListener(Close);
+            confirmButton.onClick.AddListener(Confirm);
+        }
         private Action accept;
 
         public static EquipmentComparisonPanelUI Create(Transform parent)
         {
+            var existing = parent.GetComponentInChildren<EquipmentComparisonPanelUI>(true);
+            if (existing != null) { existing.BindView(); return existing; }
+            var prefab = Resources.Load<EquipmentComparisonPanelUI>("UI/ScenePanels/EquipmentComparisonPanel");
+            if (prefab != null) return Instantiate(prefab, parent, false);
             GameObject root = new GameObject("EquipmentComparisonOverlay",
                 typeof(RectTransform), typeof(Image),
                 typeof(EquipmentComparisonPanelUI));
@@ -224,6 +239,7 @@ namespace MixMaster.UI
         public void Show(EquipmentComparisonCalculator.Comparison comparison,
             Action onAccept)
         {
+            BindView();
             if (comparison == null)
                 return;
             accept = onAccept;

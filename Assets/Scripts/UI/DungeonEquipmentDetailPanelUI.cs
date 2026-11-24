@@ -14,12 +14,40 @@ namespace MixMaster.UI
     [DisallowMultipleComponent]
     public sealed class DungeonEquipmentDetailPanelUI : MonoBehaviour
     {
+        [SerializeField] private TMP_Text equipmentNameText, levelRarityText, descriptionText, errorText;
+        [SerializeField] private TMP_Text[] statValues;
+        [SerializeField] private Button closeButton;
+        [SerializeField] private ScrollRect scroll;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || closeButton == null) return;
+            bound = true;
+            closeButton.onClick.AddListener(Close);
+        }
+
         public static DungeonEquipmentDetailPanelUI Show(
             Transform resultCanvas, DungeonEquipmentAward award)
         {
             if (resultCanvas == null || award == null)
                 return null;
 
+            var existing = resultCanvas.GetComponentInChildren<DungeonEquipmentDetailPanelUI>(true);
+            if (existing != null && existing.equipmentNameText == null) existing = null;
+            if (existing == null)
+            {
+                var prefab = Resources.Load<DungeonEquipmentDetailPanelUI>("UI/ScenePanels/DungeonEquipmentDetailPanel");
+                if (prefab != null) existing = Instantiate(prefab, resultCanvas, false);
+            }
+            if (existing != null)
+            {
+                existing.BindView();
+                existing.Display(award);
+                existing.gameObject.SetActive(true);
+                existing.transform.SetAsLastSibling();
+                return existing;
+            }
             GameObject root = new GameObject("DungeonEquipmentDetailOverlay",
                 typeof(RectTransform), typeof(Image));
             root.transform.SetParent(resultCanvas, false);
@@ -36,7 +64,31 @@ namespace MixMaster.UI
 
         public void Close()
         {
-            Destroy(gameObject);
+            if (equipmentNameText != null) gameObject.SetActive(false);
+            else Destroy(gameObject);
+        }
+
+        private void Display(DungeonEquipmentAward award)
+        {
+            EquipmentSO def = award.definition;
+            equipmentNameText.text = def != null && !string.IsNullOrWhiteSpace(def.displayName) ? def.displayName : "装備";
+            EquipmentRarity rarity = EquipmentRarityUtility.GetRarity(award.level);
+            levelRarityText.text = "Lv." + award.level + "  《" + EquipmentRarityUtility.Labels[(int)rarity] + "》" +
+                (award.wasAutoSold ? "  ［自動売却済］" : "");
+            descriptionText.text = def != null ? def.description : "";
+            errorText.gameObject.SetActive(award.scaledModifiers == null);
+            for (int i = 0; i < statValues.Length; i++)
+            {
+                var label = statValues[i];
+                double value = award.scaledModifiers != null
+                    ? InventoryStatFilter.GetValue(award.scaledModifiers, (InventoryStat)(i + 1)) : 0d;
+                label.text = award.scaledModifiers != null ? (value > 0d ? "+" : "") +
+                    (value * 100d).ToString("0.##") + "%" : "-";
+                label.color = value > 0d ? new Color32(82, 232, 117, 255) :
+                    value < 0d ? new Color32(255, 98, 98, 255) : new Color32(184, 184, 184, 255);
+            }
+            scroll.StopMovement();
+            scroll.verticalNormalizedPosition = 1f;
         }
 
         private void Build(DungeonEquipmentAward award)

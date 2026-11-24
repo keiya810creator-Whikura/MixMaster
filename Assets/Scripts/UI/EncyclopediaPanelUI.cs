@@ -349,6 +349,7 @@ namespace MixMaster.UI
                         () =>
                         {
                             if (monsterAcquisitions.FindOwnedMonster(record.uniqueId) == null) { ShowReverseParents(child, recipe); return; }
+                            if (reverseDetail == null) reverseDetail = GetComponentInChildren<OwnedMonsterDetailUI>(true);
                             if (reverseDetail == null)
                             {
                                 var source = Resources.Load<MonsterFarmPanelUI>("UI/MonsterFarmPanel")?.DetailPrefab

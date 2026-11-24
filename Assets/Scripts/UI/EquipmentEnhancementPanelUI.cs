@@ -13,27 +13,42 @@ namespace MixMaster.UI
         private GameManager game;
         private MaterialInventoryManager materials;
         private string uniqueId;
-        private TMP_Text equipmentName;
-        private TMP_Text levelText;
-        private TMP_Text mapText;
-        private TMP_Text goldText;
-        private TMP_Text statusText;
-        private TMP_Text noticeText;
-        private Button upgradeButton;
-        private TMP_Text upgradeLabel;
-        private TMP_Text reforgeText;
-        private Button reforgeButton;
+        [SerializeField] private TMP_Text equipmentName;
+        [SerializeField] private TMP_Text levelText;
+        [SerializeField] private TMP_Text mapText;
+        [SerializeField] private TMP_Text goldText;
+        [SerializeField] private TMP_Text statusText;
+        [SerializeField] private TMP_Text noticeText;
+        [SerializeField] private Button upgradeButton;
+        [SerializeField] private TMP_Text upgradeLabel;
+        [SerializeField] private TMP_Text reforgeText;
+        [SerializeField] private Button reforgeButton;
         private InventoryBulkSaleDialog reforgeConfirmation;
         private EquipmentInventoryUI ownerInventory;
-        private readonly TMP_Text[] materialTexts = new TMP_Text[6];
-        private readonly Image[] materialIcons = new Image[6];
-        private readonly TMP_Text[] reforgeMaterialTexts = new TMP_Text[6];
-        private readonly Image[] reforgeMaterialIcons = new Image[6];
+        [SerializeField] private TMP_Text[] materialTexts = new TMP_Text[6];
+        [SerializeField] private Image[] materialIcons = new Image[6];
+        [SerializeField] private TMP_Text[] reforgeMaterialTexts = new TMP_Text[6];
+        [SerializeField] private Image[] reforgeMaterialIcons = new Image[6];
+        [SerializeField] private Button closeButton;
+        private bool bound;
+        private void Awake() => BindView();
+        private void BindView()
+        {
+            if (bound || closeButton == null) return;
+            bound = true;
+            closeButton.onClick.AddListener(Close);
+            reforgeButton.onClick.AddListener(ConfirmReforge);
+            HoldToUpgradeButton.Attach(upgradeButton, TryUpgrade, SaveProgress);
+        }
         private static readonly Color Enough = new Color32(190, 224, 209, 255);
         private static readonly Color Missing = new Color32(255, 98, 98, 255);
 
         public static EquipmentEnhancementPanelUI Ensure(Transform parent)
         {
+            var existing = parent.GetComponentInChildren<EquipmentEnhancementPanelUI>(true);
+            if (existing != null) { existing.BindView(); return existing; }
+            var prefab = Resources.Load<EquipmentEnhancementPanelUI>("UI/ScenePanels/EquipmentEnhancementPanel");
+            if (prefab != null) return Instantiate(prefab, parent, false);
             GameObject root = new GameObject("EquipmentEnhancementOverlay",
                 typeof(RectTransform), typeof(Image));
             root.SetActive(false);
@@ -47,6 +62,7 @@ namespace MixMaster.UI
 
         public void Open(EquipmentManager manager, string equipmentUniqueId)
         {
+            BindView();
             ownerInventory = GetComponentInParent<EquipmentInventoryUI>();
             if (ownerInventory == null || !ownerInventory.isActiveAndEnabled ||
                 !ownerInventory.EnhancementAllowed) return;
@@ -348,8 +364,10 @@ namespace MixMaster.UI
             }
         }
 
+        [SerializeField] private bool fitMaterialColumns = true;
         private void LateUpdate()
         {
+            if (!fitMaterialColumns) return;
             GridLayoutGroup grid = materialTexts[0] != null
                 ? materialTexts[0].transform.parent.parent.GetComponent<GridLayoutGroup>() : null;
             if (grid == null) return;

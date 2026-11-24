@@ -17,8 +17,9 @@ namespace MixMaster.UI
             public Image icon;
             public TMP_Text levels;
             [NonSerialized] public OwnedMonsterRecord record;
-            [NonSerialized] public Button favoriteButton, lockButton;
-            [NonSerialized] public TMP_Text favoriteLabel, lockLabel;
+            public Button favoriteButton, lockButton;
+            public TMP_Text favoriteLabel, lockLabel;
+            [NonSerialized] public bool fitButtonsAtRuntime;
             [NonSerialized] public Vector2 layoutSize;
         }
 
@@ -30,11 +31,11 @@ namespace MixMaster.UI
         internal OwnedMonsterDetailUI DetailPrefab => detailPrefab;
         private MonsterManager monsters;
         private MonsterCatalogSO catalog;
-        private OwnedMonsterDetailUI detail;
+        [SerializeField] private OwnedMonsterDetailUI detail;
         private bool dirty;
-        private readonly Button[] presetButtons = new Button[MonsterManager.FarmPresetCount];
-        private Button upgradeButton;
-        private TMP_Text upgradeLabel;
+        [SerializeField] private Button[] presetButtons = new Button[MonsterManager.FarmPresetCount];
+        [SerializeField] private Button upgradeButton;
+        [SerializeField] private TMP_Text upgradeLabel;
         [SerializeField] private Button targetLevelButton, acknowledgeButton, trainingButton;
         private ProgressionPanelUI targetPanel;
 
@@ -45,14 +46,14 @@ namespace MixMaster.UI
             {
                 int index = i;
                 float left = .04f + i * .31f;
-                presetButtons[i] = AddFarmButton($"Farm{i + 1}", $"ファーム{i + 1}",
+                if (presetButtons[i] == null) presetButtons[i] = AddFarmButton($"Farm{i + 1}", $"ファーム{i + 1}",
                     new Vector2(left, .076f), new Vector2(left + .30f, .123f));
                 presetButtons[i].onClick.AddListener(() =>
                 {
                     if (monsters != null && monsters.SetActiveFarm(index)) SaveFarm();
                 });
             }
-            upgradeButton = AddFarmButton("FarmUpgrade", "", new Vector2(.04f, .012f),
+            if (upgradeButton == null) upgradeButton = AddFarmButton("FarmUpgrade", "", new Vector2(.04f, .012f),
                 new Vector2(.96f, .068f));
             upgradeLabel = upgradeButton.GetComponentInChildren<TMP_Text>();
             upgradeButton.onClick.AddListener(() =>
@@ -92,10 +93,15 @@ namespace MixMaster.UI
                 slots[i].button.onClick.AddListener(() => OpenDetail(index));
                 Slot slot = slots[i];
                 slot.removeButton.onClick.AddListener(() => RemoveFromFarm(index));
-                slot.favoriteButton = CreateProtectionButton(slot, "Favorite", "☆",
-                    () => ToggleProtection(slot, false), out slot.favoriteLabel);
-                slot.lockButton = CreateProtectionButton(slot, "Lock", "ロック",
-                    () => ToggleProtection(slot, true), out slot.lockLabel);
+                slot.fitButtonsAtRuntime = slot.favoriteButton == null || slot.lockButton == null;
+                if (slot.favoriteButton == null)
+                    slot.favoriteButton = CreateProtectionButton(slot, "Favorite", "☆",
+                        () => ToggleProtection(slot, false), out slot.favoriteLabel);
+                else slot.favoriteButton.onClick.AddListener(() => ToggleProtection(slot, false));
+                if (slot.lockButton == null)
+                    slot.lockButton = CreateProtectionButton(slot, "Lock", "ロック",
+                        () => ToggleProtection(slot, true), out slot.lockLabel);
+                else slot.lockButton.onClick.AddListener(() => ToggleProtection(slot, true));
             }
         }
 
@@ -149,6 +155,7 @@ namespace MixMaster.UI
 
             foreach (Slot slot in slots)
             {
+                if (!slot.fitButtonsAtRuntime) continue;
                 Vector2 size = ((RectTransform)slot.button.transform).rect.size;
                 if (size == slot.layoutSize) continue;
                 slot.layoutSize = size;
@@ -284,8 +291,8 @@ namespace MixMaster.UI
         {
             if (dirty || monsters == null || index >= monsters.FarmMonsters.Count)
                 return;
-            if (detail == null)
-                detail = Instantiate(detailPrefab, transform, false);
+            if (detail == null) detail = GetComponentInChildren<OwnedMonsterDetailUI>(true);
+            if (detail == null) detail = Instantiate(detailPrefab, transform, false);
 
             detail.transform.SetAsLastSibling();
             detail.Show(monsters.FarmMonsters[index], catalog);

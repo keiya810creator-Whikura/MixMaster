@@ -1189,6 +1189,9 @@ RectTransform:
   - {fileID: 2611683459310613744}
   - {fileID: 882001140000000002}
   - {fileID: 1486675310992084894}
+  - {fileID: 891246000000000001}
+  - {fileID: 891246000000000101}
+  - {fileID: 891246000000000201}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -6128,3 +6131,84 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!1001 &891246000000000000
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 3619233184895796416}
+    m_Modifications:
+    - target: {fileID: 100000000, guid: a8af1560bb59502e9f476f71a1f51e25, type: 3}
+      propertyPath: m_Name
+      value: BulkSaleConfirmation
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a8af1560bb59502e9f476f71a1f51e25, type: 3}
+--- !u!224 &891246000000000001 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000000, guid: a8af1560bb59502e9f476f71a1f51e25, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000000}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &891246000000000002 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 114000009, guid: a8af1560bb59502e9f476f71a1f51e25, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000000}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &891246000000000100
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 3619233184895796416}
+    m_Modifications:
+    - target: {fileID: 100000000, guid: 2685b2854ac55253961e2796df18064d, type: 3}
+      propertyPath: m_Name
+      value: AutoSellSettingsOverlay
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2685b2854ac55253961e2796df18064d, type: 3}
+--- !u!224 &891246000000000101 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000000, guid: 2685b2854ac55253961e2796df18064d, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000100}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &891246000000000102 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 114000009, guid: 2685b2854ac55253961e2796df18064d, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000100}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &891246000000000200
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 3619233184895796416}
+    m_Modifications:
+    - target: {fileID: 100000000, guid: d2caf0f9cb47534aa86f5a63a7a964a0, type: 3}
+      propertyPath: m_Name
+      value: MonsterBulkActions
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d2caf0f9cb47534aa86f5a63a7a964a0, type: 3}
+--- !u!224 &891246000000000201 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 224000000, guid: d2caf0f9cb47534aa86f5a63a7a964a0, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000200}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &891246000000000202 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 114000009, guid: d2caf0f9cb47534aa86f5a63a7a964a0, type: 3}
+  m_PrefabInstance: {fileID: 891246000000000200}
+  m_PrefabAsset: {fileID: 0}
