@@ -370,8 +370,8 @@ namespace MixMaster.UI
             pendingId = selectedId;
             if (noticeText != null) noticeText.text = manager.GetBookName(pendingId) +
                 "で転生しますか？\nLv1・経験値0に戻ります。スキルポイント " +
-                ReincarnationRules.TotalSkillPoints(player.SkillPoints, player.SpentSkillPoints).ToString("N0") +
-                " を引き継ぎます。書は消費しません。";
+                player.SkillPoints.ToString("N0") +
+                "（未使用）と習得済みスキル・スキル枠を引き継ぎます。書は消費しません。";
             SetConfirmationVisible(true);
         }
         private void ConfirmReincarnation()
