@@ -307,6 +307,7 @@ namespace MixMaster.UI
             ScrollRect scrolling = scroll.GetComponent<ScrollRect>();
             scrolling.viewport = viewport.GetComponent<RectTransform>();
             scrolling.content = textRect;
+            ScrollViewLayout.Prepare(scrolling);
             scrolling.horizontal = false;
             scrolling.movementType = ScrollRect.MovementType.Clamped;
             scrolling.scrollSensitivity = 40f;

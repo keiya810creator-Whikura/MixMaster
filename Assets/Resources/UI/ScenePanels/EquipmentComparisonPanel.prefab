@@ -788,6 +788,7 @@ GameObject:
   - component: {fileID: 114000060}
   - component: {fileID: 114000063}
   - component: {fileID: 114000065}
+  - component: {fileID: 884240000000000044}
   m_Layer: 5
   m_Name: StatScroll
   m_TagString: Untagged
@@ -948,7 +949,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 1152}
+  m_SizeDelta: {x: 0, y: 1158}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &100000008
 GameObject:
@@ -12678,3 +12679,17 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &884240000000000044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1

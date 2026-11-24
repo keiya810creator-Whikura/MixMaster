@@ -710,10 +710,10 @@ namespace MixMaster.UI
                     behaviorDropdown.template.GetComponent<ScrollRect>();
                 if (existingScroll != null)
                 {
-                    existingScroll.vertical = false;
+                    existingScroll.vertical = true;
                     existingScroll.horizontal = false;
                     existingScroll.inertia = false;
-                    existingScroll.scrollSensitivity = 0f;
+                    existingScroll.scrollSensitivity = 32f;
                     existingScroll.movementType = ScrollRect.MovementType.Clamped;
                 }
             }
@@ -833,15 +833,14 @@ namespace MixMaster.UI
             scroller.viewport = viewport;
             scroller.content = itemContent;
             scroller.horizontal = false;
-            // All five options fit entirely in the viewport (5 x 55px).
-            // Disable nested dragging to avoid scrolling beyond the last
-            // option or passing accidental drag input into the detail panel.
-            scroller.vertical = false;
+            // Keep the last option reachable even when the viewport or font size is adjusted.
+            scroller.vertical = true;
             scroller.inertia = false;
-            scroller.scrollSensitivity = 0f;
+            scroller.scrollSensitivity = 32f;
             scroller.movementType = ScrollRect.MovementType.Clamped;
 
             dropdown.template = template;
+            ScrollViewLayout.Prepare(scroller);
             templateObject.SetActive(false);
             return dropdown;
         }

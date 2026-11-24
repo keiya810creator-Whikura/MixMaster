@@ -208,6 +208,7 @@ namespace MixMaster.UI
             content.gameObject.AddComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = content;
+            ScrollViewLayout.Prepare(scroll);
 
             status = AddText(card, "Status", "", 34f);
             status.rectTransform.anchorMin = new Vector2(0.03f, 0.5f);

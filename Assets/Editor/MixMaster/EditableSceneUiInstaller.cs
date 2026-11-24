@@ -113,6 +113,7 @@ namespace MixMaster.EditorTools
                     PlaceFarmBadge(button, ref changed);
                 }
                 foreach (var skills in InScene<SkillScreenUI>(scene)) PlaceSkillControls(skills, ref changed);
+                foreach (var scroll in InScene<ScrollRect>(scene)) RepairScroll(scroll, ref changed);
                 if (!changed) return;
                 EditorSceneManager.MarkSceneDirty(scene);
                 // Never save unrelated unsaved edits. A clean scene can safely persist this placement.
@@ -191,6 +192,39 @@ namespace MixMaster.EditorTools
             scroll.viewport = rect; scroll.content = old; scroll.horizontal = false;
             scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 36;
             Assign(skills, "detailsScroll", scroll, ref changed);
+        }
+
+        private static void RepairScroll(ScrollRect scroll, ref bool changed)
+        {
+            var targets = new List<Object> { scroll };
+            if (scroll.content != null)
+            {
+                targets.Add(scroll.content);
+                var group = scroll.content.GetComponent<LayoutGroup>();
+                var text = scroll.content.GetComponent<TMP_Text>();
+                if (group != null) targets.Add(group);
+                if (text != null) targets.Add(text);
+            }
+            var dropdown = scroll.GetComponentInParent<TMP_Dropdown>(true);
+            if (dropdown != null && dropdown.template == scroll.transform)
+            {
+                var item = dropdown.template.GetComponentInChildren<Toggle>(true);
+                if (item != null) { targets.Add(item.transform); targets.Add(item.transform.parent); }
+            }
+            Undo.RecordObjects(targets.ToArray(), "スクロール末尾を補正");
+            var layout = scroll.GetComponent<ScrollViewLayout>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<ScrollViewLayout>(scroll.gameObject);
+                changed = true;
+            }
+            if (!layout.Apply()) return;
+            foreach (var target in targets)
+            {
+                EditorUtility.SetDirty(target);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(target);
+            }
+            changed = true;
         }
 
         private static void PlaceFarmBadge(MonsterFarmButton button, ref bool changed)

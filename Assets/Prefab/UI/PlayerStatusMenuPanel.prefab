@@ -3364,6 +3364,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3561865766081588093}
   - component: {fileID: 6659823171545507161}
+  - component: {fileID: 884240000000000000}
   m_Layer: 0
   m_Name: StatsScrollView
   m_TagString: Untagged
@@ -4917,3 +4918,17 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &884240000000000000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7582691449085905820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1

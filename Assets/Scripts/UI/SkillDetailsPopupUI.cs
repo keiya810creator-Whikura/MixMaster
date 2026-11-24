@@ -30,7 +30,7 @@ namespace MixMaster.UI
         {
             if (skill == null) return;
             if (heading != null) heading.text = EncyclopediaContent.Name(skill.displayName, skill.skillId);
-            if (description != null) description.text = EncyclopediaContent.SkillDetails(skill);
+            if (description != null) { description.richText = true; description.text = EncyclopediaContent.SkillDetails(skill); }
             if (icon != null) { icon.sprite = skill.icon; icon.enabled = skill.icon != null; }
             gameObject.SetActive(true); transform.SetAsLastSibling();
             if (scroll != null) { Canvas.ForceUpdateCanvases(); scroll.StopMovement(); scroll.verticalNormalizedPosition = 1f; }

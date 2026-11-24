@@ -119,6 +119,7 @@ namespace MixMaster.UI
             body.alignment = TextAlignmentOptions.TopLeft;
             body.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = body.rectTransform;
+            ScrollViewLayout.Prepare(scroll);
             TMP_Text source = transform.parent.GetComponentInChildren<TMP_Text>(true);
             if (source != null && source.font != null)
                 foreach (var label in GetComponentsInChildren<TMP_Text>(true)) label.font = source.font;
