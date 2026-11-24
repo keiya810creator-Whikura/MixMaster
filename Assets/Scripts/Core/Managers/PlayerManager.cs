@@ -201,14 +201,12 @@ namespace MixMaster.Core
 
         internal void Reincarnate(MonsterSO species)
         {
-            GetComponent<SkillProgressionManager>()?.ResetPlayer();
-            skillPoints = ReincarnationRules.TotalSkillPoints(skillPoints, spentSkillPoints);
-            spentSkillPoints = 0;
             reincarnationCount = ReincarnationRules.TotalSkillPoints(reincarnationCount, 1);
             reincarnationBookId = species != null ? species.monsterId : ReincarnationRules.HumanBookId;
             stats = ReincarnationRules.CopyStats(species != null ? species.baseStats : humanBaseStats);
             level = 1;
             experience = 0L;
+            GetComponent<SkillProgressionManager>()?.OnPlayerReincarnated();
             RecalculateEquipmentStats();
             RestoreFullResources();
             ExperienceChanged?.Invoke(experience, ExperienceToNextLevel);

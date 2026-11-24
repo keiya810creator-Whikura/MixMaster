@@ -46,7 +46,14 @@ namespace MixMaster.Core
             if (owner == "player")
             {
                 var p = GetComponent<PlayerManager>();
-                return p != null ? ReincarnationSkills(p.ReincarnationSpecies, Catalog) : Array.Empty<SkillSO>();
+                if (p == null) return Array.Empty<SkillSO>();
+                var playerSkills = new List<SkillSO>(ReincarnationSkills(p.ReincarnationSpecies, Catalog));
+                foreach (string id in data.playerLearned)
+                {
+                    var skill = Catalog.Get(id);
+                    if (skill != null && !playerSkills.Contains(skill)) playerSkills.Add(skill);
+                }
+                return playerSkills;
             }
             var record = Record(owner);
             var monster = record != null ? MonsterCatalogSO.Load()?.GetMonster(record.monsterId) : null;
@@ -330,7 +337,12 @@ namespace MixMaster.Core
             }
             return result;
         }
-        public void ResetPlayer() { data.playerLearned.Clear(); data.loadouts.RemoveAll(l => l.ownerId == "player"); runtimeCooldowns.Remove("player"); MixMaster.Combat.SkillActor.PlayerActor?.ResetTransient(); NotifyChanged(); }
+        internal void OnPlayerReincarnated()
+        {
+            runtimeCooldowns.Remove("player");
+            MixMaster.Combat.SkillActor.PlayerActor?.ResetTransient();
+            NotifyChanged();
+        }
         public SkillSaveData Capture()
         {
             if (Catalog != null && Catalog.UsesMonsterSkillDistribution)
