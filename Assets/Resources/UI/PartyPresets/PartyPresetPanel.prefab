@@ -894,6 +894,7 @@ GameObject:
   - component: {fileID: 222008}
   - component: {fileID: 114080}
   - component: {fileID: 114086}
+  - component: {fileID: 884240000000000059}
   m_Layer: 5
   m_Name: PresetList
   m_TagString: Untagged
@@ -1133,7 +1134,7 @@ MonoBehaviour:
     m_Left: 8
     m_Right: 8
     m_Top: 8
-    m_Bottom: 8
+    m_Bottom: 12
   m_ChildAlignment: 0
   m_Spacing: 10
   m_ChildForceExpandWidth: 1
@@ -1912,6 +1913,7 @@ GameObject:
   - component: {fileID: 222017}
   - component: {fileID: 114170}
   - component: {fileID: 114176}
+  - component: {fileID: 884240000000000060}
   m_Layer: 5
   m_Name: SavedContent
   m_TagString: Untagged
@@ -2152,7 +2154,7 @@ MonoBehaviour:
     m_Left: 8
     m_Right: 8
     m_Top: 8
-    m_Bottom: 8
+    m_Bottom: 12
   m_ChildAlignment: 0
   m_Spacing: 10
   m_ChildForceExpandWidth: 1
@@ -4440,3 +4442,31 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 600
   m_TargetDisplay: 0
+--- !u!114 &884240000000000059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1
+--- !u!114 &884240000000000060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1

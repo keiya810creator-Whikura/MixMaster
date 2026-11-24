@@ -378,6 +378,7 @@ namespace MixMaster.UI
         {
             SetIcon(popupIcon, icon);
             SetText(popupName, name);
+            if (popupText != null) popupText.richText = true;
             SetText(popupText, text);
             if (popupRoot != null) { popupRoot.SetActive(true); popupRoot.transform.SetAsLastSibling(); }
             ResetScroll(popupScroll);

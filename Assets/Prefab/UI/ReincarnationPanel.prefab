@@ -1911,6 +1911,7 @@ GameObject:
   - component: {fileID: 222015}
   - component: {fileID: 114150}
   - component: {fileID: 114155}
+  - component: {fileID: 884240000000000021}
   m_Layer: 5
   m_Name: BookScroll
   m_TagString: Untagged
@@ -2168,6 +2169,7 @@ GameObject:
   - component: {fileID: 222018}
   - component: {fileID: 114180}
   - component: {fileID: 114185}
+  - component: {fileID: 884240000000000022}
   m_Layer: 5
   m_Name: SelectedBook
   m_TagString: Untagged
@@ -3403,7 +3405,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 540}
+  m_SizeDelta: {x: 0, y: 590}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &114185
 MonoBehaviour:
@@ -3942,6 +3944,7 @@ GameObject:
   - component: {fileID: 114000020}
   - component: {fileID: 114000023}
   - component: {fileID: 114000025}
+  - component: {fileID: 884240000000000023}
   m_Layer: 5
   m_Name: Template
   m_TagString: Untagged
@@ -4085,7 +4088,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 70}
+  m_SizeDelta: {x: 0, y: 94}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &100000004
 GameObject:
@@ -4123,7 +4126,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -35}
+  m_AnchoredPosition: {x: 0, y: -47.0}
   m_SizeDelta: {x: 0, y: 70}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &222000004
@@ -4375,3 +4378,45 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 114009, guid: af5b4478c176565a8fe3b5341292ff15, type: 3}
   m_PrefabInstance: {fileID: 891248000000000100}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &884240000000000021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100015}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1
+--- !u!114 &884240000000000022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100018}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1
+--- !u!114 &884240000000000023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c054a490e95e5a890802539fd4f03f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  endPadding: 12
+  measureFixedRows: 1

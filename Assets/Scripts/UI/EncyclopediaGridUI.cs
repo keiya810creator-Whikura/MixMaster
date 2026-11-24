@@ -49,7 +49,7 @@ namespace MixMaster.UI
             float width = Mathf.Max(1f, cellSize.x), height = Mathf.Max(1f, cellSize.y);
             float dx = width + Mathf.Max(0f, spacing.x), dy = height + Mathf.Max(0f, spacing.y);
             int rows = Mathf.CeilToInt((float)itemCount / cols);
-            content.sizeDelta = new Vector2(0f, rows == 0 ? 0f : rows * dy - Mathf.Max(0f, spacing.y));
+            content.sizeDelta = new Vector2(0f, rows == 0 ? 0f : rows * dy - Mathf.Max(0f, spacing.y) + ScrollViewLayout.DefaultEndPadding);
             int visibleRows = Mathf.Max(1, Mathf.CeilToInt(scroll.viewport.rect.height / dy)) + 2;
             int needed = Mathf.Min(itemCount, visibleRows * cols);
             int firstRow = Mathf.Clamp(Mathf.FloorToInt(Mathf.Max(0f, content.anchoredPosition.y) / dy) - 1,

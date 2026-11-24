@@ -1237,6 +1237,7 @@ namespace MixMaster.UI
             sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             panel.listContent = contentRect;
             panel.listScroll.content = contentRect;
+            ScrollViewLayout.Prepare(panel.listScroll);
 
             for (int i = 0; i < PageSize; i++)
                 panel.rows.Add(CreateCandidateRow(content.transform, i));

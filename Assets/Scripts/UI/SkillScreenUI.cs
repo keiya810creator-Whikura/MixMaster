@@ -267,6 +267,7 @@ namespace MixMaster.UI
 
         private void SetDetailsText(string text, bool resetScroll)
         {
+            details.richText = true;
             details.text = text;
             if (!resetScroll || detailsScroll == null || detailsScroll.content == null) return;
             detailsScroll.StopMovement();
@@ -323,12 +324,13 @@ namespace MixMaster.UI
             label.richText = true;
             label.textWrappingMode = TextWrappingModes.Normal;
             label.overflowMode = TextOverflowModes.Overflow;
-            label.margin = new Vector4(14f, 9f, 14f, 9f);
+            label.margin = new Vector4(14f, 9f, 14f, ScrollViewLayout.DefaultEndPadding);
             label.raycastTarget = false;
             var fitter = label.GetComponent<ContentSizeFitter>() ?? label.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = rect;
+            ScrollViewLayout.Prepare(scroll);
         }
         private void OpenAutoSetup()
         {

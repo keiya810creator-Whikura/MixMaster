@@ -142,6 +142,7 @@ namespace MixMaster.UI
             label.margin = new Vector4(16, 16, 16, 16);
             scroll.viewport = view; scroll.content = body; scroll.horizontal = false; scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 40;
+            ScrollViewLayout.Prepare(scroll);
             return scroll;
         }
         private static void ScrollText(ScrollRect scroll, TMP_Text label, string value)

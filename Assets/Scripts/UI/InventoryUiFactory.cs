@@ -91,12 +91,13 @@ namespace MixMaster.UI
             scrolling.viewport = viewport;
             scrolling.content = content;
             scrolling.horizontal = false;
-            scrolling.vertical = labels.Count > 5;
+            scrolling.vertical = true;
             scrolling.inertia = false;
             scrolling.movementType = ScrollRect.MovementType.Clamped;
             scrolling.scrollSensitivity = 32f;
 
             dropdown.template = template;
+            ScrollViewLayout.Prepare(scrolling);
             dropdown.ClearOptions();
             dropdown.AddOptions(new List<string>(labels));
             dropdown.SetValueWithoutNotify(0);
