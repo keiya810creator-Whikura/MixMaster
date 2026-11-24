@@ -40,6 +40,8 @@ namespace MixMaster.UI
         private SkillOwner individualOwner;
         private bool individualSelection;
         private string partySnapshot;
+        [SerializeField] private Button autoSetupButton;
+        private ProgressionPanelUI autoSetupPanel;
         private int slotIndex;
         private float refreshAt;
         private (SkillSO Skill, string OwnerId, string IndividualName, ElementType? Element, bool Learned,
@@ -76,8 +78,13 @@ namespace MixMaster.UI
             // Build() adds this component before assigning its UI references.
             if(initialized||panel==null)return;initialized=true;
             EnsureDetailsScroll();
+            if (autoSetupButton == null)
+                autoSetupButton = InventoryUiFactory.Button(panel.transform, "AutoSetupSkills", "スキル一括設定",
+                    new Vector2(24, -1425), new Vector2(880, 42));
+            autoSetupButton.GetComponentInChildren<TMP_Text>(true).font = message.font;
+            autoSetupButton.onClick.AddListener(OpenAutoSetup);
             openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){individualSelection=false;individualOwner=null;transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
-            closeButton.onClick.AddListener(()=>panel.SetActive(false));
+            closeButton.onClick.AddListener(()=>{panel.SetActive(false);if(autoSetupPanel!=null)autoSetupPanel.Close();});
             actorDropdown.onValueChanged.AddListener(_=>{individualSelection=false;individualOwner=null;selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
             skillDropdown.onValueChanged.AddListener(_=>RefreshDetails());
             learnButton.onClick.AddListener(()=>{if(Owner==null||Selected==null)return;manager.Learn(Owner.OwnerId,Selected.skillId,out string text);message.text=text;RefreshSkills();});
@@ -323,6 +330,47 @@ namespace MixMaster.UI
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = rect;
         }
+        private void OpenAutoSetup()
+        {
+            if (Owner == null || !BindManager()) return;
+            if (autoSetupPanel == null) autoSetupPanel = ProgressionPanelUI.Create(transform, "AutoSetupSkills");
+            var rows = new List<ProgressionPanelUI.Item>
+            {
+                new ProgressionPanelUI.Item("攻撃重視", () => PreviewAutoSetup(SkillSetupProfile.Attack)),
+                new ProgressionPanelUI.Item("回復優先", () => PreviewAutoSetup(SkillSetupProfile.Healing)),
+                new ProgressionPanelUI.Item("便利系優先", () => PreviewAutoSetup(SkillSetupProfile.Utility))
+            };
+            autoSetupPanel.Show("スキル一括設定", rows, "選択中の個体の習得済みスキルから選びます。設定前に内容を確認できます。");
+        }
+
+        private void PreviewAutoSetup(SkillSetupProfile profile)
+        {
+            if (Owner == null) return;
+            string owner = Owner.OwnerId;
+            var slots = manager.PreviewAutoSetup(owner, profile);
+            var rows = new List<ProgressionPanelUI.Item>();
+            int equipped = 0;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var slot = slots[i];
+                var skill = manager.Catalog?.Get(slot.skillId);
+                if (skill != null) equipped++;
+                rows.Add(new ProgressionPanelUI.Item($"枠 {i + 1}　" + (skill != null ? skill.displayName : "空き") +
+                    (skill != null ? "\n" + (skill.category == SkillCategory.Passive ? "セット中に有効" : DescribeTrigger(slot.trigger, slot.threshold)) : "")));
+            }
+            autoSetupPanel.Show("一括設定の確認", rows, "現在の5枠と条件をこの内容に置き換えます。SPは消費しません。",
+                equipped > 0 ? "この内容で設定" : null, () =>
+                {
+                    if (manager.ApplyAutoSetup(owner, slots, out string result))
+                    {
+                        FindFirstObjectByType<SaveManager>()?.SaveGame();
+                        autoSetupPanel.Close();
+                        Refresh();
+                    }
+                    message.text = result;
+                }, "方針へ戻る", OpenAutoSetup);
+        }
+
         private void SaveRule()
         {
             if(Owner==null||Selected==null)return;

@@ -74,6 +74,7 @@ namespace MixMaster.Core
         public long experience;
         // Zero means this individual is not registered in the farm.
         public int farmStartLevel;
+        public int acknowledgedFarmTarget;
         public bool farmHalfExperiencePending; // Legacy save migration.
         public int farmPresetIndex;
         public int farmExperienceRemainder;

@@ -88,6 +88,54 @@ namespace MixMaster.Core
             new List<OwnedMonsterRecord>(MaxFarmSize)
         };
 
+        private bool farmTargetSavePending;
+        private float farmTargetSaveAt;
+        private void Update()
+        {
+            if (!farmTargetSavePending || Time.unscaledTime < farmTargetSaveAt) return;
+            farmTargetSavePending = GetComponent<SaveManager>()?.SaveGame() != true;
+            farmTargetSaveAt = Time.unscaledTime + 1f;
+        }
+
+        private readonly int[] farmTargetLevels = { BreedingManager.MinimumParentLevel, BreedingManager.MinimumParentLevel, BreedingManager.MinimumParentLevel };
+        public int FarmTargetLevel(int index) => farmTargetLevels[Mathf.Clamp(index, 0, FarmPresetCount - 1)];
+        public List<int> CaptureFarmTargets() => new List<int>(farmTargetLevels);
+
+        public bool HasFarmNotification(OwnedMonsterRecord record) => record != null && record.farmStartLevel > 0 &&
+            record.level >= FarmTargetLevel(record.farmPresetIndex) &&
+            record.acknowledgedFarmTarget != FarmTargetLevel(record.farmPresetIndex);
+
+        public int FarmNotificationCount(int index = -1)
+        {
+            int count = 0;
+            for (int i = 0; i < farms.Length; i++)
+            {
+                if (index >= 0 && i != index) continue;
+                foreach (var record in farms[i]) if (HasFarmNotification(record)) count++;
+            }
+            return count;
+        }
+
+        public bool SetFarmTargetLevel(int index, int level)
+        {
+            if (index < 0 || index >= FarmPresetCount || level < 1 || level > ExperienceProgression.MaxLevel) return false;
+            if (farmTargetLevels[index] == level) return true;
+            farmTargetLevels[index] = level;
+            farmTargetSavePending = true;
+            foreach (var record in farms[index]) record.acknowledgedFarmTarget = 0;
+            FarmChanged?.Invoke();
+            return true;
+        }
+
+        public void AcknowledgeFarmTargets(int index)
+        {
+            if (index < 0 || index >= FarmPresetCount) return;
+            foreach (var record in farms[index])
+                if (record.level >= FarmTargetLevel(index)) record.acknowledgedFarmTarget = FarmTargetLevel(index);
+            farmTargetSavePending = true;
+            FarmChanged?.Invoke();
+        }
+
         public int ActiveFarmIndex { get; private set; }
         public int FarmLevel { get; private set; } = 1;
         public long RaidMaterials { get; private set; }
@@ -102,7 +150,11 @@ namespace MixMaster.Core
 
         internal void RestoreFarmProgress(GameSaveData data)
         {
+            farmTargetSavePending = false;
             ActiveFarmIndex = Mathf.Clamp(data.activeFarmIndex, 0, FarmPresetCount - 1);
+            for (int i = 0; i < FarmPresetCount; i++)
+                farmTargetLevels[i] = data.farmTargetLevels != null && i < data.farmTargetLevels.Count
+                    ? Mathf.Clamp(data.farmTargetLevels[i], 1, ExperienceProgression.MaxLevel) : BreedingManager.MinimumParentLevel;
             FarmLevel = Mathf.Clamp(data.farmLevel, 1, FarmRates.Length);
             RaidMaterials = Math.Max(0L, data.raidMaterials);
             ClearedRaidTiers = Mathf.Clamp(data.clearedRaidTiers, 0, RaidTierCount);
@@ -154,6 +206,7 @@ namespace MixMaster.Core
                 monster.farmStartLevel = 0;
             }
             monster.farmExperienceRemainder = 0;
+            monster.acknowledgedFarmTarget = 0;
             FarmChanged?.Invoke();
             return true;
         }
