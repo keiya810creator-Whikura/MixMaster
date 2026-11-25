@@ -14,6 +14,7 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text summaryText;
         [SerializeField] private TMP_Text questionText;
         [SerializeField] private Button acceptButton;
+        [SerializeField] private Button adClaimButton;
         [SerializeField] private Button keepButton;
         [SerializeField] private Button closeButton;
         [SerializeField] private ScrollRect rewardsScroll;
@@ -24,13 +25,20 @@ namespace MixMaster.UI
         private bool pausedByPanel;
         private float previousTimeScale;
         private string originalQuestion;
+        private TMP_Text acceptLabel;
         public bool IsVisible => gameObject.activeSelf;
         public event Action Accepted;
         public event Action Dismissed;
+        public event Action AdClaimRequested;
 
         private void Awake()
         {
-            if (acceptButton != null) acceptButton.onClick.AddListener(Accept);
+            if (acceptButton != null)
+            {
+                acceptButton.onClick.AddListener(Accept);
+                acceptLabel = acceptButton.GetComponentInChildren<TMP_Text>(true);
+            }
+            if (adClaimButton != null) adClaimButton.onClick.AddListener(RequestAdClaim);
             if (keepButton != null) keepButton.onClick.AddListener(Dismiss);
             if (closeButton != null) closeButton.onClick.AddListener(Dismiss);
             originalQuestion = questionText != null ? questionText.text : string.Empty;
@@ -52,12 +60,26 @@ namespace MixMaster.UI
         private void OnDestroy()
         {
             if (acceptButton != null) acceptButton.onClick.RemoveListener(Accept);
+            if (adClaimButton != null) adClaimButton.onClick.RemoveListener(RequestAdClaim);
             if (keepButton != null) keepButton.onClick.RemoveListener(Dismiss);
             if (closeButton != null) closeButton.onClick.RemoveListener(Dismiss);
             ReleasePause();
         }
         private void Accept() => Accepted?.Invoke();
         private void Dismiss() => Dismissed?.Invoke();
+        private void RequestAdClaim() => AdClaimRequested?.Invoke();
+
+        internal void SetClaimControls(bool canClaim, bool busy)
+        {
+            if (acceptLabel != null) acceptLabel.text = canClaim ? "通常受取" : "閉じる";
+            if (acceptButton != null) acceptButton.interactable = !busy;
+            if (closeButton != null) closeButton.gameObject.SetActive(!canClaim);
+            if (adClaimButton != null)
+            {
+                adClaimButton.gameObject.SetActive(canClaim);
+                adClaimButton.interactable = !busy;
+            }
+        }
 
         public void Show(string summary, IReadOnlyList<OfflineGainRecord> gains, OfflineRecordProfile profile,
             OfflineRecordProfile previous = null)

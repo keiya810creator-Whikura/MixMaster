@@ -15,6 +15,8 @@ namespace MixMaster.Core
         private SaveManager save;
         private PlayerDeathPanelUI panel;
         private bool awaitingReturn;
+        private bool adPending;
+        private int defeatVersion;
         private bool returning;
         private bool saveDefeat;
         private bool paused;
@@ -53,6 +55,7 @@ namespace MixMaster.Core
 
             if (awaitingReturn) return;
             awaitingReturn = true;
+            defeatVersion++;
             saveDefeat = true;
         }
 
@@ -74,7 +77,8 @@ namespace MixMaster.Core
             panel = PlayerDeathPanelUI.FindOrCreate(body.gameObject.scene);
             if (panel == null) return;
 
-            panel.ShowDecision(game.Gold / 2L, ReturnToTown);
+            panel.ShowDecision(game.Gold / 2L, ReturnWithPenalty, ReviveWithAd, ReturnWithAd);
+            panel.SetActionsEnabled(!adPending);
             if (!paused)
             {
                 previousTimeScale = Time.timeScale;
@@ -89,7 +93,56 @@ namespace MixMaster.Core
                 panel.ShowProjectedLoss(gold / 2L);
         }
 
-        private void ReturnToTown()
+        private void ReturnWithPenalty()
+        {
+            if (!adPending) ReturnToTown(true);
+        }
+
+        private void ReviveWithAd() => WatchAd(Revive);
+
+        private void ReturnWithAd() => WatchAd(() => ReturnToTown(false));
+
+        private void WatchAd(System.Action reward)
+        {
+            if (!awaitingReturn || returning || adPending || player.CurrentHp > 0L) return;
+            var ads = RewardedAdManager.Instance;
+            if (ads == null)
+            {
+                panel.ShowStatus("広告を利用できません。");
+                return;
+            }
+
+            int defeat = defeatVersion;
+            adPending = true;
+            panel.SetActionsEnabled(false);
+            panel.ShowStatus(string.Empty);
+            if (ads.TryShow(message =>
+            {
+                if (this == null) return;
+                adPending = false;
+                if (panel != null) panel.SetActionsEnabled(true);
+                if (!awaitingReturn || defeat != defeatVersion || player.CurrentHp > 0L) return;
+                if (message == null) reward();
+                else if (panel != null) panel.ShowStatus(message);
+            }, out string error)) return;
+
+            adPending = false;
+            panel.SetActionsEnabled(true);
+            panel.ShowStatus(error);
+        }
+
+        private void Revive()
+        {
+            returning = true;
+            try
+            {
+                player.RestoreFullResources();
+                FinishRecovery("その場で復活しました\nHP・MPが全回復しました。");
+            }
+            finally { returning = false; }
+        }
+
+        private void ReturnToTown(bool loseGold)
         {
             if (!awaitingReturn || returning || player.CurrentHp > 0L) return;
             returning = true;
@@ -97,23 +150,29 @@ namespace MixMaster.Core
             {
                 if (!TryWarpToTown())
                 {
-                    panel.ShowReturnFailed();
+                    if (panel != null) panel.ShowStatus("街へ帰還できませんでした。もう一度お試しください。");
                     return;
                 }
 
-                long lostGold = game.Gold / 2L;
+                long lostGold = loseGold ? game.Gold / 2L : 0L;
                 if (lostGold > 0L) game.TrySpendGold(lostGold);
-
-                awaitingReturn = false;
-                saveDefeat = false;
-                save?.SaveGame();
-                ReleasePause();
-                if (panel != null) panel.ShowReturnNotice(lostGold);
+                FinishRecovery(loseGold
+                    ? $"街に帰還しました\n{lostGold:N0} Gを失いました。"
+                    : "街に帰還しました\n所持金はそのままです。");
             }
             finally
             {
                 returning = false;
             }
+        }
+
+        private void FinishRecovery(string message)
+        {
+            awaitingReturn = false;
+            saveDefeat = false;
+            save?.SaveGame();
+            ReleasePause();
+            if (panel != null) panel.ShowOutcomeNotice(message);
         }
 
         private static bool TryWarpToTown()

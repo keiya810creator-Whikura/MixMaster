@@ -43,6 +43,7 @@ namespace MixMaster.Core
         public const int MinimumParentLevel = 20;
         public const int BaseSuccessPercent = 80;
         public const int BonusPercentPerStep = 2;
+        public const int RewardedAdBonusPercent = 15;
         public const int MaxMaterialStepsPerParent = 5;
         public const long MaterialCostPerStep = 10000L;
 
@@ -67,6 +68,9 @@ namespace MixMaster.Core
                     Mathf.Clamp(stepsA, 0, MaxMaterialStepsPerParent) +
                     Mathf.Clamp(stepsB, 0, MaxMaterialStepsPerParent));
         }
+
+        public static int GetRewardedAdSuccessPercent(int successPercent) =>
+            Math.Min(100, successPercent + RewardedAdBonusPercent);
 
         private void Awake()
         {
@@ -398,6 +402,13 @@ namespace MixMaster.Core
         public bool TryBreed(
             string parentUniqueIdA, string parentUniqueIdB,
             int stepsA, int stepsB,
+            out OwnedMonsterRecord newborn, out bool succeeded, out string error) =>
+            TryBreed(parentUniqueIdA, parentUniqueIdB, stepsA, stepsB, false,
+                out newborn, out succeeded, out error);
+
+        internal bool TryBreed(
+            string parentUniqueIdA, string parentUniqueIdB,
+            int stepsA, int stepsB, bool rewardedByAd,
             out OwnedMonsterRecord newborn, out bool succeeded, out string error)
         {
             newborn = null;
@@ -405,6 +416,7 @@ namespace MixMaster.Core
             if (!TryGetOffer(parentUniqueIdA, parentUniqueIdB, stepsA, stepsB,
                     out BreedingMaterialOffer offer, out error))
                 return false;
+            if (rewardedByAd) offer.successPercent = GetRewardedAdSuccessPercent(offer.successPercent);
 
             var journal = GetComponent<GameJournalManager>() ?? GameJournalManager.Instance;
             var snapshotA = journal != null ? GameJournalManager.Snapshot(monsterManager.FindOwnedMonster(parentUniqueIdA), monsterCatalog) : null;

@@ -277,6 +277,7 @@ namespace MixMaster.Core
                 data.offlinePendingProfile = OfflineRewardRules.CopyProfile(offline.PendingProfile);
                 data.hasOfflinePendingProfile = offline.PendingProfile != null;
                 data.offlineCheckpointUtc = offline.CheckpointUtcForSave;
+                data.offlineUnclaimedReward = OfflineRewardRules.CopyReport(offline.PendingReward);
             }
 
             PlayerController playerController =
@@ -388,7 +389,8 @@ namespace MixMaster.Core
                     data.version >= 11 ? data.offlinePendingProfile : null,
                     data.version >= 11 && !string.IsNullOrWhiteSpace(data.offlineCheckpointUtc)
                         ? data.offlineCheckpointUtc : data.savedUtc,
-                    data.version >= 20 ? (bool?)data.hasOfflinePendingProfile : null);
+                    data.version >= 20 ? (bool?)data.hasOfflinePendingProfile : null,
+                    data.version >= 25 ? data.offlineUnclaimedReward : null);
 
             if (monster != null)
             {

@@ -6,16 +6,27 @@ namespace MixMaster.Core
 {
     public enum OfflineGainKind { Material = 0, Gold = 1, Experience = 2 }
 
+    [Serializable]
     public sealed class OfflineRewardReport
     {
         public double elapsedSeconds;
-        public readonly List<OfflineGainRecord> gains = new List<OfflineGainRecord>();
+        public List<OfflineGainRecord> gains = new List<OfflineGainRecord>();
     }
 
     public static class OfflineRewardRules
     {
         public const float RecordSeconds = 180f;
         public const double Efficiency = 0.5d;
+
+        public static OfflineRewardReport CopyReport(OfflineRewardReport source)
+        {
+            if (source?.gains == null || !(source.elapsedSeconds > 0d) ||
+                double.IsInfinity(source.elapsedSeconds)) return null;
+            var copy = new OfflineRewardReport { elapsedSeconds = source.elapsedSeconds };
+            foreach (OfflineGainRecord gain in source.gains)
+                if (gain != null) AddGain(copy.gains, gain.kind, gain.itemId, gain.amount);
+            return copy.gains.Count > 0 ? copy : null;
+        }
 
         public static OfflineRecordProfile CopyProfile(OfflineRecordProfile source)
         {
