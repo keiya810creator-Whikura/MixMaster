@@ -70,6 +70,7 @@ namespace MixMaster.Core
             // The reward manager must see EquipmentManager in OnEnable
             // even when no manager-settings prefab exists.
             Ensure<MixMaster.World.DungeonRewardManager>(root);
+            Ensure<PlayerDeathManager>(root);
         }
 
         private static void Ensure<T>(GameObject root) where T : Component

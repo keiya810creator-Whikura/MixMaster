@@ -102,6 +102,7 @@ namespace MixMaster.EditorTools
                 PlacePanel<RaidPanelUI>(scene, body, "TrainingPanel",
                     p => new SerializedObject(p).FindProperty("trainingView").boolValue, ref changed);
                 var teleport = PlacePanel<VillageTeleportPanelUI>(scene, body, "VillageTeleportPanel", null, ref changed);
+                PlacePanel<PlayerDeathPanelUI>(scene, safeArea, "PlayerDeathPanel", null, ref changed);
                 var router = First<MapBuildingUIRouter>(scene);
                 Assign(router, "raidPanel", raid, ref changed);
                 Assign(router, "teleportPanel", teleport, ref changed);

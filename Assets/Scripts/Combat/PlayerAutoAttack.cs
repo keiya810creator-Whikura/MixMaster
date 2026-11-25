@@ -202,7 +202,7 @@ namespace MixMaster.Combat
 
         private void Update()
         {
-            if (GetComponent<SkillActor>()?.NormalAttackBlocked == true) return;
+            if (!IsAlive || GetComponent<SkillActor>()?.NormalAttackBlocked == true) return;
             if (!AutoAttackEnabled)
             {
                 currentTarget = null;
@@ -446,6 +446,7 @@ namespace MixMaster.Combat
         private void HandlePlayerHpChanged(long current, long max)
         {
             RefreshHpSlider(current, max);
+            if (current <= 0L) CancelAttack();
         }
 
         private void HandleExperienceChanged(long current, long required)
@@ -463,9 +464,11 @@ namespace MixMaster.Combat
             if (autoAttackToggle != null)
                 autoAttackToggle.SetIsOnWithoutNotify(enabled);
 
-            if (enabled)
-                return;
+            if (!enabled) CancelAttack();
+        }
 
+        private void CancelAttack()
+        {
             currentTarget = null;
             if (swingRoutine != null)
             {

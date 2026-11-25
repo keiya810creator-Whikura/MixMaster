@@ -297,7 +297,7 @@ namespace MixMaster.Core
 
         public void Heal(long amount)
         {
-            if (amount <= 0 || CurrentHp >= Stats.maxHp) return;
+            if (amount <= 0 || CurrentHp <= 0L || CurrentHp >= Stats.maxHp) return;
 
             long before = CurrentHp;
             CurrentHp = Math.Min(

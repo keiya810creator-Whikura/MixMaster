@@ -313,3 +313,8 @@
 MainSceneの実体189MBをLFSから読み、ローカルで不足3画面/スキル説明スクロール/一括設定/ファーム通知を配置して既存10ブロック変更・32追加・削除なしを検証した。ただしこの環境はLFSの書込認証を利用できず、未アップロードの新ポインターを公開しない。PRにはMainSceneの変更を含めず、EditableSceneUiInstallerがEditor読込時にMainSceneの不足UIと参照だけを配置・保存する。既存調整は保持し、未保存のシーンはDirtyだけにする。手動メニューも用意。Unity本体のコンパイル/自動配置/実描画は未実施。代替Unity APIで実ProgressionPanelUI/MonsterFarmPanelUI/InventoryBulkSaleDialog/InventoryUiFactoryをコンパイルし、実Prefabデータを読んだ画面の再利用・ページ送り・開き直し・数値検査・保存・保護・配置維持など120項目成功。操作と検証範囲はDocs/UiLayout.md参照。
 
 2026年11月24日追記：図鑑スキル説明の太字タグが生文字で表示される問題を修正。EncyclopediaPanelUIのpopupText、SkillDetailsPopupUIのdescription、SkillScreenUIのdetailsでリッチテキストを明示し、図鑑2Prefabも有効化。全28 UI Prefabの62 ScrollRectへScrollViewLayoutを保存し、27プルダウンのContent/ItemのPivot・位置・高さを上下12余白込みで補正。TMP_Dropdown.Showの端点計算では旧「上Pivot＋半行オフセット」が最終行をContentの下へ半行はみ出させるため、項目Pivot中央へ統一した。行動プルダウンのvertical=falseも解除。残る35ビューはLayoutGroup下余白・テキスト下マージン・固定行のContent範囲を補完し、仮想グリッドは全行数＋末尾12で高さを計算。毎フレームの全体走査はせず、既存/非表示シーンコピーは読込時、コード生成はFactory、PrefabはAwake/OnEnableで補正。Editor配置処理でも旧コピーを修正する。外枠のRectTransform/GUID/参照とセーブ形式は維持し、MainSceneのLFSポインターは未変更。実補正/仮想グリッド/Factory/スキル詳細クラスを代替APIでコンパイルし763項目（旧不具合再現、全27テンプレート、再開時非累積、固定/テキスト/仮想リスト末尾、0～5,000件でのセル再利用）成功。62ビューと6,391 YAML文書を検査、全232 C#のPlayer/Editor構文エラー0。Unity本体のコンパイル・インポート・実描画/ドラッグは未実施。Docs/UiLayout.md参照。
+
+## 死亡と街への帰還
+
+- 主人公のHPが0になると戦闘を停止し、死亡パネルに帰還時の所持金の減額を表示する。「街へ帰還」で既存の村のスポーン地点へ移動し、成功時に所持金の半分（端数切り捨て）を一度だけ差し引いて保存する。帰還後は失った額を4秒表示する。ダンジョン中は探索を終了する。
+- 死亡状態は既存セーブのHPで判定し、再起動後も帰還を選択できる。「広告を見て復活」はボタンのみ。表示は `Canvas/SafeArea/PlayerDeathPanel` または `Assets/Resources/UI/ScenePanels/PlayerDeathPanel.prefab` で調整する。Unity上での確認は、フィールドやダンジョンで主人公が倒れた状態で「街へ帰還」を押し、位置・HP/MP・所持金・帰還通知を確認する。
