@@ -17,6 +17,7 @@ namespace MixMaster.Combat
 #endif
         private ProjectileMotion motion;
         private SkillActor owner, target;
+        internal bool IsEnemyProjectile { get; private set; }
         private SkillSO skill;
         private CharacterStats power;
         private MaterialDropSourceInfo source;
@@ -90,6 +91,7 @@ namespace MixMaster.Combat
             if(p.motion.moveType==SkillProjectileMoveType.Burst)p.motion.piercing=true;
             if(skill.followTarget!=SkillFollowTarget.None)p.motion.followOwner=false;
             p.owner=owner;p.target=target;p.skill=skill;p.power=ReincarnationRules.CopyStats(power);p.source=source;
+            p.IsEnemyProjectile = owner.IsEnemy;
             p.path=new ProjectilePath(position,direction,skill.projectileSpeed,p.motion);p.collided.Clear();p.affected.Clear();p.lastHits.Clear();
             if(exclude!=null){p.collided.Add(exclude);p.affected.Add(exclude);p.lastHits[exclude]=Time.time;}
             p.end=Time.time+skill.projectileLifetime;p.baseScale=go.transform.localScale;p.visual=renderer;p.baseColor=renderer.color;

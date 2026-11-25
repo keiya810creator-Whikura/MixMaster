@@ -3,6 +3,7 @@ using MixMaster.Player;
 using MixMaster.UI;
 using MixMaster.World;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace MixMaster.Core
 {
@@ -67,6 +68,8 @@ namespace MixMaster.Core
                 // Save outside the health event so that loading a defeated
                 // character can finish restoring the rest of the save first.
                 saveDefeat = false;
+                // Include any projectiles spawned by the killing hit, such as split shots.
+                ClearEnemyProjectiles();
                 if (SkillActor.PlayerActor != null) SkillActor.PlayerActor.ResetTransient();
                 save?.SaveGame();
             }
@@ -136,6 +139,7 @@ namespace MixMaster.Core
             returning = true;
             try
             {
+                ClearEnemyProjectiles();
                 player.RestoreFullResources();
                 FinishRecovery("その場で復活しました\nHP・MPが全回復しました。");
             }
@@ -148,6 +152,7 @@ namespace MixMaster.Core
             returning = true;
             try
             {
+                ClearEnemyProjectiles();
                 if (!TryWarpToTown())
                 {
                     if (panel != null) panel.ShowStatus("街へ帰還できませんでした。もう一度お試しください。");
@@ -164,6 +169,35 @@ namespace MixMaster.Core
             {
                 returning = false;
             }
+        }
+
+        private static void ClearEnemyProjectiles()
+        {
+            var body = FindFirstObjectByType<PlayerController>();
+            if (body == null) return;
+
+            var scene = body.gameObject.scene;
+            var physicsScene = scene.GetPhysicsScene2D();
+            foreach (var shot in FindObjectsByType<EnemyMagicProjectile>(FindObjectsSortMode.None))
+            {
+                // Normal attack prefabs can also be used by allies, with this component disabled.
+                if (shot != null && shot.isActiveAndEnabled &&
+                    shot.gameObject.scene.GetPhysicsScene2D().Equals(physicsScene))
+                    DespawnProjectile(shot.gameObject);
+            }
+
+            foreach (var shot in FindObjectsByType<SkillProjectile>(FindObjectsSortMode.None))
+            {
+                if (shot != null && shot.IsEnemyProjectile && shot.gameObject.scene == scene)
+                    DespawnProjectile(shot.gameObject);
+            }
+        }
+
+        private static void DespawnProjectile(GameObject shot)
+        {
+            // Destroy is deferred. Stop hits and rendering before healing or moving the player.
+            shot.SetActive(false);
+            Destroy(shot);
         }
 
         private void FinishRecovery(string message)
