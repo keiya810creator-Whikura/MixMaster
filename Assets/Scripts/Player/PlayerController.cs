@@ -157,6 +157,12 @@ namespace MixMaster.Player
             if (playerManager == null)
                 playerManager = FindFirstObjectByType<MixMaster.Core.PlayerManager>();
 
+            if (playerManager?.CurrentHp == 0L)
+            {
+                body.linearVelocity = Vector2.zero;
+                return;
+            }
+
             float effectiveSpeed = playerManager != null
                 ? Mathf.Max(0f, playerManager.Stats.moveSpeed)
                 : moveSpeed * MixMaster.Core.StatCalculator.MovementSpeedMultiplier;
@@ -167,7 +173,7 @@ namespace MixMaster.Player
 
         private void ReadMovementInput()
         {
-            if (moveAction.action == null)
+            if (playerManager?.CurrentHp == 0L || moveAction.action == null)
             {
                 moveInput = Vector2.zero;
                 return;

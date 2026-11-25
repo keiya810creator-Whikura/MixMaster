@@ -140,6 +140,7 @@ namespace MixMaster.World
             TilemapMapRoot destinationMap, Vector3 targetWorld)
         {
             if (player == null || currentMap == null || destinationMap == null ||
+                GameManager.Instance?.GetComponent<PlayerManager>()?.CurrentHp == 0L ||
                 currentMap == destinationMap || !currentMap.gameObject.activeInHierarchy ||
                 currentMap.gameObject.scene != destinationMap.gameObject.scene ||
                 (destinationMap.transform.parent != null &&

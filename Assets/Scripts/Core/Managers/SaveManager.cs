@@ -441,6 +441,8 @@ namespace MixMaster.Core
             yield return null;
             for (int attempt = 0; attempt < 120; attempt++)
             {
+                // A saved defeat still needs a return decision.
+                if (GetComponent<PlayerManager>()?.CurrentHp == 0L) yield break;
                 MixMaster.World.VillageSpawnPoint spawn =
                     FindFirstObjectByType<MixMaster.World.VillageSpawnPoint>(FindObjectsInactive.Include);
                 if (spawn != null && spawn.TryRespawnPlayer()) yield break;
