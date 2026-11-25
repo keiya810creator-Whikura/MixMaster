@@ -11,7 +11,7 @@ namespace MixMaster.Core
         private OfflineRecordProfile recordingProfile;
         private double recordingStartedAt;
         private DateTime checkpointUtc;
-        private bool paused, focused = true, subscribed, applyingRewards;
+        private bool paused, focused = true, subscribed, applyingRewards, awayForAd;
         private GameManager game;
         private PlayerManager player;
         private MonsterManager monsters;
@@ -24,7 +24,7 @@ namespace MixMaster.Core
         public bool IsAway => paused || !focused;
         public OfflineRecordProfile LastCompletedProfile { get; private set; }
         public OfflineRecordProfile PendingProfile { get; private set; }
-        public OfflineRewardReport LatestReport { get; private set; }
+        public OfflineRewardReport PendingReward { get; private set; }
         public event Action Changed;
         public event Action RecordingCompleted;
         public double RemainingSeconds => IsRecording
@@ -84,7 +84,8 @@ namespace MixMaster.Core
             RestoreProgress(profile, null, string.Empty);
         }
 
-        public void RestoreProgress(OfflineRecordProfile profile, OfflineRecordProfile pending, string utc, bool? hasPending = null)
+        public void RestoreProgress(OfflineRecordProfile profile, OfflineRecordProfile pending, string utc,
+            bool? hasPending = null, OfflineRewardReport unclaimed = null)
         {
             LastCompletedProfile = OfflineRewardRules.CopyProfile(profile);
             PendingProfile = hasPending == false ? null : OfflineRewardRules.CopyProfile(pending);
@@ -95,7 +96,7 @@ namespace MixMaster.Core
                 PendingProfile = null;
             recordingProfile = null;
             IsRecording = false;
-            LatestReport = null;
+            PendingReward = OfflineRewardRules.CopyReport(unclaimed);
             IsReady = false;
             if (!OfflineRewardRules.TryParseUtc(utc, out checkpointUtc))
                 checkpointUtc = DateTime.UtcNow;
@@ -107,7 +108,7 @@ namespace MixMaster.Core
             Subscribe();
             IsReady = game != null && player != null && materials != null && save != null;
             if (!IsReady) return;
-            ApplyOfflineRewards(DateTime.UtcNow);
+            AccumulateOfflineRewards(DateTime.UtcNow);
             Changed?.Invoke();
         }
 
@@ -229,13 +230,19 @@ namespace MixMaster.Core
             if (IsAway)
             {
                 checkpointUtc = DateTime.UtcNow;
+                awayForAd = RewardedAdManager.Instance?.IsShowing == true;
                 if (!TryFinishRecording())
                 {
                     CancelRecording();
                     SaveProgress();
                 }
             }
-            else ApplyOfflineRewards(DateTime.UtcNow);
+            else if (awayForAd)
+            {
+                awayForAd = false;
+                checkpointUtc = DateTime.UtcNow;
+            }
+            else AccumulateOfflineRewards(DateTime.UtcNow);
             // Panels must also close while away when there are no gains or
             // active recording to publish a resource/recording change.
             Changed?.Invoke();
@@ -247,51 +254,61 @@ namespace MixMaster.Core
             if (!IsAway) checkpointUtc = DateTime.UtcNow;
         }
 
-        private void ApplyOfflineRewards(DateTime now)
+        private void AccumulateOfflineRewards(DateTime now)
         {
             if (!IsReady || applyingRewards) return;
             double seconds = Math.Max(0d, (now - checkpointUtc).TotalSeconds);
-            checkpointUtc = now; // Consume once before publishing any resource events.
+            checkpointUtc = now;
             List<OfflineGainRecord> calculated = CalculateOfflineGains(seconds);
-            if (calculated.Count == 0) { SaveProgress(); return; }
+            if (calculated.Count > 0)
+            {
+                if (PendingReward == null) PendingReward = new OfflineRewardReport();
+                PendingReward.elapsedSeconds += seconds;
+                foreach (OfflineGainRecord gain in calculated)
+                    OfflineRewardRules.AddGain(PendingReward.gains, gain.kind, gain.itemId, gain.amount);
+            }
+            // Save the unclaimed reward alongside the consumed offline interval.
+            SaveProgress();
+        }
+
+        internal bool TryClaimReward(OfflineRewardReport expected, bool doubleReward,
+            out OfflineRewardReport receipt)
+        {
+            receipt = null;
+            if (!IsReady || applyingRewards || expected == null || PendingReward != expected)
+                return false;
+
             applyingRewards = true;
+            PendingReward = null;
             try
             {
-                var report = new OfflineRewardReport { elapsedSeconds = seconds };
-                foreach (OfflineGainRecord gain in calculated)
+                receipt = new OfflineRewardReport { elapsedSeconds = expected.elapsedSeconds };
+                foreach (OfflineGainRecord gain in expected.gains)
                 {
+                    long amount = doubleReward ? LongMath.SaturatingAdd(gain.amount, gain.amount) : gain.amount;
                     long actual = 0L;
                     switch (gain.kind)
                     {
                         case OfflineGainKind.Gold:
                             long before = game.Gold;
-                            game.AddGold(gain.amount);
+                            game.AddGold(amount);
                             actual = Math.Max(0L, game.Gold - before);
                             break;
                         case OfflineGainKind.Experience:
-                            actual = AwardExperience(gain.amount);
+                            actual = AwardExperience(amount);
                             break;
                         case OfflineGainKind.Material:
-                            actual = materials.AddMaterial(gain.itemId, gain.amount);
+                            actual = materials.AddMaterial(gain.itemId, amount);
                             break;
                     }
-                    OfflineRewardRules.AddGain(report.gains, gain.kind, gain.itemId, actual);
+                    OfflineRewardRules.AddGain(receipt.gains, gain.kind, gain.itemId, actual);
                 }
-                if (report.gains.Count > 0)
-                {
-                    if (LatestReport == null) LatestReport = report;
-                    else
-                    {
-                        LatestReport.elapsedSeconds += report.elapsedSeconds;
-                        foreach (OfflineGainRecord gain in report.gains)
-                            OfflineRewardRules.AddGain(LatestReport.gains, gain.kind, gain.itemId, gain.amount);
-                    }
-                }
-                // Rewards and consumed checkpoint are captured in the same save.
+                // Ownership and the cleared claim are saved together.
                 SaveProgress();
             }
             finally { applyingRewards = false; }
             Changed?.Invoke();
+            return true;
         }
 
         private long AwardExperience(long amount)
@@ -316,12 +333,6 @@ namespace MixMaster.Core
             if (monsters != null)
                 awarded = Math.Max(awarded, monsters.AwardFarmExperience(amount));
             return awarded;
-        }
-
-        public void AcknowledgeReport()
-        {
-            LatestReport = null;
-            Changed?.Invoke();
         }
 
         private void SaveProgress()

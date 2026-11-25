@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 24;
+        public const int CurrentVersion = 25;
         public int activeFarmIndex;
         public List<int> farmTargetLevels = new List<int>();
         public List<string> claimedCollectionRewards = new List<string>();
@@ -80,5 +80,6 @@ namespace MixMaster.Core
         public OfflineRecordProfile offlinePendingProfile;
         public bool hasOfflinePendingProfile;
         public string offlineCheckpointUtc = string.Empty;
+        public OfflineRewardReport offlineUnclaimedReward;
     }
 }

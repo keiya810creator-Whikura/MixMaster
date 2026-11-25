@@ -17,10 +17,15 @@ namespace MixMaster.UI
         [SerializeField] private GameObject decision;
         [SerializeField] private TMP_Text lossText;
         [SerializeField] private Button returnButton;
+        [SerializeField] private Button adReviveButton;
+        [SerializeField] private Button adReturnButton;
+        [SerializeField] private TMP_Text statusText;
         [SerializeField] private GameObject returnNotice;
         [SerializeField] private TMP_Text noticeText;
 
         private Action onReturn;
+        private Action onAdRevive;
+        private Action onAdReturn;
         private Coroutine noticeRoutine;
 
         internal bool IsDecisionVisible => isActiveAndEnabled && decision != null && decision.activeInHierarchy;
@@ -57,21 +62,28 @@ namespace MixMaster.UI
         }
 
         private bool HasReferences() => decision != null && lossText != null &&
-            returnButton != null && returnNotice != null && noticeText != null;
+            returnButton != null && adReviveButton != null && adReturnButton != null &&
+            statusText != null && returnNotice != null && noticeText != null;
 
         private void Awake()
         {
             if (returnButton != null) returnButton.onClick.AddListener(OnReturnClicked);
+            if (adReviveButton != null) adReviveButton.onClick.AddListener(OnAdReviveClicked);
+            if (adReturnButton != null) adReturnButton.onClick.AddListener(OnAdReturnClicked);
         }
 
         private void OnDestroy()
         {
             if (returnButton != null) returnButton.onClick.RemoveListener(OnReturnClicked);
+            if (adReviveButton != null) adReviveButton.onClick.RemoveListener(OnAdReviveClicked);
+            if (adReturnButton != null) adReturnButton.onClick.RemoveListener(OnAdReturnClicked);
         }
 
         private void OnReturnClicked() => onReturn?.Invoke();
+        private void OnAdReviveClicked() => onAdRevive?.Invoke();
+        private void OnAdReturnClicked() => onAdReturn?.Invoke();
 
-        internal void ShowDecision(long lostGold, Action returnToTown)
+        internal void ShowDecision(long lostGold, Action returnToTown, Action adRevive, Action adReturn)
         {
             gameObject.SetActive(true);
             if (noticeRoutine != null)
@@ -82,7 +94,10 @@ namespace MixMaster.UI
 
             returnNotice.SetActive(false);
             onReturn = returnToTown;
+            onAdRevive = adRevive;
+            onAdReturn = adReturn;
             ShowProjectedLoss(lostGold);
+            ShowStatus(string.Empty);
             decision.SetActive(true);
             if (EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(returnButton.gameObject);
@@ -93,26 +108,32 @@ namespace MixMaster.UI
             lossText.text = $"街へ帰還すると所持金の半分\n（{lostGold:N0} G）を失います。";
         }
 
-        internal void ShowReturnFailed()
+        internal void SetActionsEnabled(bool enabled)
         {
-            lossText.text = "街への帰還に失敗しました。\n所持金は減っていません。";
+            returnButton.interactable = enabled;
+            adReviveButton.interactable = enabled;
+            adReturnButton.interactable = enabled;
         }
+
+        internal void ShowStatus(string text) => statusText.text = text;
 
         internal void HideDecision()
         {
             onReturn = null;
+            onAdRevive = null;
+            onAdReturn = null;
             var events = EventSystem.current;
-            if (events != null && returnButton != null &&
-                events.currentSelectedGameObject == returnButton.gameObject)
+            if (events != null && decision != null && events.currentSelectedGameObject != null &&
+                events.currentSelectedGameObject.transform.IsChildOf(decision.transform))
                 events.SetSelectedGameObject(null);
             if (decision != null) decision.SetActive(false);
         }
 
-        internal void ShowReturnNotice(long lostGold)
+        internal void ShowOutcomeNotice(string message)
         {
             HideDecision();
             if (!isActiveAndEnabled) return;
-            noticeText.text = $"街に帰還しました\n{lostGold:N0} Gを失いました。";
+            noticeText.text = message;
             returnNotice.SetActive(true);
             noticeRoutine = StartCoroutine(DismissNotice());
         }

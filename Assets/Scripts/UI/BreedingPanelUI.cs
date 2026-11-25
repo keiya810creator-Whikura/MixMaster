@@ -66,6 +66,7 @@ namespace MixMaster.UI
         [SerializeField] private GameObject confirmationOverlay;
         [SerializeField] private TMP_Text confirmationText;
         [SerializeField] private Button confirmButton;
+        [SerializeField] private Button confirmAdButton;
         [SerializeField] private Button cancelButton;
 
         private readonly List<OwnedMonsterRecord> candidates = new List<OwnedMonsterRecord>();
@@ -85,6 +86,10 @@ namespace MixMaster.UI
         private int page;
         private bool wired;
         private bool showIndividualValues;
+        private bool adPending;
+        private bool adAddsChance;
+        private int confirmationVersion;
+        private string confirmationDescription;
 
         [Serializable]
         private sealed class CandidateRow
@@ -100,6 +105,8 @@ namespace MixMaster.UI
             CollectSavedCandidateRows();
             WireButtons();
         }
+
+        private void OnDisable() => confirmationVersion++;
 
         /// <summary>
         /// Editor-authored Prefabs do not serialize the private CandidateRow
@@ -217,6 +224,7 @@ namespace MixMaster.UI
             previousPageButton.onClick.AddListener(PreviousPage);
             nextPageButton.onClick.AddListener(NextPage);
             confirmButton.onClick.AddListener(Confirm);
+            if (confirmAdButton != null) confirmAdButton.onClick.AddListener(ConfirmWithAd);
             cancelButton.onClick.AddListener(CancelConfirmation);
             materialAPlusButton.onClick.AddListener(AddMaterialA);
             materialAMinusButton.onClick.AddListener(RemoveMaterialA);
@@ -249,6 +257,7 @@ namespace MixMaster.UI
             previousPageButton.onClick.RemoveListener(PreviousPage);
             nextPageButton.onClick.RemoveListener(NextPage);
             confirmButton.onClick.RemoveListener(Confirm);
+            if (confirmAdButton != null) confirmAdButton.onClick.RemoveListener(ConfirmWithAd);
             cancelButton.onClick.RemoveListener(CancelConfirmation);
             materialAPlusButton.onClick.RemoveListener(AddMaterialA);
             materialAMinusButton.onClick.RemoveListener(RemoveMaterialA);
@@ -367,6 +376,7 @@ namespace MixMaster.UI
         private void NextPage() { SetPage(page + 1); }
         private void CancelConfirmation()
         {
+            if (adPending) return;
             if (confirmationOverlay != null)
                 confirmationOverlay.SetActive(false);
         }
@@ -484,7 +494,7 @@ namespace MixMaster.UI
         private void OpenConfirmation()
         {
             EnsureReferences();
-            if (previewChild == null || breedingManager == null)
+            if (adPending || previewChild == null || breedingManager == null)
                 return;
 
             if (!breedingManager.TryGetOffer(
@@ -510,8 +520,10 @@ namespace MixMaster.UI
                 return;
             }
 
-            confirmationText.text =
-                "成功率 " + offer.successPercent + "％ で配合しますか？\n\n" +
+            int adRate = BreedingManager.GetRewardedAdSuccessPercent(offer.successPercent);
+            adAddsChance = adRate > offer.successPercent;
+            confirmationDescription =
+                $"配合成功率 {offer.successPercent}％ ／ 広告視聴後 {adRate}％\n\n" +
                 FormatMonster(a) + "\n＋\n" + FormatMonster(b) +
                 "\n\n" + FormatMaterialCost(offer.materialA, offer.requiredA) +
                 "\n" + FormatMaterialCost(offer.materialB, offer.requiredB) +
@@ -519,37 +531,101 @@ namespace MixMaster.UI
                 (breedingManager.ProtectParentsOnFailure
                     ? "\n失敗: 親2体は残る（投入素材は消費）"
                     : "\n失敗: 親2体は消失（装備は残る）");
+            confirmationText.text = confirmationDescription;
+            confirmationVersion++;
             confirmationOverlay.SetActive(true);
+            UpdateConfirmationButtons();
         }
 
-        private void Confirm()
+        private void ConfirmWithAd()
         {
-            if (confirmationOverlay == null || !confirmationOverlay.activeSelf)
+            if (adPending || confirmationOverlay == null || !confirmationOverlay.activeInHierarchy)
                 return;
-            confirmationOverlay.SetActive(false);
-            EnsureReferences();
 
-            // Recheck the preview immediately before the irreversible action.
-            string previewError = string.Empty;
-            BreedingMaterialOffer currentOffer = null;
-            if (breedingManager == null ||
-                !breedingManager.TryGetOffer(
-                    parentAUniqueId, parentBUniqueId,
-                    materialStepsA, materialStepsB,
-                    out currentOffer, out previewError) ||
-                previewChild == null || previewChild != currentOffer.child ||
-                previewIsSpecial != currentOffer.isSpecial)
+            if (!ValidateConfirmation(out BreedingMaterialOffer offer)) return;
+            if (offer.successPercent >= 100)
             {
-                InvalidatePreview();
-                ShowNotice("選択状態が変更されました。" +
-                    (string.IsNullOrEmpty(previewError) ? "再度プレビューしてください。" : previewError));
-                RefreshAll();
+                adAddsChance = false;
+                UpdateConfirmationButtons();
+                ShowConfirmationStatus("成功率はすでに100％です。");
                 return;
             }
 
+            var ads = RewardedAdManager.Instance;
+            if (ads == null)
+            {
+                ShowConfirmationStatus("広告を利用できません。");
+                return;
+            }
+
+            int version = confirmationVersion;
+            string parentA = parentAUniqueId;
+            string parentB = parentBUniqueId;
+            adPending = true;
+            UpdateConfirmationButtons();
+            ShowConfirmationStatus(null);
+            if (ads.TryShow(message =>
+            {
+                if (this == null) return;
+                adPending = false;
+                UpdateConfirmationButtons();
+                if (!isActiveAndEnabled || version != confirmationVersion ||
+                    confirmationOverlay == null || !confirmationOverlay.activeInHierarchy)
+                    return;
+                if (parentA != parentAUniqueId || parentB != parentBUniqueId ||
+                    offer.stepsA != materialStepsA || offer.stepsB != materialStepsB ||
+                    offer.child != previewChild || offer.isSpecial != previewIsSpecial)
+                {
+                    ShowConfirmationStatus("配合内容が変わりました。もう一度確認してください。");
+                    return;
+                }
+                if (message == null) Confirm(true);
+                else ShowConfirmationStatus(message);
+            }, out string error)) return;
+
+            adPending = false;
+            UpdateConfirmationButtons();
+            ShowConfirmationStatus(error);
+        }
+
+        private void UpdateConfirmationButtons()
+        {
+            if (confirmButton != null) confirmButton.interactable = !adPending;
+            if (cancelButton != null) cancelButton.interactable = !adPending;
+            if (confirmAdButton != null) confirmAdButton.interactable = !adPending && adAddsChance;
+        }
+
+        private void ShowConfirmationStatus(string message) => confirmationText.text =
+            string.IsNullOrEmpty(message) ? confirmationDescription : confirmationDescription + "\n\n" + message;
+
+        private bool ValidateConfirmation(out BreedingMaterialOffer offer)
+        {
+            EnsureReferences();
+            string error = string.Empty;
+            offer = null;
+            if (breedingManager != null && breedingManager.TryGetOffer(
+                    parentAUniqueId, parentBUniqueId, materialStepsA, materialStepsB, out offer, out error) &&
+                previewChild != null && previewChild == offer.child && previewIsSpecial == offer.isSpecial)
+                return true;
+
+            confirmationOverlay.SetActive(false);
+            InvalidatePreview();
+            ShowNotice("選択状態が変更されました。" +
+                (string.IsNullOrEmpty(error) ? "再度プレビューしてください。" : error));
+            RefreshAll();
+            return false;
+        }
+
+        private void Confirm() => Confirm(false);
+
+        private void Confirm(bool rewardedByAd)
+        {
+            if (adPending || confirmationOverlay == null || !confirmationOverlay.activeInHierarchy ||
+                !ValidateConfirmation(out _)) return;
+            confirmationOverlay.SetActive(false);
             if (!breedingManager.TryBreed(
                     parentAUniqueId, parentBUniqueId,
-                    materialStepsA, materialStepsB,
+                    materialStepsA, materialStepsB, rewardedByAd,
                     out OwnedMonsterRecord newborn, out bool succeeded, out string error))
             {
                 InvalidatePreview();
@@ -1272,8 +1348,8 @@ namespace MixMaster.UI
             GameObject popup = MakeRectObject("ConfirmCard", confirmation.transform,
                 typeof(Image), typeof(VerticalLayoutGroup));
             RectTransform popupRect = popup.GetComponent<RectTransform>();
-            popupRect.anchorMin = new Vector2(0.12f, 0.33f);
-            popupRect.anchorMax = new Vector2(0.88f, 0.67f);
+            popupRect.anchorMin = new Vector2(0.12f, 0.27f);
+            popupRect.anchorMax = new Vector2(0.88f, 0.73f);
             popupRect.offsetMin = Vector2.zero;
             popupRect.offsetMax = Vector2.zero;
             popup.GetComponent<Image>().color = new Color(0.14f, 0.20f, 0.27f, 1f);
@@ -1295,6 +1371,9 @@ namespace MixMaster.UI
                 new Color(0.26f, 0.50f, 0.33f, 1f);
             panel.cancelButton = ActionButton(confirmButtons.transform,
                 "Cancel", "キャンセル", 85f);
+            panel.confirmAdButton = ActionButton(popup.transform,
+                "ConfirmWithAd", "広告を見て＋15％で配合", 72f);
+            panel.confirmAdButton.GetComponent<Image>().color = new Color(0.27f, 0.38f, 0.54f, 1f);
             confirmation.SetActive(false);
             panel.confirmationOverlay = confirmation;
 
@@ -1318,6 +1397,7 @@ namespace MixMaster.UI
             panel.WireButtons();
             return panel;
         }
+#endif
 
         private static Toggle CreateIndividualValuesToggle(Transform parent,
             string name = "IndividualValuesToggle", string label = "個体値表示", float width = 280f)
@@ -1526,6 +1606,5 @@ namespace MixMaster.UI
                 button = button, detailButton = details, icon = icon, label = label
             };
         }
-#endif
     }
 }
