@@ -90,6 +90,9 @@ namespace MixMaster.UI
         private bool adAddsChance;
         private int confirmationVersion;
         private string confirmationDescription;
+        private Button charmButton;
+        private TMP_Text charmLabel;
+        private bool useCharm;
 
         [Serializable]
         private sealed class CandidateRow
@@ -520,18 +523,19 @@ namespace MixMaster.UI
                 return;
             }
 
+            useCharm = false;
+            EnsureCharmButton();
+            var adLabel = confirmAdButton != null ? confirmAdButton.GetComponentInChildren<TMP_Text>(true) : null;
+            if (adLabel != null) adLabel.text = RewardedAdManager.CanSkip ? "＋15％で配合" : "広告を見て＋15％で配合";
             int adRate = BreedingManager.GetRewardedAdSuccessPercent(offer.successPercent);
             adAddsChance = adRate > offer.successPercent;
             confirmationDescription =
-                $"配合成功率 {offer.successPercent}％ ／ 広告視聴後 {adRate}％\n\n" +
+                $"配合成功率 {offer.successPercent}％ ／ ＋15補正後 {adRate}％\n\n" +
                 FormatMonster(a) + "\n＋\n" + FormatMonster(b) +
                 "\n\n" + FormatMaterialCost(offer.materialA, offer.requiredA) +
                 "\n" + FormatMaterialCost(offer.materialB, offer.requiredB) +
-                "\n\n成功: 【" + offer.child.displayName + "】獲得" +
-                (breedingManager.ProtectParentsOnFailure
-                    ? "\n失敗: 親2体は残る（投入素材は消費）"
-                    : "\n失敗: 親2体は消失（装備は残る）");
-            confirmationText.text = confirmationDescription;
+                "\n\n成功: 【" + offer.child.displayName + "】獲得";
+            ShowConfirmationStatus(null);
             confirmationVersion++;
             confirmationOverlay.SetActive(true);
             UpdateConfirmationButtons();
@@ -593,10 +597,38 @@ namespace MixMaster.UI
             if (confirmButton != null) confirmButton.interactable = !adPending;
             if (cancelButton != null) cancelButton.interactable = !adPending;
             if (confirmAdButton != null) confirmAdButton.interactable = !adPending && adAddsChance;
+            if (charmButton != null)
+            {
+                long owned = PurchaseManager.Instance?.Charms ?? 0L;
+                charmButton.interactable = !adPending && owned > 0L;
+                charmLabel.text = $"配合のお守り（所持 {owned:N0}） {(useCharm ? "使用する" : "使用しない")}";
+            }
         }
 
-        private void ShowConfirmationStatus(string message) => confirmationText.text =
-            string.IsNullOrEmpty(message) ? confirmationDescription : confirmationDescription + "\n\n" + message;
+        private void EnsureCharmButton()
+        {
+            if (charmButton != null || confirmButton == null) return;
+            var parent = confirmButton.transform.parent.parent;
+            charmButton = ActionButton(parent, "UseBreedingCharm", "", 64f);
+            charmLabel = charmButton.GetComponentInChildren<TMP_Text>(true);
+            charmLabel.font = confirmationText.font;
+            charmButton.onClick.AddListener(() =>
+            {
+                if (adPending || !(PurchaseManager.Instance?.Charms > 0)) return;
+                useCharm = !useCharm;
+                UpdateConfirmationButtons();
+                ShowConfirmationStatus(null);
+            });
+        }
+
+        private void ShowConfirmationStatus(string message)
+        {
+            string failure = breedingManager.ProtectParentsOnFailure
+                ? "親2体は残る（投入素材は消費）"
+                : useCharm ? "お守り1個で親2体を保護（投入素材は消費）" : "親2体は消失（装備は残る）";
+            confirmationText.text = confirmationDescription + "\n失敗: " + failure;
+            if (!string.IsNullOrEmpty(message)) confirmationText.text += "\n\n" + message;
+        }
 
         private bool ValidateConfirmation(out BreedingMaterialOffer offer)
         {
@@ -626,7 +658,7 @@ namespace MixMaster.UI
             if (!breedingManager.TryBreed(
                     parentAUniqueId, parentBUniqueId,
                     materialStepsA, materialStepsB, rewardedByAd,
-                    out OwnedMonsterRecord newborn, out bool succeeded, out string error))
+                    out OwnedMonsterRecord newborn, out bool succeeded, out string error, useCharm))
             {
                 InvalidatePreview();
                 ShowNotice(error);
@@ -659,7 +691,7 @@ namespace MixMaster.UI
             }
             else
             {
-                bool protectedParents = breedingManager.ProtectParentsOnFailure;
+                bool protectedParents = breedingManager.ProtectParentsOnFailure || useCharm;
                 previewText.text = protectedParents
                     ? "配合失敗…\n素材を失いましたが、親2体は保護されました。"
                     : "配合失敗…\n素材と親2体を失いました。";

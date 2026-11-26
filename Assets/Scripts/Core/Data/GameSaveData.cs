@@ -7,7 +7,7 @@ namespace MixMaster.Core
     [Serializable]
     public sealed class GameSaveData
     {
-        public const int CurrentVersion = 25;
+        public const int CurrentVersion = 26;
         public int activeFarmIndex;
         public List<int> farmTargetLevels = new List<int>();
         public List<string> claimedCollectionRewards = new List<string>();
@@ -35,6 +35,7 @@ namespace MixMaster.Core
 
         public long gold;
         public ConsumableSaveData consumables;
+        public PurchaseSaveData purchases;
         public CharacterStats playerStats = new CharacterStats();
         public int playerLevel = 1;
         public long playerExperience;

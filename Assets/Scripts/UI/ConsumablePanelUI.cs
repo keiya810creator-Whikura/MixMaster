@@ -91,13 +91,14 @@ namespace MixMaster.UI
             int index = 0;
             foreach (ConsumableDefinition item in manager.Catalog.items)
             {
-                if (item == null || string.IsNullOrEmpty(item.itemId)) continue;
+                if (item == null || string.IsNullOrEmpty(item.itemId) ||
+                    (item.IsUnlimited && (shopMode || manager.UsableQuantity(item) == 0L))) continue;
                 if (rows.Count <= index) rows.Add(Instantiate(rowPrefab, rowsRoot));
                 var row = rows[index++]; row.gameObject.SetActive(true);
                 string id = item.itemId; int amount = PurchaseQuantity;
                 bool canBuy = game != null && item.purchasePrice >= 0 && item.purchasePrice <= long.MaxValue / amount &&
                     game.Gold >= item.purchasePrice * amount && manager.Quantity(id) <= long.MaxValue - amount;
-                row.Bind(item, manager.Quantity(id), shopMode, amount, canBuy,
+                row.Bind(item, manager.UsableQuantity(item), shopMode, amount, canBuy,
                     () => Act(id), () => Select(id), shopMode ? 0f : manager.CooldownRemaining(id));
             }
             for (int i = index; i < rows.Count; i++) rows[i].gameObject.SetActive(false);

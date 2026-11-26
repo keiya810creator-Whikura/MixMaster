@@ -140,7 +140,7 @@ namespace MixMaster.UI
             if (recordingPanel != null && recordingPanel.IsVisible) return;
 
             bool canClaim = manager.PendingReward != null;
-            string status = canClaim ? "受取前" : doubledReceipt ? "受取済み（広告で2倍）" : "受取済み";
+            string status = canClaim ? "受取前" : doubledReceipt ? "受取済み（2倍）" : "受取済み";
             receiptPanel.Show("放置時間 " + OfflineRewardPanelUI.Duration(report.elapsedSeconds) +
                 " ／ " + status, report.gains, null);
             receiptPanel.SetClaimControls(canClaim, false);

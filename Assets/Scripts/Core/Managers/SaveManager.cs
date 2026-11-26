@@ -20,6 +20,7 @@ namespace MixMaster.Core
         private const float AutoSaveIntervalSeconds = 30f;
 
         private bool initialized;
+        internal bool IsInitialized => initialized;
         private bool starterEquipmentGranted;
         private bool hasLastLocation;
         private string lastLocationScene = string.Empty;
@@ -180,6 +181,7 @@ namespace MixMaster.Core
             data.displaySettings = GetComponent<DisplaySettingsManager>()?.Capture();
             ConsumableManager consumables = GetComponent<ConsumableManager>();
             if (consumables != null) data.consumables = consumables.Capture();
+            data.purchases = GetComponent<PurchaseManager>()?.Capture();
             data.skills = GetComponent<SkillProgressionManager>()?.Capture();
             data.partyPresets = GetComponent<PartyPresetManager>()?.Capture() ?? new List<PartyPresetRecord>();
             data.defeatedMonsterIds = GetComponent<EncyclopediaManager>()?.Capture()
@@ -425,6 +427,7 @@ namespace MixMaster.Core
                     data.version >= 7 ? data.monsterAutoSellRequiredStats : 1);
 
             ConsumableManager consumables = GetComponent<ConsumableManager>();
+            GetComponent<PurchaseManager>()?.Restore(data.purchases);
             if (consumables != null) consumables.Restore(data.consumables);
             GetComponent<SkillProgressionManager>()?.Restore(data.skills);
             GetComponent<PartyPresetManager>()?.Restore(data.partyPresets);

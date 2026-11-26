@@ -51,6 +51,7 @@ namespace MixMaster.Core
             Ensure<PlayerManager>(root);
             Ensure<SkillProgressionManager>(root);
             Ensure<PartyPresetManager>(root);
+            Ensure<PurchaseManager>(root);
             Ensure<ConsumableManager>(root);
             Ensure<MonsterManager>(root);
             Ensure<ReincarnationManager>(root);
