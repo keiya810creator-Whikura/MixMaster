@@ -12,6 +12,7 @@ namespace MixMaster.Core
     public sealed class RewardedAdManager : MonoBehaviour
     {
         public static RewardedAdManager Instance { get; private set; }
+        internal static bool CanSkip => PurchaseManager.Instance?.AdSkip == true;
 
 #if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
 #if UNITY_IOS
@@ -72,6 +73,12 @@ namespace MixMaster.Core
         // completed receives null only after the reward is earned and the ad closes.
         internal bool TryShow(Action<string> completed, out string message)
         {
+            if (CanSkip && !IsShowing)
+            {
+                message = null;
+                completed(null);
+                return true;
+            }
 #if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
             if (IsShowing)
             {

@@ -18,10 +18,20 @@ namespace MixMaster.UI
         [SerializeField] private Button recordsButton, goalsButton, helpButton;
         private GameGuidePanelUI guide;
         private bool opened;
+        [SerializeField] private Button purchaseButton;
+        private GameObject purchasePage;
+        private TMP_Text purchaseStatus;
+        private readonly Button[] productButtons = new Button[PurchaseManager.ProductIds.Length];
+        private static readonly string[] ProductNames =
+        {
+            "広告削除", "常鳴りの魔寄せ鈴 ＋ 悠久の帰還翼",
+            "配合のお守り ×5", "配合のお守り ×50"
+        };
 
         private void Awake()
         {
             EnsureGuideButtons();
+            EnsurePurchaseEntry();
             if (recordsButton != null) recordsButton.onClick.AddListener(ShowRecords);
             if (goalsButton != null) goalsButton.onClick.AddListener(ShowGoals);
             if (helpButton != null) helpButton.onClick.AddListener(ShowHelp);
@@ -41,11 +51,12 @@ namespace MixMaster.UI
         }
 
         private void Start() { if (!opened) gameObject.SetActive(false); }
-        private void OnDisable() { Unsubscribe(); opened = false; if (guide != null) guide.gameObject.SetActive(false); }
+        private void OnDisable() { if (PurchaseManager.Instance != null) PurchaseManager.Instance.Changed -= RefreshPurchases; Unsubscribe(); opened = false; if (guide != null) guide.gameObject.SetActive(false); }
 
         private void OnDestroy()
         {
             Unsubscribe();
+            if (purchaseButton != null) purchaseButton.onClick.RemoveListener(ShowPurchases);
             if (recordsButton != null) recordsButton.onClick.RemoveListener(ShowRecords);
             if (goalsButton != null) goalsButton.onClick.RemoveListener(ShowGoals);
             if (helpButton != null) helpButton.onClick.RemoveListener(ShowHelp);
@@ -83,6 +94,11 @@ namespace MixMaster.UI
             gameObject.SetActive(true); transform.SetAsLastSibling(); opened = true;
             Unsubscribe(); settings = DisplaySettingsManager.Instance;
             if (settings != null) settings.Changed += Refresh;
+            if (PurchaseManager.Instance != null)
+            {
+                PurchaseManager.Instance.Changed -= RefreshPurchases;
+                PurchaseManager.Instance.Changed += RefreshPurchases;
+            }
             ShowSelection(); Refresh();
         }
 
@@ -124,6 +140,79 @@ namespace MixMaster.UI
             foreach (var label in selectionRoot.GetComponentsInChildren<TMP_Text>(true))
                 if (label.transform.parent == selectionRoot.transform && label.rectTransform.anchoredPosition.y < -1000) InventoryUiFactory.TopLeft(label.rectTransform, new Vector2(28, -1320), new Vector2(944, 80));
         }
+        private void EnsurePurchaseEntry()
+        {
+            if (selectionRoot == null) return;
+            if (purchaseButton == null)
+                purchaseButton = InventoryUiFactory.Button(selectionRoot.transform, "Purchases", "ショップ・購入の復元",
+                    new Vector2(28, -1250), new Vector2(944, 64));
+            MatchPurchaseFont(purchaseButton.GetComponentInChildren<TMP_Text>(true));
+            purchaseButton.onClick.AddListener(ShowPurchases);
+        }
+
+        private void ShowPurchases()
+        {
+            if (purchasePage == null)
+            {
+                purchasePage = new GameObject("PurchasePage", typeof(RectTransform));
+                purchasePage.transform.SetParent(selectionRoot.transform.parent, false);
+                InventoryUiFactory.Stretch((RectTransform)purchasePage.transform);
+                string[] descriptions =
+                {
+                    "広告なしで復活・無料帰還・配合＋15ポイント・放置報酬2倍",
+                    "鈴は敵の引き寄せをオン・オフ。翼は消費せず街へ帰還。",
+                    "使用を選んだ配合が失敗したとき、1個で両親を保護。",
+                    "同じお守りのまとめ買い。"
+                };
+                for (int i = 0; i < productButtons.Length; i++)
+                {
+                    string productId = PurchaseManager.ProductIds[i];
+                    float top = -225f - i * 212f;
+                    var description = InventoryUiFactory.Text(purchasePage.transform, productId + "Description",
+                        descriptions[i], new Vector2(28, top), new Vector2(944, 64), 33f);
+                    MatchPurchaseFont(description);
+                    var button = InventoryUiFactory.Button(purchasePage.transform, productId, "",
+                        new Vector2(28, top - 72f), new Vector2(944, 106));
+                    button.onClick.AddListener(() => PurchaseManager.Instance?.Buy(productId));
+                    MatchPurchaseFont(button.GetComponentInChildren<TMP_Text>(true));
+                    productButtons[i] = button;
+                }
+                var restore = InventoryUiFactory.Button(purchasePage.transform, "RestorePurchases", "購入を復元",
+                    new Vector2(28, -1100), new Vector2(944, 104));
+                restore.onClick.AddListener(() => PurchaseManager.Instance?.RestorePurchases());
+                MatchPurchaseFont(restore.GetComponentInChildren<TMP_Text>(true));
+                purchaseStatus = InventoryUiFactory.Text(purchasePage.transform, "PurchaseStatus", "",
+                    new Vector2(28, -1220), new Vector2(944, 130), 30f);
+                MatchPurchaseFont(purchaseStatus);
+            }
+
+            ShowPage("ショップ", purchasePage);
+            RefreshPurchases();
+        }
+
+        private void MatchPurchaseFont(TMP_Text label)
+        {
+            if (label != null && titleText != null) label.font = titleText.font;
+        }
+
+        private void RefreshPurchases()
+        {
+            if (purchasePage == null || !purchasePage.activeInHierarchy) return;
+            var purchases = PurchaseManager.Instance;
+            for (int i = 0; i < productButtons.Length; i++)
+            {
+                string id = PurchaseManager.ProductIds[i];
+                bool owned = purchases?.Owns(id) == true;
+                string price = owned ? "購入済み" : purchases?.LocalPrice(id);
+                var button = productButtons[i];
+                button.interactable = purchases?.CanBuy(id) == true;
+                button.GetComponentInChildren<TMP_Text>(true).text = ProductNames[i] +
+                    (string.IsNullOrEmpty(price) ? "" : "　" + price);
+            }
+            purchaseStatus.text = (purchases?.Status ?? "ストアを利用できません。") +
+                "\n配合のお守り " + (purchases?.Charms ?? 0L).ToString("N0") + "個";
+        }
+
         public void ShowOther() { ShowPage("その他設定", otherSettingsRoot); Refresh(); }
         public void ShowVolume() => ShowPage("音量設定（未実装）", placeholderRoot);
         public void ShowCredits() => ShowPage("クレジット（未実装）", placeholderRoot);
@@ -131,6 +220,7 @@ namespace MixMaster.UI
 
         private void ShowPage(string title, GameObject page)
         {
+            if (purchasePage != null) purchasePage.SetActive(page == purchasePage);
             if (selectionRoot != null) selectionRoot.SetActive(page == selectionRoot);
             if (otherSettingsRoot != null) otherSettingsRoot.SetActive(page == otherSettingsRoot);
             if (placeholderRoot != null) placeholderRoot.SetActive(page == placeholderRoot);

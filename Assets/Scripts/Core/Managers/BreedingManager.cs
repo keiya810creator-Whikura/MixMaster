@@ -47,8 +47,7 @@ namespace MixMaster.Core
         public const int MaxMaterialStepsPerParent = 5;
         public const long MaterialCostPerStep = 10000L;
 
-        // The future no-parent-loss purchase can call SetProtectParentsOnFailure.
-        // Defaults to false and must be initialized by the future purchase system.
+        // Optional external protection remains independent of the per-attempt charm.
         private bool protectParentsOnFailure;
 
         public event Action<OwnedMonsterRecord> MonsterBred;
@@ -409,7 +408,7 @@ namespace MixMaster.Core
         internal bool TryBreed(
             string parentUniqueIdA, string parentUniqueIdB,
             int stepsA, int stepsB, bool rewardedByAd,
-            out OwnedMonsterRecord newborn, out bool succeeded, out string error)
+            out OwnedMonsterRecord newborn, out bool succeeded, out string error, bool useCharm = false)
         {
             newborn = null;
             succeeded = false;
@@ -417,6 +416,13 @@ namespace MixMaster.Core
                     out BreedingMaterialOffer offer, out error))
                 return false;
             if (rewardedByAd) offer.successPercent = GetRewardedAdSuccessPercent(offer.successPercent);
+
+            var purchases = GetComponent<PurchaseManager>();
+            if (useCharm && !protectParentsOnFailure && (purchases == null || purchases.Charms <= 0))
+            {
+                error = "配合のお守りがありません。";
+                return false;
+            }
 
             var journal = GetComponent<GameJournalManager>() ?? GameJournalManager.Instance;
             var snapshotA = journal != null ? GameJournalManager.Snapshot(monsterManager.FindOwnedMonster(parentUniqueIdA), monsterCatalog) : null;
@@ -436,10 +442,14 @@ namespace MixMaster.Core
 
             bool successRoll = offer.successPercent >= 100 ||
                 UnityEngine.Random.value < offer.successPercent / 100f;
-            if (!monsterManager.TryCompleteBreedingAttempt(
+            bool spentCharm = !successRoll && useCharm && !protectParentsOnFailure &&
+                purchases != null && purchases.SpendCharm();
+            bool protectedParents = protectParentsOnFailure || spentCharm;
+            if ((!successRoll && useCharm && !protectedParents) || !monsterManager.TryCompleteBreedingAttempt(
                     parentUniqueIdA, parentUniqueIdB, offer.child,
-                    successRoll, protectParentsOnFailure, out newborn))
+                    successRoll, protectedParents, out newborn))
             {
+                if (spentCharm) purchases.RefundCharm();
                 // Parent validation may have changed in a MaterialChanged
                 // subscriber. Refund all committed materials in that case.
                 if (offer.requiredA > 0L)
@@ -452,7 +462,7 @@ namespace MixMaster.Core
 
             succeeded = successRoll;
             if (journal != null) journal.RecordBreeding(snapshotA, snapshotB, newborn, offer, succeeded,
-                protectParentsOnFailure, monsterCatalog, SkillProgressionManager.Instance?.Catalog);
+                protectedParents, monsterCatalog, SkillProgressionManager.Instance?.Catalog);
             if (succeeded)
                 MonsterBred?.Invoke(newborn);
             BreedingAttemptCompleted?.Invoke(succeeded, newborn);

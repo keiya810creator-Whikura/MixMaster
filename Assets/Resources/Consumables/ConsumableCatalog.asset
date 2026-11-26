@@ -69,3 +69,17 @@ MonoBehaviour:
     recoveryAmount: 0
     durationSeconds: 60
     purchasePrice: 1
+  - itemId: unlimited_lure_bell
+    displayName: 常鳴りの魔寄せ鈴
+    icon: {fileID: 21300000, guid: e3c3cec64533aed4dab67460fc7b6cc2, type: 3}
+    effect: 4
+    recoveryAmount: 0
+    durationSeconds: 60
+    purchasePrice: -1
+  - itemId: unlimited_return_wing
+    displayName: 悠久の帰還翼
+    icon: {fileID: 0}
+    effect: 5
+    recoveryAmount: 0
+    durationSeconds: 60
+    purchasePrice: -1

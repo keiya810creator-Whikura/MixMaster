@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using MixMaster.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -96,11 +97,19 @@ namespace MixMaster.UI
             onReturn = returnToTown;
             onAdRevive = adRevive;
             onAdReturn = adReturn;
+            SetLabel(adReviveButton, RewardedAdManager.CanSkip ? "その場で復活" : "広告を見て復活");
+            SetLabel(adReturnButton, RewardedAdManager.CanSkip ? "ペナルティなしで街へ帰還" : "広告を見て街へ帰還\n（ペナルティなし）");
             ShowProjectedLoss(lostGold);
             ShowStatus(string.Empty);
             decision.SetActive(true);
             if (EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(returnButton.gameObject);
+        }
+
+        private static void SetLabel(Button button, string text)
+        {
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = text;
         }
 
         internal void ShowProjectedLoss(long lostGold)

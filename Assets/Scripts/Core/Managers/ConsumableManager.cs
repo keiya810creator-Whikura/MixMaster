@@ -33,6 +33,8 @@ namespace MixMaster.Core
         private bool busy, savePending;
         private float saveAt, nextAutoUse;
         private double lureUntil;
+        private bool permanentLure;
+        public bool PermanentLureActive => permanentLure && PurchaseManager.Instance?.UnlimitedTools == true;
         private int actorSearchFrame = -1;
         public event Action Changed;
 
@@ -49,7 +51,7 @@ namespace MixMaster.Core
         {
             get
             {
-                if (LureSecondsRemaining <= 0f) return null;
+                if (!PermanentLureActive && LureSecondsRemaining <= 0f) return null;
                 return ResolveLureActor();
             }
         }
@@ -69,8 +71,20 @@ namespace MixMaster.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+            var purchases = GetComponent<PurchaseManager>();
+            if (purchases != null) purchases.Changed += RefreshTools;
         }
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+        private void OnDestroy()
+        {
+            var purchases = GetComponent<PurchaseManager>();
+            if (purchases != null) purchases.Changed -= RefreshTools;
+            if (Instance == this) Instance = null;
+        }
+        private void RefreshTools()
+        {
+            if (!PermanentLureActive) permanentLure = false;
+            Changed?.Invoke();
+        }
         private void Resolve()
         {
             if (player == null) player = GetComponent<PlayerManager>() ?? FindFirstObjectByType<PlayerManager>();
@@ -93,6 +107,8 @@ namespace MixMaster.Core
             if ((double)current / maximum * 100d <= rule.thresholdPercent) TryUse(item.itemId, out _);
         }
         public long Quantity(string id) => id != null && inventory.TryGetValue(id, out long n) ? n : 0;
+        public long UsableQuantity(ConsumableDefinition item) => item.IsUnlimited
+            ? (PurchaseManager.Instance?.UnlimitedTools == true ? 1L : 0L) : Quantity(item.itemId);
         public string Shortcut(int index) => index >= 0 && index < ShortcutCount ? shortcuts[index] : null;
         public ConsumableAutoUseRule AutoUseRule(ConsumableEffect effect) =>
             (effect == ConsumableEffect.RestoreMp ? mpAutoUse : hpAutoUse).Copy();
@@ -102,7 +118,7 @@ namespace MixMaster.Core
             message = "購入できません。";
             Resolve();
             ConsumableDefinition item = Catalog != null ? Catalog.Get(id) : null;
-            if (busy || item == null || quantity <= 0 || game == null) return false;
+            if (busy || item == null || item.IsUnlimited || quantity <= 0 || game == null) return false;
             if (item.purchasePrice < 0) { message = "価格未設定です。"; return false; }
             if (item.purchasePrice > long.MaxValue / quantity || Quantity(id) > long.MaxValue - quantity)
             { message = "購入可能な上限を超えています。"; return false; }
@@ -129,7 +145,7 @@ namespace MixMaster.Core
             if (busy || item == null || player == null || player.CurrentHp <= 0) return false;
             if ((item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp) && RecoveryCooldownRemaining > 0f)
             { message = "回復アイテムはあと" + Mathf.CeilToInt(RecoveryCooldownRemaining) + "秒で使用できます。"; return false; }
-            if (Quantity(id) <= 0) { message = "アイテムを所持していません。"; return false; }
+            if (UsableQuantity(item) <= 0) { message = "アイテムを所持していません。"; return false; }
             if (item.effect == ConsumableEffect.RestoreHp && (item.recoveryAmount <= 0 || player.CurrentHp >= player.Stats.maxHp))
             { message = "HPは満タンです。"; return false; }
             if (item.effect == ConsumableEffect.RestoreMp && (item.recoveryAmount <= 0 || player.CurrentMp >= player.Stats.maxMp))
@@ -139,8 +155,17 @@ namespace MixMaster.Core
                 if (ResolveLureActor() == null || item.durationSeconds <= 0 || float.IsNaN(item.durationSeconds) ||
                     float.IsInfinity(item.durationSeconds)) return false;
             }
+            if (item.effect == ConsumableEffect.PermanentMonsterLure)
+            {
+                if (!permanentLure && ResolveLureActor() == null) return false;
+                permanentLure = !permanentLure;
+                if (!permanentLure) lureUntil = 0;
+                message = permanentLure ? "敵の引き寄せをオンにしました。" : "敵の引き寄せをオフにしました。";
+                Changed?.Invoke();
+                return true;
+            }
             VillageSpawnPoint village = null;
-            if (item.effect == ConsumableEffect.ReturnToTown)
+            if (item.effect == ConsumableEffect.ReturnToTown || item.effect == ConsumableEffect.PermanentReturnToTown)
             {
                 village = FindFirstObjectByType<VillageSpawnPoint>(FindObjectsInactive.Include);
                 if (village == null) { message = "街の帰還地点が見つかりません。"; return false; }
@@ -148,10 +173,10 @@ namespace MixMaster.Core
             busy = true;
             try
             {
-                inventory[id] = Quantity(id) - 1;
-                if (item.effect == ConsumableEffect.ReturnToTown && !village.TryRespawnPlayer(true))
+                if (!item.IsUnlimited) inventory[id] = Quantity(id) - 1;
+                if (village != null && !village.TryRespawnPlayer(true))
                 {
-                    inventory[id] = Quantity(id) + 1;
+                    if (!item.IsUnlimited) inventory[id] = Quantity(id) + 1;
                     message = "街へ帰還できません。帰還の翼は消費していません。";
                     return false;
                 }
@@ -213,7 +238,7 @@ namespace MixMaster.Core
                 }
             hpAutoUse = NormalizeRule(data?.hpAutoUse, ConsumableEffect.RestoreHp, "hp_low");
             mpAutoUse = NormalizeRule(data?.mpAutoUse, ConsumableEffect.RestoreMp, "mp_low");
-            lureUntil = 0; recoveryReadyAt = 0; savePending = false;
+            permanentLure = false; lureUntil = 0; recoveryReadyAt = 0; savePending = false;
             Changed?.Invoke();
         }
         private ConsumableAutoUseRule NormalizeRule(ConsumableAutoUseRule saved, ConsumableEffect effect, string fallback)

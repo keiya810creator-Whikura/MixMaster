@@ -25,7 +25,7 @@ namespace MixMaster.UI
         private bool pausedByPanel;
         private float previousTimeScale;
         private string originalQuestion;
-        private TMP_Text acceptLabel;
+        private TMP_Text acceptLabel, adClaimLabel;
         public bool IsVisible => gameObject.activeSelf;
         public event Action Accepted;
         public event Action Dismissed;
@@ -38,7 +38,11 @@ namespace MixMaster.UI
                 acceptButton.onClick.AddListener(Accept);
                 acceptLabel = acceptButton.GetComponentInChildren<TMP_Text>(true);
             }
-            if (adClaimButton != null) adClaimButton.onClick.AddListener(RequestAdClaim);
+            if (adClaimButton != null)
+            {
+                adClaimLabel = adClaimButton.GetComponentInChildren<TMP_Text>(true);
+                adClaimButton.onClick.AddListener(RequestAdClaim);
+            }
             if (keepButton != null) keepButton.onClick.AddListener(Dismiss);
             if (closeButton != null) closeButton.onClick.AddListener(Dismiss);
             originalQuestion = questionText != null ? questionText.text : string.Empty;
@@ -72,6 +76,7 @@ namespace MixMaster.UI
         internal void SetClaimControls(bool canClaim, bool busy)
         {
             if (acceptLabel != null) acceptLabel.text = canClaim ? "通常受取" : "閉じる";
+            if (adClaimLabel != null) adClaimLabel.text = RewardedAdManager.CanSkip ? "2倍受取" : "広告を見て2倍受取";
             if (acceptButton != null) acceptButton.interactable = !busy;
             if (closeButton != null) closeButton.gameObject.SetActive(!canClaim);
             if (adClaimButton != null)

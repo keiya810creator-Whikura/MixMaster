@@ -59,11 +59,12 @@ namespace MixMaster.UI
         {
             string id = manager != null ? manager.Shortcut(slotIndex) : null;
             ConsumableDefinition item = manager != null && manager.Catalog != null ? manager.Catalog.Get(id) : null;
-            long count = manager != null ? manager.Quantity(id) : 0;
+            long count = item != null ? manager.UsableQuantity(item) : 0;
             float cooldown = manager != null ? manager.CooldownRemaining(id) : 0f;
             lastCooldown = Mathf.CeilToInt(cooldown);
             if (icon != null) { icon.sprite = item != null ? item.icon : null; icon.enabled = icon.sprite != null; }
-            if (quantityText != null) quantityText.text = item != null ? count.ToString("N0") : "";
+            if (quantityText != null) quantityText.text = item == null ? "" : item.effect == ConsumableEffect.PermanentMonsterLure && count > 0
+                ? (manager.PermanentLureActive ? "ON" : "OFF") : item.IsUnlimited && count > 0 ? "∞" : count.ToString("N0");
             if (nameText != null) nameText.text = item == null ? "未登録" : item.displayName.Replace("回復ポーション", "");
             if (useButton != null) useButton.interactable = item != null && count > 0 && cooldown <= 0f;
             EnsureCooldownText();

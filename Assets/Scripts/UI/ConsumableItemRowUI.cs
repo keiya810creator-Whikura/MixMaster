@@ -30,10 +30,10 @@ namespace MixMaster.UI
             if (icon != null) { icon.sprite = item.icon; icon.enabled = item.icon != null; }
             if (nameText != null) nameText.text = item.displayName;
             if (descriptionText != null) descriptionText.text = item.Description;
-            if (quantityText != null) quantityText.text = "所持 " + owned.ToString("N0") + "個";
+            if (quantityText != null) quantityText.text = item.IsUnlimited ? "無制限" : "所持 " + owned.ToString("N0") + "個";
             if (priceText != null) priceText.text = shop
                 ? item.purchasePrice < 0 ? "価格未設定" : item.purchasePrice.ToString("N0") + " G / 個" : "";
-            if (actionText != null) actionText.text = shop ? amount + "個購入" : cooldownRemaining > 0f ? Mathf.CeilToInt(cooldownRemaining).ToString() : "使用";
+            if (actionText != null) actionText.text = shop ? amount + "個購入" : cooldownRemaining > 0f ? Mathf.CeilToInt(cooldownRemaining).ToString() : item.effect == ConsumableEffect.PermanentMonsterLure ? "切替" : "使用";
             if (actionButton != null) actionButton.interactable = shop ? canBuy : owned > 0 && cooldownRemaining <= 0f;
             if (shortcutButton != null) shortcutButton.gameObject.SetActive(!shop);
         }
