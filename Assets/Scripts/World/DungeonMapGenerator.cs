@@ -31,6 +31,9 @@ namespace MixMaster.World
         [SerializeField] private Color finalBossFloorColor =
             new Color(0.64f, 0.50f, 0.88f, 1f);
 
+        [SerializeField] private Color dangerFloorColor =
+            new Color(0.43f, 0.14f, 0.18f, 1f);
+
         private sealed class SuspendedEnemy
         {
             public EnemyCombatAI combat;
@@ -57,6 +60,7 @@ namespace MixMaster.World
         private Vector3 entranceWorldPosition;
         private string fieldMapId;
         private bool isGenerated;
+        private bool enteredDangerRoom;
 
         public bool IsGenerated => isGenerated;
         public Vector3 EntranceWorldPosition => entranceWorldPosition;
@@ -71,6 +75,23 @@ namespace MixMaster.World
         public int RoomSize => roomSize;
 
         public event Action<DungeonLayout> DungeonMapReady;
+        public event Action DangerRoomEntered;
+
+        private void Update()
+        {
+            DungeonRoom room = CurrentLayout?.DangerRoom;
+            if (enteredDangerRoom || room == null || generatedGround == null ||
+                player == null || !isGenerated) return;
+
+            Vector3Int cell = generatedGround.WorldToCell(player.transform.position);
+            int half = roomSize / 2;
+            int x = cell.x - room.CenterCell.x + half;
+            int y = cell.y - room.CenterCell.y + half;
+            if (x < 0 || x >= roomSize || y < 0 || y >= roomSize) return;
+
+            enteredDangerRoom = true;
+            DangerRoomEntered?.Invoke();
+        }
 
         private void OnEnable()
         {
@@ -213,6 +234,8 @@ namespace MixMaster.World
             // Always distinguish the last room, even when the map has no
             // configured boss prefab yet.
             TintBossRoom(CurrentLayout.BossRoom, true);
+            TintRoom(CurrentLayout.DangerRoom, dangerFloorColor);
+            enteredDangerRoom = false;
 
             fieldRootWasActive = fieldRoot.gameObject.activeSelf;
             // An unusual scene may parent the player beneath the map root.
@@ -262,13 +285,14 @@ namespace MixMaster.World
         /// asset and all other rooms keep their original colors.
         /// Unlock tile-specific colors (generated tiles commonly lock them).
         /// </summary>
-        public void TintBossRoom(DungeonRoom room, bool isFinalBoss)
+        public void TintBossRoom(DungeonRoom room, bool isFinalBoss) =>
+            TintRoom(room, isFinalBoss ? finalBossFloorColor : midBossFloorColor);
+
+        private void TintRoom(DungeonRoom room, Color tint)
         {
             if (room == null || generatedGround == null)
                 return;
 
-            Color tint = isFinalBoss ?
-                finalBossFloorColor : midBossFloorColor;
             int side = Mathf.Clamp(roomSize, 6, 24);
             int half = side / 2;
             for (int y = 0; y < side; y++)

@@ -15,7 +15,7 @@ namespace MixMaster.World
     [DisallowMultipleComponent]
     public sealed class DungeonEnemySpawner : MonoBehaviour
     {
-        private enum EnemyRole { Normal, MidBoss, FinalBoss }
+        private enum EnemyRole { Normal, MidBoss, FinalBoss, Danger }
 
         [Header("Normal monster placement")]
         [SerializeField, Min(0)] private int minMonstersPerRoom = 2;
@@ -37,9 +37,13 @@ namespace MixMaster.World
         private DungeonMapGenerator generator;
         private DungeonManager dungeon;
         private bool finalBossReported;
+        private int remainingDangerEnemies;
 
         // Receives only generated normal-enemy defeats, never field enemies.
         public event Action<MonsterSO, Vector3> NormalEnemyDefeated;
+
+        public event Action DangerRoomCleared;
+        public bool HasDangerEnemies => remainingDangerEnemies > 0;
 
         public int RemainingEnemies => liveEnemies.Count;
         public bool FinalBossDefeated => finalBossReported;
@@ -104,7 +108,7 @@ namespace MixMaster.World
             var candidates = new List<DungeonRoom>();
             foreach (DungeonRoom room in layout.Rooms)
                 if (room != layout.EntranceRoom &&
-                    room != layout.BossRoom)
+                    room != layout.BossRoom && room != layout.DangerRoom)
                     candidates.Add(room);
             candidates.Sort((a, b) =>
             {
@@ -158,6 +162,10 @@ namespace MixMaster.World
                 }
                 else if (pool.Count > 0)
                 {
+                    bool danger = room == layout.DangerRoom;
+                    var roomPool = danger ? pool.FindAll(monster => monster.enemyPrefab != null &&
+                        monster.enemyPrefab.GetComponent<EnemyHealth>() != null) : pool;
+                    if (roomPool.Count == 0) continue;
                     int minimum = Mathf.Max(0, minMonstersPerRoom);
                     int maximum = Mathf.Max(minimum, maxMonstersPerRoom);
                     int baseCount = random.Next(minimum, maximum + 1);
@@ -171,31 +179,30 @@ namespace MixMaster.World
                     if (random.NextDouble() < scaled - count)
                         count++;
 
-                    int half = Mathf.Max(1, generator.RoomSize / 2 - 2);
-                    var occupied = new HashSet<Vector2Int>();
+                    if (danger) count *= 2;
+                    int level = Mathf.Max(1, map.normalMonsterLevel);
+                    if (danger) level = (int)Math.Min(int.MaxValue, 3L * level);
 
-                    for (int i = 0; i < count; i++)
+                    // Sample without replacement so a crowded room still
+                    // reaches its requested count whenever it fits.
+                    int size = danger ? generator.RoomSize : Mathf.Max(3, generator.RoomSize - 3);
+                    int half = size / 2;
+                    var offsets = new List<Vector2Int>(size * size);
+                    for (int y = 0; y < size; y++)
+                        for (int x = 0; x < size; x++)
+                            offsets.Add(new Vector2Int(x - half, y - half));
+
+                    for (int i = 0; i < count && i < offsets.Count; i++)
                     {
-                        Vector2Int offset = Vector2Int.zero;
-                        bool found = false;
-                        for (int tries = 0; tries < 24; tries++)
-                        {
-                            offset = new Vector2Int(
-                                random.Next(-half, half + 1),
-                                random.Next(-half, half + 1));
-                            if (occupied.Add(offset))
-                            {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) break;
+                        int index = random.Next(i, offsets.Count);
+                        (offsets[i], offsets[index]) = (offsets[index], offsets[i]);
+                        MonsterSO chosen = roomPool[random.Next(roomPool.Count)];
+                        if (!Spawn(chosen, room, offsets[i], level,
+                            danger ? EnemyRole.Danger : EnemyRole.Normal, 1f, 1))
+                            continue;
 
-                        MonsterSO chosen = pool[random.Next(pool.Count)];
-                        if (Spawn(chosen, room, offset,
-                            Mathf.Max(1, map.normalMonsterLevel),
-                            EnemyRole.Normal, 1f, 1))
-                            normalTotal++;
+                        if (danger) remainingDangerEnemies++;
+                        else normalTotal++;
                     }
                 }
             }
@@ -204,6 +211,7 @@ namespace MixMaster.World
                 Debug.Log("[DungeonEnemySpawner] " + map.mapId +
                     " : 雑魚 " + normalTotal + " / 中ボス " + midTotal +
                     " / 最終ボス " + finalTotal +
+                    " / 危険ルート " + remainingDangerEnemies +
                     " (予定中ボス " + midCount + ")", this);
         }
 
@@ -257,10 +265,13 @@ namespace MixMaster.World
             if (wander != null)
                 wander.SetHome(position);
 
-            if (role != EnemyRole.Normal)
-                enemy.name = (role == EnemyRole.MidBoss
-                    ? "MidBoss_" : "FinalBoss_") +
+            if (role == EnemyRole.MidBoss || role == EnemyRole.FinalBoss)
+            {
+                enemy.name = (role == EnemyRole.MidBoss ? "MidBoss_" : "FinalBoss_") +
                     definition.monsterId;
+                EnemyCombatAI combat = enemy.GetComponent<EnemyCombatAI>();
+                if (combat != null) combat.IgnoreMonsterLure = true;
+            }
 
             health.Died += HandleEnemyDied;
             liveEnemies[health] = role;
@@ -279,13 +290,15 @@ namespace MixMaster.World
             if (dungeon == null || !dungeon.IsDungeonActive)
                 return;
 
-            if (role == EnemyRole.Normal)
+            if (role == EnemyRole.Normal || role == EnemyRole.Danger)
             {
                 MonsterRuntimeSetup setup =
                     enemy.GetComponent<MonsterRuntimeSetup>();
                 if (setup != null && setup.Definition != null)
                     NormalEnemyDefeated?.Invoke(
                         setup.Definition, enemy.transform.position);
+                if (role == EnemyRole.Danger && --remainingDangerEnemies == 0)
+                    DangerRoomCleared?.Invoke();
             }
             else if (role == EnemyRole.MidBoss)
                 dungeon.RegisterSideBossDefeated();
@@ -302,6 +315,7 @@ namespace MixMaster.World
                 if (enemy != null)
                     enemy.Died -= HandleEnemyDied;
             liveEnemies.Clear();
+            remainingDangerEnemies = 0;
             finalBossReported = false;
         }
 

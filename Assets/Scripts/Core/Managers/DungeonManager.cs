@@ -12,6 +12,7 @@ namespace MixMaster.Core
         [Min(0)] public int sideBossCount = 1;
         public int seed;
         [HideInInspector] public bool forceLinearPath;
+        internal bool includeDangerRoute;
     }
 
     [DisallowMultipleComponent]
@@ -119,6 +120,8 @@ namespace MixMaster.Core
             CurrentSettings.roomCount = Mathf.Max(2, CurrentSettings.roomCount);
             CurrentSettings.branchCount = Mathf.Max(0, CurrentSettings.branchCount);
             CurrentSettings.sideBossCount = Mathf.Max(0, CurrentSettings.sideBossCount);
+
+            CurrentSettings.includeDangerRoute = UnityEngine.Random.Range(0, 2) == 0;
 
             DefeatedSideBosses = 0;
             IsFinalBossDefeated = false;

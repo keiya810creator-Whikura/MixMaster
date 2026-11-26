@@ -28,6 +28,7 @@ namespace MixMaster.Core
         private SaveManager save;
         private StoreController store;
         private bool ready, busy, fetching;
+        private bool restoredEntitlementsNeedSave;
         public event Action Changed;
         public string Status { get; private set; } = "ストアに接続中…";
         public bool AdSkip => data.adSkip;
@@ -140,20 +141,27 @@ namespace MixMaster.Core
         {
             if (!fetching) return;
             fetching = false;
-            var confirmedIds = new HashSet<string>(orders.ConfirmedOrders
-                .SelectMany(order => order.CartOrdered.Items()).Select(item => item.Product.definition.id));
-            var pendingIds = new HashSet<string>(orders.PendingOrders
-                .SelectMany(order => order.CartOrdered.Items()).Select(item => item.Product.definition.id));
-            bool ad = confirmedIds.Contains(AdSkipId) ||
-                (AdSkip && (pendingIds.Contains(AdSkipId) || store.GetProductById(AdSkipId) == null));
-            bool tools = confirmedIds.Contains(ToolsId) ||
-                (UnlimitedTools && (pendingIds.Contains(ToolsId) || store.GetProductById(ToolsId) == null));
-            bool changed = data.adSkip != ad || data.unlimitedTools != tools;
-            data.adSkip = ad;
-            data.unlimitedTools = tools;
-            if (changed) save.SaveGame();
+            bool previouslyHadAdsRemoved = AdSkip;
+            bool previouslyHadTools = UnlimitedTools;
+            foreach (var order in orders.ConfirmedOrders)
+                foreach (var item in order.CartOrdered.Items())
+                {
+                    string id = item.Product.definition.id;
+                    if (id == AdSkipId) data.adSkip = true;
+                    if (id == ToolsId) data.unlimitedTools = true;
+                }
+
+            // An incomplete store response does not revoke a non-consumable
+            // already granted and saved on this device.
+            restoredEntitlementsNeedSave |= previouslyHadAdsRemoved != AdSkip ||
+                previouslyHadTools != UnlimitedTools;
+            if (restoredEntitlementsNeedSave)
+                restoredEntitlementsNeedSave = !save.SaveGame();
+
             ready = true;
-            SetIdle("購入情報を確認しました。");
+            SetIdle(restoredEntitlementsNeedSave
+                ? "購入は復元されましたが保存できませんでした。「購入を復元」から再試行してください。"
+                : "購入情報を確認しました。");
             foreach (var pending in orders.PendingOrders) Deliver(pending);
         }
 
@@ -196,7 +204,9 @@ namespace MixMaster.Core
                     SetIdle("保存できませんでした。「購入を復元」から再試行してください。");
                     return;
                 }
+                restoredEntitlementsNeedSave = false;
             }
+            busy = true;
             SetStatus("購入内容を確認中…");
             store.ConfirmPurchase(order);
         }
@@ -219,6 +229,7 @@ namespace MixMaster.Core
         internal void Restore(PurchaseSaveData restored)
         {
             data = restored ?? new PurchaseSaveData();
+            restoredEntitlementsNeedSave = false;
             data.charms = Math.Max(0L, data.charms);
             if (data.deliveredTransactions == null) data.deliveredTransactions = new List<string>();
             Changed?.Invoke();

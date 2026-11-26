@@ -72,6 +72,8 @@ namespace MixMaster.UI
             int count = report != null ? report.equipment.Count : 0;
             if (equipmentCountText != null) equipmentCountText.text = "獲得装備  " + count.ToString("N0") + "個";
             if (bossBonusText != null) bossBonusText.text = "討伐した中ボス: " + (report != null ? report.defeatedMidBosses : 0) + "体   /  装備報酬に反映";
+            if (bossBonusText != null && !string.IsNullOrEmpty(report?.dangerRewardSummary))
+                bossBonusText.text += "\n危険ルート  " + report.dangerRewardSummary;
             if (emptyEquipment != null) emptyEquipment.SetActive(count == 0);
             int index = 0;
             if (report != null && equipmentRowPrefab != null && equipmentContent != null)

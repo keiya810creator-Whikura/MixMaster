@@ -23,6 +23,7 @@ namespace MixMaster.World
         public MaterialSO dungeonMaterial;
         public long actualMaterialAmount;
         public int defeatedMidBosses;
+        public string dangerRewardSummary;
         public readonly List<DungeonEquipmentAward> equipment =
             new List<DungeonEquipmentAward>();
     }
@@ -77,6 +78,15 @@ namespace MixMaster.World
         private bool sessionActive;
         private MapSO sourceMap;
 
+        private const int DangerRewardVariantsPerGroup = 25;
+        private long dangerGold;
+        private long dangerMaterials;
+        private int dangerEquipmentCount;
+        private int dangerEquipmentLevel;
+        private bool dangerEntered;
+        private bool dangerCleared;
+        private string dangerRewardSummary;
+
         private void OnEnable()
         {
             dungeon = GetComponent<DungeonManager>() ??
@@ -92,34 +102,154 @@ namespace MixMaster.World
 
             if (dungeon != null)
             {
-                dungeon.DungeonStarted += HandleDungeonStart;
                 dungeon.FinalBossDefeated += HandleFinalBossDefeated;
                 dungeon.DungeonEnded += HandleDungeonEnded;
             }
             if (spawner != null)
+            {
                 spawner.NormalEnemyDefeated += HandleNormalEnemyDefeated;
+                spawner.DangerRoomCleared += HandleDangerRoomCleared;
+            }
+            if (mapGenerator != null)
+            {
+                mapGenerator.DungeonMapReady += HandleMapReady;
+                mapGenerator.DangerRoomEntered += HandleDangerRoomEntered;
+            }
         }
 
         private void OnDisable()
         {
             if (dungeon != null)
             {
-                dungeon.DungeonStarted -= HandleDungeonStart;
                 dungeon.FinalBossDefeated -= HandleFinalBossDefeated;
                 dungeon.DungeonEnded -= HandleDungeonEnded;
             }
             if (spawner != null)
+            {
                 spawner.NormalEnemyDefeated -= HandleNormalEnemyDefeated;
+                spawner.DangerRoomCleared -= HandleDangerRoomCleared;
+            }
+            if (mapGenerator != null)
+            {
+                mapGenerator.DungeonMapReady -= HandleMapReady;
+                mapGenerator.DangerRoomEntered -= HandleDangerRoomEntered;
+            }
             Cleanup();
         }
 
-        private void HandleDungeonStart(
-            string mapId, DungeonGenerationSettings settings)
+        private void HandleMapReady(DungeonLayout layout)
         {
             Cleanup();
-            sourceMap = mapGenerator != null ? mapGenerator.SourceMap : null;
+            sourceMap = mapGenerator.SourceMap;
             sessionActive = true;
-            chestAbsorbed = false;
+            if (layout.DangerRoom != null && sourceMap != null)
+                RollDangerReward();
+        }
+
+        private void HandleDangerRoomEntered()
+        {
+            if (!sessionActive || chestAbsorbed || spawner == null ||
+                (!spawner.HasDangerEnemies && !dangerCleared)) return;
+
+            dangerEntered = true;
+            if (dangerCleared)
+                AwardDangerReward();
+            else
+                StageNameBannerUI.Show("危険ルートに侵入\n突破報酬  " +
+                    FormatDangerReward(dangerGold, dangerMaterials, dangerEquipmentCount));
+        }
+
+        private void HandleDangerRoomCleared()
+        {
+            dangerCleared = true;
+            if (dangerEntered && sessionActive && !chestAbsorbed)
+                AwardDangerReward();
+        }
+
+        private void RollDangerReward()
+        {
+            // Four reward groups with 25 distinct amounts/levels each.
+            int roll = UnityEngine.Random.Range(0, 4 * DangerRewardVariantsPerGroup);
+            int tier = roll % DangerRewardVariantsPerGroup;
+            long mapLevel = Math.Max(1, sourceMap.normalMonsterLevel);
+            long goldUnit = 1000L * mapLevel;
+            switch (roll / DangerRewardVariantsPerGroup)
+            {
+                case 0:
+                    dangerGold = goldUnit * (100L + 10L * tier);
+                    break;
+                case 1:
+                    dangerMaterials = 500L + 50L * tier;
+                    break;
+                case 2:
+                    dangerEquipmentCount = 3 + tier / 10;
+                    dangerEquipmentLevel = EquipmentManager.MaxEquipmentLevel - 24 + tier;
+                    break;
+                default:
+                    dangerGold = goldUnit * (60L + 5L * tier);
+                    dangerMaterials = 250L + 25L * tier;
+                    dangerEquipmentCount = 2;
+                    dangerEquipmentLevel = EquipmentManager.MaxEquipmentLevel;
+                    break;
+            }
+
+            if (materials == null || sourceMap.dungeonMaterial == null ||
+                string.IsNullOrWhiteSpace(sourceMap.dungeonMaterial.materialId))
+            {
+                dangerGold += goldUnit * dangerMaterials / 5;
+                dangerMaterials = 0;
+            }
+            if (equipment == null || sourceMap.dungeonEquipment == null ||
+                !sourceMap.dungeonEquipment.Exists(item => item != null &&
+                    !string.IsNullOrWhiteSpace(item.equipmentId)))
+            {
+                dangerGold += goldUnit * dangerEquipmentCount * dangerEquipmentLevel / 2;
+                dangerEquipmentCount = 0;
+            }
+        }
+
+        private string FormatDangerReward(long gold, long material, int gearCount)
+        {
+            var rewards = new List<string>(3);
+            if (gold > 0) rewards.Add(gold.ToString("N0") + " G");
+            if (material > 0)
+            {
+                MaterialSO definition = sourceMap.dungeonMaterial;
+                string name = string.IsNullOrWhiteSpace(definition.displayName)
+                    ? definition.materialId : definition.displayName;
+                rewards.Add(name + " ×" + material.ToString("N0"));
+            }
+            if (gearCount > 0)
+                rewards.Add($"ダンジョン装備 Lv.{dangerEquipmentLevel} ×{gearCount}");
+            return rewards.Count > 0 ? string.Join("・", rewards) : "所持上限";
+        }
+
+        private void AwardDangerReward()
+        {
+            if (dangerRewardSummary != null) return;
+            long actualGold = 0L;
+            if (dangerGold > 0 && GameManager.Instance != null)
+            {
+                long before = GameManager.Instance.Gold;
+                GameManager.Instance.AddGold(dangerGold);
+                actualGold = GameManager.Instance.Gold - before;
+            }
+
+            long actualMaterials = dangerMaterials > 0
+                ? materials.AddMaterial(sourceMap.dungeonMaterial, dangerMaterials) : 0L;
+            int actualEquipmentCount = 0;
+            for (int i = 0; i < dangerEquipmentCount; i++)
+            {
+                EquipmentSO definition = RollEquipmentDefinition();
+                if (definition != null && equipment.CreateEquipment(definition.equipmentId,
+                    dangerEquipmentLevel, equipmentBaseValue, true, sourceMap.mapId) != null)
+                    actualEquipmentCount++;
+            }
+
+            dangerRewardSummary = FormatDangerReward(actualGold, actualMaterials, actualEquipmentCount);
+            if (GetSaveManager()?.SaveGame() != true)
+                Debug.LogWarning("[DungeonReward] 危険ルートの突破報酬を保存できませんでした。", this);
+            StageNameBannerUI.Show("危険ルート突破\n獲得  " + dangerRewardSummary);
         }
 
         private void HandleNormalEnemyDefeated(
@@ -257,7 +387,8 @@ namespace MixMaster.World
                     ? sourceMap.displayName : dungeon.EntranceMapId,
                 dungeonMaterial = sourceMap != null
                     ? sourceMap.dungeonMaterial : null,
-                defeatedMidBosses = dungeon.DefeatedSideBosses
+                defeatedMidBosses = dungeon.DefeatedSideBosses,
+                dangerRewardSummary = this.dangerRewardSummary
             };
 
             if (materials != null && report.dungeonMaterial != null)
@@ -435,6 +566,10 @@ namespace MixMaster.World
         {
             sessionActive = false;
             chestAbsorbed = false;
+            dangerEntered = dangerCleared = false;
+            dangerGold = dangerMaterials = 0L;
+            dangerEquipmentCount = dangerEquipmentLevel = 0;
+            dangerRewardSummary = null;
             pendingEquipment.Clear();
             foreach (GroundEquipmentDrop drop in groundDrops)
                 if (drop.pickup != null)

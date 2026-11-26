@@ -122,10 +122,6 @@ namespace MixMaster.Core
                 string json = JsonUtility.ToJson(data, true);
                 if (!WriteSaveFile(json))
                     return false;
-
-                elapsed = 0f;
-                Saved?.Invoke();
-                return true;
             }
             catch (Exception exception)
             {
@@ -133,6 +129,19 @@ namespace MixMaster.Core
                     "[SaveManager] 保存に失敗しました: " + exception);
                 return false;
             }
+
+            elapsed = 0f;
+            try
+            {
+                Saved?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                // The file has already been written. A UI callback cannot
+                // invalidate a persisted purchase or other transaction.
+                Debug.LogError("[SaveManager] 保存通知に失敗しました: " + exception);
+            }
+            return true;
         }
 
         public bool LoadGame()
