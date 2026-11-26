@@ -22,7 +22,7 @@ namespace MixMaster.UI
         [SerializeField] private ScrollRect equipmentScroll;
         [SerializeField] private Button returnButton;
         [SerializeField] private Button retryButton;
-        private readonly List<RewardItemRowUI> equipmentRows = new List<RewardItemRowUI>();
+        private readonly List<RewardItemRowUI> rewardRows = new List<RewardItemRowUI>();
         private Action returnCallback;
         private Func<bool> retryCallback;
         private bool usedReturn;
@@ -65,37 +65,59 @@ namespace MixMaster.UI
             transform.SetAsLastSibling();
             SetButtonsInteractable(true);
             if (mapNameText != null) mapNameText.text = report != null ? report.mapName : string.Empty;
-            MaterialSO material = report != null ? report.dungeonMaterial : null;
-            materialRow?.SetData(material != null ? material.icon : null,
-                material != null ? string.IsNullOrWhiteSpace(material.displayName) ? material.materialId : material.displayName : "素材未設定",
-                "×" + (report != null ? report.actualMaterialAmount : 0L).ToString("N0"));
-            int count = report != null ? report.equipment.Count : 0;
-            if (equipmentCountText != null) equipmentCountText.text = "獲得装備  " + count.ToString("N0") + "個";
-            if (bossBonusText != null) bossBonusText.text = "討伐した中ボス: " + (report != null ? report.defeatedMidBosses : 0) + "体   /  装備報酬に反映";
-            if (bossBonusText != null && !string.IsNullOrEmpty(report?.dangerRewardSummary))
-                bossBonusText.text += "\n危険ルート  " + report.dangerRewardSummary;
-            if (emptyEquipment != null) emptyEquipment.SetActive(count == 0);
+            MaterialSO material = report?.dungeonMaterial;
+            string materialName = material == null ? "素材未設定" :
+                string.IsNullOrWhiteSpace(material.displayName) ? material.materialId : material.displayName;
+            materialRow?.SetData(material != null ? material.icon : null, materialName,
+                "×" + (report?.actualMaterialAmount ?? 0L).ToString("N0"));
+
+            long dangerMaterialAmount = report?.actualDangerMaterialAmount ?? 0L;
+            bool showDangerMaterial = material != null && dangerMaterialAmount > 0;
+            int count = report?.equipment.Count ?? 0;
+            if (equipmentCountText != null)
+                equipmentCountText.text = $"獲得装備  {count:N0}個" +
+                    (showDangerMaterial ? "  /  危険ルート素材" : string.Empty);
+            if (bossBonusText != null)
+                bossBonusText.text = $"討伐した中ボス: {report?.defeatedMidBosses ?? 0}体   /  装備報酬に反映";
+            if (emptyEquipment != null) emptyEquipment.SetActive(count == 0 && !showDangerMaterial);
+
             int index = 0;
             if (report != null && equipmentRowPrefab != null && equipmentContent != null)
+            {
+                if (showDangerMaterial)
+                    GetRewardRow(index++).SetData(material.icon, materialName,
+                        $"×{dangerMaterialAmount:N0}  （危険ルート）");
+
                 foreach (DungeonEquipmentAward award in report.equipment)
                 {
                     if (award == null) continue;
-                    if (index >= equipmentRows.Count) equipmentRows.Add(Instantiate(equipmentRowPrefab, equipmentContent));
-                    RewardItemRowUI row = equipmentRows[index++];
                     EquipmentSO definition = award.definition;
-                    row.gameObject.SetActive(true);
-                    row.SetData(definition != null ? definition.icon : null,
-                        definition != null ? string.IsNullOrWhiteSpace(definition.displayName) ? definition.equipmentId : definition.displayName : "装備",
-                        "Lv." + award.level + (award.wasAutoSold ? "  （自動売却済）" : string.Empty),
+                    string label = definition == null ? "装備" :
+                        string.IsNullOrWhiteSpace(definition.displayName) ? definition.equipmentId : definition.displayName;
+                    GetRewardRow(index++).SetData(definition != null ? definition.icon : null, label,
+                        $"Lv.{award.level}" +
+                        (award.fromDangerRoute ? "  （危険ルート）" : string.Empty) +
+                        (award.wasAutoSold ? "  （自動売却済）" : string.Empty),
                         () => OpenEquipmentDetail(award));
                 }
-            for (int i = index; i < equipmentRows.Count; i++)
+            }
+            for (int i = index; i < rewardRows.Count; i++)
             {
-                equipmentRows[i].SetData(null, string.Empty, string.Empty);
-                equipmentRows[i].gameObject.SetActive(false);
+                rewardRows[i].SetData(null, string.Empty, string.Empty);
+                rewardRows[i].gameObject.SetActive(false);
             }
             Canvas.ForceUpdateCanvases();
             if (equipmentScroll != null) equipmentScroll.verticalNormalizedPosition = 1f;
+        }
+
+        private RewardItemRowUI GetRewardRow(int index)
+        {
+            if (index >= rewardRows.Count)
+                rewardRows.Add(Instantiate(equipmentRowPrefab, equipmentContent));
+
+            RewardItemRowUI row = rewardRows[index];
+            row.gameObject.SetActive(true);
+            return row;
         }
 
         public void Close()
