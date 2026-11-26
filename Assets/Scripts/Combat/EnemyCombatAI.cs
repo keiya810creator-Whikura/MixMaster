@@ -297,9 +297,11 @@ namespace MixMaster.Combat
             }
         }
 
+        internal bool IgnoreMonsterLure { get; set; }
+
         private bool TryApplyLureTarget()
         {
-            if (huntRaidAllies) return false;
+            if (huntRaidAllies || IgnoreMonsterLure) return false;
             ConsumableManager items = ConsumableManager.Instance;
             PlayerAutoAttack lure = items != null ? items.LureTarget : null;
             if (lure == null || !lure.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return false;
@@ -322,7 +324,7 @@ namespace MixMaster.Combat
                 return false;
 
             ConsumableManager items = ConsumableManager.Instance;
-            if (playerTarget != null && items != null && items.LureTarget == playerTarget &&
+            if (!IgnoreMonsterLure && playerTarget != null && items != null && items.LureTarget == playerTarget &&
                 playerTarget.gameObject.scene.GetPhysicsScene2D().Equals(gameObject.scene.GetPhysicsScene2D())) return true;
 
             if (huntRaidAllies) return partyTarget != null;

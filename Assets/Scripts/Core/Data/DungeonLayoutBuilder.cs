@@ -27,6 +27,7 @@ namespace MixMaster.Core
 
         public DungeonRoom EntranceRoom => Rooms.Count > 0 ? Rooms[0] : null;
         public DungeonRoom BossRoom { get; internal set; }
+        public DungeonRoom DangerRoom { get; internal set; }
     }
 
     public static class DungeonLayoutBuilder
@@ -81,8 +82,8 @@ namespace MixMaster.Core
                     Connect(layout, i - 1, next, corridorWidth);
                 }
 
-                FillRooms(layout, roomSize);
-                MarkDeepestRoom(layout);
+                FinishLayout(layout, usedGrid, random, settings.includeDangerRoute,
+                    spacing, roomSize, corridorWidth);
                 return layout;
             }
 
@@ -152,9 +153,40 @@ namespace MixMaster.Core
                 Connect(layout, candidates[i].x, candidates[i].y,
                     corridorWidth);
 
-            FillRooms(layout, roomSize);
-            MarkDeepestRoom(layout);
+            FinishLayout(layout, usedGrid, random, settings.includeDangerRoute,
+                spacing, roomSize, corridorWidth);
             return layout;
+        }
+
+        private static void FinishLayout(DungeonLayout layout,
+            Dictionary<Vector2Int, int> usedGrid, System.Random random,
+            bool includeDangerRoute, int spacing, int roomSize, int corridorWidth)
+        {
+            MarkDeepestRoom(layout);
+            if (includeDangerRoute)
+            {
+                var branches = new List<(DungeonRoom room, Vector2Int position)>();
+                foreach (DungeonRoom room in layout.Rooms)
+                {
+                    if (room == layout.BossRoom) continue;
+                    foreach (Vector2Int direction in Directions)
+                    {
+                        Vector2Int position = room.GridPosition + direction;
+                        if (!usedGrid.ContainsKey(position))
+                            branches.Add((room, position));
+                    }
+                }
+
+                if (branches.Count > 0)
+                {
+                    var branch = branches[random.Next(branches.Count)];
+                    int index = AddRoom(layout, usedGrid, branch.position, spacing);
+                    layout.DangerRoom = layout.Rooms[index];
+                    layout.DangerRoom.DistanceFromEntrance = branch.room.DistanceFromEntrance + 1;
+                    Connect(layout, branch.room.Index, index, corridorWidth);
+                }
+            }
+            FillRooms(layout, roomSize);
         }
 
         private static int AddRoom(DungeonLayout layout,
