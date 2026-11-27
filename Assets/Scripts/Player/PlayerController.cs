@@ -1,4 +1,5 @@
 using System;
+using MixMaster.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -83,7 +84,9 @@ namespace MixMaster.Player
 
         private Rigidbody2D body;
         private SpriteRenderer spriteRenderer;
-        private MixMaster.Core.PlayerManager playerManager;
+        private PlayerManager playerManager;
+        private Sprite humanFallbackSprite;
+        private Sprite reincarnationSprite;
 
         private Vector2 moveInput;
         private Direction8 facingDirection;
@@ -101,6 +104,7 @@ namespace MixMaster.Player
         {
             body = GetComponent<Rigidbody2D>();
             spriteRenderer = GetComponent<SpriteRenderer>();
+            humanFallbackSprite = spriteRenderer.sprite;
 
             body.gravityScale = 0f;
             body.freezeRotation = true;
@@ -112,12 +116,17 @@ namespace MixMaster.Player
 
         private void OnEnable()
         {
+            BindPlayerManager();
             if (moveAction.action != null)
                 moveAction.action.Enable();
         }
 
         private void OnDisable()
         {
+            if (playerManager != null)
+                playerManager.ReincarnationAppearanceChanged -= ApplyReincarnationAppearance;
+            playerManager = null;
+
             if (moveAction.action != null)
                 moveAction.action.Disable();
 
@@ -125,6 +134,26 @@ namespace MixMaster.Player
 
             if (body != null)
                 body.linearVelocity = Vector2.zero;
+        }
+
+        private void BindPlayerManager()
+        {
+            if (playerManager != null) return;
+            playerManager = FindFirstObjectByType<PlayerManager>();
+            if (playerManager == null) return;
+
+            playerManager.ReincarnationAppearanceChanged += ApplyReincarnationAppearance;
+            ApplyReincarnationAppearance(playerManager.ReincarnationSpecies);
+        }
+
+        private void ApplyReincarnationAppearance(MonsterSO species)
+        {
+            reincarnationSprite = species != null
+                ? (species.sprite != null ? species.sprite : species.icon)
+                : null;
+            ResetWalkAnimation();
+            spriteRenderer.sprite = reincarnationSprite != null ? reincarnationSprite : humanFallbackSprite;
+            RefreshIdleSprite();
         }
 
         private void Update()
@@ -154,8 +183,7 @@ namespace MixMaster.Player
 
         private void FixedUpdate()
         {
-            if (playerManager == null)
-                playerManager = FindFirstObjectByType<MixMaster.Core.PlayerManager>();
+            BindPlayerManager();
 
             if (playerManager?.CurrentHp == 0L)
             {
@@ -192,6 +220,8 @@ namespace MixMaster.Player
 
         private void UpdateWalkAnimation()
         {
+            if (reincarnationSprite != null) return;
+
             Sprite[] frames = sprites.GetSprites(facingDirection);
 
             if (frames == null || frames.Length == 0)
@@ -231,6 +261,8 @@ namespace MixMaster.Player
 
         private void RefreshIdleSprite()
         {
+            if (reincarnationSprite != null) return;
+
             Sprite[] frames = sprites.GetSprites(facingDirection);
 
             if (frames == null || frames.Length == 0)

@@ -48,6 +48,7 @@ namespace MixMaster.Core
         // Base growth values are saved; equipment is only applied at runtime.
         public CharacterStats BaseStats => stats;
         public event Action StatsChanged;
+        internal event Action<MonsterSO> ReincarnationAppearanceChanged;
 
         [Header("Experience")]
         [SerializeField, Min(1)] private int level = 1;
@@ -197,6 +198,7 @@ namespace MixMaster.Core
             skillPoints = Math.Max(0, availablePoints);
             spentSkillPoints = Math.Max(0, usedPoints);
             reincarnationCount = Math.Max(0, count);
+            ReincarnationAppearanceChanged?.Invoke(ReincarnationSpecies);
         }
 
         internal void Reincarnate(MonsterSO species)
@@ -209,6 +211,7 @@ namespace MixMaster.Core
             GetComponent<SkillProgressionManager>()?.OnPlayerReincarnated();
             RecalculateEquipmentStats();
             RestoreFullResources();
+            ReincarnationAppearanceChanged?.Invoke(species);
             ExperienceChanged?.Invoke(experience, ExperienceToNextLevel);
         }
 
