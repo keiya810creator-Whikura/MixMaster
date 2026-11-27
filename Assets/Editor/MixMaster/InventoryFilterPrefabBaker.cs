@@ -177,10 +177,10 @@ namespace MixMaster.EditorTools
                 -110f, 155f, ref changed);
 
             Dropdown(controls, "SortDropdown", new Vector2(20f, -6f),
-                new Vector2(240f, 54f), BuildSort(), ref changed);
+                new Vector2(240f, 54f), EquipmentInventoryUI.SortChoices, ref changed);
             Dropdown(controls, "StatFilter", new Vector2(270f, -6f),
                 new Vector2(245f, 54f),
-                InventoryProtectionIcons.CombinedStatFilterLabels, ref changed);
+                EquipmentInventoryUI.FilterChoices, ref changed);
             Dropdown(controls, "RarityFilter", new Vector2(525f, -6f),
                 new Vector2(240f, 54f), EquipmentRarities, ref changed);
             Button(controls, "Direction", "降順",
@@ -213,16 +213,6 @@ namespace MixMaster.EditorTools
                 }
             }
             return changed;
-        }
-
-        private static string[] BuildSort()
-        {
-            var options = new List<string> { "入手順", "レベル" };
-            for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
-                options.Add(InventoryStatFilter.Labels[i]);
-            options.Add("お気に入り優先");
-            options.Add("ロック優先");
-            return options.ToArray();
         }
 
         private static RectTransform EnsureControls(RectTransform root,

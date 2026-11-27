@@ -174,6 +174,8 @@ namespace MixMaster.Core
         public int enhancementCount;
         // Flat additive bonus: 0 = never reforged, 1..100 = +1%..+100%.
         public int reforgeDropRatePercent;
+        public EquipmentDropOption[] dropOptions;
+        public int OptionCount => dropOptions?.Length ?? 0;
         public string sourceMapId;
         public long baseValue = 1;
         public bool isFavorite;

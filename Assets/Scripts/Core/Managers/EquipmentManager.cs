@@ -108,7 +108,8 @@ namespace MixMaster.Core
         }
 
         public EquipmentRecord CreateEquipment(string equipmentId, int level,
-            long baseValue, bool allowAutoSell = true, string sourceMapId = null)
+            long baseValue, bool allowAutoSell = true, string sourceMapId = null,
+            bool fromDangerRoute = false)
         {
             var item = new EquipmentRecord
             {
@@ -123,6 +124,12 @@ namespace MixMaster.Core
             {
                 MapSO origin = ResolveEnhancementMap(item);
                 if (origin != null) item.sourceMapId = origin.mapId;
+            }
+            if (allowAutoSell)
+            {
+                var definition = GetEquipmentDefinition(item.equipmentId);
+                if (definition != null)
+                    item.dropOptions = EquipmentDropOptions.Roll(definition.category, fromDangerRoute);
             }
             inventory.Add(item);
             if (!string.IsNullOrWhiteSpace(item.equipmentId)) acquiredEquipmentIds.Add(item.equipmentId);
@@ -399,7 +406,7 @@ namespace MixMaster.Core
         }
 
         public StatPercentageModifiers GetScaledModifiers(EquipmentRecord record,
-            int effectiveLevel)
+            int effectiveLevel, bool includeDropOptions = true)
         {
             EquipmentSO def = record != null
                 ? GetEquipmentDefinition(record.equipmentId) : null;
@@ -410,7 +417,7 @@ namespace MixMaster.Core
                 MinEquipmentLevel, MaxEnhancedEquipmentLevel);
             StatPercentageModifiers src = def.modifiers ?? StatPercentageModifiers.CreateZero();
             ElementResistanceSet r = src.resistanceBonus;
-            return new StatPercentageModifiers
+            var result = new StatPercentageModifiers
             {
                 maxHp = src.maxHp * scale,
                 maxMp = src.maxMp * scale,
@@ -434,6 +441,44 @@ namespace MixMaster.Core
                     dark = r != null ? r.dark * scale : 0f
                 }
             };
+            if (includeDropOptions && record.dropOptions != null)
+            {
+                foreach (var option in record.dropOptions)
+                {
+                    float value = option.percent / 100f;
+                    switch (option.kind)
+                    {
+                        case EquipmentOptionKind.MaxHp: result.maxHp += value; break;
+                        case EquipmentOptionKind.Fire: result.resistanceBonus.fire += value; break;
+                        case EquipmentOptionKind.Water: result.resistanceBonus.water += value; break;
+                        case EquipmentOptionKind.Wind: result.resistanceBonus.wind += value; break;
+                        case EquipmentOptionKind.Lightning: result.resistanceBonus.lightning += value; break;
+                        case EquipmentOptionKind.Light: result.resistanceBonus.light += value; break;
+                        case EquipmentOptionKind.Dark: result.resistanceBonus.dark += value; break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        internal double OptionBonus(string owner, EquipmentOptionKind kind)
+        {
+            if (string.IsNullOrEmpty(owner)) return 0d;
+            IReadOnlyList<string> ids = owner == "player" ? playerEquipmentUniqueIds :
+                Monsters?.FindOwnedMonster(owner)?.equippedItemUniqueIds;
+            if (ids == null) return 0d;
+
+            double total = 0d;
+            foreach (string id in ids)
+            {
+                if (string.IsNullOrEmpty(id)) continue;
+                var options = FindEquipment(id)?.dropOptions;
+                if (options == null) continue;
+
+                foreach (var option in options)
+                    if (option.kind == kind) total += option.percent;
+            }
+            return total;
         }
 
         public List<StatPercentageModifiers> GetEquippedModifiers(

@@ -253,6 +253,7 @@ namespace MixMaster.World
                 return false;
             }
 
+            health.IsBoss = role == EnemyRole.MidBoss || role == EnemyRole.FinalBoss;
             health.RefreshOriginalScale();
 
             if (hpMultiplier > 1)

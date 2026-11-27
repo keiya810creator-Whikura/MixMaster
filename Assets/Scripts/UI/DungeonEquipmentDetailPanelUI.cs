@@ -75,7 +75,7 @@ namespace MixMaster.UI
             EquipmentRarity rarity = EquipmentRarityUtility.GetRarity(award.level);
             levelRarityText.text = "Lv." + award.level + "  《" + EquipmentRarityUtility.Labels[(int)rarity] + "》" +
                 (award.wasAutoSold ? "  ［自動売却済］" : "");
-            descriptionText.text = def != null ? def.description : "";
+            descriptionText.text = FormatDescription(award);
             errorText.gameObject.SetActive(award.scaledModifiers == null);
             for (int i = 0; i < statValues.Length; i++)
             {
@@ -89,6 +89,13 @@ namespace MixMaster.UI
             }
             scroll.StopMovement();
             scroll.verticalNormalizedPosition = 1f;
+        }
+
+        private static string FormatDescription(DungeonEquipmentAward award)
+        {
+            string description = award.definition != null ? award.definition.description : string.Empty;
+            string options = EquipmentDropOptions.Describe(award.dropOptions);
+            return options.Length > 0 ? options.TrimStart('\n') + "\n" + description : description;
         }
 
         private void Build(DungeonEquipmentAward award)
@@ -133,9 +140,10 @@ namespace MixMaster.UI
                 (award.wasAutoSold ? "  ［自動売却済］" : ""),
                 26f, 62f, new Color(0.75f, 0.85f, 0.98f));
 
-            if (def != null && !string.IsNullOrWhiteSpace(def.description))
+            string description = FormatDescription(award);
+            if (!string.IsNullOrWhiteSpace(description))
                 AddText(card.transform, "Description",
-                    def.description, 22f, 58f,
+                    description, 22f, award.dropOptions?.Length > 0 ? 150f : 58f,
                     new Color(0.81f, 0.83f, 0.87f));
 
             GameObject scrollGo = new GameObject("StatusScroll",

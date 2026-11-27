@@ -137,7 +137,8 @@ namespace MixMaster.Monsters
             long reward = LongMath.SaturatingMultiply(
                 monsterDefinition.experienceReward, Mathf.Max(1, level));
             reward = SkillPassiveRules.Increase(reward,
-                SkillProgressionManager.PartyBonus(SkillPassiveType.DefeatExperience));
+                SkillProgressionManager.PartyBonus(SkillPassiveType.DefeatExperience) +
+                EquipmentDropOptions.PartyBonus(EquipmentOptionKind.Experience));
 
             PlayerManager player = RewardPlayer();
             if (player != null)
