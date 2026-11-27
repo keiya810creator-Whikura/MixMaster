@@ -86,16 +86,7 @@ namespace MixMaster.EditorTools
                 RectTransform top = Row(root.transform, "TopRow");
                 RectTransform bottom = Row(root.transform, "BottomRow");
 
-                List<string> sortNames = new List<string>
-                {
-                    "入手順", "レベル"
-                };
-                for (int i = 1; i < InventoryStatFilter.Labels.Length; i++)
-                    sortNames.Add(InventoryStatFilter.Labels[i]);
-                sortNames.Add("お気に入り優先");
-                sortNames.Add("ロック優先");
-
-                Dropdown(top, "SortDropdown", sortNames);
+                Dropdown(top, "SortDropdown", OwnedMonsterListUI.SortOptions);
                 Dropdown(top, "StatFilter",
                     InventoryProtectionIcons.CombinedStatFilterLabels);
                 Dropdown(bottom, "ThresholdFilter", ThresholdOptions);

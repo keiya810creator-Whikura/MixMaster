@@ -38,7 +38,7 @@ namespace MixMaster.UI
 
         private const int PageSize = 30;
         public const string FarmHoldHintText = "長押しでファーム登録・解除";
-        private static int StageSortIndex => InventoryStatFilter.Labels.Length + 3;
+        internal static int StageSortIndex => InventoryStatFilter.Labels.Length + 3;
         private readonly List<OwnedMonsterEntryUI> entries =
             new List<OwnedMonsterEntryUI>(PageSize);
         private readonly List<int> filteredIndices = new List<int>();
@@ -267,13 +267,8 @@ namespace MixMaster.UI
                 }
             }
 
-            int[] stages = null;
-            if (sortValue == StageSortIndex)
-            {
-                stages = new int[owned.Count];
-                foreach (int index in filteredIndices)
-                    stages[index] = GetSortStage(catalog?.GetMonster(owned[index].monsterId));
-            }
+            int[] stages = sortValue == StageSortIndex
+                ? GetStageSortKeys(owned, filteredIndices, catalog) : null;
 
             filteredIndices.Sort((a, b) =>
             {
@@ -305,12 +300,22 @@ namespace MixMaster.UI
             RenderPage();
         }
 
+        internal static int[] GetStageSortKeys(IReadOnlyList<OwnedMonsterRecord> owned,
+            List<int> indices, MonsterCatalogSO catalog)
+        {
+            var stages = new int[owned.Count];
+            if (catalog != null)
+                foreach (int index in indices)
+                    stages[index] = GetSortStage(catalog.GetMonster(owned[index].monsterId));
+            return stages;
+        }
+
         private static int GetSortStage(MonsterSO species) =>
             species != null && !species.specialBreedingOnly &&
             CollectionRewards.Matches(species, CollectionGroup.Normal)
                 ? Mathf.Max(1, species.appearanceStage) : 0;
 
-        private static int CompareStage(int stageA, int stageB, int indexA, int indexB,
+        internal static int CompareStage(int stageA, int stageB, int indexA, int indexB,
             bool ascending)
         {
             if ((stageA == 0) != (stageB == 0))
@@ -789,6 +794,17 @@ namespace MixMaster.UI
             return choices.ToArray();
         }
 
+        internal static void EnsureSortOptions(TMP_Dropdown dropdown)
+        {
+            if (dropdown == null || (dropdown.options.Count == SortOptions.Length &&
+                dropdown.options[StageSortIndex].text == SortOptions[StageSortIndex])) return;
+
+            int selected = dropdown.value;
+            dropdown.ClearOptions();
+            dropdown.AddOptions(new List<string>(SortOptions));
+            dropdown.SetValueWithoutNotify(Mathf.Clamp(selected, 0, SortOptions.Length - 1));
+        }
+
         private void EnsureSortingControls()
         {
             // Dropdowns are authored into the panel prefab by the Editor
@@ -833,14 +849,7 @@ namespace MixMaster.UI
                 if (countText != null) farmHoldHint.font = countText.font;
             }
             if (farmHoldHint != null) farmHoldHint.text = FarmHoldHintText;
-            if (sortDropdown.options.Count != SortOptions.Length ||
-                sortDropdown.options[StageSortIndex].text != SortOptions[StageSortIndex])
-            {
-                int selected = sortDropdown.value;
-                sortDropdown.ClearOptions();
-                sortDropdown.AddOptions(new List<string>(SortOptions));
-                sortDropdown.SetValueWithoutNotify(Mathf.Clamp(selected, 0, SortOptions.Length - 1));
-            }
+            EnsureSortOptions(sortDropdown);
             if (thresholdDropdown.options.Count != ThresholdOptions.Length)
             {
                 int selected = thresholdDropdown.value;

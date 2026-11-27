@@ -234,7 +234,10 @@ namespace MixMaster.UI
             materialBPlusButton.onClick.AddListener(AddMaterialB);
             materialBMinusButton.onClick.AddListener(RemoveMaterialB);
             if (sortDropdown != null)
+            {
+                OwnedMonsterListUI.EnsureSortOptions(sortDropdown);
                 sortDropdown.onValueChanged.AddListener(HandleFilterChanged);
+            }
             if (statFilterDropdown != null)
                 statFilterDropdown.onValueChanged.AddListener(HandleStatFilterChanged);
             if (thresholdDropdown != null)
@@ -880,9 +883,8 @@ namespace MixMaster.UI
             if (monsterManager == null)
                 return;
 
-            // Exact same sorting/filtering choices and score calculation as
-            // OwnedMonsterListUI. Eligibility is a separate first sort key:
-            // available Lv10+ > protected Lv10+ > all monsters below Lv10.
+            // Eligibility takes priority over the selected sort: eligible
+            // monsters first, then protected monsters and low-level monsters.
             IReadOnlyList<OwnedMonsterRecord> owned = monsterManager.OwnedMonsters;
             int sortValue = sortDropdown != null ? sortDropdown.value : 0;
             int filterValue = statFilterDropdown != null
@@ -949,6 +951,8 @@ namespace MixMaster.UI
                 }
             }
 
+            int[] stages = sortValue == OwnedMonsterListUI.StageSortIndex
+                ? OwnedMonsterListUI.GetStageSortKeys(owned, filteredIndices, monsterCatalog) : null;
             filteredIndices.Sort((a, b) =>
             {
                 OwnedMonsterRecord left = owned[a];
@@ -959,6 +963,9 @@ namespace MixMaster.UI
                     monsterManager.IsProtectedFromConsumption(right) ? 1 : 0;
                 if (groupLeft != groupRight)
                     return groupLeft.CompareTo(groupRight);
+
+                if (stages != null)
+                    return OwnedMonsterListUI.CompareStage(stages[a], stages[b], a, b, ascending);
 
                 int cmp;
                 if (sortValue == 0)
