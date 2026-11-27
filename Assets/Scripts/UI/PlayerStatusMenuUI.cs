@@ -10,10 +10,7 @@ using UnityEngine.UI;
 namespace MixMaster.UI
 {
     /// <summary>
-    /// Player status and auto-attack setting. The equipment button opens a working
-    /// equipment overview and exposes an event for a future equip/change UI.
-    /// Reincarnation is intentionally handled by world altar/town objects,
-    /// not from the player's status screen.
+    /// Player status, auto-attack setting, and entry to player equipment.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerStatusMenuUI : MonoBehaviour
@@ -64,6 +61,10 @@ namespace MixMaster.UI
         private PlayerController portraitPlayer;
         private bool subscribed;
         private float nextRefreshTime;
+        private float equipmentPreviewMinimumHeight;
+        private float equipmentSectionMinimumHeight;
+        private float measuredPreviewWidth;
+        private string measuredPreviewText;
 
         public UnityEvent EquipmentMenuRequested => onEquipmentMenuRequested;
 
@@ -161,15 +162,19 @@ namespace MixMaster.UI
 
         public void OpenEquipment()
         {
-            // Prefer the new searchable inventory. Keep the old overview
-            // as a fallback for scenes that have not installed the prefab.
-            if (equipmentInventory == null)
-                equipmentInventory = FindFirstObjectByType<EquipmentInventoryUI>(
-                    FindObjectsInactive.Include);
-
             if (equipmentInventory != null)
             {
                 equipmentInventory.Open();
+            }
+            else
+            {
+                Canvas canvas = GetComponentInParent<Canvas>();
+                if (canvas != null)
+                    equipmentInventory = EquipmentInventoryUI.OpenDefault(transform.parent);
+            }
+
+            if (equipmentInventory != null)
+            {
                 onEquipmentMenuRequested?.Invoke();
                 return;
             }
@@ -181,7 +186,6 @@ namespace MixMaster.UI
                 RefreshEquipment();
             }
 
-            // A future full equipment/inventory screen can subscribe here.
             onEquipmentMenuRequested?.Invoke();
         }
 
@@ -415,19 +419,60 @@ namespace MixMaster.UI
                     if (i + 1 < EquipmentManager.MaxEquipmentSlots)
                         info.Append('\n');
                 }
+
+                var totals = equipment.GetOptionTotals(equipment.PlayerEquipmentUniqueIds);
+                var options = new StringBuilder();
+                for (int i = 0; i < totals.Length; i++)
+                {
+                    if (totals[i] == 0) continue;
+                    var kind = (EquipmentOptionKind)i;
+                    options.Append('\n').Append(EquipmentDropOptions.Name(kind)).Append(' ')
+                        .Append(EquipmentDropOptions.FormatBonus(kind, totals[i]));
+                }
+
+                if (options.Length > 0)
+                    info.Append("\n\n").Append(EquipmentDropOptions.Highlight(
+                        "装備オプション合計" + options.ToString()));
             }
 
             if (equipmentPreviewText != null) equipmentPreviewText.richText = true;
             if (equipmentPageText != null) equipmentPageText.richText = true;
             SetText(equipmentPreviewText, info.ToString());
+            FitEquipmentPreview();
 
             SetText(equipmentPageText,
                 info.ToString() +
                 "\n\n所持装備数   " +
                 (equipment != null
-                    ? equipment.Inventory.Count.ToString("N0") : "-") +
-                "\n\n装備の変更・強化は今後ここに追加します。" +
-                "\n装備ボタンは将来の装備メニューへの接続に対応しています。");
+                    ? equipment.Inventory.Count.ToString("N0") : "-"));
+        }
+
+        private void FitEquipmentPreview()
+        {
+            if (equipmentPreviewText == null ||
+                !equipmentPreviewText.isActiveAndEnabled ||
+                !equipmentPreviewText.transform.parent.TryGetComponent(out LayoutElement section))
+                return;
+
+            RectTransform rect = equipmentPreviewText.rectTransform;
+            float width = rect.rect.width;
+            string text = equipmentPreviewText.text;
+            if (width <= 0f || (width == measuredPreviewWidth && text == measuredPreviewText))
+                return;
+
+            measuredPreviewWidth = width;
+            measuredPreviewText = text;
+            if (equipmentPreviewMinimumHeight == 0f)
+            {
+                equipmentPreviewMinimumHeight = rect.rect.height;
+                equipmentSectionMinimumHeight = section.preferredHeight;
+            }
+
+            float height = Mathf.Max(equipmentPreviewMinimumHeight,
+                equipmentPreviewText.GetPreferredValues(text, width, 0f).y);
+            if (Mathf.Approximately(rect.rect.height, height)) return;
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            section.preferredHeight = equipmentSectionMinimumHeight + height - equipmentPreviewMinimumHeight;
         }
 
         private static string FormatPercent(float value)

@@ -903,6 +903,10 @@ namespace MixMaster.UI
                     InventoryStatFilter.GetValue(b.after, stat)) > 0.00001d)
                     return false;
             }
+            for (int i = 0; i < a.beforeOptions.Length; i++)
+                if (a.beforeOptions[i] != b.beforeOptions[i] || a.afterOptions[i] != b.afterOptions[i])
+                    return false;
+
             return true;
         }
 

@@ -26,6 +26,7 @@ namespace MixMaster.UI
         [Serializable]
         private struct Row
         {
+            public TMP_Text label;
             public TMP_Text oldValue;
             public TMP_Text newValue;
             public TMP_Text deltaValue;
@@ -36,6 +37,8 @@ namespace MixMaster.UI
         [SerializeField] private TMP_Text hint;
         [SerializeField] private List<Row> rows = new List<Row>();
         [SerializeField] private Button cancelButton, confirmButton;
+        private readonly List<Row> optionRows = new List<Row>();
+        private float fixedContentHeight;
         private bool bound;
         private void Awake() => BindView();
         private void BindView()
@@ -204,6 +207,85 @@ namespace MixMaster.UI
             return panel;
         }
 
+        private void ShowOptionRows(ScrollRect scroll,
+            EquipmentComparisonCalculator.Comparison comparison)
+        {
+            RectTransform content = scroll.content;
+            if (content == null || rows.Count == 0) return;
+
+            bool usesLayout = content.GetComponent<VerticalLayoutGroup>() != null;
+            RectTransform lastStat = (RectTransform)rows[rows.Count - 1].oldValue.transform.parent;
+            float rowHeight = lastStat.rect.height > 0f ? lastStat.rect.height : 58f;
+            float bottom = lastStat.anchoredPosition.y - lastStat.pivot.y * rowHeight;
+            if (!usesLayout && fixedContentHeight == 0f)
+                fixedContentHeight = content.rect.height;
+
+            int visible = 0;
+            for (int i = 0; i < comparison.beforeOptions.Length; i++)
+            {
+                var kind = (EquipmentOptionKind)i;
+                int before = comparison.beforeOptions[i];
+                int after = comparison.afterOptions[i];
+                if (EquipmentDropOptions.ChangesCharacterStats(kind) || (before == 0 && after == 0))
+                    continue;
+
+                if (visible == optionRows.Count)
+                    optionRows.Add(CreateOptionRow(content));
+
+                Row row = optionRows[visible];
+                var rect = (RectTransform)row.label.transform.parent;
+                rect.gameObject.SetActive(true);
+                if (!usesLayout)
+                {
+                    bottom -= 3f;
+                    rect.anchoredPosition = new Vector2(0f, bottom);
+                    rect.sizeDelta = new Vector2(0f, rowHeight);
+                    bottom -= rowHeight;
+                }
+
+                row.label.text = EquipmentDropOptions.Name(kind);
+                row.oldValue.text = EquipmentDropOptions.FormatBonus(kind, before);
+                row.newValue.text = EquipmentDropOptions.FormatBonus(kind, after);
+                row.deltaValue.text = after == before ? "±0"
+                    : EquipmentDropOptions.FormatBonus(kind, after - before, asDifference: true);
+                SetDifferenceColor(row, after - before);
+                visible++;
+            }
+
+            for (int i = visible; i < optionRows.Count; i++)
+                optionRows[i].label.transform.parent.gameObject.SetActive(false);
+
+            if (usesLayout)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+            else
+                content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                    Mathf.Max(fixedContentHeight, -bottom + ScrollViewLayout.DefaultEndPadding));
+        }
+
+        private Row CreateOptionRow(RectTransform content)
+        {
+            var go = new GameObject("EquipmentOption", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            var rect = go.GetComponent<RectTransform>();
+            rect.SetParent(content, false);
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            go.GetComponent<LayoutElement>().preferredHeight = 58f;
+            var background = go.GetComponent<Image>();
+            background.color = new Color(0.107f, 0.151f, 0.213f, 1f);
+            background.raycastTarget = false;
+
+            var row = new Row
+            {
+                label = MakeRowText(rect, "", 0.01f, 0.25f, 21f),
+                oldValue = MakeRowText(rect, "", 0.27f, 0.23f, 21f),
+                newValue = MakeRowText(rect, "", 0.51f, 0.23f, 21f),
+                deltaValue = MakeRowText(rect, "", 0.76f, 0.23f, 21f)
+            };
+            row.label.color = new Color32(255, 214, 92, 255);
+            return row;
+        }
+
         private TMP_Text MakeRowText(RectTransform parent,
             string value, float x, float width, float fontSize)
         {
@@ -260,18 +342,27 @@ namespace MixMaster.UI
                 row.newValue.text = Format(after, stat);
                 row.deltaValue.text = FormatDelta(difference, stat);
 
-                Color tint = difference > DifferenceEpsilon
-                    ? PositiveColor : difference < -DifferenceEpsilon
-                        ? NegativeColor : NeutralColor;
-                row.newValue.color = tint;
-                row.deltaValue.color = tint;
+                SetDifferenceColor(row, difference);
             }
 
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             ScrollRect scroll = GetComponentInChildren<ScrollRect>(true);
             if (scroll != null)
+            {
+                ShowOptionRows(scroll, comparison);
+                scroll.StopMovement();
                 scroll.verticalNormalizedPosition = 1f;
+            }
+        }
+
+        private static void SetDifferenceColor(Row row, double difference)
+        {
+            Color tint = difference > DifferenceEpsilon
+                ? PositiveColor : difference < -DifferenceEpsilon
+                    ? NegativeColor : NeutralColor;
+            row.newValue.color = tint;
+            row.deltaValue.color = tint;
         }
 
         private static bool IsRate(InventoryStat stat)

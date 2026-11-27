@@ -29,6 +29,22 @@ namespace MixMaster.Core
             "スキルHP回復量", "スキル消費MP"
         };
 
+        internal static int KindCount => Names.Length;
+        internal static string Name(EquipmentOptionKind kind) => Names[(int)kind];
+        internal static bool ChangesCharacterStats(EquipmentOptionKind kind) =>
+            kind is >= EquipmentOptionKind.MaxHp and <= EquipmentOptionKind.Dark;
+
+        internal static bool IsReduction(EquipmentOptionKind kind) =>
+            kind is EquipmentOptionKind.BossGuard or EquipmentOptionKind.SkillMp;
+
+        internal static string FormatBonus(EquipmentOptionKind kind, int percent, bool asDifference = false)
+        {
+            int value = IsReduction(kind) ? -percent : percent;
+            string unit = kind is >= EquipmentOptionKind.Fire and <= EquipmentOptionKind.Dark
+                ? "ポイント" : asDifference ? "pt" : "%";
+            return value.ToString("+0;-0;0") + unit;
+        }
+
         internal static EquipmentDropOption[] Roll(EquipmentCategory category, bool danger)
         {
             int roll = UnityEngine.Random.Range(0, 100);
@@ -68,10 +84,8 @@ namespace MixMaster.Core
             foreach (var option in options)
             {
                 if ((uint)option.kind >= (uint)Names.Length) continue;
-                bool resistance = option.kind is >= EquipmentOptionKind.Fire and <= EquipmentOptionKind.Dark;
-                bool reduction = option.kind is EquipmentOptionKind.BossGuard or EquipmentOptionKind.SkillMp;
-                text.Append("　").Append(Names[(int)option.kind]).Append(reduction ? " -" : " +")
-                    .Append(option.percent).Append(resistance ? "ポイント" : "%");
+                text.Append("　").Append(Name(option.kind)).Append(' ')
+                    .Append(FormatBonus(option.kind, option.percent));
             }
             return text.ToString();
         }
