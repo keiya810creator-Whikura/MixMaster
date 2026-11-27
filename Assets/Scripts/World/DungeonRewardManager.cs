@@ -85,8 +85,6 @@ namespace MixMaster.World
         private long dangerMaterials;
         private int dangerEquipmentCount;
         private int dangerEquipmentLevel;
-        private bool dangerEntered;
-        private bool dangerCleared;
         private bool dangerRewardAwarded;
         private long actualDangerMaterialAmount;
         private readonly List<DungeonEquipmentAward> dangerEquipment = new List<DungeonEquipmentAward>();
@@ -112,12 +110,12 @@ namespace MixMaster.World
             if (spawner != null)
             {
                 spawner.NormalEnemyDefeated += HandleNormalEnemyDefeated;
+                spawner.DangerRoomSpawned += HandleDangerRoomSpawned;
                 spawner.DangerRoomCleared += HandleDangerRoomCleared;
             }
             if (mapGenerator != null)
             {
                 mapGenerator.DungeonMapReady += HandleMapReady;
-                mapGenerator.DangerRoomEntered += HandleDangerRoomEntered;
             }
         }
 
@@ -131,12 +129,12 @@ namespace MixMaster.World
             if (spawner != null)
             {
                 spawner.NormalEnemyDefeated -= HandleNormalEnemyDefeated;
+                spawner.DangerRoomSpawned -= HandleDangerRoomSpawned;
                 spawner.DangerRoomCleared -= HandleDangerRoomCleared;
             }
             if (mapGenerator != null)
             {
                 mapGenerator.DungeonMapReady -= HandleMapReady;
-                mapGenerator.DangerRoomEntered -= HandleDangerRoomEntered;
             }
             Cleanup();
         }
@@ -150,24 +148,18 @@ namespace MixMaster.World
                 RollDangerReward();
         }
 
-        private void HandleDangerRoomEntered()
+        private void HandleDangerRoomSpawned()
         {
-            if (!sessionActive || chestAbsorbed || spawner == null ||
-                (!spawner.HasDangerEnemies && !dangerCleared)) return;
+            if (!sessionActive || chestAbsorbed) return;
 
-            dangerEntered = true;
             GameAudio.Play(SoundCue.Danger);
-            if (dangerCleared)
-                AwardDangerReward();
-            else
-                StageNameBannerUI.Show("危険ルートに侵入\n突破報酬  " +
-                    FormatDangerReward(dangerGold, dangerMaterials, dangerEquipmentCount));
+            StageNameBannerUI.Show("危険ルートに侵入\n突破報酬  " +
+                FormatDangerReward(dangerGold, dangerMaterials, dangerEquipmentCount));
         }
 
         private void HandleDangerRoomCleared()
         {
-            dangerCleared = true;
-            if (dangerEntered && sessionActive && !chestAbsorbed)
+            if (sessionActive && !chestAbsorbed)
                 AwardDangerReward();
         }
 
@@ -589,7 +581,6 @@ namespace MixMaster.World
         {
             sessionActive = false;
             chestAbsorbed = false;
-            dangerEntered = dangerCleared = false;
             dangerGold = dangerMaterials = 0L;
             dangerEquipmentCount = dangerEquipmentLevel = 0;
             dangerRewardAwarded = false;
