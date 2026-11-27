@@ -18,6 +18,7 @@ namespace MixMaster.Combat
             public float until, next;
             public int stacks = 1;
             public long tickDamage;
+            public int enhancementRank;
             public MaterialDropSourceInfo source;
         }
         public static readonly List<SkillActor> Active = new List<SkillActor>();
@@ -465,6 +466,21 @@ namespace MixMaster.Combat
                 targets.Sort((a,b) => { int d=(a.transform.position-center).sqrMagnitude.CompareTo((b.transform.position-center).sqrMagnitude); return d!=0?d:a.GetInstanceID().CompareTo(b.GetInstanceID()); });
                 if (areaRadiusOverride<0&&s.hitLimit > 0 && targets.Count > s.hitLimit) targets.RemoveRange(s.hitLimit,targets.Count-s.hitLimit);
             }
+            if (targets.Count == 0) return;
+
+            int enhancementRank = !IsEnemy
+                ? SkillProgressionManager.Instance?.EnhancementRank(ownerId, s.skillId) ?? 0
+                : 0;
+            long stat = s.powerSource == SkillPowerSource.Attack ? powerStats.attack :
+                s.powerSource == SkillPowerSource.Magic ? powerStats.magic :
+                s.powerSource == SkillPowerSource.MaxHp ? powerStats.maxHp : 0;
+            long baseAmount = SkillEnhancementRules.Power(s, stat, powerScale, enhancementRank);
+            SkillAffix[] affixes = s.affixes;
+            if (enhancementRank > 0 && affixes?.Length > 0)
+            {
+                double multiplier = SkillEnhancementRules.Multiplier(enhancementRank);
+                affixes = Array.ConvertAll(affixes, affix => SkillEnhancementRules.Affix(affix, multiplier));
+            }
             var element = s.useOwnerElement ? powerStats.element : s.overrideElement;
             var skillSource = source?.Clone().WithAttack(element, false);
             foreach (var target in targets)
@@ -472,8 +488,7 @@ namespace MixMaster.Combat
                 if (target == null || !target.Alive) continue;
                 if (affected!=null&&!affected.Add(target))continue;
                 if (s.effect == SkillBaseEffect.Damage && Has(SkillAilment.Blind) && UnityEngine.Random.value >= 0.5f) continue;
-                long stat = s.powerSource == SkillPowerSource.Attack ? powerStats.attack : s.powerSource == SkillPowerSource.Magic ? powerStats.magic : s.powerSource == SkillPowerSource.MaxHp ? powerStats.maxHp : 0;
-                long amount = SkillMath.Amount((stat * (double)s.powerMultiplier + s.flatPower)*Math.Max(0,powerScale));
+                long amount = baseAmount;
                 if (s.effect == SkillBaseEffect.Damage)
                 {
                     amount = DamageCalculator.Calculate(amount, s.powerSource == SkillPowerSource.Attack ? target.Stats.defense : target.Stats.magicDefense);
@@ -490,8 +505,9 @@ namespace MixMaster.Combat
                     long recovered = Math.Max(0L, target.Hp - before);
                     if (recovered > 0) HealingPerformed?.Invoke(recovered);
                 }
-                if (target.Alive)
-                    for (int i=0;i<s.affixes.Length;i++) target.AddStatus(s.skillId+":"+i,s.affixes[i],skillSource);
+                if (target.Alive && affixes != null)
+                    for (int i = 0; i < affixes.Length; i++)
+                        target.AddStatus(s.skillId + ":" + i, affixes[i], skillSource, enhancementRank);
                 if (s.effectPrefab != null)
                 {
                     var effect = Instantiate(s.effectPrefab, target.SkillEffectPosition(s), Quaternion.identity);
@@ -502,20 +518,30 @@ namespace MixMaster.Combat
                 }
             }
         }
-        public void AddStatus(string key, SkillAffix e, MaterialDropSourceInfo source)
+        public void AddStatus(string key, SkillAffix e, MaterialDropSourceInfo source, int enhancementRank = 0)
         {
             if (e == null || e.type == SkillAffixType.None || !Alive || UnityEngine.Random.value * 100 >= e.chance) return;
+            long TickDamage() => SkillEnhancementRules.WholeAmount(
+                e.change == SkillChange.MaxHpPercent ? Stats.maxHp * e.amount / 100d : e.amount,
+                enhancementRank);
             var active = statuses.Find(x => x.key == key && x.until > Time.time);
             if (active != null)
             {
                 if (e.stacking == SkillStacking.Ignore) return;
                 if (e.stacking == SkillStacking.Stack) active.stacks = Math.Min(e.stackLimit,active.stacks+1);
+                if (active.enhancementRank != enhancementRank)
+                {
+                    active.effect = e;
+                    active.enhancementRank = enhancementRank;
+                    active.tickDamage = TickDamage();
+                    active.source = source?.Clone();
+                }
                 active.until = Time.time + e.duration; cachedFrame=-1;
                 DamagePopupText.ShowStatus(transform.position,e,active.stacks); return;
             }
             statuses.RemoveAll(x=>x.key==key);
             statuses.Add(new Status { key=key,effect=e,until=Time.time+e.duration,next=Time.time+e.interval,
-                tickDamage=SkillMath.Amount(e.change==SkillChange.MaxHpPercent?Stats.maxHp*e.amount/100:e.amount),source=source?.Clone() }); cachedFrame=-1;
+                tickDamage=TickDamage(),enhancementRank=enhancementRank,source=source?.Clone() }); cachedFrame=-1;
             DamagePopupText.ShowStatus(transform.position,e);
         }
         private void Heal(long amount) { if (enemy != null) enemy.Heal(amount); else if (party != null) party.Heal(amount); else player?.Heal(amount); }

@@ -43,11 +43,18 @@ namespace MixMaster.Core
         public List<SkillSlot> slots = new List<SkillSlot>();
     }
     [Serializable]
+    public sealed class SkillEnhancement
+    {
+        public string ownerId, skillId;
+        public int rank;
+    }
+    [Serializable]
     public sealed class SkillSaveData
     {
         public bool usesMonsterSkillDistribution;
         public List<string> playerLearned = new List<string>();
         public List<SkillLoadout> loadouts = new List<SkillLoadout>();
+        public List<SkillEnhancement> enhancements = new List<SkillEnhancement>();
     }
     public static class SkillMath
     {
