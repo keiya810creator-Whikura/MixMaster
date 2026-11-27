@@ -37,6 +37,8 @@ namespace MixMaster.UI
         [SerializeField] private bool disableJoystickWhileOpen = true;
 
         private const int PageSize = 30;
+        public const string FarmHoldHintText = "長押しでファーム登録・解除";
+        private static int StageSortIndex => InventoryStatFilter.Labels.Length + 3;
         private readonly List<OwnedMonsterEntryUI> entries =
             new List<OwnedMonsterEntryUI>(PageSize);
         private readonly List<int> filteredIndices = new List<int>();
@@ -68,7 +70,7 @@ namespace MixMaster.UI
         private readonly HashSet<string> bulkSelected = new HashSet<string>(StringComparer.Ordinal);
         private ProgressionPanelUI bulkPanel;
 
-        private static readonly string[] SortOptions = CreateSortOptions();
+        public static readonly string[] SortOptions = CreateSortOptions();
         public static readonly string[] ThresholdOptions =
         {
             "上位25%", "上位50%", "上位75%", "0以外",
@@ -265,8 +267,19 @@ namespace MixMaster.UI
                 }
             }
 
+            int[] stages = null;
+            if (sortValue == StageSortIndex)
+            {
+                stages = new int[owned.Count];
+                foreach (int index in filteredIndices)
+                    stages[index] = GetSortStage(catalog?.GetMonster(owned[index].monsterId));
+            }
+
             filteredIndices.Sort((a, b) =>
             {
+                if (stages != null)
+                    return CompareStage(stages[a], stages[b], a, b, ascending);
+
                 int cmp;
                 if (sortValue == 0)
                     cmp = b.CompareTo(a);
@@ -290,6 +303,23 @@ namespace MixMaster.UI
             int pages = Math.Max(1, (filteredIndices.Count + PageSize - 1) / PageSize);
             pageIndex = Mathf.Clamp(pageIndex, 0, pages - 1);
             RenderPage();
+        }
+
+        private static int GetSortStage(MonsterSO species) =>
+            species != null && !species.specialBreedingOnly &&
+            CollectionRewards.Matches(species, CollectionGroup.Normal)
+                ? Mathf.Max(1, species.appearanceStage) : 0;
+
+        private static int CompareStage(int stageA, int stageB, int indexA, int indexB,
+            bool ascending)
+        {
+            if ((stageA == 0) != (stageB == 0))
+                return stageA == 0 ? 1 : -1;
+
+            int comparison = stageB.CompareTo(stageA);
+            if (comparison == 0)
+                comparison = indexB.CompareTo(indexA);
+            return ascending ? -comparison : comparison;
         }
 
         private double GetValueForSorting(
@@ -330,7 +360,7 @@ namespace MixMaster.UI
             {
                 OwnedMonsterEntryUI entry = Instantiate(entryPrefab, contentRoot);
                 entry.SetSelectionHandler(SelectOrOpenDetail);
-                entry.SetHoldHandler(SendToFarm);
+                entry.SetHoldHandler(ToggleFarmRegistration);
                 entries.Add(entry);
             }
 
@@ -351,7 +381,7 @@ namespace MixMaster.UI
                     favoriteSprite, lockSprite,
                      sortDropdown != null ? sortDropdown.value : 0);
                 entry.RefreshFarmMark(farmSprite);
-                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : SendToFarm);
+                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : ToggleFarmRegistration);
                 entry.ShowBulkSelection(bulkSelecting, bulkSelected.Contains(record.uniqueId));
             }
 
@@ -544,25 +574,27 @@ namespace MixMaster.UI
             subscribed = false;
         }
 
-        private void SendToFarm(OwnedMonsterRecord record)
+        private void ToggleFarmRegistration(OwnedMonsterRecord record)
         {
-            if (monsterManager == null ||
+            if (record == null || monsterManager == null ||
                 monsterManager.FindOwnedMonster(record.uniqueId) != record)
                 return;
 
+            bool register = record.farmStartLevel <= 0;
+            int farmNumber = (register ? monsterManager.ActiveFarmIndex : record.farmPresetIndex) + 1;
             string message;
-            if (record.farmStartLevel > 0)
-                message = $"ファーム{record.farmPresetIndex + 1}に登録済みです";
-            else if (monsterManager.SetFarmRegistration(record.uniqueId, true))
+            if (monsterManager.SetFarmRegistration(record.uniqueId, register))
             {
                 FindFirstObjectByType<SaveManager>()?.SaveGame();
-                message = $"ファーム{monsterManager.ActiveFarmIndex + 1}に送りました（{monsterManager.FarmMonsters.Count} / {MonsterManager.MaxFarmSize}）";
+                message = register
+                    ? $"ファーム{farmNumber}に送りました（{monsterManager.FarmMonsters.Count} / {MonsterManager.MaxFarmSize}）"
+                    : $"ファーム{farmNumber}から解除しました";
             }
             else
                 message = "ファームは満員です";
 
             if (farmHoldHint != null)
-                farmHoldHint.text = "長押しでファームに送る　｜　" + message;
+                farmHoldHint.text = FarmHoldHintText + "　｜　" + message;
         }
 
         public void OpenDetail(OwnedMonsterRecord record)
@@ -753,6 +785,7 @@ namespace MixMaster.UI
                 choices.Add(InventoryStatFilter.Labels[i]);
             choices.Add("お気に入り優先");
             choices.Add("ロック優先");
+            choices.Add("Stage");
             return choices.ToArray();
         }
 
@@ -796,8 +829,17 @@ namespace MixMaster.UI
             if (farmHoldHint == null)
             {
                 farmHoldHint = InventoryUiFactory.Text(controls, "FarmHoldHint",
-                    "長押しでファームに送る", new Vector2(32f, -155f), new Vector2(850f, 26f), 19f);
+                    FarmHoldHintText, new Vector2(32f, -155f), new Vector2(850f, 26f), 19f);
                 if (countText != null) farmHoldHint.font = countText.font;
+            }
+            if (farmHoldHint != null) farmHoldHint.text = FarmHoldHintText;
+            if (sortDropdown.options.Count != SortOptions.Length ||
+                sortDropdown.options[StageSortIndex].text != SortOptions[StageSortIndex])
+            {
+                int selected = sortDropdown.value;
+                sortDropdown.ClearOptions();
+                sortDropdown.AddOptions(new List<string>(SortOptions));
+                sortDropdown.SetValueWithoutNotify(Mathf.Clamp(selected, 0, SortOptions.Length - 1));
             }
             if (thresholdDropdown.options.Count != ThresholdOptions.Length)
             {
@@ -895,7 +937,7 @@ namespace MixMaster.UI
             bulkSelected.RemoveWhere(id => monsterManager.FindOwnedMonster(id) == null);
             foreach (var entry in entries)
             {
-                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : SendToFarm);
+                entry.SetHoldHandler(bulkSelecting ? (Action<OwnedMonsterRecord>)null : ToggleFarmRegistration);
                 entry.ShowBulkSelection(bulkSelecting, entry.Record != null && bulkSelected.Contains(entry.Record.uniqueId));
             }
             RefreshBulkSaleButton();

@@ -1,4 +1,5 @@
 using MixMaster.CameraSystem;
+using MixMaster.Combat;
 using MixMaster.Core;
 using MixMaster.Player;
 using MixMaster.UI;
@@ -43,6 +44,9 @@ namespace MixMaster.World
 
             MapBuildingUIRouter router = FindFirstObjectByType<MapBuildingUIRouter>();
             if (router != null) router.CloseAll();
+            if (endDungeon)
+                EnemyMagicProjectile.ClearHostileProjectiles(player.gameObject.scene);
+
             MapManager map = FindFirstObjectByType<MapManager>();
             if (map != null) map.EnterTown(villageMap.MapDefinition != null ? villageMap.MapDefinition.mapId : villageMap.name);
             villageMap.gameObject.SetActive(true);

@@ -121,9 +121,8 @@ namespace MixMaster.EditorTools
             RectTransform controls = EnsureControls(root, "InventoryFilters",
                 -95f, 173f, ref changed);
 
-            string[] sort = BuildSort();
             Dropdown(controls, "SortDropdown", new Vector2(32f, -8f),
-                new Vector2(225f, 56f), sort, ref changed);
+                new Vector2(225f, 56f), OwnedMonsterListUI.SortOptions, ref changed);
             Dropdown(controls, "StatFilter", new Vector2(267f, -8f),
                 new Vector2(260f, 56f),
                 OwnedMonsterListUI.MonsterFilterOptions, ref changed);
@@ -143,7 +142,7 @@ namespace MixMaster.EditorTools
             Button(controls, "AutoSellMonsters", "自動売却設定",
                 new Vector2(65f, -99f), new Vector2(335f, 56f), ref changed);
 
-            Text(controls, "FarmHoldHint", "長押しでファームに送る",
+            Text(controls, "FarmHoldHint", OwnedMonsterListUI.FarmHoldHintText,
                 new Vector2(32f, -155f), new Vector2(850f, 26f), ref changed);
 
             // Remove obsolete EXTRA dropdowns in older generated prefab versions.
