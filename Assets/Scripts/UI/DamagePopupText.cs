@@ -79,6 +79,7 @@ namespace MixMaster.UI
             if (!Application.isPlaying || damage <= 0L)
                 return;
 
+            GameAudio.Play(feedback.IsCritical ? SoundCue.Critical : SoundCue.Hit);
             Color damageColor = takenByAlly
                 ? EnemyDamageColor
                 : MaterialDropLogUI.GetSourceColor(attackSource);
@@ -102,7 +103,9 @@ namespace MixMaster.UI
 
         public static void ShowHealing(Vector3 worldPosition, long recovered)
         {
-            if (recovered > 0 && !DisplaySettingsManager.IsDisabled(DisplayOption.HealingText))
+            if (recovered <= 0 || !Application.isPlaying) return;
+            GameAudio.Play(SoundCue.Heal);
+            if (!DisplaySettingsManager.IsDisabled(DisplayOption.HealingText))
                 ShowText(worldPosition, "+" + recovered.ToString("N0", CultureInfo.InvariantCulture), HealingColor, DisplayOption.HealingText);
         }
 
@@ -131,7 +134,9 @@ namespace MixMaster.UI
 
         public static void ShowStatus(Vector3 worldPosition, SkillAffix effect, int stacks = 1)
         {
-            if (effect == null) return;
+            if (effect == null || !Application.isPlaying) return;
+            if (effect.type == SkillAffixType.Buff) GameAudio.Play(SoundCue.Buff);
+            if (effect.type == SkillAffixType.Debuff) GameAudio.Play(SoundCue.Debuff);
             DisplayOption option = effect.type == SkillAffixType.Buff ? DisplayOption.BuffText : DisplayOption.DebuffText;
             if (DisplaySettingsManager.IsDisabled(option)) return;
             string text = StatusText(effect, stacks);

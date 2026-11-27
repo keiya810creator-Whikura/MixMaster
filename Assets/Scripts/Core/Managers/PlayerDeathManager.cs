@@ -67,6 +67,7 @@ namespace MixMaster.Core
                 // Save outside the health event so that loading a defeated
                 // character can finish restoring the rest of the save first.
                 saveDefeat = false;
+                GameAudio.Play(SoundCue.Defeat);
                 if (SkillActor.PlayerActor != null) SkillActor.PlayerActor.ResetTransient();
                 save?.SaveGame();
             }

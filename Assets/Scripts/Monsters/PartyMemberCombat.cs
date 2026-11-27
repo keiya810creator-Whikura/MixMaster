@@ -454,6 +454,7 @@ namespace MixMaster.Monsters
                     Mathf.Max(1f, (float)Stats.criticalMultiplier));
             }
 
+            GameAudio.Play(SoundCue.Sword);
             meleeSword.Play(this, direction, attackPower, CreateDropSourceInfo(critical), spriteRenderer);
             StartAttackLunge(direction);
         }
@@ -475,6 +476,7 @@ namespace MixMaster.Monsters
             var projectile = shot.GetComponent<PartyMagicProjectile>() ?? shot.AddComponent<PartyMagicProjectile>();
             projectile.enabled = true;
             projectile.Initialize(target, magicPower, projectileSpeed, projectileHoming, source);
+            GameAudio.Play(SoundCue.Magic);
         }
 
         private MaterialDropSourceInfo CreateDropSourceInfo(bool critical)

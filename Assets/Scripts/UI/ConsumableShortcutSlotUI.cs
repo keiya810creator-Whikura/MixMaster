@@ -25,7 +25,11 @@ namespace MixMaster.UI
         private void OnDisable() { if (manager != null) manager.Changed -= Refresh; manager = null; }
         private void OnDestroy() { if (useButton != null) useButton.onClick.RemoveListener(Use); }
         private void Connect() { manager = ConsumableManager.Instance; if (manager != null) manager.Changed += Refresh; }
-        private void Use() { if (manager != null) manager.TryUse(manager.Shortcut(slotIndex), out _); }
+        private void Use()
+        {
+            if (manager != null && !manager.TryUse(manager.Shortcut(slotIndex), out _))
+                GameAudio.Play(SoundCue.Error);
+        }
         // Also upgrades existing unpacked scene slots without moving their layout.
         private void EnsureCooldownText()
         {

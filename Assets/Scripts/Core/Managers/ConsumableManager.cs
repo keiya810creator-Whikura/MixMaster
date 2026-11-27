@@ -180,6 +180,7 @@ namespace MixMaster.Core
                     message = "街へ帰還できません。帰還の翼は消費していません。";
                     return false;
                 }
+                if (village != null) GameAudio.Play(SoundCue.Teleport);
                 if (item.effect == ConsumableEffect.RestoreHp || item.effect == ConsumableEffect.RestoreMp)
                     recoveryReadyAt = Time.time + RecoveryCooldownSeconds;
                 if (item.effect == ConsumableEffect.RestoreHp) player.Heal(item.recoveryAmount);

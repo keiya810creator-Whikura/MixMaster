@@ -283,6 +283,7 @@ namespace MixMaster.Combat
                 transform.position, Quaternion.identity, gameObject.scene, source.attackElement);
             if (shot.TryGetComponent<EnemyMagicProjectile>(out var enemyProjectile))
                 enemyProjectile.enabled = false;
+            GameAudio.Play(SoundCue.Magic);
             var projectile = shot.GetComponent<PartyMagicProjectile>() ?? shot.AddComponent<PartyMagicProjectile>();
             projectile.enabled = true;
             projectile.Initialize(target, magic, species != null ? species.projectileSpeed : 8f,
@@ -732,6 +733,7 @@ namespace MixMaster.Combat
             if (swordPivot == null || swordRenderer == null)
                 yield break;
 
+            GameAudio.Play(SoundCue.Sword);
             ResizeSwordToAttackRange();
             // Match the element captured for this attack, including reincarnation.
             swordRenderer.color = PartyMeleeSwordSwing.ElementColor(

@@ -395,6 +395,7 @@ namespace MixMaster.Combat
             var projectile = shot.GetComponent<EnemyMagicProjectile>() ?? shot.AddComponent<EnemyMagicProjectile>();
             projectile.enabled = true;
             Component aim = playerTarget != null ? (Component)playerTarget : partyTarget;
+            GameAudio.Play(SoundCue.Magic);
             projectile.Initialize(playerTarget != null ? playerTarget : cachedPlayer, aim,
                 magicPower, projectileSpeed, projectileHoming, element, critical, IsBossAttacker);
         }

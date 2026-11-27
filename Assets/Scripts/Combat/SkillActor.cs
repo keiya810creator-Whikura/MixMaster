@@ -426,6 +426,7 @@ namespace MixMaster.Combat
             Cooldowns[s.skillId] = Time.time + cooldown; globalUntil = Time.time + Mathf.Max(0.02f, s.globalCooldown);
             bool paid = enemy != null ? enemy.TrySpendMp(cost) : party != null ? party.TrySpendMp(cost) : player.TrySpendMp(cost);
             if (!paid) { Cooldowns.Remove(s.skillId); globalUntil = Time.time; return false; }
+            if (s.effect == SkillBaseEffect.Damage) GameAudio.Play(SoundCue.AttackSkill);
             if (s.projectile) SkillProjectile.Launch(this, target, s, Stats, Source());
             else Execute(s, target, target.transform.position, ReincarnationRules.CopyStats(Stats), Source());
             WorldUIManager.ShowSkillName(party != null ? (Component)party : enemy, s.displayName);

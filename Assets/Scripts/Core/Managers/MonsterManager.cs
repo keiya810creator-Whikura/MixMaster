@@ -537,6 +537,7 @@ namespace MixMaster.Core
             if (firstAcquisition) AcquisitionHistoryChanged?.Invoke();
             if (sold) return null;
 
+            GameAudio.Play(SoundCue.RareReward);
             MonsterObtained?.Invoke(monster);
             return monster;
         }
@@ -902,6 +903,7 @@ namespace MixMaster.Core
             {
                 monster.skillPoints = (int)Math.Min(int.MaxValue,
                     (long)monster.skillPoints + gainedLevels);
+                GameAudio.Play(SoundCue.LevelUp);
                 MonsterLeveledUp?.Invoke(monster);
             }
 

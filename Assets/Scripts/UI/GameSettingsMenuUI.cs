@@ -39,7 +39,11 @@ namespace MixMaster.UI
             if (otherButton != null) otherButton.onClick.AddListener(ShowOther);
             if (creditsButton != null) creditsButton.onClick.AddListener(ShowCredits);
             if (contactButton != null) contactButton.onClick.AddListener(ShowContact);
-            if (backButton != null) backButton.onClick.AddListener(ShowSelection);
+            if (backButton != null) backButton.onClick.AddListener(() =>
+            {
+                GameAudio.Play(SoundCue.Back);
+                ShowSelection();
+            });
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (materialLogToggle != null) materialLogToggle.onValueChanged.AddListener(SetMaterialLog);
             if (damageTextToggle != null) damageTextToggle.onValueChanged.AddListener(SetDamageText);
@@ -257,6 +261,10 @@ namespace MixMaster.UI
         private void SetDebuffText(bool value) => Set(DisplayOption.DebuffText, value);
         private void SetSkillEffects(bool value) => Set(DisplayOption.SkillEffects, value);
         private void SetAttackRange(bool value) => Set(DisplayOption.AttackRange, value);
-        public void Close() => gameObject.SetActive(false);
+        public void Close()
+        {
+            GameAudio.Play(SoundCue.Back);
+            gameObject.SetActive(false);
+        }
     }
 }

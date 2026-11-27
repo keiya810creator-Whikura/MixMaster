@@ -85,9 +85,9 @@ namespace MixMaster.UI
             autoSetupButton.GetComponentInChildren<TMP_Text>(true).font = message.font;
             autoSetupButton.onClick.AddListener(OpenAutoSetup);
             openButton.onClick.AddListener(()=>{panel.SetActive(!panel.activeSelf);if(panel.activeSelf){individualSelection=false;individualOwner=null;transform.SetAsLastSibling();panel.transform.SetAsLastSibling();Refresh();}});
-            closeButton.onClick.AddListener(()=>{panel.SetActive(false);if(autoSetupPanel!=null)autoSetupPanel.Close();});
+            closeButton.onClick.AddListener(()=>{GameAudio.Play(SoundCue.Back);panel.SetActive(false);if(autoSetupPanel!=null)autoSetupPanel.Close();});
             actorDropdown.onValueChanged.AddListener(_=>{individualSelection=false;individualOwner=null;selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
-            skillDropdown.onValueChanged.AddListener(_=>RefreshDetails());
+            skillDropdown.onValueChanged.AddListener(_=>{GameAudio.Play(SoundCue.Confirm);RefreshDetails();});
             learnButtonLabel = learnButton.GetComponentInChildren<TMP_Text>(true);
             learnButton.onClick.AddListener(LearnOrEnhance);
             for(int i=0;i<assignButtons.Length;i++){int index=i;assignButtons[i].onClick.AddListener(()=>SelectSlot(index));}
@@ -207,10 +207,10 @@ namespace MixMaster.UI
             if (owner == null || skill == null || manager == null) return;
 
             string result;
-            if (manager.Learned(owner.OwnerId, skill.skillId))
-                manager.Enhance(owner.OwnerId, skill.skillId, out result);
-            else
-                manager.Learn(owner.OwnerId, skill.skillId, out result);
+            bool success = manager.Learned(owner.OwnerId, skill.skillId)
+                ? manager.Enhance(owner.OwnerId, skill.skillId, out result)
+                : manager.Learn(owner.OwnerId, skill.skillId, out result);
+            GameAudio.Play(success ? SoundCue.SkillGrowth : SoundCue.Error);
 
             message.text = result;
             RefreshSkills();

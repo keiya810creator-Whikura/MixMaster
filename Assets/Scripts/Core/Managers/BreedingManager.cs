@@ -465,6 +465,7 @@ namespace MixMaster.Core
                 protectedParents, monsterCatalog, SkillProgressionManager.Instance?.Catalog);
             if (succeeded)
                 MonsterBred?.Invoke(newborn);
+            GameAudio.Play(succeeded ? SoundCue.BreedSuccess : SoundCue.BreedFailure);
             BreedingAttemptCompleted?.Invoke(succeeded, newborn);
 
             SaveManager save = GetComponent<SaveManager>() ??
