@@ -60,11 +60,7 @@ namespace MixMaster.EditorTools
                 "プレイヤーステータスメニュー",
                 "ステータスメニューを生成・配置しました。" +
                 "\nプレイヤーの円形HUD中央を押すと開きます。" +
-                "\n「装備」ボタンで現在の装備3枠を確認できます。" +
-                "\n\n後から装備UIを実装する際には、" +
-                "PlayerStatusMenuUI の On Equipment Menu Requested に" +
-                "装備画面を開く関数を設定してください。" +
-                "\n\n転生機能はここには実装していません。",
+                "\n「装備変更」ボタンから現在の装備を確認・変更できます。",
                 "OK");
         }
 
@@ -172,7 +168,7 @@ namespace MixMaster.EditorTools
             title.color = new Color(1f, 0.83f, 0.45f);
 
             Button equipButton = MakeTopRightButton(
-                root.transform, "EquipmentButton", "装備",
+                root.transform, "EquipmentButton", "装備変更",
                 new Vector2(-197f, -40f), new Vector2(175f, 70f),
                 new Color(0.20f, 0.35f, 0.39f, 1f));
             Button closeButton = MakeTopRightButton(
@@ -301,8 +297,7 @@ namespace MixMaster.EditorTools
             noteText.color = new Color(0.84f, 0.84f, 0.89f);
             var skillButton=InventoryUiFactory.Button(note,"OpenSkillSettings","スキル設定",new Vector2(660f,-10f),new Vector2(190f,48f));
 
-            // Equipment entry is functional now: it opens a concise
-            // equipped-items/inventory summary and provides an event hook.
+            // Overview fallback for scenes without the equipment inventory.
             GameObject gearPage = MakeStretchPage(
                 root.transform, "EquipmentPage",
                 new Vector2(36f, 45f), new Vector2(-36f, -157f));

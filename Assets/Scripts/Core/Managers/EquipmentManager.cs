@@ -482,6 +482,22 @@ namespace MixMaster.Core
             return total;
         }
 
+        internal int[] GetOptionTotals(IReadOnlyList<string> equippedIds)
+        {
+            var totals = new int[EquipmentDropOptions.KindCount];
+            foreach (string id in equippedIds)
+            {
+                if (string.IsNullOrEmpty(id)) continue;
+                var options = FindEquipment(id)?.dropOptions;
+                if (options == null) continue;
+
+                foreach (var option in options)
+                    if ((uint)option.kind < (uint)totals.Length)
+                        totals[(int)option.kind] += option.percent;
+            }
+            return totals;
+        }
+
         public List<StatPercentageModifiers> GetEquippedModifiers(
             IReadOnlyList<string> equippedIds)
         {

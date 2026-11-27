@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MixMaster.Combat;
 using MixMaster.Core;
 using UnityEngine;
 
@@ -15,6 +16,8 @@ namespace MixMaster.UI
         {
             public CharacterStats before;
             public CharacterStats after;
+            public int[] beforeOptions;
+            public int[] afterOptions;
             public string ownerName;
             public string previousItem;
             public string newItem;
@@ -101,6 +104,12 @@ namespace MixMaster.UI
                 projected = StatCalculator.CalculateStats(
                     player.BaseStats, 1, new MonsterIndividualValues(),
                     null, equipment.GetEquippedModifiers(afterIds));
+                var actor = SkillActor.PlayerActor;
+                if (actor != null)
+                {
+                    current = actor.Effective(current);
+                    projected = actor.Effective(projected);
+                }
             }
             else
             {
@@ -128,6 +137,8 @@ namespace MixMaster.UI
             {
                 before = current,
                 after = projected,
+                beforeOptions = equipment.GetOptionTotals(beforeIds),
+                afterOptions = equipment.GetOptionTotals(afterIds),
                 ownerName = ownerName,
                 previousItem = DisplayName(equipment, previous),
                 newItem = unequip ? "未装備" : DisplayName(equipment, itemId),
