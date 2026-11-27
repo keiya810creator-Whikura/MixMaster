@@ -49,7 +49,9 @@ namespace MixMaster.Core
             {
                 int next = UnityEngine.Random.Range(i, pool.Length);
                 (pool[i], pool[next]) = (pool[next], pool[i]);
-                result[i] = new EquipmentDropOption { kind = pool[i], percent = UnityEngine.Random.Range(1, 11) };
+                EquipmentOptionKind kind = pool[i];
+                int maxPercent = kind is EquipmentOptionKind.Material or EquipmentOptionKind.DungeonMaterial ? 200 : 10;
+                result[i] = new EquipmentDropOption { kind = kind, percent = UnityEngine.Random.Range(1, maxPercent + 1) };
             }
             return result;
         }

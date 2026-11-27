@@ -38,12 +38,15 @@ namespace MixMaster.World
         private DungeonManager dungeon;
         private bool finalBossReported;
         private int remainingDangerEnemies;
+        private int dangerEnemyLevel;
+        private readonly List<(MonsterSO monster, Vector2Int offset)> dangerSpawns =
+            new List<(MonsterSO monster, Vector2Int offset)>();
 
         // Receives only generated normal-enemy defeats, never field enemies.
         public event Action<MonsterSO, Vector3> NormalEnemyDefeated;
 
         public event Action DangerRoomCleared;
-        public bool HasDangerEnemies => remainingDangerEnemies > 0;
+        public event Action DangerRoomSpawned;
 
         public int RemainingEnemies => liveEnemies.Count;
         public bool FinalBossDefeated => finalBossReported;
@@ -56,7 +59,10 @@ namespace MixMaster.World
                 FindFirstObjectByType<DungeonManager>();
 
             if (generator != null)
+            {
                 generator.DungeonMapReady += HandleMapReady;
+                generator.DangerRoomEntered += SpawnDangerRoom;
+            }
             if (dungeon != null)
                 dungeon.DungeonEnded += ClearTrackedEnemies;
         }
@@ -64,7 +70,10 @@ namespace MixMaster.World
         private void OnDisable()
         {
             if (generator != null)
+            {
                 generator.DungeonMapReady -= HandleMapReady;
+                generator.DangerRoomEntered -= SpawnDangerRoom;
+            }
             if (dungeon != null)
                 dungeon.DungeonEnded -= ClearTrackedEnemies;
             ClearTrackedEnemies();
@@ -181,7 +190,7 @@ namespace MixMaster.World
 
                     if (danger) count *= 2;
                     int level = Mathf.Max(1, map.normalMonsterLevel);
-                    if (danger) level = (int)Math.Min(int.MaxValue, 3L * level);
+                    if (danger) dangerEnemyLevel = (int)Math.Min(int.MaxValue, 3L * level);
 
                     // Sample without replacement so a crowded room still
                     // reaches its requested count whenever it fits.
@@ -197,12 +206,10 @@ namespace MixMaster.World
                         int index = random.Next(i, offsets.Count);
                         (offsets[i], offsets[index]) = (offsets[index], offsets[i]);
                         MonsterSO chosen = roomPool[random.Next(roomPool.Count)];
-                        if (!Spawn(chosen, room, offsets[i], level,
-                            danger ? EnemyRole.Danger : EnemyRole.Normal, 1f, 1))
-                            continue;
-
-                        if (danger) remainingDangerEnemies++;
-                        else normalTotal++;
+                        if (danger)
+                            dangerSpawns.Add((chosen, offsets[i]));
+                        else if (Spawn(chosen, room, offsets[i], level, EnemyRole.Normal, 1f, 1))
+                            normalTotal++;
                     }
                 }
             }
@@ -211,8 +218,22 @@ namespace MixMaster.World
                 Debug.Log("[DungeonEnemySpawner] " + map.mapId +
                     " : 雑魚 " + normalTotal + " / 中ボス " + midTotal +
                     " / 最終ボス " + finalTotal +
-                    " / 危険ルート " + remainingDangerEnemies +
+                    " / 危険ルート予定数 " + dangerSpawns.Count +
                     " (予定中ボス " + midCount + ")", this);
+        }
+
+        private void SpawnDangerRoom()
+        {
+            DungeonRoom room = generator.CurrentLayout?.DangerRoom;
+            if (room == null || dungeon == null || !dungeon.IsDungeonActive ||
+                dangerSpawns.Count == 0) return;
+
+            foreach (var (monster, offset) in dangerSpawns)
+                if (Spawn(monster, room, offset, dangerEnemyLevel, EnemyRole.Danger, 1f, 1))
+                    remainingDangerEnemies++;
+
+            dangerSpawns.Clear();
+            if (remainingDangerEnemies > 0) DangerRoomSpawned?.Invoke();
         }
 
         private bool Spawn(MonsterSO definition, DungeonRoom room,
@@ -317,6 +338,7 @@ namespace MixMaster.World
                     enemy.Died -= HandleEnemyDied;
             liveEnemies.Clear();
             remainingDangerEnemies = 0;
+            dangerSpawns.Clear();
             finalBossReported = false;
         }
 
