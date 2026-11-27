@@ -13,6 +13,7 @@ namespace MixMaster.World
         public EquipmentSO definition;
         public int level;
         public bool wasAutoSold;
+        public bool fromDangerRoute;
         // Cached when awarded so auto-sold items remain inspectable.
         public StatPercentageModifiers scaledModifiers;
     }
@@ -23,7 +24,7 @@ namespace MixMaster.World
         public MaterialSO dungeonMaterial;
         public long actualMaterialAmount;
         public int defeatedMidBosses;
-        public string dangerRewardSummary;
+        public long actualDangerMaterialAmount;
         public readonly List<DungeonEquipmentAward> equipment =
             new List<DungeonEquipmentAward>();
     }
@@ -85,7 +86,9 @@ namespace MixMaster.World
         private int dangerEquipmentLevel;
         private bool dangerEntered;
         private bool dangerCleared;
-        private string dangerRewardSummary;
+        private bool dangerRewardAwarded;
+        private long actualDangerMaterialAmount;
+        private readonly List<DungeonEquipmentAward> dangerEquipment = new List<DungeonEquipmentAward>();
 
         private void OnEnable()
         {
@@ -226,7 +229,8 @@ namespace MixMaster.World
 
         private void AwardDangerReward()
         {
-            if (dangerRewardSummary != null) return;
+            if (dangerRewardAwarded) return;
+            dangerRewardAwarded = true;
             long actualGold = 0L;
             if (dangerGold > 0 && GameManager.Instance != null)
             {
@@ -235,21 +239,39 @@ namespace MixMaster.World
                 actualGold = GameManager.Instance.Gold - before;
             }
 
-            long actualMaterials = dangerMaterials > 0
+            actualDangerMaterialAmount = dangerMaterials > 0
                 ? materials.AddMaterial(sourceMap.dungeonMaterial, dangerMaterials) : 0L;
-            int actualEquipmentCount = 0;
             for (int i = 0; i < dangerEquipmentCount; i++)
             {
-                EquipmentSO definition = RollEquipmentDefinition();
-                if (definition != null && equipment.CreateEquipment(definition.equipmentId,
-                    dangerEquipmentLevel, equipmentBaseValue, true, sourceMap.mapId) != null)
-                    actualEquipmentCount++;
+                DungeonEquipmentAward award = GrantEquipment(
+                    RollEquipmentDefinition(), dangerEquipmentLevel, fromDangerRoute: true);
+                if (award != null)
+                    dangerEquipment.Add(award);
             }
 
-            dangerRewardSummary = FormatDangerReward(actualGold, actualMaterials, actualEquipmentCount);
             if (GetSaveManager()?.SaveGame() != true)
                 Debug.LogWarning("[DungeonReward] 危険ルートの突破報酬を保存できませんでした。", this);
-            StageNameBannerUI.Show("危険ルート突破\n獲得  " + dangerRewardSummary);
+            StageNameBannerUI.Show("危険ルート突破\n獲得  " +
+                FormatDangerReward(actualGold, actualDangerMaterialAmount, dangerEquipment.Count));
+        }
+
+        private DungeonEquipmentAward GrantEquipment(EquipmentSO definition, int level,
+            bool fromDangerRoute = false)
+        {
+            if (definition == null || equipment == null) return null;
+
+            EquipmentRecord created = equipment.CreateEquipment(
+                definition.equipmentId, level, equipmentBaseValue, true, sourceMap?.mapId);
+            if (created == null) return null;
+
+            return new DungeonEquipmentAward
+            {
+                definition = definition,
+                level = created.level,
+                wasAutoSold = equipment.FindEquipment(created.uniqueId) == null,
+                fromDangerRoute = fromDangerRoute,
+                scaledModifiers = equipment.GetScaledModifiers(created)
+            };
         }
 
         private void HandleNormalEnemyDefeated(
@@ -388,8 +410,10 @@ namespace MixMaster.World
                 dungeonMaterial = sourceMap != null
                     ? sourceMap.dungeonMaterial : null,
                 defeatedMidBosses = dungeon.DefeatedSideBosses,
-                dangerRewardSummary = this.dangerRewardSummary
+                actualDangerMaterialAmount = this.actualDangerMaterialAmount
             };
+
+            report.equipment.AddRange(dangerEquipment);
 
             if (materials != null && report.dungeonMaterial != null)
             {
@@ -436,20 +460,9 @@ namespace MixMaster.World
                     int max = Mathf.Clamp(baseMaximumEquipmentLevel, min, 100);
                     int level = UnityEngine.Random.Range(min, max + 1);
 
-                    EquipmentRecord created =
-                        equipment.CreateEquipment(
-                            definition.equipmentId, level,
-                            equipmentBaseValue, true, sourceMap != null ? sourceMap.mapId : null);
-                    if (created == null) continue;
-
-                    report.equipment.Add(new DungeonEquipmentAward
-                    {
-                        definition = definition,
-                        level = created.level,
-                        wasAutoSold = equipment.FindEquipment(
-                            created.uniqueId) == null,
-                        scaledModifiers = equipment.GetScaledModifiers(created)
-                    });
+                    DungeonEquipmentAward award = GrantEquipment(definition, level);
+                    if (award != null)
+                        report.equipment.Add(award);
                 }
             }
 
@@ -569,7 +582,9 @@ namespace MixMaster.World
             dangerEntered = dangerCleared = false;
             dangerGold = dangerMaterials = 0L;
             dangerEquipmentCount = dangerEquipmentLevel = 0;
-            dangerRewardSummary = null;
+            dangerRewardAwarded = false;
+            actualDangerMaterialAmount = 0L;
+            dangerEquipment.Clear();
             pendingEquipment.Clear();
             foreach (GroundEquipmentDrop drop in groundDrops)
                 if (drop.pickup != null)
