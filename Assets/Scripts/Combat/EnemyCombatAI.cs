@@ -367,9 +367,9 @@ namespace MixMaster.Combat
             }
 
             if (playerTarget != null)
-                playerTarget.TakePhysicalHit(attackPower, element, critical);
+                playerTarget.TakePhysicalHit(attackPower, element, critical, IsBossAttacker);
             else if (partyTarget != null)
-                partyTarget.TakePhysicalHit(attackPower, element, critical);
+                partyTarget.TakePhysicalHit(attackPower, element, critical, IsBossAttacker);
             else
                 return;
 
@@ -379,6 +379,8 @@ namespace MixMaster.Combat
             slashRoutine = StartCoroutine(PlaySlash(direction));
             StartAttackLunge(direction);
         }
+
+        private bool IsBossAttacker => GetComponent<EnemyHealth>()?.IsBoss == true;
 
         private void FireMagicProjectile(long magicPower, ElementType element, bool critical)
         {
@@ -395,7 +397,7 @@ namespace MixMaster.Combat
             Component aim = playerTarget != null ? (Component)playerTarget : partyTarget;
             GameAudio.Play(SoundCue.Magic);
             projectile.Initialize(playerTarget != null ? playerTarget : cachedPlayer, aim,
-                magicPower, projectileSpeed, projectileHoming, element, critical);
+                magicPower, projectileSpeed, projectileHoming, element, critical, IsBossAttacker);
         }
 
         private void ClearTarget()

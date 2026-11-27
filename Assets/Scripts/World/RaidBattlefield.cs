@@ -119,6 +119,7 @@ namespace MixMaster.World
             enemy.GetComponent<EnemyCombatAI>().HuntRaidAllies();
             enemy.transform.localScale *= 5f;
             boss.RaidDamageFeedback = true;
+            boss.IsBoss = true;
             boss.IsTrainingTarget = IsTraining;
             boss.RefreshOriginalScale();
             BossMaxHp = boss.MaxHp;

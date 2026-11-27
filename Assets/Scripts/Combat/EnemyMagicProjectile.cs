@@ -20,6 +20,7 @@ namespace MixMaster.Combat
         private ElementType element;
         private bool critical;
         private bool initialized;
+        private bool bossAttack;
 
         internal static void ClearHostileProjectiles(Scene sourceScene)
         {
@@ -49,7 +50,7 @@ namespace MixMaster.Combat
         }
 
         public void Initialize(PlayerAutoAttack activePlayer, Component target,
-            long power, float speed, bool homing, ElementType attackElement, bool isCritical)
+            long power, float speed, bool homing, ElementType attackElement, bool isCritical, bool fromBoss = false)
         {
             scene = gameObject.scene.GetPhysicsScene2D();
             player = activePlayer;
@@ -57,6 +58,7 @@ namespace MixMaster.Combat
             magicPower = System.Math.Max(1L, power);
             element = attackElement;
             critical = isCritical;
+            bossAttack = fromBoss;
             flight.Begin(transform, aim, speed, homing);
             initialized = true;
         }
@@ -74,7 +76,7 @@ namespace MixMaster.Combat
             Vector2 start = flight.Step(transform, aimAlive, rotateToDirection);
             Vector2 end = transform.position;
             if (player != null && player.isActiveAndEnabled && player.IsAlive && flight.TryHit(player, scene, start, end, hitDistance))
-                player.TakeMagicHit(magicPower, element, critical);
+                player.TakeMagicHit(magicPower, element, critical, bossAttack);
 
             var members = PartyMemberCombat.ActiveMembers;
             for (int i = members.Count - 1; i >= 0; i--)
@@ -82,7 +84,7 @@ namespace MixMaster.Combat
                 if (i >= members.Count) continue;
                 var member = members[i];
                 if (member != null && member.IsAlive && flight.TryHit(member, scene, start, end, hitDistance))
-                    member.TakeMagicHit(magicPower, element, critical);
+                    member.TakeMagicHit(magicPower, element, critical, bossAttack);
             }
 
             if (flight.Expired) Destroy(gameObject);

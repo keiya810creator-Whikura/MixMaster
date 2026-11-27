@@ -64,8 +64,9 @@ namespace MixMaster.UI
 
         private readonly List<GameObject> activeRows = new List<GameObject>();
 
-        private static readonly string[] SortChoices = BuildSortChoices();
-        private static readonly string[] StatChoices = InventoryStatFilter.Labels;
+        public static readonly string[] SortChoices = BuildSortChoices();
+        private static readonly int OptionFilterStart = InventoryProtectionIcons.CombinedStatFilterLabels.Length;
+        public static readonly string[] FilterChoices = BuildFilterChoices();
         private static readonly string[] RarityChoices = EquipmentRarityUtility.FilterLabels;
 
         public void SetReferences(RectTransform content,
@@ -235,7 +236,7 @@ namespace MixMaster.UI
             if (statFilter != null)
                 statFilter.SetValueWithoutNotify(
                     Mathf.Clamp(selected, 0,
-                        InventoryProtectionIcons.CombinedStatFilterLabels.Length - 1));
+                        FilterChoices.Length - 1));
             pageIndex = 0;
             Rebuild();
         }
@@ -292,10 +293,11 @@ namespace MixMaster.UI
             for (int i = 0; i < source.Count; i++)
             {
                 EquipmentRecord record = source[i];
-                if (record == null ||
-                    !InventoryProtectionIcons.MatchesCombinedStatFilter(
-                        statIndex, record.isFavorite, record.isLocked))
-                    continue;
+                if (record == null) continue;
+                bool matchesFilter = statIndex >= OptionFilterStart
+                    ? record.OptionCount == statIndex - OptionFilterStart
+                    : InventoryProtectionIcons.MatchesCombinedStatFilter(statIndex, record.isFavorite, record.isLocked);
+                if (!matchesFilter) continue;
 
                 if (rarityIndex != 0 &&
                     (int)EquipmentRarityUtility.GetRarity(record.level) !=
@@ -328,6 +330,8 @@ namespace MixMaster.UI
                     compare = right.isFavorite.CompareTo(left.isFavorite);
                 else if (sortIndex == InventoryStatFilter.Labels.Length + 2)
                     compare = right.isLocked.CompareTo(left.isLocked);
+                else if (sortIndex == SortChoices.Length - 1)
+                    compare = right.OptionCount.CompareTo(left.OptionCount);
                 else
                 {
                     InventoryStat stat = (InventoryStat)(sortIndex - 1);
@@ -458,7 +462,7 @@ namespace MixMaster.UI
             summary.richText = true;
             summary.text = EquipmentRarityUtility.FormatInventoryName(name, record) + "\n" +
                 (definition != null
-                    ? InventoryStatFilter.FormatEquipmentModifiers(manager, record)
+                    ? InventoryStatFilter.FormatEquipmentModifiers(manager, record, showDropOptions: false)
                     : "装備定義が見つかりません") +
                 (!string.IsNullOrEmpty(equippedOwner)
                     ? "  [装備中]" : "");
@@ -1224,13 +1228,18 @@ namespace MixMaster.UI
                 rarityFilter.SetValueWithoutNotify(Mathf.Clamp(selected, 0,
                     RarityChoices.Length - 1));
             }
-            if (statFilter.options.Count !=
-                InventoryProtectionIcons.CombinedStatFilterLabels.Length)
+            if (sortDropdown.options.Count != SortChoices.Length)
+            {
+                int selected = sortDropdown.value;
+                sortDropdown.ClearOptions();
+                sortDropdown.AddOptions(new List<string>(SortChoices));
+                sortDropdown.SetValueWithoutNotify(Mathf.Clamp(selected, 0, SortChoices.Length - 1));
+            }
+            if (statFilter.options.Count != FilterChoices.Length)
             {
                 int selected = statFilter.value;
                 statFilter.ClearOptions();
-                statFilter.AddOptions(new List<string>(
-                    InventoryProtectionIcons.CombinedStatFilterLabels));
+                statFilter.AddOptions(new List<string>(FilterChoices));
                 statFilter.SetValueWithoutNotify(Mathf.Clamp(selected, 0,
                     statFilter.options.Count - 1));
             }
@@ -1251,6 +1260,15 @@ namespace MixMaster.UI
             });
         }
 
+        private static string[] BuildFilterChoices()
+        {
+            var options = new List<string>(InventoryProtectionIcons.CombinedStatFilterLabels)
+            {
+                "オプションなし", "オプション1枠", "オプション2枠", "オプション3枠"
+            };
+            return options.ToArray();
+        }
+
         private static string[] BuildSortChoices()
         {
             var options = new List<string> { "入手順", "レベル" };
@@ -1258,6 +1276,7 @@ namespace MixMaster.UI
                 options.Add(InventoryStatFilter.Labels[i]);
             options.Add("お気に入り優先");
             options.Add("ロック優先");
+            options.Add("オプション数");
             return options.ToArray();
         }
 

@@ -20,6 +20,7 @@ namespace MixMaster.Core
 
         public float dropRateBonus;
         public bool isSkill;
+        public bool isBoss;
         public int attackSequence;
         public ElementType attackElement;
         public bool isCritical;
@@ -82,6 +83,7 @@ namespace MixMaster.Core
             {
                 sourceType = sourceType,
                 isSkill = isSkill,
+                isBoss = isBoss,
                 attackSequence = attackSequence,
                 attackElement = attackElement,
                 isCritical = isCritical,

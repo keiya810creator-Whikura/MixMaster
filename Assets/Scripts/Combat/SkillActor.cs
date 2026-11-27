@@ -271,7 +271,9 @@ namespace MixMaster.Combat
         public MaterialDropSourceInfo Source()
         {
             var result = IsPlayer ? MaterialDropSourceInfo.Player(Stats.dropRateBonus) : party != null ? MaterialDropSourceInfo.Party(party.PartySlot, Stats.dropRateBonus, ownerId) : MaterialDropSourceInfo.Unknown();
-            result.isSkill = true; return result;
+            result.isSkill = true;
+            result.isBoss = enemy != null && enemy.IsBoss;
+            return result;
         }
         private void Update()
         {
@@ -384,7 +386,8 @@ namespace MixMaster.Combat
         public float Remaining(SkillSO s) => s != null && Cooldowns.TryGetValue(s.skillId, out float end) ? Mathf.Max(0, end - Time.time) : 0;
         private long EffectiveMpCost(SkillSO skill)
         {
-            double multiplier = SkillPassiveRules.SkillCostMultiplier(PassiveAmount(SkillPassiveType.MpCostReduction));
+            double multiplier = SkillPassiveRules.SkillCostMultiplier(PassiveAmount(SkillPassiveType.MpCostReduction) +
+                (IsEnemy ? 0d : EquipmentDropOptions.Bonus(ownerId, EquipmentOptionKind.SkillMp)));
             return skill.mpCost <= 0 ? 0 : multiplier == 1d ? skill.mpCost :
                 Math.Max(1L, SkillMath.Amount(skill.mpCost * multiplier));
         }
@@ -502,7 +505,8 @@ namespace MixMaster.Combat
                 else if (s.effect == SkillBaseEffect.Heal)
                 {
                     long before = target.Hp;
-                    target.Heal(SkillPassiveRules.Increase(amount, PassiveAmount(SkillPassiveType.HealingPower)));
+                    target.Heal(SkillPassiveRules.Increase(amount, PassiveAmount(SkillPassiveType.HealingPower) +
+                        (IsEnemy ? 0d : EquipmentDropOptions.Bonus(ownerId, EquipmentOptionKind.SkillHealing))));
                     long recovered = Math.Max(0L, target.Hp - before);
                     if (recovered > 0) HealingPerformed?.Invoke(recovered);
                 }
@@ -557,6 +561,7 @@ namespace MixMaster.Combat
             bool previous = ApplyingSkill; ApplyingSkill = true;
             try
             {
+                if (!IsEnemy) amount = EquipmentDropOptions.Guard(amount, ownerId, source?.isBoss == true);
                 if (enemy != null) enemy.TakeDamage(amount, source, feedback);
                 else if (party != null) party.TakeDamage(amount, feedback);
                 else

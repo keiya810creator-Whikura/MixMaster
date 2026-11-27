@@ -54,6 +54,7 @@ namespace MixMaster.Combat
             DamagePopupText.ShowHealing(transform.position, CurrentHp - before);
         }
         public bool IsAlive { get; private set; }
+        internal bool IsBoss { get; set; }
         internal bool RaidDamageFeedback { get; set; }
         internal bool IsTrainingTarget { get; set; }
         public MaterialDropSourceInfo LastHitSource =>
@@ -125,7 +126,8 @@ namespace MixMaster.Combat
             float resistance = HitResistance(sourceInfo);
             return TakeDamage(
                 DamageCalculator.ApplyResistance(damage, resistance),
-                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f),
+                EquipmentOptionKind.Melee);
         }
 
         public long TakeMagicHit(long magicPower)
@@ -146,7 +148,8 @@ namespace MixMaster.Combat
             float resistance = HitResistance(sourceInfo);
             return TakeDamage(
                 DamageCalculator.ApplyResistance(damage, resistance),
-                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f));
+                sourceInfo, new DamageFeedback(sourceInfo?.isCritical == true, resistance < 0f),
+                EquipmentOptionKind.MagicShot);
         }
 
         private float HitResistance(MaterialDropSourceInfo source)
@@ -170,13 +173,23 @@ namespace MixMaster.Combat
             return TakeDamage(damage, sourceInfo, default);
         }
 
-        public long TakeDamage(long damage, MaterialDropSourceInfo sourceInfo, DamageFeedback feedback)
+        public long TakeDamage(long damage, MaterialDropSourceInfo sourceInfo, DamageFeedback feedback) =>
+            TakeDamage(damage, sourceInfo, feedback, null);
+
+        private long TakeDamage(long damage, MaterialDropSourceInfo sourceInfo, DamageFeedback feedback,
+            EquipmentOptionKind? normalAttack)
         {
             if (!IsAlive || damage <= 0)
                 return 0;
 
             var attacker = SkillActor.FromSource(sourceInfo, gameObject.scene);
             if (!SkillActor.AllowNormalHit(sourceInfo, attacker)) return 0;
+
+            string owner = EquipmentDropOptions.Owner(sourceInfo);
+            double bonus = normalAttack.HasValue ? EquipmentDropOptions.Bonus(owner, normalAttack.Value) : 0d;
+            if (feedback.IsWeakness) bonus += EquipmentDropOptions.Bonus(owner, EquipmentOptionKind.Weakness);
+            if (IsBoss) bonus += EquipmentDropOptions.Bonus(owner, EquipmentOptionKind.BossDamage);
+            damage = SkillPassiveRules.Increase(damage, bonus);
 
             if (RaidDamageFeedback && attacker != null && !attacker.IsEnemy)
                 damage = SkillPassiveRules.Increase(damage, attacker.RaidDamageBonus);

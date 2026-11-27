@@ -346,7 +346,7 @@ namespace MixMaster.Combat
             return TakePhysicalHit(attackPower, ElementType.None, false);
         }
 
-        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical, bool bossAttack = false)
         {
             if (playerManager == null || playerManager.CurrentHp <= 0L || attackPower <= 0L)
                 return 0L;
@@ -357,7 +357,7 @@ namespace MixMaster.Combat
             damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
-            playerManager.TakeDamage(damage);
+            playerManager.TakeDamage(EquipmentDropOptions.Guard(damage, "player", bossAttack));
             long actualDamage = Math.Max(0L, before - playerManager.CurrentHp);
             DamagePopupText.Show(transform.position, actualDamage, true, new DamageFeedback(isCritical, resistance < 0f));
 
@@ -377,7 +377,7 @@ namespace MixMaster.Combat
             return TakeMagicHit(magicPower, ElementType.None, false);
         }
 
-        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical, bool bossAttack = false)
         {
             if (playerManager == null ||
                 playerManager.CurrentHp <= 0L ||
@@ -395,7 +395,7 @@ namespace MixMaster.Combat
             damage = DamageCalculator.ApplyResistance(damage, resistance);
 
             long before = playerManager.CurrentHp;
-            playerManager.TakeDamage(damage);
+            playerManager.TakeDamage(EquipmentDropOptions.Guard(damage, "player", bossAttack));
 
             long actualDamage =
                 Math.Max(0L, before - playerManager.CurrentHp);

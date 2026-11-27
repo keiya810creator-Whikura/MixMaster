@@ -67,6 +67,9 @@ namespace MixMaster.Monsters
                         ? source.dropRateBonus
                         : 0f);
 
+            quantity = EquipmentDropOptions.IncreaseQuantity(quantity,
+                EquipmentDropOptions.Bonus(EquipmentDropOptions.Owner(source), EquipmentOptionKind.Material));
+
             if (quantity <= 0L)
                 return;
 

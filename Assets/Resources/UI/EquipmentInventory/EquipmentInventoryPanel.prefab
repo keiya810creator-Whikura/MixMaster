@@ -2613,6 +2613,18 @@ MonoBehaviour:
     - m_Text: "\u30ED\u30C3\u30AF\u4EE5\u5916"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30AA\u30D7\u30B7\u30E7\u30F3\u306A\u3057"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30AA\u30D7\u30B7\u30E7\u30F31\u67A0"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30AA\u30D7\u30B7\u30E7\u30F32\u67A0"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30AA\u30D7\u30B7\u30E7\u30F33\u67A0"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -4110,6 +4122,9 @@ MonoBehaviour:
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
     - m_Text: "\u30ED\u30C3\u30AF\u512A\u5148"
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: "\u30AA\u30D7\u30B7\u30E7\u30F3\u6570"
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:

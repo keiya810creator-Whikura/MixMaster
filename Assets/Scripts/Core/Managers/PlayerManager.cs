@@ -301,6 +301,7 @@ namespace MixMaster.Core
 
         public void Heal(long amount)
         {
+            amount = SkillPassiveRules.Increase(amount, EquipmentDropOptions.Bonus("player", EquipmentOptionKind.HealingReceived));
             if (amount <= 0 || CurrentHp <= 0L || CurrentHp >= Stats.maxHp) return;
 
             long before = CurrentHp;

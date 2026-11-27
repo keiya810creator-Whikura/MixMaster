@@ -793,7 +793,7 @@ namespace MixMaster.Monsters
             return TakePhysicalHit(attackPower, ElementType.None, false);
         }
 
-        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical)
+        public long TakePhysicalHit(long attackPower, ElementType element, bool isCritical, bool bossAttack = false)
         {
             if (!isAlive || attackPower <= 0)
                 return 0;
@@ -802,7 +802,8 @@ namespace MixMaster.Monsters
                 attackPower, Stats.defense);
 
             float resistance = DamageCalculator.Resistance(Stats.resistances, element);
-            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
+            return TakeDamage(EquipmentDropOptions.Guard(DamageCalculator.ApplyResistance(damage, resistance),
+                ownedMonsterUniqueId, bossAttack), new DamageFeedback(isCritical, resistance < 0f));
         }
 
         public long TakeMagicHit(long magicPower)
@@ -810,7 +811,7 @@ namespace MixMaster.Monsters
             return TakeMagicHit(magicPower, ElementType.None, false);
         }
 
-        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical)
+        public long TakeMagicHit(long magicPower, ElementType element, bool isCritical, bool bossAttack = false)
         {
             if (!isAlive || magicPower <= 0L)
                 return 0L;
@@ -819,7 +820,8 @@ namespace MixMaster.Monsters
                 magicPower, Stats.magicDefense);
 
             float resistance = DamageCalculator.Resistance(Stats.resistances, element);
-            return TakeDamage(DamageCalculator.ApplyResistance(damage, resistance), new DamageFeedback(isCritical, resistance < 0f));
+            return TakeDamage(EquipmentDropOptions.Guard(DamageCalculator.ApplyResistance(damage, resistance),
+                ownedMonsterUniqueId, bossAttack), new DamageFeedback(isCritical, resistance < 0f));
         }
 
         public void ClampSkillResources()
@@ -863,6 +865,7 @@ namespace MixMaster.Monsters
 
         public void Heal(long amount)
         {
+            amount = SkillPassiveRules.Increase(amount, EquipmentDropOptions.Bonus(ownedMonsterUniqueId, EquipmentOptionKind.HealingReceived));
             if (!isAlive || amount <= 0)
                 return;
 

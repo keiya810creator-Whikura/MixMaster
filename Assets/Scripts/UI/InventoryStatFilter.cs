@@ -114,18 +114,19 @@ namespace MixMaster.UI
         }
 
         public static string FormatEquipmentModifiers(EquipmentManager manager,
-            EquipmentRecord record, int effectiveLevel = -1)
+            EquipmentRecord record, int effectiveLevel = -1, bool showDropOptions = true)
         {
             if (manager == null || record == null ||
                 manager.GetEquipmentDefinition(record.equipmentId) == null)
                 return "装備定義が未登録です。";
-            StatPercentageModifiers stats = effectiveLevel < 0
-                ? manager.GetScaledModifiers(record)
-                : manager.GetScaledModifiers(record, effectiveLevel);
+            StatPercentageModifiers stats = manager.GetScaledModifiers(record,
+                effectiveLevel < 0 ? EquipmentEnhancement.Level(record) : effectiveLevel, includeDropOptions: false);
             float reforge = EquipmentReforging.DropRateBonus(record);
             // GetScaledModifiers returns a fresh value; show its extra portion separately.
             stats.dropRateBonus -= reforge;
-            return FormatModifiers(stats) + (reforge > 0f
+            string options = showDropOptions ? EquipmentDropOptions.Describe(record.dropOptions) : string.Empty;
+            return (options.Length > 0 ? options.TrimStart('\n') + "\n" : string.Empty) +
+                FormatModifiers(stats) + (reforge > 0f
                 ? "\n<color=#66E0FF>再錬成 ドロップ率 +" +
                     Mathf.Clamp(record.reforgeDropRatePercent, 0, 100) + "%</color>"
                 : "");
@@ -188,7 +189,7 @@ namespace MixMaster.UI
         {
             int level = EquipmentEnhancement.Level(record);
             return name + " Lv" + level + " 《" + Labels[(int)GetRarity(level)] +
-                "》 +" + EquipmentEnhancement.Count(record);
+                "》 +" + EquipmentEnhancement.Count(record) + EquipmentDropOptions.Stars(record);
         }
 
         public static Color BackgroundColor(EquipmentRarity rarity)

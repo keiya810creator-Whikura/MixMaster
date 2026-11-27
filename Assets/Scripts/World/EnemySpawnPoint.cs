@@ -188,6 +188,9 @@ namespace MixMaster.World
             if (health == null)
                 health = enemyObject.AddComponent<EnemyHealth>();
 
+            var map = GetComponentInParent<TilemapMapRoot>()?.MapDefinition;
+            health.IsBoss = monsterDefinition != null && map != null && map.bossMonster == monsterDefinition;
+
             EnemyWanderAI wander =
                 enemyObject.GetComponent<EnemyWanderAI>();
 

@@ -16,6 +16,7 @@ namespace MixMaster.World
         public bool fromDangerRoute;
         // Cached when awarded so auto-sold items remain inspectable.
         public StatPercentageModifiers scaledModifiers;
+        public EquipmentDropOption[] dropOptions;
     }
 
     public sealed class DungeonRewardReport
@@ -203,6 +204,9 @@ namespace MixMaster.World
                 dangerGold += goldUnit * dangerMaterials / 5;
                 dangerMaterials = 0;
             }
+            else
+                dangerMaterials = EquipmentDropOptions.IncreaseQuantity(dangerMaterials,
+                    EquipmentDropOptions.PartyBonus(EquipmentOptionKind.DungeonMaterial));
             if (equipment == null || sourceMap.dungeonEquipment == null ||
                 !sourceMap.dungeonEquipment.Exists(item => item != null &&
                     !string.IsNullOrWhiteSpace(item.equipmentId)))
@@ -262,7 +266,7 @@ namespace MixMaster.World
             if (definition == null || equipment == null) return null;
 
             EquipmentRecord created = equipment.CreateEquipment(
-                definition.equipmentId, level, equipmentBaseValue, true, sourceMap?.mapId);
+                definition.equipmentId, level, equipmentBaseValue, true, sourceMap?.mapId, fromDangerRoute);
             if (created == null) return null;
 
             return new DungeonEquipmentAward
@@ -271,7 +275,8 @@ namespace MixMaster.World
                 level = created.level,
                 wasAutoSold = equipment.FindEquipment(created.uniqueId) == null,
                 fromDangerRoute = fromDangerRoute,
-                scaledModifiers = equipment.GetScaledModifiers(created)
+                scaledModifiers = equipment.GetScaledModifiers(created, created.level, includeDropOptions: false),
+                dropOptions = created.dropOptions
             };
         }
 
@@ -434,6 +439,8 @@ namespace MixMaster.World
 
                 materialTotal = SkillPassiveRules.Increase(materialTotal,
                     SkillProgressionManager.PartyBonus(SkillPassiveType.DungeonMaterials));
+                materialTotal = EquipmentDropOptions.IncreaseQuantity(materialTotal,
+                    EquipmentDropOptions.PartyBonus(EquipmentOptionKind.DungeonMaterial));
                 report.actualMaterialAmount = materials.AddMaterial(
                     report.dungeonMaterial, materialTotal);
             }
