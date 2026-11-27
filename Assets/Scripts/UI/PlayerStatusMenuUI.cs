@@ -61,7 +61,7 @@ namespace MixMaster.UI
 
         private PlayerManager player;
         private EquipmentManager equipment;
-        private SpriteRenderer playerRenderer;
+        private PlayerController portraitPlayer;
         private bool subscribed;
         private float nextRefreshTime;
 
@@ -198,14 +198,8 @@ namespace MixMaster.UI
                 player = FindFirstObjectByType<PlayerManager>();
             if (equipment == null)
                 equipment = FindFirstObjectByType<EquipmentManager>();
-            if (playerRenderer == null)
-            {
-                PlayerController controller =
-                    FindFirstObjectByType<PlayerController>();
-                if (controller != null)
-                    playerRenderer =
-                        controller.GetComponentInChildren<SpriteRenderer>();
-            }
+            if (portraitPlayer == null)
+                portraitPlayer = FindFirstObjectByType<PlayerController>();
 
             if (player == null || subscribed)
                 return;
@@ -368,18 +362,12 @@ namespace MixMaster.UI
             if (portraitImage == null)
                 return;
 
-            if (playerRenderer == null)
-            {
-                PlayerController controller =
-                    FindFirstObjectByType<PlayerController>();
-                if (controller != null)
-                    playerRenderer =
-                        controller.GetComponentInChildren<SpriteRenderer>();
-            }
+            if (portraitPlayer == null)
+                portraitPlayer = FindFirstObjectByType<PlayerController>();
 
             Sprite sprite = portraitOverride != null
                 ? portraitOverride
-                : playerRenderer != null ? playerRenderer.sprite : null;
+                : portraitPlayer != null ? portraitPlayer.AppearanceSprite : null;
             if (portraitImage.sprite != sprite)
                 portraitImage.sprite = sprite;
             portraitImage.enabled = sprite != null;

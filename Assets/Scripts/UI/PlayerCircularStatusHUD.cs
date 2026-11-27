@@ -31,7 +31,6 @@ namespace MixMaster.UI
 
         private PlayerManager player;
         private PlayerController playerController;
-        private SpriteRenderer playerRenderer;
         private bool subscribed;
         private float nextAvatarRefreshTime;
 
@@ -104,9 +103,6 @@ namespace MixMaster.UI
             if (playerController == null)
                 playerController = FindFirstObjectByType<PlayerController>();
 
-            if (playerRenderer == null && playerController != null)
-                playerRenderer =
-                    playerController.GetComponentInChildren<SpriteRenderer>();
 
             if (player == null || subscribed)
                 return;
@@ -198,13 +194,10 @@ namespace MixMaster.UI
 
             if (playerController == null)
                 playerController = FindFirstObjectByType<PlayerController>();
-            if (playerRenderer == null && playerController != null)
-                playerRenderer =
-                    playerController.GetComponentInChildren<SpriteRenderer>();
 
             Sprite sprite = portraitOverride != null
                 ? portraitOverride
-                : playerRenderer != null ? playerRenderer.sprite : null;
+                : playerController != null ? playerController.AppearanceSprite : null;
 
             if (portraitImage.sprite != sprite)
                 portraitImage.sprite = sprite;

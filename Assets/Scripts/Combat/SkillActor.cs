@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MixMaster.Core;
+using MixMaster.Player;
 using MixMaster.Monsters;
 using MixMaster.UI;
 using UnityEngine;
@@ -59,6 +60,7 @@ namespace MixMaster.Combat
         private SkillSO casting;
         private SkillActor castTarget;
         private SpriteRenderer bodySprite;
+        private PlayerController playerAppearance;
         private int cachedFrame = -1;
         private CharacterStats cachedStats, cachedBase;
         private readonly struct StatsInput : IEquatable<StatsInput>
@@ -138,11 +140,14 @@ namespace MixMaster.Combat
                 (skill.targetType != SkillTargetType.SingleAlly && skill.targetType != SkillTargetType.Self) ||
                 (skill.application != SkillApplication.SelectedTarget && skill.application != SkillApplication.Self))
                 return transform.position;
-            if (bodySprite == null)
+            if (IsPlayer && playerAppearance == null)
+                playerAppearance = GetComponent<PlayerController>();
+            if (playerAppearance == null && bodySprite == null)
                 bodySprite = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
-            if (bodySprite == null || bodySprite.sprite == null || !bodySprite.enabled)
+            SpriteRenderer visible = playerAppearance != null ? playerAppearance.AppearanceRenderer : bodySprite;
+            if (visible == null || visible.sprite == null || !visible.enabled)
                 return transform.position + Vector3.up * .5f;
-            Bounds bounds = bodySprite.bounds;
+            Bounds bounds = visible.bounds;
             return new Vector3(bounds.center.x, bounds.min.y + bounds.size.y * .8f, transform.position.z);
         }
         public bool Alive => isActiveAndEnabled && (enemy != null ? enemy.IsAlive : party != null ? party.IsAlive : player != null && player.CurrentHp > 0);

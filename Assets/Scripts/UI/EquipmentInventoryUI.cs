@@ -24,7 +24,7 @@ namespace MixMaster.UI
         private EquipmentManager manager;
         private MonsterManager ownerMonsters;
         private MonsterCatalogSO ownerCatalog;
-        private SpriteRenderer playerSpriteRenderer;
+        private PlayerController portraitPlayer;
         private TMP_Dropdown sortDropdown;
         private TMP_Dropdown statFilter;
         private TMP_Dropdown rarityFilter;
@@ -258,13 +258,8 @@ namespace MixMaster.UI
                 ownerMonsters = FindFirstObjectByType<MonsterManager>();
             if (ownerCatalog == null)
                 ownerCatalog = MonsterCatalogSO.Load();
-            if (playerSpriteRenderer == null)
-            {
-                PlayerController player =
-                    FindFirstObjectByType<PlayerController>();
-                if (player != null)
-                    playerSpriteRenderer = player.GetComponent<SpriteRenderer>();
-            }
+            if (portraitPlayer == null)
+                portraitPlayer = FindFirstObjectByType<PlayerController>();
             if (manager == null || subscribed)
                 return;
 
@@ -505,16 +500,9 @@ namespace MixMaster.UI
 
             if (ownerUniqueId == "プレイヤー")
             {
-                if (playerSpriteRenderer == null)
-                {
-                    PlayerController player =
-                        FindFirstObjectByType<PlayerController>();
-                    if (player != null)
-                        playerSpriteRenderer =
-                            player.GetComponent<SpriteRenderer>();
-                }
-                image = playerSpriteRenderer != null
-                    ? playerSpriteRenderer.sprite : null;
+                if (portraitPlayer == null)
+                    portraitPlayer = FindFirstObjectByType<PlayerController>();
+                image = portraitPlayer != null ? portraitPlayer.AppearanceSprite : null;
                 caption = "主人公";
             }
             else
