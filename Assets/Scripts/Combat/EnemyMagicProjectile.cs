@@ -21,6 +21,33 @@ namespace MixMaster.Combat
         private bool critical;
         private bool initialized;
 
+        internal static void ClearHostileProjectiles(Scene sourceScene)
+        {
+            foreach (var projectile in FindObjectsByType<EnemyMagicProjectile>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                // Allies can share the attack prefab with this component disabled.
+                if (projectile != null && projectile.enabled && projectile.initialized &&
+                    projectile.gameObject.scene == sourceScene)
+                    Despawn(projectile.gameObject);
+            }
+
+            foreach (var projectile in FindObjectsByType<SkillProjectile>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (projectile != null && projectile.IsEnemyProjectile &&
+                    projectile.gameObject.scene == sourceScene)
+                    Despawn(projectile.gameObject);
+            }
+        }
+
+        private static void Despawn(GameObject projectile)
+        {
+            // Destruction is deferred, so stop hits and rendering immediately.
+            projectile.SetActive(false);
+            Destroy(projectile);
+        }
+
         public void Initialize(PlayerAutoAttack activePlayer, Component target,
             long power, float speed, bool homing, ElementType attackElement, bool isCritical)
         {
