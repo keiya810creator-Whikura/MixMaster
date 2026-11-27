@@ -9,6 +9,40 @@ namespace MixMaster.Core
         private enum Music { None, Title, Town, Stage, Dungeon }
 
         private static GameAudio instance;
+        private const string MusicVolumeKey = "MixMaster.Audio.BgmVolume";
+        private const string EffectVolumeKey = "MixMaster.Audio.SeVolume";
+        private static bool volumeSavePending;
+
+        internal static int MusicVolume => Mathf.Clamp(PlayerPrefs.GetInt(MusicVolumeKey, 55), 0, 100);
+        internal static int EffectVolume => Mathf.Clamp(PlayerPrefs.GetInt(EffectVolumeKey, 70), 0, 100);
+
+        internal static void SetMusicVolume(int value) =>
+            SetVolume(MusicVolumeKey, value, instance != null ? instance.music : null);
+
+        internal static void SetEffectVolume(int value) =>
+            SetVolume(EffectVolumeKey, value, instance != null ? instance.effects : null);
+
+        private static void SetVolume(string key, int value, AudioSource source)
+        {
+            value = Mathf.Clamp(value, 0, 100);
+            PlayerPrefs.SetInt(key, value);
+            if (source != null) source.volume = value / 100f;
+            volumeSavePending = true;
+        }
+
+        internal static void SaveVolume()
+        {
+            if (!volumeSavePending) return;
+            PlayerPrefs.Save();
+            volumeSavePending = false;
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) SaveVolume();
+        }
+
+        private void OnApplicationQuit() => SaveVolume();
         private GameAudioCatalog catalog;
         private AudioSource music, effects;
         private Music current;
@@ -35,11 +69,11 @@ namespace MixMaster.Core
             instance.music.playOnAwake = false;
             instance.music.loop = true;
             instance.music.spatialBlend = 0f;
-            instance.music.volume = .55f;
+            instance.music.volume = MusicVolume / 100f;
             instance.effects = root.AddComponent<AudioSource>();
             instance.effects.playOnAwake = false;
             instance.effects.spatialBlend = 0f;
-            instance.effects.volume = .7f;
+            instance.effects.volume = EffectVolume / 100f;
             SceneManager.activeSceneChanged += instance.OnActiveSceneChanged;
             instance.OnActiveSceneChanged(default, SceneManager.GetActiveScene());
         }

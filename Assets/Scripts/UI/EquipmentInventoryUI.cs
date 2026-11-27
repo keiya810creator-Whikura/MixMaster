@@ -467,6 +467,16 @@ namespace MixMaster.UI
                 (!string.IsNullOrEmpty(equippedOwner)
                     ? "  [装備中]" : "");
 
+            string options = EquipmentDropOptions.Describe(record.dropOptions);
+            if (options.Length > 0)
+                summary.text += "\n" + EquipmentDropOptions.Highlight(options.TrimStart('\n'));
+
+            // A long set of modifiers or options can wrap on a narrow viewport.
+            float width = contentRoot.rect.width > 259f ? contentRoot.rect.width - 259f : 625f;
+            float height = Mathf.Max(120f, Mathf.Ceil(summary.GetPreferredValues(summary.text, width, 0f).y) + 16f);
+            var layout = row.GetComponent<LayoutElement>();
+            layout.minHeight = layout.preferredHeight = height;
+
             BindOwnerPortrait(row, equippedOwner);
             InventoryProtectionIcons.Set(row.transform,
                 record.isFavorite, record.isLocked,

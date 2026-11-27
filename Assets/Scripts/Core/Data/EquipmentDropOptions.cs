@@ -54,11 +54,10 @@ namespace MixMaster.Core
             return result;
         }
 
-        internal static string Stars(EquipmentRecord item)
-        {
-            int count = item?.OptionCount ?? 0;
-            return count > 0 ? " " + new string('★', count) : string.Empty;
-        }
+        internal static string Stars(int count) =>
+            count > 0 ? " " + Highlight(new string('★', count)) : string.Empty;
+
+        internal static string Highlight(string text) => "<color=#FFD65C>" + text + "</color>";
 
         internal static string Describe(EquipmentDropOption[] options)
         {

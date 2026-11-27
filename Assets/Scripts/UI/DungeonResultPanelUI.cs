@@ -95,7 +95,7 @@ namespace MixMaster.UI
                     string label = definition == null ? "装備" :
                         string.IsNullOrWhiteSpace(definition.displayName) ? definition.equipmentId : definition.displayName;
                     GetRewardRow(index++).SetData(definition != null ? definition.icon : null,
-                        label + (award.dropOptions?.Length > 0 ? " " + new string('★', award.dropOptions.Length) : ""),
+                        label + EquipmentDropOptions.Stars(award.dropOptions?.Length ?? 0),
                         $"Lv.{award.level}" +
                         (award.fromDangerRoute ? "  （危険ルート）" : string.Empty) +
                         (award.wasAutoSold ? "  （自動売却済）" : string.Empty),

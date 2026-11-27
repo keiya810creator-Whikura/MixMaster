@@ -189,7 +189,7 @@ namespace MixMaster.UI
         {
             int level = EquipmentEnhancement.Level(record);
             return name + " Lv" + level + " 《" + Labels[(int)GetRarity(level)] +
-                "》 +" + EquipmentEnhancement.Count(record) + EquipmentDropOptions.Stars(record);
+                "》 +" + EquipmentEnhancement.Count(record) + EquipmentDropOptions.Stars(record?.OptionCount ?? 0);
         }
 
         public static Color BackgroundColor(EquipmentRarity rarity)
