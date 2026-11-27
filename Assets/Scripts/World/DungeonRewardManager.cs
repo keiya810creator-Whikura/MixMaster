@@ -155,6 +155,7 @@ namespace MixMaster.World
                 (!spawner.HasDangerEnemies && !dangerCleared)) return;
 
             dangerEntered = true;
+            GameAudio.Play(SoundCue.Danger);
             if (dangerCleared)
                 AwardDangerReward();
             else
@@ -321,6 +322,8 @@ namespace MixMaster.World
                 activeChest != null || dungeon == null ||
                 !dungeon.IsDungeonActive)
                 return;
+
+            GameAudio.Play(SoundCue.Clear);
 
             // The source map reference is stable until the dungeon ends.
             if (sourceMap == null && mapGenerator != null)

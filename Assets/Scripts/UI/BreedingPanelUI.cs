@@ -414,6 +414,7 @@ namespace MixMaster.UI
             if (selected == null || selected.level < MinimumParentLevel ||
                 monsterManager.IsProtectedFromConsumption(selected) || BreedingManager.IsRaidBoss(selected.monsterId))
             {
+                GameAudio.Play(SoundCue.Error);
                 ShowNotice(selected != null && selected.level < MinimumParentLevel
                     ? $"親として選択するにはLv.{MinimumParentLevel}以上が必要です。"
                     : "このモンスターは選択できません。");
@@ -424,10 +425,12 @@ namespace MixMaster.UI
             if ((selectingParent == 0 && uniqueId == parentBUniqueId) ||
                 (selectingParent == 1 && uniqueId == parentAUniqueId))
             {
+                GameAudio.Play(SoundCue.Error);
                 ShowNotice("同じ個体は2回選択できません。");
                 return;
             }
 
+            GameAudio.Play(SoundCue.Confirm);
             if (selectingParent == 0)
             {
                 parentAUniqueId = uniqueId;
@@ -663,6 +666,7 @@ namespace MixMaster.UI
                     materialStepsA, materialStepsB, rewardedByAd,
                     out OwnedMonsterRecord newborn, out bool succeeded, out string error, useCharm))
             {
+                GameAudio.Play(SoundCue.Error);
                 InvalidatePreview();
                 ShowNotice(error);
                 RefreshAll();
@@ -1156,6 +1160,7 @@ namespace MixMaster.UI
 
         public void Close()
         {
+            GameAudio.Play(SoundCue.Back);
             MapBuildingUIRouter router = MapBuildingUIRouter.Instance;
             if (router != null && router.IsOpen &&
                 router.CurrentBuilding == MapBuildingType.BreedingShop)

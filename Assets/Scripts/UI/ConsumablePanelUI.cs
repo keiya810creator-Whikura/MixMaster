@@ -78,7 +78,11 @@ namespace MixMaster.UI
             if (game == null) { game = GameManager.Instance; if (game != null) game.GoldChanged += GoldChanged; }
         }
         public void Show() { gameObject.SetActive(true); transform.SetAsLastSibling(); Connect(); Refresh(); }
-        public void Close() => gameObject.SetActive(false);
+        public void Close()
+        {
+            GameAudio.Play(SoundCue.Back);
+            gameObject.SetActive(false);
+        }
         private int PurchaseQuantity => purchaseQuantityDropdown == null || purchaseQuantityDropdown.value == 0
             ? 1 : purchaseQuantityDropdown.value == 1 ? 10 : 100;
         private void QuantityChanged(int value) => Refresh();
@@ -116,8 +120,11 @@ namespace MixMaster.UI
         {
             if (manager == null) return;
             string message;
-            if (shopMode) manager.TryPurchase(id, PurchaseQuantity, out message);
-            else manager.TryUse(id, out message);
+            bool success = shopMode
+                ? manager.TryPurchase(id, PurchaseQuantity, out message)
+                : manager.TryUse(id, out message);
+            if (!success) GameAudio.Play(SoundCue.Error);
+            else if (shopMode) GameAudio.Play(SoundCue.Confirm);
             if (statusText != null) statusText.text = message;
             Refresh();
         }

@@ -312,6 +312,7 @@ namespace MixMaster.UI
                 return;
             }
             if (!won) return;
+            GameAudio.Play(SoundCue.Clear);
 
             int materials = reception.GetReward(tier);
             var baby = reception.GetRewardBaby(tier, catalog);

@@ -231,6 +231,7 @@ namespace MixMaster.Core
             {
                 level++;
                 ApplyLevelUpStats();
+                GameAudio.Play(SoundCue.LevelUp);
                 LeveledUp?.Invoke(level);
             }
 

@@ -135,6 +135,7 @@ namespace MixMaster.Core
                 TrySellEquipment(item.uniqueId, out _))
                 return item;
 
+            if (allowAutoSell) GameAudio.Play(SoundCue.RareReward);
             InventoryChanged?.Invoke();
             return item;
         }

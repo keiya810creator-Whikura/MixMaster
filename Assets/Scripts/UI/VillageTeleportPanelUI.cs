@@ -139,10 +139,12 @@ namespace MixMaster.UI
                 !TryGetArrival(destination, out Vector3 position) ||
                 !MapExitTransition.MovePlayer(player, village, destination, position))
             {
+                GameAudio.Play(SoundCue.Error);
                 status.text = "このマップへ転移できません";
                 return;
             }
 
+            GameAudio.Play(SoundCue.Teleport);
             router.CloseAll();
         }
 

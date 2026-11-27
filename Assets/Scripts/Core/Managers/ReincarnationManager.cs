@@ -202,6 +202,7 @@ namespace MixMaster.Core
             try
             {
                 player.Reincarnate(species);
+                GameAudio.Play(SoundCue.Reincarnation);
                 Reincarnated?.Invoke();
                 SaveProgress();
                 return true;
