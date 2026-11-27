@@ -15,6 +15,8 @@ namespace MixMaster.UI
         [SerializeField] private Toggle materialLogToggle, damageTextToggle, healingTextToggle, buffTextToggle,
             debuffTextToggle, skillEffectsToggle, attackRangeToggle;
         private DisplaySettingsManager settings;
+        private Slider musicVolumeSlider, effectVolumeSlider;
+        private TMP_Text musicVolumeText, effectVolumeText;
         [SerializeField] private Button recordsButton, goalsButton, helpButton;
         private GameGuidePanelUI guide;
         private bool opened;
@@ -39,11 +41,7 @@ namespace MixMaster.UI
             if (otherButton != null) otherButton.onClick.AddListener(ShowOther);
             if (creditsButton != null) creditsButton.onClick.AddListener(ShowCredits);
             if (contactButton != null) contactButton.onClick.AddListener(ShowContact);
-            if (backButton != null) backButton.onClick.AddListener(() =>
-            {
-                GameAudio.Play(SoundCue.Back);
-                ShowSelection();
-            });
+            if (backButton != null) backButton.onClick.AddListener(Back);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             if (materialLogToggle != null) materialLogToggle.onValueChanged.AddListener(SetMaterialLog);
             if (damageTextToggle != null) damageTextToggle.onValueChanged.AddListener(SetDamageText);
@@ -55,7 +53,7 @@ namespace MixMaster.UI
         }
 
         private void Start() { if (!opened) gameObject.SetActive(false); }
-        private void OnDisable() { if (PurchaseManager.Instance != null) PurchaseManager.Instance.Changed -= RefreshPurchases; Unsubscribe(); opened = false; if (guide != null) guide.gameObject.SetActive(false); }
+        private void OnDisable() { GameAudio.SaveVolume(); if (PurchaseManager.Instance != null) PurchaseManager.Instance.Changed -= RefreshPurchases; Unsubscribe(); opened = false; if (guide != null) guide.gameObject.SetActive(false); }
 
         private void OnDestroy()
         {
@@ -68,7 +66,7 @@ namespace MixMaster.UI
             if (otherButton != null) otherButton.onClick.RemoveListener(ShowOther);
             if (creditsButton != null) creditsButton.onClick.RemoveListener(ShowCredits);
             if (contactButton != null) contactButton.onClick.RemoveListener(ShowContact);
-            if (backButton != null) backButton.onClick.RemoveListener(ShowSelection);
+            if (backButton != null) backButton.onClick.RemoveListener(Back);
             if (closeButton != null) closeButton.onClick.RemoveListener(Close);
             if (materialLogToggle != null) materialLogToggle.onValueChanged.RemoveListener(SetMaterialLog);
             if (damageTextToggle != null) damageTextToggle.onValueChanged.RemoveListener(SetDamageText);
@@ -217,13 +215,97 @@ namespace MixMaster.UI
                 "\n配合のお守り " + (purchases?.Charms ?? 0L).ToString("N0") + "個";
         }
 
-        public void ShowOther() { ShowPage("その他設定", otherSettingsRoot); Refresh(); }
-        public void ShowVolume() => ShowPage("音量設定（未実装）", placeholderRoot);
+        public void ShowOther()
+        {
+            EnsureVolumeSliders();
+            ShowPage("その他設定", otherSettingsRoot);
+            Refresh();
+            if (musicVolumeSlider == null || effectVolumeSlider == null) return;
+            musicVolumeSlider.SetValueWithoutNotify(GameAudio.MusicVolume);
+            effectVolumeSlider.SetValueWithoutNotify(GameAudio.EffectVolume);
+            musicVolumeText.text = $"BGM  {GameAudio.MusicVolume}%";
+            effectVolumeText.text = $"SE  {GameAudio.EffectVolume}%";
+        }
+
+        public void ShowVolume() => ShowOther();
+
+        private void Back()
+        {
+            GameAudio.Play(SoundCue.Back);
+            ShowSelection();
+        }
+
+        private void EnsureVolumeSliders()
+        {
+            if (otherSettingsRoot == null || musicVolumeSlider != null) return;
+            Transform parent = otherSettingsRoot.transform;
+            musicVolumeSlider = CreateVolumeSlider(parent, "BgmVolume", 28f, out musicVolumeText);
+            effectVolumeSlider = CreateVolumeSlider(parent, "SeVolume", 512f, out effectVolumeText);
+
+            musicVolumeSlider.onValueChanged.AddListener(value =>
+            {
+                GameAudio.SetMusicVolume(Mathf.RoundToInt(value));
+                musicVolumeText.text = $"BGM  {GameAudio.MusicVolume}%";
+            });
+            effectVolumeSlider.onValueChanged.AddListener(value =>
+            {
+                GameAudio.SetEffectVolume(Mathf.RoundToInt(value));
+                effectVolumeText.text = $"SE  {GameAudio.EffectVolume}%";
+            });
+
+            if (saveStatusText != null)
+                InventoryUiFactory.TopLeft(saveStatusText.rectTransform, new Vector2(28f, -1390f), new Vector2(944f, 34f));
+        }
+
+        private Slider CreateVolumeSlider(Transform parent, string name, float x, out TMP_Text label)
+        {
+            label = InventoryUiFactory.Text(parent, name + "Label", string.Empty,
+                new Vector2(x, -1290f), new Vector2(460f, 34f), 25f);
+            if (titleText != null) label.font = titleText.font;
+
+            var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Slider));
+            root.transform.SetParent(parent, false);
+            var track = root.GetComponent<Image>();
+            InventoryUiFactory.TopLeft(track.rectTransform, new Vector2(x, -1330f), new Vector2(460f, 46f));
+            track.color = new Color(.11f, .15f, .21f);
+
+            var fillArea = new GameObject("TrackArea", typeof(RectTransform));
+            fillArea.transform.SetParent(root.transform, false);
+            var trackArea = (RectTransform)fillArea.transform;
+            InventoryUiFactory.Stretch(trackArea);
+            trackArea.offsetMin = new Vector2(18f, 9f);
+            trackArea.offsetMax = new Vector2(-18f, -9f);
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fillObject.transform.SetParent(trackArea, false);
+            var fill = fillObject.GetComponent<Image>();
+            InventoryUiFactory.Stretch(fill.rectTransform);
+            fill.color = new Color(.32f, .68f, .87f);
+            fill.raycastTarget = false;
+
+            var handleObject = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handleObject.transform.SetParent(trackArea, false);
+            var handle = handleObject.GetComponent<Image>();
+            InventoryUiFactory.Stretch(handle.rectTransform);
+            handle.rectTransform.sizeDelta = new Vector2(30f, 8f);
+            handle.color = new Color(.9f, .96f, 1f);
+            handle.raycastTarget = false;
+
+            var slider = root.GetComponent<Slider>();
+            slider.fillRect = fill.rectTransform;
+            slider.handleRect = handle.rectTransform;
+            slider.targetGraphic = handle;
+            slider.maxValue = 100;
+            slider.wholeNumbers = true;
+            return slider;
+        }
         public void ShowCredits() => ShowPage("クレジット（未実装）", placeholderRoot);
         public void ShowContact() => ShowPage("お問合せ（未実装）", placeholderRoot);
 
         private void ShowPage(string title, GameObject page)
         {
+            if (otherSettingsRoot != null && otherSettingsRoot.activeSelf && page != otherSettingsRoot)
+                GameAudio.SaveVolume();
             if (purchasePage != null) purchasePage.SetActive(page == purchasePage);
             if (selectionRoot != null) selectionRoot.SetActive(page == selectionRoot);
             if (otherSettingsRoot != null) otherSettingsRoot.SetActive(page == otherSettingsRoot);
