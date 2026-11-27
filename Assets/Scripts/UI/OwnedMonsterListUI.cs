@@ -179,6 +179,7 @@ namespace MixMaster.UI
 
         public void Open()
         {
+            GameAudio.Play(SoundCue.Confirm);
             if (panelRoot == null)
                 panelRoot = gameObject;
 
@@ -194,6 +195,7 @@ namespace MixMaster.UI
 
         public void Close()
         {
+            GameAudio.Play(SoundCue.Back);
             if (panelRoot == null)
                 panelRoot = gameObject;
 

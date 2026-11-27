@@ -139,6 +139,7 @@ namespace MixMaster.Core
             if (actualAdded <= 0L)
                 return 0L;
 
+            GameAudio.Play(SoundCue.Material);
             MaterialChanged?.Invoke(
                 materialId,
                 actualAdded,

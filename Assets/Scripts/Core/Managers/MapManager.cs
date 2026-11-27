@@ -47,6 +47,7 @@ namespace MixMaster.Core
                 GameManager.Instance.SetMode(GameMode.Exploration);
             }
 
+            GameAudio.EnterStage(CurrentMapId);
             MapChanged?.Invoke(CurrentMapId);
             ShowStageName();
         }
@@ -61,6 +62,7 @@ namespace MixMaster.Core
                 GameManager.Instance.SetMode(GameMode.Town);
             }
 
+            GameAudio.EnterTown();
             RestoreTownResources();
             MapChanged?.Invoke(CurrentMapId);
             ShowStageName();

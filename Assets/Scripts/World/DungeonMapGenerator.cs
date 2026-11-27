@@ -259,6 +259,7 @@ namespace MixMaster.World
                 ", rooms=" + CurrentLayout.Rooms.Count +
                 ", floor=" + CurrentLayout.FloorCells.Count +
                 ", bossRoom=" + CurrentLayout.BossRoom.Index, this);
+            GameAudio.EnterDungeon();
             DungeonMapReady?.Invoke(CurrentLayout);
             return true;
         }
