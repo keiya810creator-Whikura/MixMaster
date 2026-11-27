@@ -186,7 +186,7 @@ namespace MixMaster.UI
             }
 
             Transform player = contact.player.transform;
-            SpriteRenderer sprite = contact.player.GetComponent<SpriteRenderer>();
+            SpriteRenderer sprite = contact.player.AppearanceRenderer;
             Vector3 head = player.position;
             head.y = (sprite != null && sprite.sprite != null ? sprite.bounds.max.y : head.y + .8f)
                 + accessButtonHeadGap;

@@ -78,6 +78,9 @@ namespace MixMaster.Player
         [SerializeField] private DirectionSpriteSet sprites = new DirectionSpriteSet();
         [SerializeField] private Direction8 initialDirection = Direction8.Down;
 
+        [Header("Reincarnation Sprite")]
+        [SerializeField, Min(0.001f)] private float reincarnationVisualScale = 0.45f;
+
         [Header("Walk Animation")]
         [SerializeField, Min(0.1f)] private float animationFps = 8f;
         [SerializeField, Min(0)] private int idleFrameIndex = 0;
@@ -86,7 +89,13 @@ namespace MixMaster.Player
         private SpriteRenderer spriteRenderer;
         private PlayerManager playerManager;
         private Sprite humanFallbackSprite;
-        private Sprite reincarnationSprite;
+        private SpriteRenderer reincarnationRenderer;
+        private bool humanRendererEnabled;
+
+        public SpriteRenderer AppearanceRenderer =>
+            reincarnationRenderer != null && reincarnationRenderer.enabled
+                ? reincarnationRenderer : spriteRenderer;
+        public Sprite AppearanceSprite => AppearanceRenderer != null ? AppearanceRenderer.sprite : null;
 
         private Vector2 moveInput;
         private Direction8 facingDirection;
@@ -105,6 +114,7 @@ namespace MixMaster.Player
             body = GetComponent<Rigidbody2D>();
             spriteRenderer = GetComponent<SpriteRenderer>();
             humanFallbackSprite = spriteRenderer.sprite;
+            humanRendererEnabled = spriteRenderer.enabled;
 
             body.gravityScale = 0f;
             body.freezeRotation = true;
@@ -148,12 +158,59 @@ namespace MixMaster.Player
 
         private void ApplyReincarnationAppearance(MonsterSO species)
         {
-            reincarnationSprite = species != null
-                ? (species.sprite != null ? species.sprite : species.icon)
-                : null;
-            ResetWalkAnimation();
-            spriteRenderer.sprite = reincarnationSprite != null ? reincarnationSprite : humanFallbackSprite;
-            RefreshIdleSprite();
+            Sprite sprite = species != null ? (species.sprite != null ? species.sprite : species.icon) : null;
+            if (sprite == null)
+            {
+                if (reincarnationRenderer != null) reincarnationRenderer.enabled = false;
+                spriteRenderer.enabled = humanRendererEnabled;
+                spriteRenderer.sprite = humanFallbackSprite;
+                ResetWalkAnimation();
+                RefreshIdleSprite();
+                return;
+            }
+
+            if (reincarnationRenderer == null)
+            {
+                // Only this child renders the monster. The rigidbody,
+                // colliders and gameplay transforms remain on the player.
+                var visual = new GameObject("ReincarnationVisual");
+                visual.layer = gameObject.layer;
+                visual.transform.SetParent(transform, false);
+                reincarnationRenderer = visual.AddComponent<SpriteRenderer>();
+                reincarnationRenderer.sharedMaterial = spriteRenderer.sharedMaterial;
+                reincarnationRenderer.maskInteraction = spriteRenderer.maskInteraction;
+                reincarnationRenderer.spriteSortPoint = spriteRenderer.spriteSortPoint;
+            }
+
+            // Match the effective X/Y scale the sprite would have if the
+            // player had been authored at 0.45 under its current parent.
+            Vector3 playerScale = transform.localScale;
+            reincarnationRenderer.transform.localScale = new Vector3(
+                ReincarnationScaleForAxis(playerScale.x), ReincarnationScaleForAxis(playerScale.y), 1f);
+            reincarnationRenderer.sprite = sprite;
+            SyncReincarnationRenderer();
+            reincarnationRenderer.enabled = humanRendererEnabled;
+            spriteRenderer.enabled = false;
+        }
+
+        private float ReincarnationScaleForAxis(float playerScale) =>
+            Mathf.Abs(playerScale) > 0.000001f ? reincarnationVisualScale / Mathf.Abs(playerScale) : 1f;
+
+        private void LateUpdate()
+        {
+            if (reincarnationRenderer != null && reincarnationRenderer.enabled)
+                SyncReincarnationRenderer();
+        }
+
+        private void SyncReincarnationRenderer()
+        {
+            // Existing hit flashes and sprite ordering are authored on the
+            // original renderer. Mirror them onto the visible monster.
+            reincarnationRenderer.color = spriteRenderer.color;
+            reincarnationRenderer.flipX = spriteRenderer.flipX;
+            reincarnationRenderer.flipY = spriteRenderer.flipY;
+            reincarnationRenderer.sortingLayerID = spriteRenderer.sortingLayerID;
+            reincarnationRenderer.sortingOrder = spriteRenderer.sortingOrder;
         }
 
         private void Update()
@@ -220,7 +277,7 @@ namespace MixMaster.Player
 
         private void UpdateWalkAnimation()
         {
-            if (reincarnationSprite != null) return;
+            if (reincarnationRenderer != null && reincarnationRenderer.enabled) return;
 
             Sprite[] frames = sprites.GetSprites(facingDirection);
 
@@ -261,7 +318,7 @@ namespace MixMaster.Player
 
         private void RefreshIdleSprite()
         {
-            if (reincarnationSprite != null) return;
+            if (reincarnationRenderer != null && reincarnationRenderer.enabled) return;
 
             Sprite[] frames = sprites.GetSprites(facingDirection);
 
