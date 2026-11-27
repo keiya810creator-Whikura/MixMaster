@@ -132,7 +132,7 @@ namespace MixMaster.UI
         public static string TitleDetails(TitleSO title) => title == null ? "称号未登録" :
             (title.description ?? string.Empty) + "\n\nステータス補正\n" + Modifiers(title.modifiers);
 
-        public static string SkillDetails(SkillSO skill, ElementType? ownerElement = null)
+        public static string SkillDetails(SkillSO skill, ElementType? ownerElement = null, int enhancementRank = 0)
         {
             if (skill == null) return "スキル未登録";
 
@@ -156,12 +156,13 @@ namespace MixMaster.UI
             if (!string.IsNullOrWhiteSpace(skill.description))
                 text.Append('\n').Append(skill.description.Trim());
 
+            double enhancementMultiplier = SkillEnhancementRules.Multiplier(enhancementRank);
             if (skill.category == SkillCategory.Passive)
-                AppendPassives(text, skill.passives);
+                AppendPassives(text, skill.passives, enhancementMultiplier);
             else
             {
-                AppendActiveEffects(text, skill, element);
-                AppendAffixes(text, skill.affixes);
+                AppendActiveEffects(text, skill, element, enhancementRank);
+                AppendAffixes(text, skill.affixes, enhancementMultiplier);
                 AppendActivation(text, skill);
             }
 
@@ -170,7 +171,8 @@ namespace MixMaster.UI
             return text.ToString();
         }
 
-        private static void AppendActiveEffects(StringBuilder text, SkillSO skill, ElementType? element)
+        private static void AppendActiveEffects(StringBuilder text, SkillSO skill, ElementType? element,
+            int enhancementRank)
         {
             bool area = skill.application == SkillApplication.EnemiesInArea || skill.application == SkillApplication.AlliesInArea;
             string targets = skill.application switch
@@ -198,8 +200,17 @@ namespace MixMaster.UI
                     .Append(" × ").Append(Number(skill.powerMultiplier));
                 if (skill.flatPower > 0) text.Append(" ＋ ");
             }
-            if (skill.powerSource == SkillPowerSource.None || skill.flatPower > 0)
-                text.Append(skill.flatPower.ToString("N0", CultureInfo.InvariantCulture));
+            if (skill.powerSource == SkillPowerSource.None)
+                text.Append(SkillEnhancementRules.Power(skill, 0L, 1f, enhancementRank).ToString("N0", CultureInfo.InvariantCulture));
+            else
+            {
+                if (skill.flatPower > 0)
+                    text.Append(skill.flatPower.ToString("N0", CultureInfo.InvariantCulture));
+                if (enhancementRank > 0)
+                    text.Append("（上記に強化倍率 ×")
+                        .Append(SkillEnhancementRules.Multiplier(enhancementRank).ToString("0.#####", CultureInfo.InvariantCulture))
+                        .Append("、端数切り上げ）");
+            }
 
             if (skill.effect == SkillBaseEffect.Damage)
             {
@@ -277,13 +288,14 @@ namespace MixMaster.UI
             Label((int)move, "直進", "追尾", "拡大直進", "その場", "ブーメラン", "周回後に射出", "蛇行", "加速",
                 "減速停止", "遅延追尾", "螺旋", "往復", "感応地雷", "収束成長", "爆発");
 
-        private static void AppendAffixes(StringBuilder text, SkillAffix[] affixes)
+        private static void AppendAffixes(StringBuilder text, SkillAffix[] affixes, double enhancementMultiplier)
         {
             if (affixes == null) return;
 
-            foreach (SkillAffix affix in affixes)
+            foreach (SkillAffix source in affixes)
             {
-                if (affix == null || affix.type == SkillAffixType.None) continue;
+                if (source == null || source.type == SkillAffixType.None) continue;
+                SkillAffix affix = SkillEnhancementRules.Affix(source, enhancementMultiplier);
                 text.Append("\n\n<b>");
                 if (affix.type == SkillAffixType.Status)
                 {
@@ -331,7 +343,7 @@ namespace MixMaster.UI
             });
         }
 
-        private static void AppendPassives(StringBuilder text, SkillPassive[] passives)
+        private static void AppendPassives(StringBuilder text, SkillPassive[] passives, double enhancementMultiplier)
         {
             if (passives == null) return;
 
@@ -347,6 +359,7 @@ namespace MixMaster.UI
                     continue;
                 }
 
+                double amount = SkillEnhancementRules.PassiveAmount(passive, enhancementMultiplier);
                 (string unit, string note, bool partyBonus) = passive.type switch
                 {
                     SkillPassiveType.CriticalRate => ("ポイント", null, false),
@@ -358,7 +371,7 @@ namespace MixMaster.UI
                     SkillPassiveType.RespawnSpeed => ("%", "敵の再出現間隔を 1 ÷（1 ＋ 補正率）倍に短縮", true),
                     SkillPassiveType.DungeonMaterials => ("%", "ダンジョンクリア報酬の固有素材を増量", true),
                     SkillPassiveType.RaidDamage => ("%", "装備した本人がレイドボスに与えるダメージを増加", false),
-                    SkillPassiveType.FarmExperience => ("ポイント", $"アクティブなファームへの経験値配分率に加算（例 10% → {Number(Math.Min(100d, 10d + passive.amount))}%、上限100%）", true),
+                    SkillPassiveType.FarmExperience => ("ポイント", $"アクティブなファームへの経験値配分率に加算（例 10% → {Number(Math.Min(100d, 10d + amount))}%、上限100%）", true),
                     SkillPassiveType.DefeatGold => ("%", "敵討伐時に得られるゴールドを増量", true),
                     SkillPassiveType.DefeatExperience => ("%", "敵討伐時に得られる経験値を増量", true),
                     SkillPassiveType.HealingPower => ("%", "装備した本人が使うHP回復スキルの回復量を増加", false),
@@ -366,7 +379,7 @@ namespace MixMaster.UI
                     SkillPassiveType.CooldownReduction => ("%", "装備した本人のスキルごとの再使用時間を短縮（上限60%）", false),
                     _ => ("%", null, false)
                 };
-                text.Append(' ').Append(Signed(passive.amount, unit));
+                text.Append(' ').Append(Signed(amount, unit));
                 if (note != null) text.Append('\n').Append(note);
                 if (partyBonus) text.Append("。主人公と編成中の仲間の補正を合算");
             }

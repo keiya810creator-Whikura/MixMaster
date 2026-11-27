@@ -42,6 +42,7 @@ namespace MixMaster.UI
         private string partySnapshot;
         [SerializeField] private Button autoSetupButton;
         private ProgressionPanelUI autoSetupPanel;
+        private TMP_Text learnButtonLabel;
         private int slotIndex;
         private float refreshAt;
         private (SkillSO Skill, string OwnerId, string IndividualName, ElementType? Element, bool Learned,
@@ -87,7 +88,8 @@ namespace MixMaster.UI
             closeButton.onClick.AddListener(()=>{panel.SetActive(false);if(autoSetupPanel!=null)autoSetupPanel.Close();});
             actorDropdown.onValueChanged.AddListener(_=>{individualSelection=false;individualOwner=null;selectedOwnerId=Owner?.OwnerId??"player";slotIndex=0;RefreshSkills();});
             skillDropdown.onValueChanged.AddListener(_=>RefreshDetails());
-            learnButton.onClick.AddListener(()=>{if(Owner==null||Selected==null)return;manager.Learn(Owner.OwnerId,Selected.skillId,out string text);message.text=text;RefreshSkills();});
+            learnButtonLabel = learnButton.GetComponentInChildren<TMP_Text>(true);
+            learnButton.onClick.AddListener(LearnOrEnhance);
             for(int i=0;i<assignButtons.Length;i++){int index=i;assignButtons[i].onClick.AddListener(()=>SelectSlot(index));}
             for(int i=0;i<castButtons.Length;i++){int index=i;castButtons[i].onClick.AddListener(()=>Cast(index));}
             saveButton.onClick.AddListener(SaveRule);clearButton.onClick.AddListener(()=>{if(Owner!=null)manager.SetSlot(Owner.OwnerId,slotIndex,new SkillSlot());Refresh();});
@@ -198,6 +200,22 @@ namespace MixMaster.UI
             var slot=slots[slotIndex];triggerDropdown.SetValueWithoutNotify(Mathf.Max(0,(int)slot.trigger-offset));andDropdown.SetValueWithoutNotify((int)slot.andCondition);
             threshold.text=slot.threshold.ToString(CultureInfo.InvariantCulture);andThreshold.text=slot.andThreshold.ToString(CultureInfo.InvariantCulture);priority.text=slot.priority.ToString(CultureInfo.InvariantCulture);
         }
+        private void LearnOrEnhance()
+        {
+            var owner = Owner;
+            var skill = Selected;
+            if (owner == null || skill == null || manager == null) return;
+
+            string result;
+            if (manager.Learned(owner.OwnerId, skill.skillId))
+                manager.Enhance(owner.OwnerId, skill.skillId, out result);
+            else
+                manager.Learn(owner.OwnerId, skill.skillId, out result);
+
+            message.text = result;
+            RefreshSkills();
+        }
+
         private void RefreshDetails()
         {
             var owner = Owner;
@@ -209,21 +227,27 @@ namespace MixMaster.UI
                 const string empty = "使用可能なスキルがありません。スキル表・転生先の習得可能一覧を確認してください。";
                 if (details.text != empty) SetDetailsText(empty, true);
                 renderedDetails = default;
+                if (learnButtonLabel != null) learnButtonLabel.text = "習得";
                 learnButton.interactable = saveButton.interactable = false;
                 return;
             }
 
             bool learned = manager.Learned(owner.OwnerId, skill.skillId);
-            learnButton.interactable = !learned;
+            int rank = learned ? manager.EnhancementRank(owner.OwnerId, skill.skillId) : 0;
+            bool canEnhance = learned && SkillEnhancementRules.CanEnhance(skill);
+            long cost = canEnhance ? SkillEnhancementRules.NextCost(skill, rank) : 0;
+            int points = manager.Points(owner.OwnerId);
+            learnButton.interactable = !learned || (canEnhance && points >= cost);
             saveButton.interactable = learned;
 
             ElementType? element = null;
             if (active && skill.useOwnerElement)
                 element = owner.IsPlayer ? manager.GetComponent<PlayerManager>()?.UnmodifiedStats?.element : owner.Element;
-            int points = manager.Points(owner.OwnerId);
             var loadout = manager.Loadout(owner.OwnerId);
             var state = (skill, owner.OwnerId, individualOwner?.Name, element, learned, points, manager.Revision, loadout.revision);
             if (state == renderedDetails) return;
+            if (learnButtonLabel != null)
+                learnButtonLabel.text = !learned ? "習得" : canEnhance ? "強化" : "強化不可";
 
             int registered = loadout.slots.FindIndex(slot => slot != null && slot.skillId == skill.skillId);
             var text = new StringBuilder();
@@ -231,7 +255,15 @@ namespace MixMaster.UI
             text.Append("<b>").Append(EncyclopediaContent.Name(skill.displayName, skill.skillId)).Append("</b>\n")
                 .Append(learned ? "習得済み" : "未習得").Append("　所持SP ").Append(points.ToString("N0", CultureInfo.InvariantCulture));
             if (registered >= 0) text.Append("　枠 ").Append(registered + 1).Append(" に登録中");
-            text.Append('\n').Append(EncyclopediaContent.SkillDetails(skill, element));
+            if (learned)
+            {
+                if (canEnhance)
+                    text.Append($"\n強化 +{rank:N0}　次の強化に {cost:N0} SP" +
+                        (points < cost ? "（SP不足）" : string.Empty));
+                else
+                    text.Append("\n強化不可（強化できる効果値なし）");
+            }
+            text.Append('\n').Append(EncyclopediaContent.SkillDetails(skill, element, rank));
             if (active && registered >= 0)
             {
                 var slot = loadout.slots[registered];

@@ -10,6 +10,8 @@ namespace MixMaster.Core
         public static SkillProgressionManager Instance { get; private set; }
         public const int SlotCount = 5;
         private SkillSaveData data = new SkillSaveData();
+        private readonly Dictionary<(string owner, string skill), SkillEnhancement> enhancements =
+            new Dictionary<(string owner, string skill), SkillEnhancement>();
         private readonly Dictionary<string, Dictionary<string,float>> runtimeCooldowns = new Dictionary<string,Dictionary<string,float>>();
         public Dictionary<string,float> Cooldowns(string owner)
         {
@@ -143,6 +145,62 @@ namespace MixMaster.Core
             else { record.skillPoints -= skill.skillPointCost; record.spentSkillPoints = ReincarnationRules.TotalSkillPoints(record.spentSkillPoints, skill.skillPointCost); record.learnedSkillIds ??= new List<string>(); record.learnedSkillIds.Add(id); }
             NotifyChanged(); message = skill.displayName + "を習得しました。"; return true;
         }
+        public int EnhancementRank(string owner, string skillId) =>
+            enhancements.TryGetValue((owner, skillId), out var enhancement) ? enhancement.rank : 0;
+
+        public bool Enhance(string owner, string id, out string message)
+        {
+            var skill = Catalog?.Get(id);
+            if (skill == null || !Learned(owner, id))
+            {
+                message = "習得済みのスキルだけ強化できます。";
+                return false;
+            }
+            if (!SkillEnhancementRules.CanEnhance(skill))
+            {
+                message = "強化できる効果値がありません。";
+                return false;
+            }
+
+            int rank = EnhancementRank(owner, id);
+            long cost = SkillEnhancementRules.NextCost(skill, rank);
+            if (cost > Points(owner))
+            {
+                message = "スキルポイントが足りません。";
+                return false;
+            }
+
+            int points = (int)cost;
+            if (owner == "player")
+            {
+                if (!GetComponent<PlayerManager>().TrySpendSkillPoints(points))
+                {
+                    message = "スキルポイントが足りません。";
+                    return false;
+                }
+            }
+            else
+            {
+                var record = Record(owner);
+                record.skillPoints -= points;
+                record.spentSkillPoints = ReincarnationRules.TotalSkillPoints(record.spentSkillPoints, points);
+            }
+
+            if (!enhancements.TryGetValue((owner, id), out var enhancement))
+            {
+                enhancement = new SkillEnhancement { ownerId = owner, skillId = id };
+                enhancements.Add((owner, id), enhancement);
+                data.enhancements.Add(enhancement);
+            }
+            enhancement.rank = rank + 1;
+
+            NotifyChanged();
+            var save = GetComponent<SaveManager>();
+            if (save != null && save.SaveGame()) pending = false;
+            message = $"{skill.displayName}を +{enhancement.rank:N0} に強化しました。";
+            return true;
+        }
+
         public SkillLoadout Loadout(string owner)
         {
             var result = data.loadouts.Find(l => l != null && l.ownerId == owner);
@@ -265,11 +323,12 @@ namespace MixMaster.Core
                 var skill=Catalog?.Get(slot.skillId);
                 if(skill==null||skill.category!=SkillCategory.Passive||skill.passives==null)continue;
                 bool first = result.seen.Add(slot.skillId);
+                double multiplier = first ? SkillEnhancementRules.Multiplier(EnhancementRank(owner, slot.skillId)) : 1d;
                 foreach(var p in skill.passives)
                 {
                     if (p == null) continue;
                     int index = (int)p.type;
-                    if (first && index >= 0 && index < result.values.Length) result.values[index] += p.amount;
+                    if (first && index >= 0 && index < result.values.Length) result.values[index] += SkillEnhancementRules.PassiveAmount(p, multiplier);
                     if (p.type == SkillPassiveType.Melee) result.attackStyle = 0;
                     if (p.type == SkillPassiveType.Ranged) result.attackStyle = 1;
                 }
@@ -347,6 +406,12 @@ namespace MixMaster.Core
         {
             if (Catalog != null && Catalog.UsesMonsterSkillDistribution)
                 data.usesMonsterSkillDistribution = true;
+            data.enhancements.RemoveAll(entry =>
+            {
+                if (entry.ownerId == "player" || Record(entry.ownerId) != null) return false;
+                enhancements.Remove((entry.ownerId, entry.skillId));
+                return true;
+            });
             return JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(data));
         }
         public void Restore(SkillSaveData saved)
@@ -355,6 +420,14 @@ namespace MixMaster.Core
             foreach(var actor in MixMaster.Combat.SkillActor.Active)if(actor!=null)actor.ResetTransient();
             data = saved == null ? new SkillSaveData() : JsonUtility.FromJson<SkillSaveData>(JsonUtility.ToJson(saved));
             data.playerLearned ??= new List<string>(); data.loadouts ??= new List<SkillLoadout>();
+            enhancements.Clear();
+            data.enhancements ??= new List<SkillEnhancement>();
+            data.enhancements.RemoveAll(entry =>
+            {
+                if (entry == null || entry.rank <= 0 || string.IsNullOrEmpty(entry.ownerId) ||
+                    string.IsNullOrEmpty(entry.skillId) || !Learned(entry.ownerId, entry.skillId)) return true;
+                return !enhancements.TryAdd((entry.ownerId, entry.skillId), entry);
+            });
             runtimeCooldowns.Clear();
             data.loadouts.RemoveAll(l => l == null || string.IsNullOrEmpty(l.ownerId));
             foreach (var l in data.loadouts)
