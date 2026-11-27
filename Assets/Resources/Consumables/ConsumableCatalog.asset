@@ -63,22 +63,22 @@ MonoBehaviour:
     durationSeconds: 60
     purchasePrice: 1
   - itemId: return_wing
-    displayName: 帰還の翼
-    icon: {fileID: 0}
+    displayName: "\u5E30\u9084\u306E\u7FFC"
+    icon: {fileID: 4090738989702883067, guid: 757ff01839dcb8749b1f9fb7cd7779d4, type: 3}
     effect: 3
     recoveryAmount: 0
     durationSeconds: 60
     purchasePrice: 1
   - itemId: unlimited_lure_bell
-    displayName: 常鳴りの魔寄せ鈴
-    icon: {fileID: 21300000, guid: e3c3cec64533aed4dab67460fc7b6cc2, type: 3}
+    displayName: "\u5E38\u9CF4\u308A\u306E\u9B54\u5BC4\u305B\u9234"
+    icon: {fileID: 8702448759804409103, guid: 08092944677f7964cbda92fe543c0652, type: 3}
     effect: 4
     recoveryAmount: 0
     durationSeconds: 60
     purchasePrice: -1
   - itemId: unlimited_return_wing
-    displayName: 悠久の帰還翼
-    icon: {fileID: 0}
+    displayName: "\u60A0\u4E45\u306E\u5E30\u9084\u7FFC"
+    icon: {fileID: 9078673157246798181, guid: 0047323aa9465c2478810e9b05bb658f, type: 3}
     effect: 5
     recoveryAmount: 0
     durationSeconds: 60
